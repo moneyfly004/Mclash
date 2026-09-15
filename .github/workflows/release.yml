@@ -79,19 +79,29 @@ jobs:
           flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
-      - name: 构建多 ABI APK（obfuscate + 保留符号，省约 10% 体积）
-        run: flutter build apk --release --split-per-abi --split-debug-info=build/symbols --obfuscate
+      # 顺序很重要：**AAB 必须在 APK 之前构建**。
+      # 先跑 `build apk --split-per-abi` 会在 R8 的
+      # build/app/intermediates/shrunk_resources_proto_format/release/minifyReleaseWithR8/
+      # 下留下多个 shrunk-resources-proto-format-*.ap_，随后 bundleRelease 会报
+      # 「Multiple shrunk-resources files found ... Please disable building multiple
+      # APKs when building an Android app bundle」（AGP 已知问题 402800800），
+      # 整个 Android 作业直接红。反过来先出 AAB 就没有这个问题。
+      - name: 构建 AAB（应用商店备用）
+        run: |
+          # 双保险：即使有缓存残留也先清掉那个目录
+          rm -rf build/app/intermediates/shrunk_resources_proto_format || true
+          flutter build appbundle --release --split-debug-info=build/symbols --obfuscate
         env:
-          # 必须在此注入，否则 Gradle 读不到 → 每次构建用临时 debug 签名 →
-          # 版本间签名不一致 → 用户无法覆盖升级、必须卸载重装
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: 构建 AAB（应用商店备用）
-        run: flutter build appbundle --release --split-debug-info=build/symbols --obfuscate
+      - name: 构建多 ABI APK（obfuscate + 保留符号，省约 10% 体积）
+        run: flutter build apk --release --split-per-abi --split-debug-info=build/symbols --obfuscate
         env:
+          # 必须在此注入，否则 Gradle 读不到 → 每次构建用临时 debug 签名 →
+          # 版本间签名不一致 → 用户无法覆盖升级、必须卸载重装
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

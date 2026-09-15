@@ -32,6 +32,10 @@
 # ─────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Windows 控制台 cp1252 下，脚本内嵌 Python 打印非 ASCII 会 UnicodeEncodeError
+export PYTHONIOENCODING=utf-8
+export PYTHONUTF8=1
+
 VERSION="${1:-1.19.31}"
 REPO="moneyfly004/mihomo-lib"
 DEST="$(cd "$(dirname "$0")/.." && pwd)/packages/libclash_vpn_service/android/libs"

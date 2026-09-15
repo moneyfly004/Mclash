@@ -40,6 +40,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
+# Windows runner 的控制台默认 cp1252：脚本内嵌 Python 一旦打印非 ASCII（✓ 之类）
+# 就直接 UnicodeEncodeError 退出，构建在「下载内核」这一步莫名其妙地红。
+# 统一成 UTF-8，任何平台都不会因为一个符号挂掉。
+export PYTHONIOENCODING=utf-8
+export PYTHONUTF8=1
+
 # 本机目标（用于决定要不要做「跑起来看版本」的验证）
 HOST_TARGET=""
 case "$(uname -s)" in
@@ -118,7 +124,7 @@ machine = struct.unpack_from('<H', d, e + 4)[0]
 names = {0x8664: 'x86-64', 0x014c: 'i386', 0xAA64: 'ARM64'}
 if machine != 0x8664:
     sys.exit(f"错误: 期望 x86-64 (0x8664)，实际 {names.get(machine, hex(machine))}")
-print("  ✓ PE 校验通过: x86-64")
+print("  [OK] PE 校验通过: x86-64")
 PYCHK
 else
   curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 \

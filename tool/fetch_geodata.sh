@@ -27,6 +27,10 @@
 # ─────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Windows 控制台 cp1252 下，脚本内嵌 Python 打印非 ASCII 会 UnicodeEncodeError
+export PYTHONIOENCODING=utf-8
+export PYTHONUTF8=1
+
 BASE="https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download"
 DIR="$(cd "$(dirname "$0")/.." && pwd)/assets/rules"
 mkdir -p "$DIR"
