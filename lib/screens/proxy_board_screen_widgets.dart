@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/mf/mclash_pseudo_nodes.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -366,6 +367,12 @@ class _ProxyScreenProxiesNodeWidget
     final setting = SettingManager.getConfig();
     _nodesTesting.clear();
     for (var node in _nodes) {
+      // 跳过伪节点（📢 官网 / ⏰ 到期 / 📱 设备 / 💬 客服，以及订阅异常时的
+      // 错误节点）。它们在后端是写死 baidu.com:1234 的假 ss 代理，
+      // 永远连不通 —— 不排除的话「全部测速」必然出现一批假失败。
+      if (MclashPseudoNodes.isPseudo(node.name)) {
+        continue;
+      }
       if (nodeName.isNotEmpty) {
         if (node.name == nodeName) {
           _nodesTesting.add(node.name);
@@ -386,7 +393,7 @@ class _ProxyScreenProxiesNodeWidget
           }
         }
 
-        if (canDelayTest(node.type)) {
+        if (canDelayTest(node.type) && !MclashPseudoNodes.isPseudo(node.name)) {
           final result = await ClashHttpApi.getDelay(
             node.name,
             url: setting.delayTestUrl,
