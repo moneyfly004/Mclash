@@ -39,16 +39,19 @@ abstract final class AppUtils {
     return "group.top.moneyfly.mclash";
   }
 
+  /// macOS / iOS 的隧道由系统 VPN 管理界面展示。
+  ///
+  /// Mclash 的**桌面端不使用 NetworkExtension**（改为 spawn 官方 mihomo 子进程 +
+  /// networksetup 系统代理，见 packages/libclash_vpn_service），
+  /// 因此这里恒返回应用自身的 bundle id，不再有独立的 service/extension bundle。
   static String getBundleId(bool systemExtension) {
     if (Platform.isIOS || Platform.isMacOS) {
-      if (Platform.isMacOS && systemExtension) {
-        return "top.moneyfly.mclash.mclashServiceSE";
-      }
-      return "top.moneyfly.mclash.mclashService";
+      return "top.moneyfly.mclash";
     }
     return "";
   }
 
+  /// iOS 控制中心开关的 kind（桌面端不使用）
   static String getControlKind() {
     return "top.moneyfly.mclash.mclashWidget.ControlCenterToggle";
   }

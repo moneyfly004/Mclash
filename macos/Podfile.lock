@@ -10,8 +10,6 @@ PODS:
     - HotKey
   - icloud_storage (0.0.1):
     - FlutterMacOS
-  - libclash_vpn_service (0.1.0):
-    - FlutterMacOS
   - open_dir_macos (0.0.1):
     - FlutterMacOS
   - path_provider_foundation (0.0.1):
@@ -21,8 +19,6 @@ PODS:
     - FlutterMacOS
   - screen_capturer_macos (0.0.1):
     - FlutterMacOS
-  - screen_retriever_macos (0.0.1):
-    - FlutterMacOS
 
 DEPENDENCIES:
   - app_installer (from `Flutter/ephemeral/.symlinks/plugins/app_installer/macos`)
@@ -30,12 +26,10 @@ DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
   - hotkey_manager_macos (from `Flutter/ephemeral/.symlinks/plugins/hotkey_manager_macos/macos`)
   - icloud_storage (from `Flutter/ephemeral/.symlinks/plugins/icloud_storage/macos`)
-  - libclash_vpn_service (from `Flutter/ephemeral/.symlinks/plugins/libclash_vpn_service/macos`)
   - open_dir_macos (from `Flutter/ephemeral/.symlinks/plugins/open_dir_macos/macos`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
   - protocol_handler (from `Flutter/ephemeral/.symlinks/plugins/protocol_handler/macos`)
   - screen_capturer_macos (from `Flutter/ephemeral/.symlinks/plugins/screen_capturer_macos/macos`)
-  - screen_retriever_macos (from `Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos`)
 
 SPEC REPOS:
   trunk:
@@ -52,8 +46,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/hotkey_manager_macos/macos
   icloud_storage:
     :path: Flutter/ephemeral/.symlinks/plugins/icloud_storage/macos
-  libclash_vpn_service:
-    :path: Flutter/ephemeral/.symlinks/plugins/libclash_vpn_service/macos
   open_dir_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/open_dir_macos/macos
   path_provider_foundation:
@@ -62,8 +54,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/protocol_handler/macos
   screen_capturer_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/screen_capturer_macos/macos
-  screen_retriever_macos:
-    :path: Flutter/ephemeral/.symlinks/plugins/screen_retriever_macos/macos
 
 SPEC CHECKSUMS:
   app_installer: 9a51509d3e3526fad6fb3d615c5e78621a1b08a1
@@ -72,13 +62,11 @@ SPEC CHECKSUMS:
   HotKey: 400beb7caa29054ea8d864c96f5ba7e5b4852277
   hotkey_manager_macos: a4317849af96d2430fa89944d3c58977ca089fbe
   icloud_storage: eb5b0f20687cf5a4fabc0b541f3b079cd6df7dcb
-  libclash_vpn_service: ca1c41aac8340fe2982c7a67b7527b06d9be61d1
   open_dir_macos: 79810d7921d777f8732bf6358b3a0839a8fad9b5
   path_provider_foundation: 608fcb11be570ce83519b076ab6a1fffe2474f05
   protocol_handler: f4d1317b2b828d6370e140077be5155feb3f06c7
   screen_capturer_macos: 229306903c56767a7c7d3a48167ba303e95c6d29
-  screen_retriever_macos: 452e51764a9e1cdb74b3c541238795849f21557f
 
-PODFILE CHECKSUM: 5c9f8eaa8b95c22f0da7561d6e59dbcb1d5c68c3
+PODFILE CHECKSUM: 9f93ee8776d536949810eb81bae3f6a34e53737e
 
 COCOAPODS: 1.16.2
