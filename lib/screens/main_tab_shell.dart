@@ -46,22 +46,22 @@ final List<MainNavEntry> mainNavEntries = [
   MainNavEntry(
     icon: Icons.home_outlined,
     activeIcon: Icons.home,
-    labelBuilder: (t) => t.meta.homePage,
+    labelBuilder: (t) => t.meta.tabHome,
   ),
   MainNavEntry(
     icon: Icons.dns_outlined,
     activeIcon: Icons.dns,
-    labelBuilder: (t) => t.meta.proxyNodeList,
+    labelBuilder: (t) => t.meta.tabNodes,
   ),
   MainNavEntry(
     icon: Icons.shopping_cart_outlined,
     activeIcon: Icons.shopping_cart,
-    labelBuilder: (t) => t.meta.buyProfile,
+    labelBuilder: (t) => t.meta.tabPlans,
   ),
   MainNavEntry(
     icon: Icons.person_outline,
     activeIcon: Icons.person,
-    labelBuilder: (t) => t.meta.user,
+    labelBuilder: (t) => t.meta.tabMe,
     badge: true,
   ),
 ];

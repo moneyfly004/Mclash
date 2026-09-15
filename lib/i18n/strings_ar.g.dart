@@ -16,20 +16,21 @@ class TranslationsAr with BaseTranslations<AppLocale, Translations> implements T
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsAr({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.ar,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <ar>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsAr _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => 'رابط إعداد ${p}';
 	@override String profileUrlOrContentHit({required Object p}) => '[مطلوب]، ملاحظة: إذا لم يكن رابطك ${_root.meta.profileUrlOrContent(p: p)} (مثل V2Ray أو Sing-box)، فاستخدم أداة التحويل عبر الإنترنت لـ Clash لتحويله إلى ${_root.meta.profileUrlOrContent(p: p)}';
 	@override String get profileUrlOrContentCannotEmpty => 'لا يمكن أن يكون رابط الملف الشخصي فارغًا';
+	@override String get tabHome => 'الرئيسية';
+	@override String get tabNodes => 'العُقد';
+	@override String get tabPlans => 'الخطط';
+	@override String get tabMe => 'حسابي';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsAr {
 			'meta.profileUrlOrContent' => ({required Object p}) => 'رابط إعداد ${p}',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[مطلوب]، ملاحظة: إذا لم يكن رابطك ${_root.meta.profileUrlOrContent(p: p)} (مثل V2Ray أو Sing-box)، فاستخدم أداة التحويل عبر الإنترنت لـ Clash لتحويله إلى ${_root.meta.profileUrlOrContent(p: p)}',
 			'meta.profileUrlOrContentCannotEmpty' => 'لا يمكن أن يكون رابط الملف الشخصي فارغًا',
+			'meta.tabHome' => 'الرئيسية',
+			'meta.tabNodes' => 'العُقد',
+			'meta.tabPlans' => 'الخطط',
+			'meta.tabMe' => 'حسابي',
 			'permission.camera' => 'الكاميرا',
 			'permission.screen' => 'تسجيل الشاشة',
 			'permission.appQuery' => 'الحصول على قائمة التطبيقات',

@@ -16,20 +16,21 @@ class TranslationsEs with BaseTranslations<AppLocale, Translations> implements T
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsEs({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.es,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <es>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsEs _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => 'Enlace de Perfil ${p}';
 	@override String profileUrlOrContentHit({required Object p}) => '[Obligatorio]. Nota: Si tu enlace no es un ${_root.meta.profileUrlOrContent(p: p)} (por ejemplo, V2Ray o Sing-box), usa la herramienta de conversión en línea de Clash para convertirlo en un ${_root.meta.profileUrlOrContent(p: p)}';
 	@override String get profileUrlOrContentCannotEmpty => 'El enlace del perfil no puede estar vacío';
+	@override String get tabHome => 'Inicio';
+	@override String get tabNodes => 'Nodos';
+	@override String get tabPlans => 'Planes';
+	@override String get tabMe => 'Yo';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsEs {
 			'meta.profileUrlOrContent' => ({required Object p}) => 'Enlace de Perfil ${p}',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[Obligatorio]. Nota: Si tu enlace no es un ${_root.meta.profileUrlOrContent(p: p)} (por ejemplo, V2Ray o Sing-box), usa la herramienta de conversión en línea de Clash para convertirlo en un ${_root.meta.profileUrlOrContent(p: p)}',
 			'meta.profileUrlOrContentCannotEmpty' => 'El enlace del perfil no puede estar vacío',
+			'meta.tabHome' => 'Inicio',
+			'meta.tabNodes' => 'Nodos',
+			'meta.tabPlans' => 'Planes',
+			'meta.tabMe' => 'Yo',
 			'permission.camera' => 'Cámara',
 			'permission.screen' => 'Grabación de Pantalla',
 			'permission.appQuery' => 'Obtener Lista de Aplicaciones',

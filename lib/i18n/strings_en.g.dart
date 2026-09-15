@@ -20,20 +20,21 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	Translations({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.en,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <en>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	dynamic operator[](String key) => $meta.getTranslation(key);
+	dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final Translations _root = this; // ignore: unused_field
 
@@ -1022,6 +1023,18 @@ class Translations$meta$en {
 
 	/// en: 'Profile Link can not be empty'
 	String get profileUrlOrContentCannotEmpty => 'Profile Link can not be empty';
+
+	/// en: 'Home'
+	String get tabHome => 'Home';
+
+	/// en: 'Nodes'
+	String get tabNodes => 'Nodes';
+
+	/// en: 'Plans'
+	String get tabPlans => 'Plans';
+
+	/// en: 'Me'
+	String get tabMe => 'Me';
 }
 
 // Path: permission
@@ -1509,6 +1522,10 @@ extension on Translations {
 			'meta.profileUrlOrContent' => ({required Object p}) => '${p} Profile Link',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[Required]. Note: If your link is not a ${_root.meta.profileUrlOrContent(p: p)} (for example, V2Ray or Sing-box), use the Clash online conversion tool to convert it to a ${_root.meta.profileUrlOrContent(p: p)}',
 			'meta.profileUrlOrContentCannotEmpty' => 'Profile Link can not be empty',
+			'meta.tabHome' => 'Home',
+			'meta.tabNodes' => 'Nodes',
+			'meta.tabPlans' => 'Plans',
+			'meta.tabMe' => 'Me',
 			'permission.camera' => 'Camera',
 			'permission.screen' => 'Screen Recording',
 			'permission.appQuery' => 'Get Application List',

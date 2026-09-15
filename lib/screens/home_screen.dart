@@ -16,6 +16,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/system_scheme_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/dialog_utils.dart';
+import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
 import 'package:mclash/screens/language_settings_screen.dart';
 import 'package:mclash/screens/scheme_handler.dart';
@@ -302,6 +303,11 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       HomeScreenWidgetPart1(),
+                      SizedBox(height: 15),
+                      // 🆕 MoneyFly 账户状态条（一行摘要，点击跳「套餐购买」Tab）。
+                      // 完整账户中心在「我的」Tab，主页只留速览 + 跳转，
+                      // 避免同一批入口在 主页/套餐/我的 三处重复出现。
+                      MclashAccountBar(),
                       SizedBox(height: 15),
                       HomeScreenWidgetPart2(),
                     ],

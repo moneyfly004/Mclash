@@ -24,6 +24,8 @@ import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/app/utils/system_scheme_utils.dart';
 import 'package:mclash/app/utils/windows_version_helper.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/launch_failed_screen.dart';
 import 'package:mclash/screens/theme_data_dark.dart';
@@ -294,6 +296,11 @@ class MyAppState extends State<MyApp>
       });
     }
 
+    // 冷启动时若已有会话（自动登录），同步启动账户状态轮询；
+    // 账号受限时首页开关会在构建期就禁用，而不是点下去才发现
+    if (MclashApi.isLoggedIn) {
+      MclashAccountService.instance.start();
+    }
     AppLifecycleStateNofity.init();
     LocaleSettings.getLocaleStream().listen((event) {});
     String launchStartupArg = processArgs.firstWhere(

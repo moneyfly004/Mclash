@@ -34,6 +34,8 @@ import 'package:mclash/screens/profiles_board_screen.dart';
 import 'package:mclash/screens/proxy_board_screen.dart';
 import 'package:mclash/screens/richtext_viewer.screen.dart';
 import 'package:mclash/screens/theme_config.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/webview_helper.dart';
 import 'package:mclash/screens/widgets/segmented_elevated_button.dart';
@@ -87,6 +89,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   void initState() {
     super.initState();
     VPNService.onEventStateChanged.add(_onStateChanged);
+    // 账户受限时连接开关要立刻变灰 —— 必须监听账户状态，
+    // 否则用户看到的是"开关还能拨，但拨了没反应"。
+    MclashAccountService.instance.addListener(_onAccountChanged);
     AppLifecycleStateNofity.onStateResumed(hashCode, _onStateResumed);
     AppLifecycleStateNofity.onStatePaused(hashCode, _onStatePaused);
     ProfileManager.onEventCurrentChanged.add(_onCurrentChanged);
@@ -119,6 +124,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     BoardProviderNoticeManager.onEventCheck.remove(_onNoticeUpdate);
     BoardProviderNoticeManager.onEventReaded.remove(_onNoticeReaded);
     _focusNodeConnect.dispose();
+    MclashAccountService.instance.removeListener(_onAccountChanged);
     super.dispose();
   }
 
@@ -242,18 +248,31 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                     width: 60,
                     child: FittedBox(
                       fit: BoxFit.fill,
+                      // 受限账号：开关**在构建期就禁用**，而不是点下去再弹窗 ——
+                      // 后者会让用户以为"点了没反应"。
+                      // 点击时弹准入闸门弹窗（去续费 / 管理设备 / 联系客服）。
                       child: Switch.adaptive(
                         value: _state == FlutterVpnServiceState.connected,
                         activeThumbColor: Colors.white,
                         activeTrackColor: ThemeDefine.kColorGreenBright,
                         focusNode: _focusNodeConnect,
-                        onChanged: (bool value) async {
-                          if (value) {
-                            await start("switch");
-                          } else {
-                            await stop();
-                          }
-                        },
+                        onChanged: MclashAccountService.instance.isBlocked
+                            ? null
+                            : (bool value) async {
+                                // 连接前再过一次闸门：状态条可能已过期，
+                                // 也可能在本次会话期间到期
+                                if (value &&
+                                    !(await mclashCheckAccountGate(
+                                      context,
+                                    ))) {
+                                  return;
+                                }
+                                if (value) {
+                                  await start("switch");
+                                } else {
+                                  await stop();
+                                }
+                              },
                       ),
                     ),
                   ),
@@ -832,6 +851,14 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       return;
     }
     _disconnectToCore(resetUI: false);
+  }
+
+  /// 账户状态变化 → 重绘一次（连接开关禁用态 + 首页账户状态条由各自 listen）。
+  void _onAccountChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _onCurrentChanged(String id) async {

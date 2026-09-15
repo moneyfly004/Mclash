@@ -16,20 +16,21 @@ class TranslationsJa with BaseTranslations<AppLocale, Translations> implements T
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsJa({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.ja,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <ja>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsJa _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => '${p}設定リンク';
 	@override String profileUrlOrContentHit({required Object p}) => '[必須]。注意: リンクが ${_root.meta.profileUrlOrContent(p: p)} ではない場合（V2Ray または Sing-box など）は、先に Clash オンライン変換ツールを使用して ${_root.meta.profileUrlOrContent(p: p)} に変換してください';
 	@override String get profileUrlOrContentCannotEmpty => 'プロファイルリンクを空にすることはできません';
+	@override String get tabHome => 'ホーム';
+	@override String get tabNodes => 'ノード';
+	@override String get tabPlans => 'プラン';
+	@override String get tabMe => 'マイ';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsJa {
 			'meta.profileUrlOrContent' => ({required Object p}) => '${p}設定リンク',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[必須]。注意: リンクが ${_root.meta.profileUrlOrContent(p: p)} ではない場合（V2Ray または Sing-box など）は、先に Clash オンライン変換ツールを使用して ${_root.meta.profileUrlOrContent(p: p)} に変換してください',
 			'meta.profileUrlOrContentCannotEmpty' => 'プロファイルリンクを空にすることはできません',
+			'meta.tabHome' => 'ホーム',
+			'meta.tabNodes' => 'ノード',
+			'meta.tabPlans' => 'プラン',
+			'meta.tabMe' => 'マイ',
 			'permission.camera' => 'カメラ',
 			'permission.screen' => '画面録画',
 			'permission.appQuery' => 'アプリケーションリストを取得',

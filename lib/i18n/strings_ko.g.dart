@@ -16,20 +16,21 @@ class TranslationsKo with BaseTranslations<AppLocale, Translations> implements T
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsKo({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.ko,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <ko>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsKo _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => '${p} 설정 링크';
 	@override String profileUrlOrContentHit({required Object p}) => '[필수], 주의: 링크가 ${_root.meta.profileUrlOrContent(p: p)}가 아닌 경우(V2Ray 또는 Sing-box 등) 먼저 Clash 온라인 변환 도구를 사용하여 ${_root.meta.profileUrlOrContent(p: p)}로 변환하세요';
 	@override String get profileUrlOrContentCannotEmpty => '프로필 링크는 비워둘 수 없습니다';
+	@override String get tabHome => '홈';
+	@override String get tabNodes => '노드';
+	@override String get tabPlans => '요금제';
+	@override String get tabMe => '내 정보';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsKo {
 			'meta.profileUrlOrContent' => ({required Object p}) => '${p} 설정 링크',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[필수], 주의: 링크가 ${_root.meta.profileUrlOrContent(p: p)}가 아닌 경우(V2Ray 또는 Sing-box 등) 먼저 Clash 온라인 변환 도구를 사용하여 ${_root.meta.profileUrlOrContent(p: p)}로 변환하세요',
 			'meta.profileUrlOrContentCannotEmpty' => '프로필 링크는 비워둘 수 없습니다',
+			'meta.tabHome' => '홈',
+			'meta.tabNodes' => '노드',
+			'meta.tabPlans' => '요금제',
+			'meta.tabMe' => '내 정보',
 			'permission.camera' => '카메라',
 			'permission.screen' => '화면 녹화',
 			'permission.appQuery' => '애플리케이션 목록 가져오기',

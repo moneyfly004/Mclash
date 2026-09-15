@@ -16,20 +16,21 @@ class TranslationsRu with BaseTranslations<AppLocale, Translations> implements T
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsRu({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.ru,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <ru>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsRu _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => 'Ссылка на профиль ${p}';
 	@override String profileUrlOrContentHit({required Object p}) => '[Обязательно]. Внимание: если ваша ссылка не является ${_root.meta.profileUrlOrContent(p: p)} (например, V2Ray или Sing-box), сначала воспользуйтесь онлайн-конвертером Clash, чтобы преобразовать ее в ${_root.meta.profileUrlOrContent(p: p)}';
 	@override String get profileUrlOrContentCannotEmpty => 'Ссылка на подписку не может быть пустой';
+	@override String get tabHome => 'Главная';
+	@override String get tabNodes => 'Узлы';
+	@override String get tabPlans => 'Тарифы';
+	@override String get tabMe => 'Профиль';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsRu {
 			'meta.profileUrlOrContent' => ({required Object p}) => 'Ссылка на профиль ${p}',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[Обязательно]. Внимание: если ваша ссылка не является ${_root.meta.profileUrlOrContent(p: p)} (например, V2Ray или Sing-box), сначала воспользуйтесь онлайн-конвертером Clash, чтобы преобразовать ее в ${_root.meta.profileUrlOrContent(p: p)}',
 			'meta.profileUrlOrContentCannotEmpty' => 'Ссылка на подписку не может быть пустой',
+			'meta.tabHome' => 'Главная',
+			'meta.tabNodes' => 'Узлы',
+			'meta.tabPlans' => 'Тарифы',
+			'meta.tabMe' => 'Профиль',
 			'permission.camera' => 'Камера',
 			'permission.screen' => 'Запись экрана',
 			'permission.appQuery' => 'Получить список приложений',

@@ -1,4 +1,12 @@
-# Miscellaneous
+# ============================================================================
+#  Mclash .gitignore
+#  ⚠️ 注意：本项目从 Clash Mi 继承了一份 .gitignore，其中两条规则会误伤我们
+#     需要的源码 —— 已在下方「不要忽略源码」段落显式排除：
+#       · /lib/app/private   —— Mclash 的私有服务替代实现（必需源码）
+#       · lib/generated/     —— build_time.dart 的静态兜底（未跑 build_runner 也能编译）
+# ============================================================================
+
+# ---------- 通用 ----------
 *.class
 *.log
 *.pyc
@@ -11,19 +19,19 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+*.hprof
+/todo.txt
 
-# IntelliJ related
+# ---------- IDE ----------
 *.iml
 *.ipr
 *.iws
 .idea/
+/.idea/workspace.xml
+/.vs
+.vscode/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# ---------- Flutter / Dart ----------
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -33,48 +41,78 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-
-# Web related
-lib/generated_plugin_registrant.dart
-lib/generated/
-
-# Symbolication related
+/lib/generated_plugin_registrant.dart
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# ---------- Android ----------
+/android/app/build
 /android/app/src/debug
 /android/app/src/profile
 /android/app/src/release
-/logs
-/.vs
-/*.zip
-/dist/*.apk
-/dist/*.exe
-/dist/*.zip
-/dist/*.xcarchive
-/dist/*+*
+/android/.kotlin
+/android/build
+
+# ---------- 内核二进制（绝不入库） ----------
+# Android：moneyfly004/mihomo-lib 的预编译 AAR（官方 MetaCubeX/mihomo 源码 +
+# gomobile bind，约 185MB）。CI 构建时下载；本地用 tool/fetch_mihomo_aar.sh。
+android/app/libs/*.aar
+android/app/libs/*.jar
+packages/libclash_vpn_service/android/libs/*.aar
+packages/libclash_vpn_service/android/libs/*.jar
+# 桌面端内核（CI 下载官方预编译，本地用 tool/fetch_mihomo.sh）
+mihomo-bin/
+build/mihomo/
+
+# 原 Clash Mi 的外置内核产物：Mclash 改用自有 AAR 与官方 mihomo 二进制，
+# 这些目录不存在也不需要（保留规则以免误提交历史残留）
 /bind/apple/Libclash.xcframework
 /bind/android
 /bind/windows
 /bind/linux
-ios/mclashWidget/VpnServiceHandler.swift
-/.idea/workspace.xml
-/lib/app/private
-/android/app/build
-/dist/ios
-/dist/macos
-/todo.txt
-/.vscode
-/private
-*.hprof
-/android/.kotlin
-/android/build
-/dist
 
-# ---------- 本地包解析产物 ----------
-packages/*/pubspec.lock
+# ---------- 离线分流数据（CI 从 MetaCubeX/meta-rules-dat 下载） ----------
+# 本地开发：bash tool/fetch_geodata.sh
+assets/rules/*.dat
+assets/rules/*.mmdb
+
+# ---------- 签名与密钥（绝不入库） ----------
+android/key.properties
+*.keystore
+*.jks
+*.p12
+*.pem
+*.mobileprovision
+
+# ---------- iOS ----------
+ios/Mclashlib.xcframework/
+ios/mclashWidget/VpnServiceHandler.swift
+ios/PacketTunnel/country.mmdb
+ios/PacketTunnel/geosite.dat
+ios/build/
+ios/Pods/
+ios/.symlinks/
+
+# ---------- macOS ----------
+macos/Pods/
+macos/Flutter/ephemeral/
+macos/build/
+macos/packaging/appdmg_make_config.json
+
+# ---------- Windows / Linux ----------
+windows/flutter/ephemeral/
+windows/build/
+*.vcxproj.user
+linux/flutter/ephemeral/
+linux/build/
+
+# ---------- 打包与发布产物 ----------
+/dist
+/logs
+/*.zip
+/private
+
+# ---------- 本地包（packages/*）的解析产物 ----------
 packages/*/.dart_tool/
 packages/*/build/
+packages/*/pubspec.lock

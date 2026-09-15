@@ -16,20 +16,21 @@ class TranslationsZhTw with BaseTranslations<AppLocale, Translations> implements
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsZhTw({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.zhTw,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <zh-TW>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsZhTw _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => '${p}設定連結';
 	@override String profileUrlOrContentHit({required Object p}) => '[必填]，注意: 如果你的連結不是 ${_root.meta.profileUrlOrContent(p: p)}（例如 V2Ray 或 Sing-box），請先使用 Clash 線上轉換工具將其轉換為 ${_root.meta.profileUrlOrContent(p: p)}';
 	@override String get profileUrlOrContentCannotEmpty => '設定連結不能為空';
+	@override String get tabHome => '首頁';
+	@override String get tabNodes => '節點列表';
+	@override String get tabPlans => '套餐購買';
+	@override String get tabMe => '我的';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsZhTw {
 			'meta.profileUrlOrContent' => ({required Object p}) => '${p}設定連結',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[必填]，注意: 如果你的連結不是 ${_root.meta.profileUrlOrContent(p: p)}（例如 V2Ray 或 Sing-box），請先使用 Clash 線上轉換工具將其轉換為 ${_root.meta.profileUrlOrContent(p: p)}',
 			'meta.profileUrlOrContentCannotEmpty' => '設定連結不能為空',
+			'meta.tabHome' => '首頁',
+			'meta.tabNodes' => '節點列表',
+			'meta.tabPlans' => '套餐購買',
+			'meta.tabMe' => '我的',
 			'permission.camera' => '攝像頭',
 			'permission.screen' => '屏幕錄製',
 			'permission.appQuery' => '獲取應用列表',

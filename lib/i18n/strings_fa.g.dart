@@ -16,20 +16,21 @@ class TranslationsFa with BaseTranslations<AppLocale, Translations> implements T
 	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsFa({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
-		  $meta = meta ?? TranslationMetadata(
+		  _meta = meta ?? TranslationMetadata(
 		    locale: AppLocale.fa,
 		    overrides: overrides ?? {},
 		    cardinalResolver: cardinalResolver,
 		    ordinalResolver: ordinalResolver,
 		  ) {
-		$meta.setFlatMapFunction(_flatMapFunction);
+		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
 	/// Metadata for the translations of <fa>.
-	@override final TranslationMetadata<AppLocale, Translations> $meta;
+	final TranslationMetadata<AppLocale, Translations> _meta;
+	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
 	/// Access flat map
-	@override dynamic operator[](String key) => $meta.getTranslation(key);
+	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsFa _root = this; // ignore: unused_field
 
@@ -436,6 +437,10 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String profileUrlOrContent({required Object p}) => 'پیوند پیکربندی ${p}';
 	@override String profileUrlOrContentHit({required Object p}) => '[الزامی]، توجه: اگر پیوند شما ${_root.meta.profileUrlOrContent(p: p)} نیست (برای نمونه V2Ray یا Sing-box)، ابتدا از ابزار تبدیل آنلاین Clash استفاده کنید تا آن را به ${_root.meta.profileUrlOrContent(p: p)} تبدیل کنید';
 	@override String get profileUrlOrContentCannotEmpty => 'لینک پروفایل نمی‌تواند خالی باشد';
+	@override String get tabHome => 'خانه';
+	@override String get tabNodes => 'گره‌ها';
+	@override String get tabPlans => 'طرح‌ها';
+	@override String get tabMe => 'من';
 }
 
 // Path: permission
@@ -839,6 +844,10 @@ extension on TranslationsFa {
 			'meta.profileUrlOrContent' => ({required Object p}) => 'پیوند پیکربندی ${p}',
 			'meta.profileUrlOrContentHit' => ({required Object p}) => '[الزامی]، توجه: اگر پیوند شما ${_root.meta.profileUrlOrContent(p: p)} نیست (برای نمونه V2Ray یا Sing-box)، ابتدا از ابزار تبدیل آنلاین Clash استفاده کنید تا آن را به ${_root.meta.profileUrlOrContent(p: p)} تبدیل کنید',
 			'meta.profileUrlOrContentCannotEmpty' => 'لینک پروفایل نمی‌تواند خالی باشد',
+			'meta.tabHome' => 'خانه',
+			'meta.tabNodes' => 'گره‌ها',
+			'meta.tabPlans' => 'طرح‌ها',
+			'meta.tabMe' => 'من',
 			'permission.camera' => 'دوربین',
 			'permission.screen' => 'ضبط صفحه',
 			'permission.appQuery' => 'Get Application List',

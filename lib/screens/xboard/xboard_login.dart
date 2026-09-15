@@ -1,4 +1,5 @@
 import 'package:board_service/xboard/xboard_models.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/app/modules/board_provider_manager.dart';
 import 'package:mclash/app/modules/board_session_persistent_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
@@ -44,6 +45,8 @@ class XboardLogin {
       return BoardSessionLoginError(session: session, message: err);
     }
 
+    // 登录成功 → 启动账户状态轮询（首页状态条 / 准入闸门 / 「我的」Tab 共用）
+    MclashAccountService.instance.start();
     onEventLogin.forEach((key, value) {
       value.call();
     });
@@ -105,6 +108,8 @@ class XboardLogin {
     if (session == null) {
       return;
     }
+    // 登出 → 停轮询并清空账户状态（防下一个账号看到上一个的状态）
+    MclashAccountService.instance.stop();
     onEventLogout.forEach((key, value) {
       value.call();
     });
