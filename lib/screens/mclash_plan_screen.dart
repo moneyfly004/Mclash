@@ -34,9 +34,12 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
   List<Map<String, dynamic>> _methods = [];
 
   int? _selectedPlanId;
-  /// 选中的支付通道（`pay_type` 字符串，或 "balance"）。
-  /// 后端 `PayOrder` 只认 `payment_method` 这个字符串字段，没有按数字 ID 选通道的写法。
-  String? _selectedMethod;
+  /// 选中的支付通道（整行，含 `pay_type` 与数字 `id`）。
+  ///
+  /// 必须同时保留两者：余额支付走 `/orders/:no/pay` 要 **pay_type 字符串**
+  /// （且只认 "balance"），在线支付走 `/payment` 要 **数字 method_id**。
+  /// 只存其中一个都会导致另一条路径失败。
+  Map<String, dynamic>? _selectedMethod;
   final TextEditingController _coupon = TextEditingController();
   double _discount = 0;
 
@@ -87,12 +90,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
                   )["id"]) as num?)
                 ?.toInt()
             : null;
-        _selectedMethod ??= methods.isNotEmpty
-            ? (methods.first["pay_type"] ?? "").toString()
-            : null;
-        if (_selectedMethod != null && _selectedMethod!.isEmpty) {
-          _selectedMethod = null;
-        }
+        _selectedMethod ??= methods.isNotEmpty ? methods.first : null;
         _loading = false;
       });
     } catch (e) {
@@ -410,7 +408,8 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           itemBuilder: (context, i) {
             final m = _methods[i];
             final payType = (m["pay_type"] ?? "").toString();
-            final selected = payType == _selectedMethod;
+            final selected =
+                payType == (_selectedMethod?["pay_type"] ?? "").toString();
             // 后端只下发 pay_type，没有 name；label 由 MclashApi 兜底映射成中文。
             // 直接取 m["name"] 会渲染出一列空白行。
             final label = (m["label"] ?? "").toString().isNotEmpty
@@ -427,7 +426,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
               trailing: selected
                   ? const Icon(Icons.done, size: 20)
                   : const SizedBox(width: 20),
-              onTap: () => setState(() => _selectedMethod = payType),
+              onTap: () => setState(() => _selectedMethod = m),
             );
           },
         ),
@@ -482,19 +481,53 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         return;
       }
       final orderNo = order["order_no"]?.toString() ?? "";
+      final orderId = (order["id"] as num?)?.toInt();
       if (orderNo.isEmpty) {
         return;
       }
-      final r = await MclashApi.payOrder(orderNo, _selectedMethod!);
-      if (!mounted) {
-        return;
+
+      final payType = (_selectedMethod?["pay_type"] ?? "").toString();
+      final methodId = (_selectedMethod?["id"] as num?)?.toInt();
+
+      String payUrl = "";
+      if (payType == "balance") {
+        // 余额支付：/orders/:orderNo/pay，只认 payment_method="balance"
+        await MclashApi.payOrder(orderNo);
+        // 余额支付是同步完成的，没有二维码；直接提示成功
+        if (!mounted) {
+          return;
+        }
+        await showMclashPaymentSheet(
+          context,
+          orderNo: orderNo,
+          amount: amount,
+          qrCode: "",
+        );
+      } else {
+        // 在线支付：POST /payment（数字 payment_method_id）→ 拿 payment_url
+        if (orderId == null || methodId == null) {
+          throw MclashApiError("订单或支付通道信息不完整，无法发起支付", 0);
+        }
+        final r = await MclashApi.createPayment(
+          orderId: orderId,
+          paymentMethodId: methodId,
+        );
+        payUrl = (r?["payment_url"] ??
+                r?["pay_url"] ??
+                r?["qr_code"] ??
+                r?["url"] ??
+                "")
+            .toString();
+        if (!mounted) {
+          return;
+        }
+        await showMclashPaymentSheet(
+          context,
+          orderNo: orderNo,
+          amount: amount,
+          qrCode: payUrl,
+        );
       }
-      await showMclashPaymentSheet(
-        context,
-        orderNo: orderNo,
-        amount: amount,
-        qrCode: r?["qr_code"]?.toString() ?? r?["pay_url"]?.toString() ?? "",
-      );
       // 支付完成后刷新（订阅状态与套餐目录都可能变）
       await _load();
     } catch (e) {

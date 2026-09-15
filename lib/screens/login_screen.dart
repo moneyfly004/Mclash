@@ -13,6 +13,9 @@ import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/url_launcher_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/dialog_utils.dart';
+import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/screens/mclash_forgot_password_screen.dart';
+import 'package:mclash/screens/mclash_register_screen.dart';
 import 'package:mclash/screens/sspanel/sspanel_login.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/v2board/v2board_login.dart';
@@ -354,40 +357,48 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // 「忘记密码」改为走 Mclash 自有的原生重置流程。
+                      //
+                      // 原先这里依赖面板下发的 forgotPasswordUrl（Clash Mi 的做法：
+                      // 用内置 WebView 打开面板的找回页）。CBoard 没有这个 URL，
+                      // 条件永远为假 → 按钮永久禁用且文案为空，用户根本看不到入口。
                       TextButton(
-                        onPressed:
-                            isProviderSupported &&
-                                _provider!.forgotPasswordUrl.isNotEmpty
-                            ? () {
-                                _forgotpwd();
-                              }
-                            : null,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MclashForgotPasswordScreen(
+                                email: _usernameController.text.trim(),
+                              ),
+                            ),
+                          );
+                        },
                         child: Text(
-                          isProviderSupported &&
-                                  _provider!.forgotPasswordUrl.isNotEmpty
-                              ? tcontext.loginScreen.forgotPassword
-                              : '',
+                          tcontext.loginScreen.forgotPassword,
                           style: TextStyle(
                             color: ThemeDefine.kColorBlue,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
+                      // 「注册」同理：CBoard 没有 registerUrl，改为原生注册页，
+                      // 并把 /config 的站点配置带过去（决定是否要验证码/邀请码）。
                       TextButton(
-                        onPressed:
-                            isProviderSupported &&
-                                _provider!.registerUrl != null &&
-                                _provider!.type != BoardProviderType.sspanel
-                            ? () async {
-                                _register();
-                              }
-                            : null,
+                        onPressed: () async {
+                          final cfg = await MclashApi.siteConfig();
+                          if (!mounted) {
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  MclashRegisterScreen(siteConfig: cfg),
+                            ),
+                          );
+                        },
                         child: Text(
-                          isProviderSupported &&
-                                  _provider!.registerUrl != null &&
-                                  _provider!.type != BoardProviderType.sspanel
-                              ? tcontext.loginScreen.register
-                              : '',
+                          tcontext.loginScreen.register,
                           style: TextStyle(
                             color: ThemeDefine.kColorBlue,
                             fontWeight: FontWeight.w500,
@@ -661,20 +672,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _forgotpwd() async {
-    if (_provider == null || _provider!.forgotPasswordUrl.isEmpty) {
-      return;
-    }
-    UrlLauncherUtils.loadUrl(_provider!.forgotPasswordUrl);
-  }
-
-  void _register() async {
-    if (_provider == null || _provider!.registerUrl == null) {
-      return;
-    }
-    if (_provider!.registerUrl!.isNotEmpty) {
-      UrlLauncherUtils.loadUrl(_provider!.registerUrl!);
-      return;
-    }
-  }
+  // 说明：原先这里还有 _forgotpwd / _register，做法是把面板下发的
+  // forgotPasswordUrl / registerUrl 丢给系统浏览器。CBoard 不提供这两个 URL，
+  // 两个入口因此永久失效。现已改为 MclashRegisterScreen /
+  // MclashForgotPasswordScreen 的原生实现，这两个方法随之删除。
 }

@@ -396,11 +396,154 @@ class CBoardClient {
 
   Future<void> logout() async {
     try {
-      await request('POST', '/auth/logout', retryAuth: false);
+      // 带上 refresh_token：后端 Logout 会据此吊销 refresh token，
+      // 否则登出后旧 refresh token 仍能换出新 access token（实测确认吊销有效）。
+      await request('POST', '/auth/logout',
+          body: {'refresh_token': session?.refreshToken ?? ''}, retryAuth: false);
     } catch (_) {
       // 后端登出失败不影响本地清除：本地清掉就是对用户而言「已登出」。
     }
     await _setSession(null);
+  }
+
+  // ───────────────────────── 注册 / 验证码 / 找回密码 ─────────────────────────
+  //
+  // ⚠️ 实测确认的流程规则（踩过才知道）：
+  //
+  //   POST /auth/verification/verify 会把验证码置为 used=1，
+  //   而 POST /auth/register 校验的是 used=0。
+  //   => 「先 verify 再 register」**必然失败**，报「验证码无效或已过期」。
+  //
+  //   正确流程：send 拿码 → 把 code 直接交给 /auth/register（不要中间 verify）。
+  //   verify 接口是给「只验证邮箱、不注册」这类场景用的。
+  //   实测：send → register 直传 code → 成功；且注册**直接返回 access/refresh token**，
+  //   所以注册完无需再调一次 login。
+  //
+  // 其他实测细节：
+  //   · register 需要 username（3~50 位），不是只要邮箱密码；
+  //   · 有蜜罐字段 `website`，正常用户必须留空 —— 填了会被当成机器人（后端静默返回假 token）；
+  //   · 发码接口挂了 **IP 级**限流（3 次/分钟），不只是按邮箱限流，
+  //     所以「点了没反应」时要能识别 429 并提示稍后再试；
+  //   · 注册码 5 分钟有效，重置码 15 分钟有效。
+
+  /// 发送邮箱验证码。[purpose] 用 `register` 或 `reset_password`（后端按其限流分桶）。
+  Future<void> sendVerificationCode(String email, {String purpose = 'register'}) =>
+      post('/auth/verification/send',
+          body: {'email': email.trim().toLowerCase(), 'purpose': purpose}).then((_) {});
+
+  /// 校验验证码（**会消耗该码**，之后不能再用于注册/重置）。
+  Future<void> verifyCode(String email, String code) => post('/auth/verification/verify',
+          body: {'email': email.trim().toLowerCase(), 'code': code})
+      .then((_) {});
+
+  /// 注册。
+  ///
+  /// 成功后会直接拿到 access/refresh token 并写入会话（后端行为），
+  /// 因此调用方**不需要**再调 [login]。
+  ///
+  /// [website] 是蜜罐字段，务必保持为空 —— 这里不对外暴露，恒传空串。
+  Future<CBoardSession> register({
+    required String username,
+    required String email,
+    required String password,
+    String verificationCode = '',
+    String inviteCode = '',
+  }) async {
+    final r = await request('POST', '/auth/register', auth: false, retryAuth: false, body: {
+      'username': username.trim(),
+      'email': email.trim().toLowerCase(),
+      'password': password,
+      if (verificationCode.isNotEmpty) 'verification_code': verificationCode,
+      if (inviteCode.isNotEmpty) 'invite_code': inviteCode,
+      'website': '', // 蜜罐：正常用户留空
+    });
+    if (!r.ok) {
+      throw CBoardException(
+        r.message.isNotEmpty ? r.message : '注册失败（code ${r.code}）',
+        code: r.code,
+        httpStatus: r.httpStatus,
+      );
+    }
+    final d = r.data;
+    if (d is Map && (d['access_token'] ?? '').toString().isNotEmpty) {
+      final s = CBoardSession(
+        accessToken: d['access_token'].toString(),
+        refreshToken: (d['refresh_token'] ?? '').toString(),
+        user: d['user'] is Map ? Map<String, dynamic>.from(d['user']) : const {},
+      );
+      await _setSession(s);
+      return s;
+    }
+    // 后端未下发 token（例如蜜罐命中返回 fake_token）——不静默，抛出让人看得见。
+    throw CBoardException('注册响应未包含 access_token，可能触发了风控或站点配置不同',
+        code: r.code);
+  }
+
+  /// 请求重置密码验证码。
+  ///
+  /// 后端对**不存在的邮箱**也返回成功（防枚举），所以「成功」不代表邮箱存在；
+  /// UI 文案应按此措辞（「如果邮箱存在…」）。
+  Future<void> forgotPassword(String email) => post('/auth/forgot-password',
+          body: {'email': email.trim().toLowerCase()})
+      .then((_) {});
+
+  /// 用验证码重置密码（码 15 分钟有效，用后即废）。
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) =>
+      post('/auth/reset-password', body: {
+        'email': email.trim().toLowerCase(),
+        'code': code,
+        'password': password,
+      }).then((_) {});
+
+  // ───────────────────────── 在线支付 ─────────────────────────
+  //
+  // 后端有**两个**支付入口，标识方式还不一样，极易搞混（实测确认）：
+  //
+  //   · POST /orders/:orderNo/pay  —— **只支持余额**。
+  //        body {payment_method: "balance"}
+  //        传在线通道会返回「暂不支持该支付方式，请使用余额支付或通过支付接口创建支付」。
+  //
+  //   · POST /payment              —— 在线支付。
+  //        body {order_id(数字), payment_method_id(数字), is_mobile}
+  //        返回含 payment_url（二维码/跳转地址）与 transaction_id。
+  //
+  // 也就是说：*字符串* pay_type 属于前者（且只认 "balance"），
+  //          *数字* method_id 属于后者。两者不能互换。
+  //
+  // 回调靠轮询：GET /payment/status/:id → status 变为已支付即成功。
+
+  /// 在线支付下单，返回 `{payment_url, transaction_id, amount, ...}`。
+  Future<Map<String, dynamic>> createPayment({
+    required int orderId,
+    required int paymentMethodId,
+    bool isMobile = false,
+    bool useBalance = false,
+    double balanceAmount = 0,
+  }) async {
+    final d = await post('/payment', body: {
+      'order_id': orderId,
+      'payment_method_id': paymentMethodId,
+      'is_mobile': isMobile,
+      'use_balance': useBalance,
+      if (useBalance) 'balance_amount': balanceAmount,
+    });
+    return d is Map ? Map<String, dynamic>.from(d) : const {};
+  }
+
+  /// 支付状态（回调轮询）。返回原始对象，含 status。
+  Future<Map<String, dynamic>> paymentStatus(int paymentId) async {
+    final d = await get('/payment/status/$paymentId');
+    return d is Map ? Map<String, dynamic>.from(d) : const {};
+  }
+
+  /// 余额支付（走 /orders/:orderNo/pay，payment_method 固定 "balance"）。
+  Future<Map<String, dynamic>> payWithBalance(String orderNo) async {
+    final d = await post('/orders/$orderNo/pay', body: {'payment_method': 'balance'});
+    return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
   /// 拉最新用户信息并回写会话（用于昵称/套餐变化后刷新 UI）。

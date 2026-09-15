@@ -252,15 +252,49 @@ class MclashApi {
     );
   }
 
-  /// 发起支付。[paymentMethod] 是通道字符串（`pay_type`），或 `"balance"`。
-  static Future<Map<String, dynamic>?> payOrder(
-    String orderNo,
-    String paymentMethod,
-  ) async {
+  /// 余额支付。走 `/orders/:orderNo/pay`，该端点**只支持余额**。
+  ///
+  /// 注意不要用它传在线通道：后端会返回
+  /// 「暂不支持该支付方式，请使用余额支付或通过支付接口创建支付」。
+  /// 在线通道请用 [createPayment]。
+  static Future<Map<String, dynamic>?> payOrder(String orderNo) async {
     if (!isLoggedIn) {
       return null;
     }
-    return _client.payOrder(orderNo, paymentMethod: paymentMethod);
+    return _client.payWithBalance(orderNo);
+  }
+
+  /// 在线支付下单 → 返回 `payment_url` / `transaction_id`，交给二维码或外部浏览器。
+  static Future<Map<String, dynamic>?> createPayment({
+    required int orderId,
+    required int paymentMethodId,
+    bool isMobile = false,
+  }) async {
+    if (!isLoggedIn) {
+      return null;
+    }
+    return _client.createPayment(
+      orderId: orderId,
+      paymentMethodId: paymentMethodId,
+      isMobile: isMobile,
+    );
+  }
+
+  /// 支付状态轮询（回调等价物）。
+  static Future<Map<String, dynamic>?> paymentStatus(int paymentId) async {
+    if (!isLoggedIn) {
+      return null;
+    }
+    return _client.paymentStatus(paymentId);
+  }
+
+  /// 支付是否已完成。后端 status 字段为 paid/success/已完成 等，统一在这里判。
+  static bool isPaymentDone(Map<String, dynamic>? s) {
+    if (s == null) {
+      return false;
+    }
+    final v = (s['status'] ?? s['pay_status'] ?? '').toString().toLowerCase();
+    return v == 'paid' || v == 'success' || v == 'completed' || v == '已完成';
   }
 
   /// `pay_type` → 中文名。
@@ -318,6 +352,8 @@ class MclashApi {
           continue;
         }
         m["label"] = paymentMethodLabel(pt);
+        // m["id"] 是**数字**通道 ID，POST /payment 要的就是它；
+        // 而 pay_type 字符串只用于 /orders/:no/pay（且仅认 balance）。两者别混。
         out.add(m);
       }
     }
@@ -422,6 +458,66 @@ class MclashApi {
   static Future<void> logout() async {
     await _client.logout();
   }
+
+  // ---------------------------------------------------------------------
+  // 注册 / 验证码 / 找回密码
+  // ---------------------------------------------------------------------
+
+  /// 站点是否开放注册（来自 /config，登录页据此决定是否显示「注册」入口）。
+  static bool registerEnabledFrom(Map<String, dynamic> cfg) =>
+      cfg["register_enabled"] == true || cfg["register_enabled"] == "true";
+
+  /// 注册是否要求邮箱验证码。
+  static bool registerEmailVerifyFrom(Map<String, dynamic> cfg) =>
+      cfg["register_email_verify"] == true ||
+      cfg["register_email_verify"] == "true";
+
+  /// 注册是否必须邀请码。
+  static bool registerInviteRequiredFrom(Map<String, dynamic> cfg) =>
+      cfg["register_invite_required"] == true ||
+      cfg["register_invite_required"] == "true";
+
+  static Future<void> sendVerificationCode(
+    String email, {
+    String purpose = "register",
+  }) =>
+      _client.sendVerificationCode(email, purpose: purpose);
+
+  static Future<void> verifyCode(String email, String code) =>
+      _client.verifyCode(email, code);
+
+  /// 注册。成功后**直接写入登录态**（后端注册即下发 token），无需再登录。
+  static Future<void> register({
+    required String username,
+    required String email,
+    required String password,
+    String verificationCode = "",
+    String inviteCode = "",
+  }) async {
+    _restored = true;
+    await _client.register(
+      username: username,
+      email: email,
+      password: password,
+      verificationCode: verificationCode,
+      inviteCode: inviteCode,
+    );
+  }
+
+  /// 请求重置验证码。**邮箱不存在也会返回成功**（后端防枚举），
+  /// 所以 UI 必须按「如果邮箱存在…」措辞，不能断言已发送。
+  static Future<void> forgotPassword(String email) =>
+      _client.forgotPassword(email);
+
+  static Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) =>
+      _client.resetPassword(email: email, code: code, password: password);
+
+  /// 密码最小长度（后端 register/reset 是 6，站点配置可覆盖）。
+  static const int passwordMinLen = 6;
 
   /// 测试用：替换底层客户端。
   static void debugUse(CBoardClient c) {

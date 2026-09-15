@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/password_policy.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/widgets/framework.dart';
@@ -31,21 +32,12 @@ class _MclashChangePasswordScreenState
     super.dispose();
   }
 
-  /// 与后台 `auth.ValidatePasswordStrength` 逐字对齐
-  static const _specials = "!@#\$%^&*()_+-=[]{}|;:,.<>?";
-
-  static String? _check(String pwd) {
-    if (pwd.length < 8) return "密码至少 8 位";
-    var kinds = 0;
-    if (RegExp(r"[A-Z]").hasMatch(pwd)) kinds++;
-    if (RegExp(r"[a-z]").hasMatch(pwd)) kinds++;
-    if (RegExp(r"[0-9]").hasMatch(pwd)) kinds++;
-    if (pwd.split("").any(_specials.contains)) kinds++;
-    if (kinds < 3) {
-      return "密码强度不足：需包含大小写字母、数字、特殊字符中的至少三种";
-    }
-    return null;
-  }
+  // 策略统一到 PasswordPolicy（= 后台 ValidatePasswordStrength 的真实规则：
+  // ≥8 位且同时含字母和数字）。
+  //
+  // 这里原本自己实现了一套「四种里凑三种」的校验，比后台更严，导致后台
+  // 明明接受的密码（如 abcd1234）被客户端先拦下，且提示的是后台并不存在的规则。
+  static String? _check(String pwd) => PasswordPolicy.validate(pwd);
 
   @override
   Widget build(BuildContext context) {
