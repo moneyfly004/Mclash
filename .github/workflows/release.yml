@@ -190,22 +190,48 @@ jobs:
           WIN_DIST=$(cygpath -w "$(pwd)/dist")
           powershell -Command "Compress-Archive -Path '$WIN_RELEASE_DIR\*' -DestinationPath '$WIN_DIST\Mclash-windows-x64-portable-$V.zip' -Force"
           # inno_setup.iss 是 flutter_distributor 的模板，里面是 {{占位符}}。
-          # 之前直接调 ISCC 只传了 VERSION/BUILD_DIR，于是 SetupIconFile 之类
-          # 变成字面量 "{{SETUP_ICON_FILE}}" → Inno 报「系统找不到指定的文件」，
-          # Windows 安装包整个作业红。这里把模板需要的占位符全部 /D 传进去。
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
-            //DAPP_ID="74F1C307-2E21-4951-BB25-763C3A2AE9EF" \
-            //DAPP_VERSION="$V" \
-            //DDISPLAY_NAME="Mclash" \
-            //DPUBLISHER_NAME="MoneyFly" \
-            //DPUBLISHER_URL="https://new.moneyfly.top" \
-            //DEXECUTABLE_NAME="mclash.exe" \
-            //DOUTPUT_BASE_FILENAME="Mclash-setup-$V" \
-            //DSETUP_ICON_FILE="$(cygpath -w "$(pwd)/windows/runner/resources/app_icon.ico")" \
-            //DSOURCE_DIR="$WIN_RELEASE_DIR" \
-            //DBUILD_DIR="$WIN_RELEASE_DIR" \
-            //DVERSION="$V" \
-            windows/packaging/exe/inno_setup.iss
+          #
+          # 不要用 `/DNAME=value` 传：Git-Bash(MSYS) 会改写以 / 开头的参数，
+          # 值里带 `https://` 时更是直接被判成 "Unknown option"。所以这里像
+          # flutter_distributor 一样**先把模板替换成真实值**再交给 ISCC：
+          # 参数里不再有任何斜杠，跨 shell 都不会被篡改。
+          WIN_DIST_W=$(cygpath -w "$(pwd)/dist")
+          ICON_W=$(cygpath -w "$(pwd)/windows/runner/resources/app_icon.ico")
+          ISSPP_SOURCE_DIR="$WIN_RELEASE_DIR" \
+          ISSPP_DIST="$WIN_DIST_W" \
+          ISSPP_ICON="$ICON_W" \
+          ISSPP_VERSION="$V" \
+          python3 - <<'PYEOF'
+          import os, pathlib
+
+          tpl = pathlib.Path("windows/packaging/exe/inno_setup.iss").read_text(
+              encoding="utf-8"
+          )
+          values = {
+              "APP_ID": "74F1C307-2E21-4951-BB25-763C3A2AE9EF",
+              "APP_VERSION": os.environ["ISSPP_VERSION"],
+              "DISPLAY_NAME": "Mclash",
+              "PUBLISHER_NAME": "MoneyFly",
+              "PUBLISHER_URL": "https://new.moneyfly.top",
+              "EXECUTABLE_NAME": "mclash.exe",
+              "OUTPUT_BASE_FILENAME": f"Mclash-setup-{os.environ['ISSPP_VERSION']}",
+              "SETUP_ICON_FILE": os.environ["ISSPP_ICON"],
+              "SOURCE_DIR": os.environ["ISSPP_SOURCE_DIR"],
+              "BUILD_DIR": os.environ["ISSPP_SOURCE_DIR"],
+          }
+          for key, val in values.items():
+              tpl = tpl.replace("{{%s}}" % key, val)
+          # 产物统一落到 dist/（发布作业按 dist/** 收集）
+          tpl = tpl.replace("OutputDir=.", "OutputDir=%s" % os.environ["ISSPP_DIST"])
+          left = [l for l in tpl.splitlines() if "{{" in l]
+          if left:
+              raise SystemExit("模板里还有未替换的占位符: %s" % left)
+          out = pathlib.Path("build/inno_run.iss")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(tpl, encoding="utf-8")
+          print("已生成", out)
+          PYEOF
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "$(cygpath -w "$(pwd)/build/inno_run.iss")"
           cd dist && sha256sum * > SHA256SUMS-windows.txt
         env:
           INPUT_VERSION: ${{ github.event.inputs.version }}
