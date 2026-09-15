@@ -2,7 +2,7 @@
 # Submit a signed DMG for notarization, staple the ticket, and verify it.
 #
 # Prerequisites (one-time):
-#   xcrun notarytool store-credentials "karingx-notary" \
+#   xcrun notarytool store-credentials "mclash-notary" \
 #     --key "<path-to-AuthKey_XXXXXXXXXX.p8>" \
 #     --key-id "<key-id>" \
 #     --issuer "<issuer-id>"
@@ -25,7 +25,7 @@ resolve_default_dmg_path() {
 }
 
 DMG_PATH="${1:-$(resolve_default_dmg_path)}"
-KEYCHAIN_PROFILE="${NOTARY_PROFILE:-karingx-notary}"
+KEYCHAIN_PROFILE="${NOTARY_PROFILE:-mclash-notary}"
 [[ -f "$DMG_PATH" ]] || { echo "error: dmg not found at $DMG_PATH" >&2; exit 1; }
 
 echo "Submitting $DMG_PATH for notarization (profile: $KEYCHAIN_PROFILE)..."

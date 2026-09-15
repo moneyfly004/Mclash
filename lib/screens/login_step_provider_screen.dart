@@ -356,7 +356,7 @@ class _LoginStepProviderScreenState extends State<LoginStepProviderScreen> {
           showGoBackGoForward: false,
           setJSWindowObject: true,
           injectJs: bindJs,
-          jsObjectName: "karing",
+          jsObjectName: "mclash",
           javaScriptHandlers: WebviewISPHelper.getJavaScriptHandlers(),
           javaScriptHandlerArgument: provider,
         ),

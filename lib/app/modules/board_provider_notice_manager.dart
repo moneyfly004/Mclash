@@ -245,13 +245,13 @@ class BoardProviderNoticeLoadAndCheck {
       try {
         gnotice = await NoticeUtils.parseNotice(result.data!.item2);
       } catch (err, _) {
-        Log.i('KaringUtils parseNotice exception ${err.toString()}');
+        Log.i('MclashNotice parseNotice exception ${err.toString()}');
         _duration = const Duration(hours: 1);
         save();
         return;
       }
       if (gnotice == null) {
-        Log.i('KaringUtils parseNotice exception gnotice is null');
+        Log.i('MclashNotice parseNotice exception gnotice is null');
         _duration = const Duration(hours: 1);
         save();
         return;

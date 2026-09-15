@@ -3,7 +3,7 @@
 #
 # Prerequisites (one-time), using an App Store Connect API Key
 # (generate at https://appstoreconnect.apple.com/access/api, role "Developer" or above):
-#   xcrun notarytool store-credentials "karingx-notary" \
+#   xcrun notarytool store-credentials "mclash-notary" \
 #     --key "<path-to-AuthKey_XXXXXXXXXX.p8>" \
 #     --key-id "<key-id>" \
 #     --issuer "<issuer-id>"
@@ -34,7 +34,7 @@ resolve_default_pkg_path() {
 }
 
 PKG_PATH="${1:-$(resolve_default_pkg_path)}"
-KEYCHAIN_PROFILE="${NOTARY_PROFILE:-karingx-notary}"
+KEYCHAIN_PROFILE="${NOTARY_PROFILE:-mclash-notary}"
 
 if [[ ! -f "$PKG_PATH" ]]; then
   echo "error: pkg not found at $PKG_PATH" >&2

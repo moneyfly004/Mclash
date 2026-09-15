@@ -31,7 +31,7 @@ class InAppWebViewScreen extends StatefulWidget {
   static WebViewEnvironment? _webViewEnvironment;
   static int _webViewEnvironmentRef = 0;
   static String? _defaultUserAgent;
-  static String _defaultUserAgentWithKaring = "";
+  static String _defaultUserAgentWithMclash = "";
   static Future<void> _init() async {
     if (_inited != null) {
       return;
@@ -54,7 +54,7 @@ class InAppWebViewScreen extends StatefulWidget {
       } else if (Platform.isIOS || Platform.isMacOS) {
         _defaultUserAgent = "$_defaultUserAgent Safari/605.1.15";
       }
-      _defaultUserAgentWithKaring =
+      _defaultUserAgentWithMclash =
           "$_defaultUserAgent Mclash/${AppUtils.getBuildinVersion()}";
     } else {
       late String userAgent;
@@ -66,7 +66,7 @@ class InAppWebViewScreen extends StatefulWidget {
         userAgent =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$edgeVer.0.0.0 Safari/537.36";
       }
-      _defaultUserAgentWithKaring =
+      _defaultUserAgentWithMclash =
           "$userAgent Mclash/${AppUtils.getBuildinVersion()}";
     }
     _inited = true;
@@ -187,9 +187,9 @@ class InAppWebViewScreen extends StatefulWidget {
   final bool setJSWindowObject;
   final bool refreshWhenLoaded;
   final String injectJs;
-  final bool appendKaringToUseragent;
+  final bool appendMclashToUseragent;
   final String jsObjectName;
-  final String appendMoreKaringToUseragent;
+  final String appendMoreMclashToUseragent;
   final Map<String, Function> javaScriptHandlers;
   final dynamic javaScriptHandlerArgument;
   final bool clearAllCookies;
@@ -213,8 +213,8 @@ class InAppWebViewScreen extends StatefulWidget {
     this.setJSWindowObject = false,
     this.refreshWhenLoaded = false,
     this.injectJs = "",
-    this.appendKaringToUseragent = false,
-    this.appendMoreKaringToUseragent = "",
+    this.appendMclashToUseragent = false,
+    this.appendMoreMclashToUseragent = "",
     this.jsObjectName = "mclash",
     this.javaScriptHandlers = const {},
     this.javaScriptHandlerArgument,
@@ -259,10 +259,10 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
       url: WebUri(widget.url),
       headers: widget.headers,
     );
-    String useragent = InAppWebViewScreen._defaultUserAgentWithKaring;
-    if (widget.appendMoreKaringToUseragent.isNotEmpty) {
+    String useragent = InAppWebViewScreen._defaultUserAgentWithMclash;
+    if (widget.appendMoreMclashToUseragent.isNotEmpty) {
       useragent =
-          "${InAppWebViewScreen._defaultUserAgentWithKaring} ${widget.appendMoreKaringToUseragent}";
+          "${InAppWebViewScreen._defaultUserAgentWithMclash} ${widget.appendMoreMclashToUseragent}";
     }
     _settings = InAppWebViewSettings(
       isInspectable: widget.enableDebug,
@@ -270,7 +270,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
       allowsInlineMediaPlayback: true,
       //iframeAllow: "camera; microphone",
       iframeAllowFullscreen: false,
-      userAgent: widget.appendKaringToUseragent
+      userAgent: widget.appendMclashToUseragent
           ? useragent
           : InAppWebViewScreen._defaultUserAgent,
       useShouldOverrideUrlLoading: true,

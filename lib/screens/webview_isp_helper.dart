@@ -14,7 +14,7 @@ class WebviewISPHelper {
   }
 
   /*
-  window.karing.callHandler('ispInstallConfig',  '34345345', 'ispUser', 'https://xxxxxx.yaml', 'ispName').then(function(result) {
+  window.mclash.callHandler('ispInstallConfig',  '34345345', 'ispUser', 'https://xxxxxx.yaml', 'ispName').then(function(result) {
         console.log(result);
         return result;
     }).catch(function() {
@@ -24,7 +24,7 @@ class WebviewISPHelper {
           self.onerror(event);
         }
   });
-   window.karing.callHandler('ispInfo').then(function(result) {
+   window.mclash.callHandler('ispInfo').then(function(result) {
         console.log(result);
         return result;
     }).catch(function() {
