@@ -179,6 +179,57 @@ jobs:
       - name: 安装 Inno Setup
         run: choco install innosetup --no-progress -y
 
+      - name: 补齐 Inno Setup 语言包
+        shell: bash
+        run: |
+          # inno_setup.iss 的 [Languages] 里有简体中文等**非官方**语言包，
+          # 官方 Inno Setup 安装包里没有它们，ISCC 会直接
+          # 「Couldn't open include file ...\Languages\ChineseSimplified.isl」。
+          # 这里按模板里实际引用的清单，把缺的从 jrsoftware/issrc 的
+          # Unofficial 目录补齐（有官方版就用官方版）。
+          python3 - <<'PYEOF'
+          import os, pathlib, re, sys, urllib.request, urllib.error
+
+          sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+          sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+          iss = pathlib.Path("windows/packaging/exe/inno_setup.iss").read_text(
+              encoding="utf-8"
+          )
+          names = sorted(set(re.findall(r"compiler:Languages\\([A-Za-z0-9_]+)\.isl", iss)))
+          lang_dir = pathlib.Path(
+              os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+          ) / "Inno Setup 6" / "Languages"
+          print("模板引用语言数:", len(names), "语言目录:", lang_dir)
+
+          base = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages"
+          missing = []
+          for name in names:
+              dest = lang_dir / f"{name}.isl"
+              if dest.exists():
+                  continue
+              # 优先官方目录（issrc 里其实全都有），Unofficial 作为兜底
+              for sub in ("", "Unofficial/"):
+                  url = f"{base}/{sub}{name}.isl"
+                  try:
+                      with urllib.request.urlopen(url, timeout=30) as r:
+                          data = r.read()
+                      dest.write_bytes(data)
+                      print("downloaded:", name, "from", sub or "official")
+                      break
+                  except urllib.error.HTTPError:
+                      continue
+                  except Exception as e:  # noqa: BLE001
+                      print("retry needed:", name, e)
+                      continue
+              else:
+                  missing.append(name)
+
+          if missing:
+              raise SystemExit("missing language packs: %s" % missing)
+          print("all language packs present")
+          PYEOF
+
       - name: 打包（zip 便携版 + exe 安装版）
         shell: bash
         run: |
