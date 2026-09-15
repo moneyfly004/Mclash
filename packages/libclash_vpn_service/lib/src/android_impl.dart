@@ -294,7 +294,16 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
   @override
   Future<bool> autoStartIsActive(String name) async => false;
   @override
-  Future<Directory?> getAppGroupDirectory(String groupId) async => null;
+  /// Android 同样**不能返回 null** —— 后果与桌面端完全相同（见 desktop_impl.dart
+  /// 的同名方法注释）：会让 PathUtils.profileDir() 返回空串，App 直接停在
+  /// 「访问配置文件失败」那一屏，连首屏都到不了。
+  ///
+  /// Android 上没有 App Group，用应用支持目录即可：它落在应用私有空间
+  /// （`/data/data/<pkg>/files` 一类），无需任何存储权限，且 VpnService 与
+  /// 主进程同属一个 uid，都能读写 —— 内核 home 目录放在这里最合适。
+  @override
+  Future<Directory?> getAppGroupDirectory(String groupId) async =>
+      Directory(await getApplicationSupportDir());
   @override
   Future<void> hideDockIcon(bool hide) async {}
   @override

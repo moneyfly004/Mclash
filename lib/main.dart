@@ -26,7 +26,7 @@ import 'package:mclash/app/utils/windows_version_helper.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
-import 'package:mclash/screens/main_tab_shell.dart';
+import 'package:mclash/screens/mclash_gate.dart';
 import 'package:mclash/screens/launch_failed_screen.dart';
 import 'package:mclash/screens/theme_data_dark.dart';
 import 'package:mclash/screens/themes.dart';
@@ -405,12 +405,15 @@ class MyAppState extends State<MyApp>
                     MoveToBackgroundUtils.moveToBackground();
                   }
                 },
+                // 启动失败优先展示失败原因；
+                // 否则交给 MclashGate 决定首屏 —— 未登录时**必须是登录页**，
+                // 因为订阅要按账号从后台拉取，没有账号则整个 App 无事可做。
                 child: startFailedReason != null
                     ? LaunchFailedScreen(
                         startFailedReason: startFailedReason!,
                         startFailedReasonDesc: startFailedReasonDesc,
                       )
-                    : MainTabShell(launchUrl: schemeArg.trim()),
+                    : MclashGate(launchUrl: schemeArg.trim()),
               ),
               builder: SettingManager.getConfig().ui.disableFontScaler
                   ? (context, widget) {

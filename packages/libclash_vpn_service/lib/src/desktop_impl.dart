@@ -940,7 +940,26 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
       null;
 
   @override
-  Future<Directory?> getAppGroupDirectory(String groupId) async => null;
+  /// 桌面端没有「App Group」概念（那是 Apple 沙盒下宿主 App 与扩展共享容器的机制），
+  /// 但**绝不能返回 null**。
+  ///
+  /// 返回 null 的后果链（实测就是桌面端"打开即失败"的根因）：
+  ///   getAppGroupDirectory → null
+  ///   → PathUtils.profileDirNonPortable() 返回 ""
+  ///   → PathUtils.profileDir() 返回 ""
+  ///   → main.dart 判定 StartFailedReason.invalidProfile
+  ///   → 停在「应用启动失败[访问配置文件失败]，请重新安装应用」
+  /// 也就是说 App 连首屏都到不了，而且提示是"请重新安装"，会把人引向完全
+  /// 错误的方向（重装多少次都一样）。
+  ///
+  /// 改为返回应用支持目录，与 [getApplicationSupportDir] 保持一致：
+  ///   macOS   ~/Library/Application Support/<bundleId>
+  ///   Windows %APPDATA%\<appId>
+  ///   Linux   ~/.local/share/<appId>
+  /// 内核副本、geo 数据、日志都落在这里，且该目录必然可写、无需额外权限。
+  @override
+  Future<Directory?> getAppGroupDirectory(String groupId) async =>
+      Directory(await getApplicationSupportDir());
 
   @override
   Future<String> getSystemVersion() async => Platform.operatingSystemVersion;

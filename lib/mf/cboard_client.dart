@@ -359,9 +359,19 @@ class CBoardClient {
     }
   }
 
+  /// 登录态变化通知。
+  ///
+  /// 放在 [_setSession] 这个**唯一会话出口**上发布，因此登录、注册（后端注册即
+  /// 下发 token）、刷新失败导致清会话、登出 —— 全都自动覆盖，不会漏发。
+  /// 启动门禁靠它决定显示「登录页」还是「主界面」，登录/登出后无需手动跳转。
+  static final ValueNotifier<bool> sessionChanges = ValueNotifier<bool>(false);
+
   Future<void> _setSession(CBoardSession? s) async {
     _session = s;
     await CBoardSessionStore.save(s);
+    // 通知放在持久化之后：UI 一旦切到主界面就会立刻发请求，
+    // 此时凭据必须已经落盘，否则冷启动竞态下会出现一次 40100。
+    sessionChanges.value = s != null;
   }
 
   // ───────────────────────────── 认证 ─────────────────────────────
