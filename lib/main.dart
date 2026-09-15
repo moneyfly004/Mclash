@@ -196,9 +196,9 @@ Future<void> run(List<String> args) async {
     SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
-  // Mclash VPN 服务插件必须在 runApp 之前注册：
-  // 它是 path 依赖（非正式插件），Flutter 不会自动注册其 Dart 平台实现。
-  // 见 packages/libclash_vpn_service/lib/libclash_vpn_service.dart
+  // VPN 平台实现现在是**惰性直接构造**的（见 vpn_service_platform.dart 的
+  // _createDefault），因此不依赖任何注册时机。这里显式调用只是留一个覆盖点，
+  // 便于测试注入 mock，不调用也能正常工作。
   registerMclashVpnService();
 
   runApp(TranslationProvider(child: const MyApp()));

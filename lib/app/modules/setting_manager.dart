@@ -120,7 +120,11 @@ class SettingConfigItemWebDev {
 }
 
 class SettingConfig {
-  static const String kDefaultBoardUrl = "https://board.zash.run.place/";
+  // 默认"在线面板"地址。
+  // 原 Clash Mi 指向其自家的第三方面板服务（board.zash.run.place）。
+  // Mclash 已按设计移除 zashboard 内嵌面板（ADR/D-01），且不外链第三方域名，
+  // 因此置空 —— 「使用在线面板」开关默认关闭，用户若自建面板可自行填写。
+  static const String kDefaultBoardUrl = "";
   static const int kDefaultBoardPort = 7066;
   static const String kDefaultDelayTestUrl =
       "https://www.gstatic.com/generate_204";

@@ -2,34 +2,54 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Mclash 桌面端不使用 NetworkExtension（无 packet-tunnel-provider /
-	     system-extension.install），而是 spawn 官方 mihomo 子进程 + 调 networksetup
-	     设系统代理。因此：
-	       · 必须关闭 App Sandbox（沙盒禁止进程派生与 systemconfiguration 访问）
-	       · 必须允许 network client/server（本地混合代理监听 + 内核 API）
-	     本应用经 DMG 分发（非 Mac App Store），关闭沙盒是合规的。 -->
+	<!-- ====================================================================
+	     Mclash macOS entitlements（ad-hoc / Developer ID 分发；非 Mac App Store）
+
+	     ⚠️ 这里**只保留 ad-hoc 签名可以合法携带的 key**。
+	     实测：带 restricted entitlement（com.apple.developer.*、
+	     application-groups、keychain-access-groups）的 ad-hoc 签名包
+	     **根本起不来** —— launchd 直接拒绝 spawn：
+	       "The application cannot be opened ... Launchd job spawn failed"
+	       (NSPOSIXErrorDomain Code=163)
+	     因为内核要求这些授权必须由描述文件背书。
+
+	     原 Clash Mi 的以下 key 已删除，原因分别是：
+	       · com.apple.developer.networking.networkextension
+	       · com.apple.developer.system-extension.install
+	           → Mclash 桌面端**不用 NetworkExtension**，改为 spawn 官方 mihomo
+	             子进程 + networksetup 设系统代理
+	       · com.apple.security.application-groups
+	       · keychain-access-groups
+	           → 原本只为与 NE 扩展共享数据；没有扩展就不需要。
+	             flutter_secure_storage 用默认 keychain 即可，无需 access group
+	       · com.apple.developer.icloud-*
+	       · com.apple.developer.ubiquity-container-identifiers
+	       · com.apple.developer.networking.wifi-info
+	           → 需要付费开发者账号 + 描述文件才能生效；本项目 ad-hoc 分发，
+	             带上只会让包起不来。iCloud 备份功能在 ad-hoc 构建下不可用
+	             （WebDAV / 局域网同步不受影响）。
+
+	     若日后改用 Developer ID + 描述文件正式签名，可以按需加回
+	     application-groups / keychain-access-groups / iCloud 相关 key。
+	     ==================================================================== -->
+
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
+
+	<!-- Flutter 引擎需要 JIT 与可写可执行内存 -->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
 	<true/>
-	<!-- mihomo 子进程是 ad-hoc 签名的，需要关闭库校验才能加载 -->
+	<!-- 内嵌的 mihomo 子进程是 ad-hoc 签名的，需关闭库校验才能被加载 -->
 	<key>com.apple.security.cs.disable-library-validation</key>
 	<true/>
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.top.moneyfly.mclash</string>
-	</array>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>$(AppIdentifierPrefix)top.moneyfly.mclash</string>
-	</array>
 </dict>
 </plist>

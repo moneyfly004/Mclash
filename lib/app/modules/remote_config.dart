@@ -75,24 +75,43 @@ class RemoteConfigDonate {
 }
 
 class RemoteConfig {
-  static const String kDefaultHost = "mclash.app";
-  static const String kDefaultConfig = "https://dot.$kDefaultHost/mconfig.json";
-  static const String kDefaultAutoUpdate =
-      "https://dot.$kDefaultHost/mautoupdate.json";
+  // ==========================================================================
+  //  远端配置 / 帮助链接的默认地址
+  //
+  //  ⚠️ 全部指向 **Mclash 自有后台**。
+  //  原 Clash Mi 的默认值指向其自家服务器（`dot.clashmi.app`、`tools.karing.app`、
+  //  Telegram 群、GitHub 仓库等）。本项目**不得**调用任何与业务无关的第三方域名：
+  //    · 会把用户设备信息（did/语言/时区/安装来源）发往第三方；
+  //    · 那些域名与本产品无关，随时可能变更或消失。
+  //
+  //  注意：`mconfig.json` / `mautoupdate.json` 是 Clash Mi 的私有 schema，
+  //  我们后台没有对应实现。这里指向自有后台的等效端点（`/api/v1/config`、
+  //  `/api/v1/software/versions`）—— schema 不同，`RemoteConfig.fromJson` 会
+  //  走防御分支落到内置默认值，行为安全（不会崩，也不会拿到错误配置）。
+  // ==========================================================================
+  static const String kDefaultHost = "new.moneyfly.top";
+  static const String kDefaultAPI = "https://$kDefaultHost/api/v1";
 
-  static const String kDefaultGetTranffic =
-      "https://$kDefaultHost/page/sponsor#list";
+  static const String kDefaultConfig = "$kDefaultAPI/config";
+  static const String kDefaultAutoUpdate = "$kDefaultAPI/software/versions";
 
-  static const String kDefaultTutorial = "https://$kDefaultHost/guide/";
-  static const String kDefaultFaq = "https://$kDefaultHost/guide/faq/";
+  /// 套餐 / 官网（原为 Clash Mi 的服务商推广页）
+  static const String kDefaultGetTranffic = "https://$kDefaultHost";
 
-  static const String kDefaultDownload = "https://$kDefaultHost/download/";
-  static const String kDefaultTelegram = "https://t.me/ClashMiApp";
-  static const String kDefaultFollow = "https://github.com/KaringX/mclash";
-  static const String kDefaultDonate = "http://$kDefaultHost/donate";
+  static const String kDefaultTutorial = "https://$kDefaultHost";
+  static const String kDefaultFaq = "https://$kDefaultHost";
+
+  static const String kDefaultDownload = "https://$kDefaultHost";
+  /// 在线客服（原为 Clash Mi 的 Telegram 群）
+  static const String kDefaultTelegram = "https://$kDefaultHost";
+
+  static const String kDefaultFollow = "https://github.com/moneyfly004/Mclash";
+  static const String kDefaultDonate = "https://$kDefaultHost";
+  /// mihomo 官方配置文档（这是上游文档，保留是正确的）
   static const String kDefaultDoc = "https://wiki.metacubex.one/config/";
-  static const String kDefaultHtmlTools = "https://tools.karing.app/";
-  static const String kDefaultConnect = "https://mclash.app/go";
+  /// 原为 Clash Mi 的私有工具站 —— 置空以免外链到无关站点
+  static const String kDefaultHtmlTools = "";
+  static const String kDefaultConnect = "https://$kDefaultHost";
 
   String latestCheck = "";
 
