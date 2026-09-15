@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Mclash 设计稿 · 移动端（Android）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* ---------- page-local ---------- */
+.phone .glow{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none}
+.hd{display:flex;align-items:center;gap:10px;padding:8px 0 10px}
+.hd .logo{width:36px;height:36px;border-radius:11px;background:#000;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.hd .logo svg{width:20px;height:20px}
+.hd .nm{font-family:var(--num);font-size:15.5px;font-weight:700;letter-spacing:.03em}
+.hd .sub{font-size:10.5px;color:var(--txt-3);margin-top:1px}
+.ibtn{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  color:var(--txt-2);font-size:16px;position:relative}
+.ibtn .rd{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+/* sub info bar */
+.subbar{border-radius:15px;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.subbar .cell{flex:2;display:flex;flex-direction:column;gap:3px}
+.subbar .cell .k{font-size:9.5px;color:var(--txt-2)}
+.subbar .cell .v{font-family:var(--num);font-size:13.5px;font-weight:800}
+.subbar .rf{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--brand-2);font-size:13px}
+.subbar .rf .tm{font-family:var(--num);font-size:10px;color:var(--txt-3)}
+/* banner */
+.banner{border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.banner .em{font-size:16px;flex:0 0 auto}
+.banner .tx{flex:1;font-size:12px;line-height:1.5;color:var(--txt)}
+.banner .cta{flex:0 0 auto}
+/* connect card */
+.cc{border-radius:22px;padding:16px;margin-bottom:12px;border:1px solid;position:relative;overflow:hidden}
+.cc .st{text-align:center;font-size:13px;font-weight:600}
+.cc .ses{text-align:center;font-family:var(--num);font-size:10.5px;color:var(--txt-3);margin-top:4px}
+.pw{width:108px;height:108px;border-radius:50%;margin:12px auto 12px;display:flex;align-items:center;justify-content:center;position:relative}
+.pw .ring{position:absolute;inset:0;border-radius:50%}
+.pw .core{width:80px;height:80px;border-radius:50%;border:1.2px solid;display:flex;align-items:center;justify-content:center}
+.pw .core .ic{font-size:40px;line-height:1}
+.node{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(26,33,50,.55);
+  border:1px solid var(--line);border-radius:14px}
+.node .fl{font-size:20px;width:30px;text-align:center}
+.node .info{flex:1;min-width:0}
+.node .info .l{font-size:10px;color:var(--txt-3)}
+.node .info .n{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.node .swx{display:flex;align-items:center;gap:2px;padding:5px 10px;background:rgba(69,95,233,.22);
+  border:1px solid rgba(69,95,233,.5);border-radius:9px;font-size:11.5px;font-weight:700;color:var(--brand-2);flex:0 0 auto}
+.real{text-align:center;font-size:11px;margin-top:12px}
+.mode{margin-top:12px}
+/* stats */
+.stats{display:flex;gap:12px;margin-bottom:12px}
+.stat{flex:1;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:16px}
+.stat .h{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt-2);font-weight:600}
+.stat .v{display:flex;align-items:baseline;gap:6px;margin-top:10px}
+.stat .v b{font-family:var(--num);font-size:26px;font-weight:700;line-height:1}
+.stat .v span{font-size:13px;color:var(--txt-3)}
+.spark{height:26px;margin-top:10px;display:flex;align-items:flex-end;gap:2px}
+.spark i{flex:1;border-radius:2px;display:block}
+/* autotest */
+.at{border-radius:16px;padding:12px 14px;margin-bottom:12px;background:var(--g-autotest);border:1px solid var(--brand-line)}
+.at .h{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.at .h .i{width:26px;height:26px;border-radius:8px;background:var(--g-brand);display:flex;align-items:center;justify-content:center;font-size:13px}
+.at .h .t{font-size:13px;font-weight:700}
+.at .h .s{margin-left:auto;font-size:10.5px;font-weight:600;color:var(--green);background:var(--green-soft);
+  border:1px solid var(--green-line);padding:3px 9px;border-radius:var(--r-full)}
+.at .b{display:flex;align-items:center;gap:10px}
+.at .bn{flex:1;display:flex;align-items:center;gap:8px;background:rgba(11,14,20,.6);border:1px solid var(--line);
+  border-radius:11px;padding:8px 11px;position:relative}
+.at .bn .fl{font-size:16px}
+.at .bn .n{font-size:12.5px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.at .bn .ms{font-family:var(--num);font-size:12px;font-weight:700;color:var(--green)}
+.at .bn .tg{font-size:9.5px;font-weight:700;color:#fff;background:var(--g-brand);padding:2px 8px;border-radius:10px;letter-spacing:.06em}
+.at .ft{display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--txt-3)}
+.at .ft b{font-family:var(--num);color:var(--txt-2);font-weight:600}
+/* countries */
+.qc .lab{font-size:11.5px;color:var(--txt-2);padding:0 2px 8px}
+.qc .pills{display:flex;flex-wrap:wrap;gap:8px}
+.qc .p{height:34px;border-radius:var(--r-full);padding:0 12px;display:inline-flex;align-items:center;gap:6px;
+  background:var(--card);border:1px solid var(--line);font-size:12px;font-weight:600}
+.qc .p .ms{font-family:var(--num);font-size:10px;color:var(--txt-3);font-weight:500}
+.qc .p.on{border-color:rgba(69,95,233,.7);background:rgba(69,95,233,.2);color:var(--brand-2)}
+.qc .p.auto{border-color:rgba(46,230,168,.7);background:rgba(46,230,168,.18);color:var(--green)}
+/* node page */
+.title{display:flex;align-items:center;gap:10px;padding:10px 0 12px}
+.title h2{font-size:18px;font-weight:700;flex:1}
+.auto-bar{border-radius:14px;padding:10px 12px;background:var(--g-autotest);border:1px solid var(--brand-line);
+  display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.auto-bar .l{flex:1;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.auto-bar .l .s{font-size:10px;font-weight:700;color:var(--green);background:var(--green-soft);
+  border:1px solid var(--green-line);padding:2px 8px;border-radius:var(--r-full)}
+.searchbar{display:flex;gap:10px;margin-bottom:12px}
+.searchbar .box{flex:1;height:46px;background:var(--card);border:1px solid var(--line-2);border-radius:14px;
+  display:flex;align-items:center;gap:10px;padding:0 14px;font-size:13.5px;color:var(--txt-3)}
+.searchbar .act{width:46px;height:46px;border-radius:14px;background:var(--card);border:1px solid var(--line-2);
+  display:flex;align-items:center;justify-content:center;color:var(--brand-2);font-size:16px}
+.searchbar .act.wide{width:auto;padding:0 14px;gap:6px;font-size:12.5px;font-weight:600;
+  background:var(--g-brand);border:none;color:#fff}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.prog .bar{flex:1}
+.prog .n{font-family:var(--num);font-size:12px;font-weight:600;color:var(--brand-2)}
+.gh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt-3);font-weight:600;letter-spacing:.06em;margin:12px 2px 8px}
+.gh .c{margin-left:auto;font-family:var(--num);font-size:11px}
+.nrow{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:16px;margin-bottom:8px;
+  background:var(--card);border:1px solid var(--line)}
+.nrow .fl{width:34px;height:34px;flex:0 0 34px;border-radius:11px;background:var(--tile);display:flex;
+  align-items:center;justify-content:center;font-size:20px}
+.nrow .info{flex:1;min-width:0}
+.nrow .info .n{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nrow .info .s{font-size:11px;color:var(--txt-3);font-family:var(--num);margin-top:2px}
+.nrow .ck{width:18px;height:18px;border-radius:50%;background:var(--g-brand);display:flex;align-items:center;
+  justify-content:center;font-size:10px;color:#fff;box-shadow:0 0 12px rgba(69,95,233,.5)}
+.nrow.on{border-color:rgba(69,95,233,.7);background:linear-gradient(180deg,rgba(69,95,233,.16),rgba(69,95,233,.05));box-shadow:var(--sh-card)}
+/* package */
+.plans{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.plan{border-radius:18px;padding:16px 14px;background:var(--card);border:1px solid var(--line);position:relative}
+.plan.on{border-color:rgba(69,95,233,.8);background:linear-gradient(180deg,rgba(69,95,233,.18),var(--card));box-shadow:0 10px 30px rgba(69,95,233,.25)}
+.plan .nm{font-size:14px;font-weight:700}
+.plan .pr{font-family:var(--num);font-size:24px;font-weight:700;margin-top:6px}
+.plan .pr small{font-size:12px;color:var(--txt-3);font-weight:500}
+.plan .ds{font-size:11px;color:var(--txt-3);margin-top:6px}
+.plan.on .pr{color:var(--brand-2)}
+.detail{display:flex;border-radius:16px;background:var(--card);border:1px solid var(--line);padding:14px 0;margin-bottom:14px}
+.detail .it{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.detail .it .v{font-size:14px;font-weight:600}
+.detail .it .k{font-size:10.5px;color:var(--txt-3)}
+.pay-opt{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:13px 14px;margin-bottom:8px}
+.pay-opt.on{border-color:rgba(69,95,233,.7);background:linear-gradient(180deg,rgba(69,95,233,.14),var(--card))}
+.pay-opt .pi{width:34px;height:34px;flex:0 0 34px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:17px;font-weight:700;color:#fff}
+.pay-opt .pn{flex:1;font-size:14px;font-weight:600}
+.pay-opt .pd{font-size:11px;color:var(--txt-3);margin-top:2px}
+.radio{width:20px;height:20px;flex:0 0 20px;border-radius:50%;border:2px solid var(--line-2);position:relative}
+.pay-opt.on .radio{border-color:var(--brand-2)}
+.pay-opt.on .radio::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--brand-2)}
+.coupon{display:flex;gap:10px;margin-bottom:14px}
+.coupon .inp{flex:1;height:48px}
+.coupon .go{height:48px;padding:0 18px;border-radius:14px;background:var(--card);border:1px solid var(--line-2);
+  color:var(--brand-2);font-weight:600;font-size:13px;display:flex;align-items:center}
+.summary{display:flex;align-items:center;padding:12px 4px;border-top:1px solid var(--line)}
+.summary .l{font-size:12.5px;color:var(--txt-2)}
+.summary .r{margin-left:auto;font-family:var(--num);font-size:22px;font-weight:700}
+/* profile */
+.pf-hd{display:flex;align-items:center;gap:14px;padding:12px 0 16px}
+.pf-hd .av{width:56px;height:56px;flex:0 0 56px;border-radius:16px;background:#000;display:flex;
+  align-items:center;justify-content:center;font-size:26px;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.pf-hd .nm{font-size:17px;font-weight:700}
+.pf-hd .em{font-size:12px;color:var(--txt-3);margin-top:3px}
+.pf-hd .bal{margin-left:auto;text-align:right}
+.pf-hd .bal .v{font-family:var(--num);font-size:17px;font-weight:700;color:var(--brand-2)}
+.pf-hd .bal .k{font-size:10.5px;color:var(--txt-3)}
+.subcard{border-radius:22px;padding:18px;background:var(--g-subcard);border:1px solid rgba(69,95,233,.4);
+  position:relative;overflow:hidden;margin-bottom:14px}
+.subcard::after{content:'';position:absolute;top:-60px;right:-60px;width:180px;height:180px;border-radius:50%;
+  background:radial-gradient(circle,rgba(69,95,233,.35),transparent 70%)}
+.subcard .top{display:flex;align-items:center;margin-bottom:16px;position:relative;z-index:1}
+.subcard .top .p{font-size:15px;font-weight:700}
+.subcard .top .s{margin-left:auto}
+.subcard .grid{display:flex;position:relative;z-index:1}
+.subcard .grid .it{flex:1}
+.subcard .grid .it .v{font-family:var(--num);font-size:16px;font-weight:700}
+.subcard .grid .it .k{font-size:10.5px;color:var(--txt-3);margin-top:4px}
+.menu{display:flex;flex-direction:column;gap:8px}
+.menu .r{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:14px 16px}
+.menu .r .mi{width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:var(--tile);display:flex;
+  align-items:center;justify-content:center;color:var(--brand-2);font-size:15px}
+.menu .r .t{flex:1;font-size:14px;font-weight:500}
+.menu .r .n{font-family:var(--num);font-size:11px;color:var(--txt-3);background:#232B3D;padding:2px 8px;border-radius:12px}
+.menu .r .arr{color:var(--txt-3);font-size:13px}
+/* generic list card */
+.lcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.lcard .h{display:flex;align-items:center;gap:10px}
+.lcard .h .t{font-size:14px;font-weight:600;flex:1}
+.lcard .m{font-size:11.5px;color:var(--txt-3);margin-top:6px;font-family:var(--num)}
+.lcard .acts{display:flex;gap:10px;margin-top:12px}
+.lcard .acts .b{flex:1;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  font-size:12.5px;font-weight:600}
+.lcard .acts .b.g{background:var(--g-brand);color:#fff}
+.lcard .acts .b.o{border:1px solid var(--line-2);color:var(--txt-2)}
+.lcard .acts .b.r{border:1px solid rgba(255,90,95,.35);color:var(--red);background:var(--red-soft)}
+/* chips row */
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chiprow .c{height:40px;padding:0 16px;border-radius:12px;display:flex;align-items:center;gap:5px;
+  background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:600;position:relative}
+.chiprow .c.on{background:var(--g-brand);border:none;color:#fff}
+.chiprow .c.dis{opacity:.4}
+.chiprow .c .rc{position:absolute;top:-7px;right:-6px;font-size:9px;font-weight:700;background:var(--amber);
+  color:#111;padding:1px 6px;border-radius:99px}
+/* log */
+.lvchips{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.lvchips .c{height:30px;padding:0 12px;border-radius:9px;display:flex;align-items:center;font-size:11px;font-weight:600;
+  background:var(--card);border:1px solid var(--line);color:var(--txt-3);font-family:var(--num)}
+.lvchips .c.on{background:var(--g-brand);border:none;color:#fff}
+.logbox{background:#0A0D14;border:1px solid var(--line);border-radius:14px;padding:12px;
+  font-family:var(--num);font-size:11px;line-height:1.85;overflow:hidden}
+.logbox .l{display:flex;gap:8px}
+.logbox .ts{color:var(--txt-3);flex:0 0 auto}
+.logbox .e{color:#FF6B6B}
+.logbox .w{color:#E0A93C}
+.logbox .i{color:#8FB4E8}
+.logbox .d{color:var(--txt-3)}
+/* modal overlay */
+.overlay{position:absolute;inset:0;background:rgba(3,5,10,.7);backdrop-filter:blur(6px);z-index:40;
+  display:flex;align-items:flex-end}
+.overlay.center{align-items:center;justify-content:center;padding:0 22px}
+.sheet{width:100%;background:var(--bg-2);border-radius:24px 24px 0 0;padding:0 0 18px;
+  max-height:78%;display:flex;flex-direction:column}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line-2);margin:10px auto 0}
+.sheet .sh{display:flex;align-items:center;gap:10px;padding:14px 20px 10px}
+.sheet .sh h3{font-size:17px;font-weight:700}
+.sheet .sh .sub{font-size:11px;color:var(--txt-3)}
+.sheet .body{padding:0 16px;overflow:hidden;flex:1}
+.modal{width:100%;border-radius:26px;padding:22px 20px 18px;background:var(--g-modal);
+  border:1px solid var(--line-2);box-shadow:var(--sh-modal);text-align:center}
+.modal h3{font-size:17px;font-weight:700}
+.modal .sub{font-size:11px;color:var(--txt-3);letter-spacing:.08em;margin-top:5px}
+.qr{width:196px;height:196px;margin:16px auto 14px;border-radius:18px;background:#fff;padding:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.qr .grid9{width:100%;height:100%;background:
+  repeating-conic-gradient(#111 0 25%,#fff 0 50%) 0 0/12px 12px;border-radius:4px}
+.amt{font-family:var(--num);font-size:32px;font-weight:700}
+.amt small{font-size:14px;color:var(--txt-2)}
+.ono{font-family:var(--num);font-size:11.5px;color:var(--txt-3);margin-top:6px;letter-spacing:.04em}
+.waiting{display:inline-flex;align-items:center;gap:8px;margin:14px 0 16px;font-size:12.5px;color:var(--txt-2)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(69,95,233,.25);border-top-color:var(--brand-2);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.mbtns{display:flex;gap:10px}
+.mbtns .b{flex:1;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600}
+.mbtns .b.g{background:var(--g-brand);color:#fff}
+.mbtns .b.o{border:1px solid var(--line-2);color:var(--txt-2)}
+/* registration */
+.steps{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 16px}
+.steps .s{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--txt-3)}
+.steps .s .no{width:20px;height:20px;border-radius:50%;background:#232B3D;display:flex;align-items:center;
+  justify-content:center;font-size:10.5px;font-family:var(--num)}
+.steps .s.on{color:var(--brand-2)}
+.steps .s.on .no{background:var(--g-brand);color:#fff}
+.steps .s.done{color:var(--green)}
+.steps .s.done .no{background:rgba(46,230,168,.2);color:var(--green)}
+.steps .ln{width:26px;height:1px;background:var(--line-2)}
+.coderow{display:flex;gap:10px}
+.coderow .inp{flex:1}
+.coderow .cbtn{height:54px;padding:0 14px;min-width:104px;border-radius:16px;background:var(--g-brand);
+  color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.coderow .cbtn.wait{background:var(--card);border:1px solid var(--line-2);color:var(--txt-3);font-family:var(--num)}
+.rules{font-size:12px;color:var(--txt-3);line-height:1.9;margin-top:8px}
+.rules .ok{color:var(--green)}
+.errline{font-size:12px;color:var(--red);margin:10px 0;font-weight:500}
+/* misc */
+.tile{width:34px;height:34px;border-radius:10px;background:var(--tile);display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 34px}
+.approw{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.approw .cb{width:20px;height:20px;border-radius:6px;border:1.6px solid var(--line-2);flex:0 0 20px}
+.approw .cb.on{background:var(--g-brand);border:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px}
+.approw .sq{width:34px;height:34px;border-radius:10px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700}
+.approw .nm{flex:1;font-size:13.5px}
+.approw .pk{font-size:11px;color:var(--txt-3);font-family:var(--num);margin-top:2px}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:50px 0}
+.empty .i{font-size:42px;color:var(--txt-3);opacity:.75}
+.empty .t{font-size:14px;color:var(--txt-2)}
+.empty .h{font-size:12px;color:var(--txt-3)}
+.bypass{height:48px;background:var(--card);border:1px solid var(--line);border-radius:14px;display:flex;
+  align-items:center;gap:10px;padding:0 14px;margin-bottom:8px}
+.bypass .k{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--brand-soft);color:var(--brand-2)}
+.bypass .x{color:var(--red);font-size:15px}
+</style>
+</head>
+<body>
+<h1 class="doc">Mclash · 移动端（Android）高保真设计稿 v1.0</h1>
+<p class="doc">画布 390 × 844 · 色值取自 <code>docs/design/03-设计系统-Design-Tokens.md</code> §3.2.2 深蓝外观（<code>darkblue</code>）· 页面规格见 <code>docs/design/06-页面设计-移动端.md</code></p>
+<div class="legend">
+  本稿与 Dart 实现的对应关系：<b>MFColors.brand / bg / card / txt / green / amber / red</b>；
+  <b>mfLatencyColor()</b> 延迟色阶（&lt;100 绿 · &lt;300 琥珀 · ≥300 红）；
+  <b>MFPrimaryButton</b>（54px · r16 · 135° 品牌渐变 · 0 10px 30px brand@.35）。
+  全部页面左右安全边距 <b>22px</b>；连接卡与节点行为 <b>r16–r22</b>。
+</div>
+
+<!-- ═══════════════ A1 登录 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="glow" style="background:rgba(69,95,233,.35);width:340px;height:340px;top:-80px;left:-60px"></div>
+  <div class="glow" style="background:rgba(122,92,255,.22);width:340px;height:340px;bottom:-100px;right:-70px"></div>
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px;overflow:hidden">
+    <div style="display:flex;flex-direction:column;align-items:center;margin-top:34px">
+      <div style="width:60px;height:60px;border-radius:17px;background:#000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(255,255,255,.16),0 18px 50px rgba(69,95,233,.4)">
+        <svg viewBox="0 0 48 48" width="35" height="35"><path d="M9 35V13l15 15L39 13v22" stroke="#455FE9" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </div>
+      <div class="num" style="font-size:26px;font-weight:700;letter-spacing:.06em;margin-top:14px">Money<span style="color:var(--brand-2)">Fly</span></div>
+      <div style="font-size:13px;color:var(--txt-3);letter-spacing:.12em;margin-top:10px">极速 · 稳定 · 全球畅连</div>
+    </div>
+    <div style="margin-top:26px">
+      <div class="field"><div class="lbl">账号 / 邮箱</div><div class="inp">moneyfly@example.com</div></div>
+      <div class="field"><div class="lbl">密码</div><div class="inp focus">••••••••<span style="margin-left:auto;font-size:13px">👁</span></div></div>
+      <div style="display:flex;align-items:center;margin:4px 2px 16px">
+        <span style="font-size:13px;color:var(--txt-2)">自动登录</span><div class="spacer"></div><div class="sw"></div>
+      </div>
+      <div class="btn">登 录</div>
+      <div style="display:flex;align-items:center;gap:9px;margin:16px 2px 0;font-size:11.5px;color:var(--txt-2)">
+        <div style="width:18px;height:18px;border-radius:6px;background:var(--g-brand);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">✓</div>
+        我已阅读并同意《用户协议》与《隐私政策》
+      </div>
+      <div style="display:flex;justify-content:center;gap:26px;margin-top:22px;font-size:13px;color:var(--txt-2)">
+        <span>还没有账号？<b style="color:var(--brand-2)">立即注册</b></span><span>忘记密码</span>
+      </div>
+      <div class="num" style="text-align:center;font-size:10.5px;color:var(--txt-3);margin-top:26px">Mclash v2.3.0</div>
+    </div>
+  </div>
+</div></div><div class="cap">A1 · 登录</div></div>
+
+<!-- ═══════════════ A2 注册 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>注册</h2><span style="font-size:13px;color:var(--brand-2);font-weight:600">登录</span></div>
+    <div class="field"><div class="lbl">邮箱</div><div class="inp">you@example.com</div></div>
+    <div class="field"><div class="lbl">验证码</div>
+      <div class="coderow"><div class="inp">6 位验证码</div><div class="cbtn wait">60s 后重发</div></div>
+    </div>
+    <div class="field"><div class="lbl">用户名</div><div class="inp">moneyfly</div></div>
+    <div class="field"><div class="lbl">密码</div><div class="inp">••••••••<span style="margin-left:auto;font-size:13px">👁</span></div>
+      <div class="rules"><div class="ok">✓ 至少 8 位</div><div>○ 大小写字母/数字/符号至少三种（2/4）</div></div>
+    </div>
+    <div class="field"><div class="lbl">确认密码</div><div class="inp">••••••••</div></div>
+    <div class="field"><div class="lbl">邀请码（可选）</div><div class="inp">选填</div></div>
+    <div style="display:flex;align-items:center;gap:9px;margin:4px 2px 16px;font-size:11.5px;color:var(--txt-2)">
+      <div style="width:18px;height:18px;border-radius:6px;background:var(--g-brand);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px">✓</div>
+      我已阅读并同意《用户协议》与《隐私政策》
+    </div>
+    <div class="btn">注 册</div>
+  </div>
+</div></div><div class="cap">A2 · 注册（验证码 60s 倒计时 + 密码规则实时提示）</div></div>
+
+<!-- ═══════════════ A3 忘记密码 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>忘记密码</h2><span style="font-size:13px;color:var(--brand-2);font-weight:600">登录</span></div>
+    <div class="steps">
+      <div class="s on"><span class="no">1</span>验证身份</div><div class="ln"></div><div class="s"><span class="no">2</span>设置新密码</div>
+    </div>
+    <div class="field"><div class="lbl">邮箱</div><div class="inp">you@example.com</div></div>
+    <div class="field"><div class="lbl">验证码</div>
+      <div class="coderow"><div class="inp">6 位验证码</div><div class="cbtn">获取验证码</div></div>
+    </div>
+    <div class="errline">⚠ 验证码错误或已过期</div>
+    <div class="btn" style="margin-top:14px">下一步</div>
+    <div class="note" style="margin-top:14px;text-align:center">错误提示常驻按钮上方、不自动消失 —— 修复「点了没反应」</div>
+  </div>
+</div></div><div class="cap">A3 · 忘记密码（步骤 1/2）</div></div>
+
+<!-- ═══════════════ B1 首页 · 已连接 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="hd">
+      <div class="logo"><svg viewBox="0 0 48 48"><path d="M9 35V13l15 15L39 13v22" stroke="#455FE9" stroke-width="7" stroke-linecap="round" fill="none"/></svg></div>
+      <div><div class="nm">MoneyFly</div><div class="sub">全球加速已就绪</div></div>
+      <div class="spacer"></div>
+      <div class="ibtn">⟳</div><div class="ibtn">⚙</div>
+    </div>
+    <div class="subbar" style="background:linear-gradient(135deg,rgba(69,95,233,.18),rgba(69,95,233,.06));border:1px solid rgba(69,95,233,.4)">
+      <div class="cell"><span class="k">到期</span><span class="v num">2026-03-14</span></div>
+      <div class="cell"><span class="k">设备</span><span class="v num">2/3</span></div>
+      <div class="cell"><span class="k">剩余</span><span class="v num" style="color:var(--green)">128 天</span></div>
+      <div class="rf">⟳<span class="tm">14:32</span></div>
+    </div>
+
+    <div class="cc" style="background:var(--g-connect);border-color:rgba(46,230,168,.55)">
+      <div class="st" style="color:var(--green)">已连接</div>
+      <div class="ses">已连接 00:12:30 · ↑ 1.2 MB ↓ 840.0 MB</div>
+      <div class="pw" style="box-shadow:0 0 34px rgba(46,230,168,.5)">
+        <div class="ring"></div>
+        <div class="core" style="border-color:rgba(46,230,168,.5);background:radial-gradient(circle at 50% 32%,#1E3B3A,#0E1716 75%)">
+          <span class="ic" style="color:var(--green)">⏻</span>
+        </div>
+      </div>
+      <div class="node">
+        <span class="fl">🇯🇵</span>
+        <div class="info"><div class="l">当前线路</div><div class="n">日本 · 东京 · 01</div></div>
+        <span class="badge g">86 ms</span>
+        <span class="swx">切换 ›</span>
+      </div>
+      <div class="real" style="color:var(--green)">🇯🇵 真实出口 · 日本</div>
+      <div class="seg mode">
+        <div class="o on">◎ 智能模式</div><div class="o">⊕ 全局模式</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="h" style="color:var(--brand-2)">↑ 上行</div>
+        <div class="v"><b style="color:var(--brand-2)">1.2</b><span>MB/s</span></div>
+        <div class="spark"><i style="height:40%;background:var(--brand-2)"></i><i style="height:70%;background:var(--brand-2)"></i><i style="height:30%;background:var(--brand-2)"></i><i style="height:85%;background:var(--brand-2)"></i><i style="height:55%;background:var(--brand-2)"></i><i style="height:90%;background:var(--brand-2)"></i><i style="height:45%;background:var(--brand-2)"></i><i style="height:65%;background:var(--brand-2)"></i></div>
+      </div>
+      <div class="stat"><div class="h" style="color:var(--green)">↓ 下行</div>
+        <div class="v"><b style="color:var(--green)">8.4</b><span>MB/s</span></div>
+        <div class="spark"><i style="height:55%;background:var(--green)"></i><i style="height:35%;background:var(--green)"></i><i style="height:80%;background:var(--green)"></i><i style="height:60%;background:var(--green)"></i><i style="height:95%;background:var(--green)"></i><i style="height:50%;background:var(--green)"></i><i style="height:75%;background:var(--green)"></i><i style="height:88%;background:var(--green)"></i></div>
+      </div>
+    </div>
+
+    <div class="at">
+      <div class="h"><div class="i">⚡</div><div class="t">自动测速与选优</div><div class="s">● 已自动选优</div></div>
+      <div class="b">
+        <div class="bn"><span class="fl">🇯🇵</span><span class="n">日本 · 东京 · 01</span><span class="ms">86 ms</span><span class="tg">最优</span></div>
+        <span class="chip">⚡ 重测</span>
+      </div>
+      <div class="ft"><span>上次测速 <b>14:28</b></span><span>共 <b>68</b> 个节点 · <b>62</b> 在线</span></div>
+    </div>
+
+    <div class="qc">
+      <div class="lab">快速切换国家 · 点按即切最优节点</div>
+      <div class="pills">
+        <span class="p auto">✦ 自动</span>
+        <span class="p on">🇯🇵 日本 <span class="ms">86ms</span></span>
+        <span class="p">🇸🇬 新加坡 <span class="ms">94ms</span></span>
+        <span class="p">🇺🇸 美国 <span class="ms">112ms</span></span>
+        <span class="p">🇭🇰 香港 <span class="ms">72ms</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="nav"><div class="item on"><div class="dot">⌂</div>首页</div><div class="item"><div class="dot">▤</div>节点</div><div class="item"><div class="dot">▦</div>套餐</div><div class="item"><div class="dot">◔</div>我的</div></div>
+</div></div><div class="cap">B1 · 首页（已连接）★ 区块 ⑥ 自动测速卡为新增</div></div>
+
+<!-- ═══════════════ B1b 首页 · 受限 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="hd">
+      <div class="logo"><svg viewBox="0 0 48 48"><path d="M9 35V13l15 15L39 13v22" stroke="#455FE9" stroke-width="7" stroke-linecap="round" fill="none"/></svg></div>
+      <div><div class="nm">MoneyFly</div><div class="sub">全球加速已就绪</div></div>
+      <div class="spacer"></div><div class="ibtn">⟳</div><div class="ibtn">⚙</div>
+    </div>
+    <div class="subbar" style="background:linear-gradient(135deg,rgba(255,90,95,.18),rgba(255,90,95,.05));border:1px solid rgba(255,90,95,.55)">
+      <div class="cell"><span class="k">到期</span><span class="v num" style="color:var(--red)">已到期</span></div>
+      <div class="cell"><span class="k">设备</span><span class="v num">2/3</span></div>
+      <div class="cell"><span class="k">剩余</span><span class="v num" style="color:var(--red)">0 天</span></div>
+      <div class="rf" style="color:var(--red)">⟳<span class="tm">14:32</span></div>
+    </div>
+    <div class="banner" style="background:linear-gradient(135deg,rgba(255,90,95,.18),rgba(255,90,95,.06));border:1px solid rgba(255,90,95,.45)">
+      <span class="em">⏰</span>
+      <span class="tx">您的套餐已到期，购买套餐后即可继续畅连全球节点</span>
+      <span class="cta chip">去续费</span>
+    </div>
+    <div class="cc" style="background:var(--g-connect);border-color:rgba(69,95,233,.45)">
+      <div class="st" style="color:var(--txt-3)">已断开</div>
+      <div class="pw" style="box-shadow:0 0 34px rgba(69,95,233,.25)">
+        <div class="core" style="border-color:var(--line-2);background:radial-gradient(circle at 50% 32%,#1B2233,#0E121B 75%)">
+          <span class="ic" style="color:var(--txt-2)">⏻</span>
+        </div>
+      </div>
+      <div style="text-align:center;padding:6px 0 2px;font-size:13px;color:var(--txt-3);line-height:1.6">暂无节点，请先刷新订阅</div>
+      <div class="seg mode"><div class="o">◎ 智能模式</div><div class="o">⊕ 全局模式</div></div>
+    </div>
+    <div class="stat" style="margin-bottom:12px">
+      <div class="h">↑ 上行</div><div class="v"><b>0.0</b><span>MB/s</span></div>
+    </div>
+    <div class="stat">
+      <div class="h">↓ 下行</div><div class="v"><b>0.0</b><span>MB/s</span></div>
+    </div>
+    <div class="note" style="margin-top:14px;text-align:center">
+      受限账号：隐藏「自动测速卡」与「快速切换国家」，维持首页 ≤ 7 个可点击元素；<br>连接按钮被准入闸门拦截并弹「套餐已到期」弹窗。
+    </div>
+  </div>
+  <div class="nav"><div class="item on"><div class="dot">⌂</div>首页</div><div class="item"><div class="dot">▤</div>节点</div><div class="item"><div class="dot">▦</div>套餐</div><div class="item"><div class="dot">◔</div>我的</div></div>
+</div></div><div class="cap">B1b · 首页（订阅已到期 · 受限态）</div></div>
+
+<!-- ═══════════════ B2 节点页 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><h2>节点列表</h2><span class="chip ghost">⟳ 刷新订阅</span></div>
+    <div class="auto-bar">
+      <div class="l">⚡ 自动选优已开启 <span class="s">● 已选优</span></div>
+      <span class="chip">立即选优</span>
+    </div>
+    <div class="searchbar">
+      <div class="box">🔍 搜索节点 / 国家</div>
+      <div class="act">⇅</div>
+      <div class="act wide">✨ 最优</div>
+    </div>
+    <div class="prog">
+      <div class="bar thin"><i style="width:18%"></i></div>
+      <span class="n">12 / 68</span>
+    </div>
+
+    <div class="gh">▾ 🇯🇵 日本<span class="c">8 个节点</span></div>
+    <div class="nrow on">
+      <span class="fl">🇯🇵</span>
+      <div class="info"><div class="n">日本 · 东京 · 01</div><div class="s">vmess · 443</div></div>
+      <span class="badge g">86 ms</span><span class="ck">✓</span>
+    </div>
+    <div class="nrow">
+      <span class="fl">🇯🇵</span>
+      <div class="info"><div class="n">日本 · 大阪 · 02</div><div class="s">trojan · 443</div></div>
+      <span class="badge y">112 ms</span>
+    </div>
+    <div class="gh">▸ 🇺🇸 美国<span class="c">12 个节点</span></div>
+    <div class="gh">▸ 🇸🇬 新加坡<span class="c">6 个节点</span></div>
+    <div class="gh">▸ 🇭🇰 香港<span class="c">9 个节点</span></div>
+    <div class="gh">▸ 🌐 未识别地区<span class="c">4 个节点</span></div>
+  </div>
+  <div class="nav"><div class="item"><div class="dot">⌂</div>首页</div><div class="item on"><div class="dot">▤</div>节点</div><div class="item"><div class="dot">▦</div>套餐</div><div class="item"><div class="dot">◔</div>我的</div></div>
+</div></div><div class="cap">B2 · 节点页（自动选优条 + 测速进度 + 分组折叠）</div></div>
+
+<!-- ═══════════════ F1 节点快速选择弹层 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px;opacity:.35">
+    <div class="hd"><div class="logo"></div><div><div class="nm">MoneyFly</div><div class="sub">全球加速已就绪</div></div></div>
+    <div class="cc" style="background:var(--g-connect);border-color:rgba(46,230,168,.55)">
+      <div class="st" style="color:var(--green)">已连接</div>
+      <div class="pw" style="box-shadow:0 0 34px rgba(46,230,168,.5)"><div class="core" style="border-color:rgba(46,230,168,.5);background:radial-gradient(circle at 50% 32%,#1E3B3A,#0E1716 75%)"><span class="ic" style="color:var(--green)">⏻</span></div></div>
+    </div>
+  </div>
+  <div class="overlay">
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="sh">
+        <div><h3>节点列表</h3><div class="sub">点击切换线路</div></div>
+        <div class="spacer"></div>
+        <span class="chip">⚡ 测速</span>
+      </div>
+      <div class="body">
+        <div class="nrow on" style="border-color:rgba(69,95,233,.55);background:rgba(69,95,233,.09)">
+          <span class="fl">🇯🇵</span><div class="info"><div class="n">日本 · 东京 · 01</div></div>
+          <span class="badge g">86 ms</span><span style="color:var(--brand-2);font-size:16px">✓</span>
+        </div>
+        <div class="nrow"><span class="fl">🇸🇬</span><div class="info"><div class="n">新加坡 · 01</div></div><span class="badge g">94 ms</span></div>
+        <div class="nrow"><span class="fl">🇺🇸</span><div class="info"><div class="n">美国 · 洛杉矶</div></div><span class="badge y">112 ms</span></div>
+        <div class="nrow"><span class="fl">🇭🇰</span><div class="info"><div class="n">香港 · 01</div></div><span class="badge n">—</span></div>
+        <div class="nrow"><span class="fl">🇩🇪</span><div class="info"><div class="n">德国 · 法兰克福</div></div><span class="badge r">340 ms</span></div>
+      </div>
+      <div class="note" style="padding:12px 20px 0;text-align:center">DraggableScrollableSheet 0.35–0.9 · 排序节流 300ms</div>
+    </div>
+  </div>
+</div></div><div class="cap">F1 · 节点快速选择弹层</div></div>
+
+<!-- ═══════════════ B3 套餐页 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div style="padding:4px 0 2px;font-size:22px;font-weight:700">套餐购买</div>
+    <div style="font-size:12.5px;color:var(--txt-3);margin-bottom:14px">选择一个适合你的套餐</div>
+    <div style="border-radius:16px;background:var(--card);border:1px solid var(--line);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center">
+      <div><div style="font-size:13.5px;font-weight:600">标准版 · 100G</div><div style="font-size:11px;color:var(--txt-3);margin-top:3px">2026-03-14 到期 · 剩余 128 天</div></div>
+      <div class="spacer"></div><span class="pill">● 生效中</span>
+    </div>
+    <div class="plans">
+      <div class="plan on"><span class="tagbest">最划算</span>
+        <div class="nm">标准版</div><div class="pr">¥ 19.9 <small>/月</small></div><div class="ds">30 天 · 3 设备 · 100 GB</div>
+      </div>
+      <div class="plan"><div class="nm">轻量版</div><div class="pr">¥ 9.9 <small>/月</small></div><div class="ds">30 天 · 1 设备 · 30 GB</div></div>
+      <div class="plan"><div class="nm">旗舰版</div><div class="pr">¥ 49.9 <small>/月</small></div><div class="ds">30 天 · 5 设备 · 500 GB</div></div>
+    </div>
+    <div class="detail">
+      <div class="it"><span class="v">100 GB</span><span class="k">流量</span></div>
+      <div class="it"><span class="v">3 台</span><span class="k">设备</span></div>
+      <div class="it"><span class="v">30 天</span><span class="k">有效期</span></div>
+    </div>
+    <div class="coupon"><div class="inp" style="height:48px">输入优惠码</div><div class="go">验证</div></div>
+    <div style="font-size:13px;font-weight:600;color:var(--txt-2);margin-bottom:10px">选择支付方式</div>
+    <div class="pay-opt on">
+      <div class="pi" style="background:#1677FF">支</div>
+      <div><div class="pn">支付宝</div><div class="pd">推荐 · 扫码支付</div></div>
+      <div class="radio"></div>
+    </div>
+    <div class="pay-opt">
+      <div class="pi" style="background:#07C160">微</div>
+      <div><div class="pn">微信支付</div><div class="pd">扫码支付</div></div>
+      <div class="radio"></div>
+    </div>
+    <div class="pay-opt">
+      <div class="pi" style="background:#2A3242;color:var(--amber)">₮</div>
+      <div><div class="pn">USDT</div><div class="pd">链上确认后开通</div></div>
+      <div class="radio"></div>
+    </div>
+  </div>
+  <div style="padding:12px 22px 10px;background:var(--bg-2);border-top:1px solid var(--line)">
+    <div class="summary" style="border-top:none;padding:0 4px 10px">
+      <span class="l">合计</span><span class="r">¥19.9</span>
+    </div>
+    <div class="btn">立即支付</div>
+  </div>
+  <div class="nav"><div class="item"><div class="dot">⌂</div>首页</div><div class="item"><div class="dot">▤</div>节点</div><div class="item on"><div class="dot">▦</div>套餐</div><div class="item"><div class="dot">◔</div>我的</div></div>
+</div></div><div class="cap">B3 · 套餐页</div></div>
+
+<!-- ═══════════════ F2 支付弹窗 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px;opacity:.35">
+    <div style="padding:4px 0 14px;font-size:22px;font-weight:700">套餐购买</div>
+    <div class="plan on"><div class="nm">标准版</div><div class="pr">¥ 19.9</div></div>
+  </div>
+  <div class="overlay center">
+    <div class="modal">
+      <h3>扫码支付</h3>
+      <div class="sub">请使用支付宝扫码</div>
+      <div class="qr"><div class="grid9"></div></div>
+      <div class="amt">¥ 19.9</div>
+      <div class="ono">订单号 MF20260314001234</div>
+      <div class="waiting"><span class="spin"></span>等待支付…</div>
+      <div class="mbtns">
+        <div class="b o">取消订单</div>
+        <div class="b g">我已支付</div>
+      </div>
+      <div class="note" style="margin-top:12px">每 3 秒轮询 · 最长 15 分钟 · 支付成功自动关闭并刷新订阅</div>
+    </div>
+  </div>
+</div></div><div class="cap">F2 · 支付二维码弹窗</div></div>
+
+<!-- ═══════════════ B4 我的页 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="pf-hd">
+      <div class="av">✈</div>
+      <div><div class="nm">MoneyFly</div><div class="em">moneyfly@example.com</div></div>
+      <div class="bal"><div class="v">¥ 128.50</div><div class="k">账户余额</div></div>
+    </div>
+    <div class="banner" style="background:linear-gradient(135deg,rgba(255,176,32,.18),rgba(255,176,32,.06));border:1px solid rgba(255,176,32,.45)">
+      <span class="em">⏰</span><span class="tx">订阅将于 5 天后到期</span><span class="cta chip">立即续费</span>
+    </div>
+    <div class="subcard">
+      <div class="top"><span class="p">标准版 · 100G</span><span class="s pill">● 生效中</span></div>
+      <div class="grid">
+        <div class="it"><div class="v">2026-03-14</div><div class="k">到期时间</div></div>
+        <div class="it"><div class="v">128 天</div><div class="k">剩余天数</div></div>
+        <div class="it"><div class="v">2 / 3</div><div class="k">设备数</div></div>
+      </div>
+    </div>
+    <div class="menu">
+      <div class="r"><div class="mi">📱</div><div class="t">设备管理</div><span class="n">2/3</span><span class="arr">›</span></div>
+      <div class="r"><div class="mi">🧾</div><div class="t">订单记录</div><span class="arr">›</span></div>
+      <div class="r"><div class="mi">🔔</div><div class="t">通知中心</div><span class="n">3</span><span class="arr">›</span></div>
+      <div class="r"><div class="mi">🔒</div><div class="t">修改密码</div><span class="arr">›</span></div>
+      <div class="r"><div class="mi">💬</div><div class="t">在线客服</div><span class="arr">›</span></div>
+      <div class="r"><div class="mi">⚙</div><div class="t">设置</div><span class="arr">›</span></div>
+      <div class="r"><div class="mi">ℹ</div><div class="t">关于 Mclash</div><span class="n">v2.3.0</span><span class="arr">›</span></div>
+      <div class="r"><div class="mi" style="position:relative">⟳<span class="rd" style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--red)"></span></div><div class="t">版本更新</div><span class="arr">›</span></div>
+    </div>
+    <div class="btn danger" style="margin-top:16px">退出登录</div>
+  </div>
+  <div class="nav"><div class="item"><div class="dot">⌂</div>首页</div><div class="item"><div class="dot">▤</div>节点</div><div class="item"><div class="dot">▦</div>套餐</div><div class="item on"><div class="dot">◔</div>我的</div></div>
+</div></div><div class="cap">B4 · 我的页</div></div>
+
+<!-- ═══════════════ C1 订单 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>订单记录</h2><span class="ibtn">⟳</span></div>
+    <div class="lcard">
+      <div class="h"><span class="t">标准版 · 100G</span><span class="pill">● 已支付</span></div>
+      <div style="font-family:var(--num);font-size:20px;font-weight:700;margin-top:8px">¥19.9</div>
+      <div class="m">订单号 MF20260314001234</div>
+      <div class="m">下单时间 2026-03-14 14:32</div>
+    </div>
+    <div class="lcard">
+      <div class="h"><span class="t">轻量版</span><span class="pill a">○ 待支付</span></div>
+      <div style="font-family:var(--num);font-size:20px;font-weight:700;margin-top:8px">¥9.9</div>
+      <div class="m">订单号 MF20260310007891</div>
+      <div class="m">下单时间 2026-03-10 09:15</div>
+      <div class="acts"><div class="b r">取消订单</div><div class="b g">继续支付</div></div>
+    </div>
+    <div class="lcard">
+      <div class="h"><span class="t">标准版 · 100G</span><span class="pill r">✕ 已取消</span></div>
+      <div style="font-family:var(--num);font-size:20px;font-weight:700;margin-top:8px">¥19.9</div>
+      <div class="m">订单号 MF20260228003456</div>
+      <div class="m">下单时间 2026-02-28 20:41</div>
+    </div>
+  </div>
+</div></div><div class="cap">C1 · 订单记录（修复时间拼接 hack）</div></div>
+
+<!-- ═══════════════ C2 设备 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>设备管理</h2><span class="ibtn">⟳</span></div>
+    <div class="lcard" style="background:linear-gradient(135deg,rgba(255,176,32,.14),rgba(255,176,32,.04));border-color:rgba(255,176,32,.4);display:flex;align-items:center;gap:12px">
+      <div class="tile" style="background:rgba(255,176,32,.15);color:var(--amber)">📈</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600">升级设备数量</div><div style="font-size:11px;color:var(--txt-3);margin-top:3px">需要更多设备？可增量升级</div></div>
+      <span class="badge y">3 / 3</span>
+    </div>
+    <div class="lcard">
+      <div class="h">
+        <div class="tile" style="background:#2B3550;color:var(--brand-2);font-weight:700">i</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">我的 iPhone</div><div style="font-size:11.5px;color:var(--txt-3);margin-top:3px">iOS · iPhone 15 Pro</div></div>
+        <span class="pill">● 在线</span>
+      </div>
+      <div class="m" style="line-height:1.8">IP 1.2.3.4 · 日本东京<br>版本 2.3.0 · 访问 42 次<br>最近 2026-03-14 14:32</div>
+      <div class="acts"><div class="b o">改备注</div><div class="b r">删除</div></div>
+    </div>
+    <div class="lcard">
+      <div class="h">
+        <div class="tile" style="background:#2B3550;color:var(--brand-2);font-weight:700">W</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">家里的电脑</div><div style="font-size:11.5px;color:var(--txt-3);margin-top:3px">Windows · Windows 11</div></div>
+        <span class="badge n">○ 离线</span>
+      </div>
+      <div class="m" style="line-height:1.8">IP 5.6.7.8 · 中国上海<br>版本 2.3.0 · 访问 18 次<br>最近 2026-03-12 22:07</div>
+      <div class="acts"><div class="b o">改备注</div><div class="b r">删除</div></div>
+    </div>
+  </div>
+</div></div><div class="cap">C2 · 设备管理</div></div>
+
+<!-- ═══════════════ C3 设备增量升级 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>升级设备数量</h2></div>
+    <div class="lcard" style="display:flex;align-items:center"><div style="flex:1"><div style="font-size:13.5px;font-weight:600">当前 标准版 · 3 台设备</div><div style="font-size:11px;color:var(--txt-3);margin-top:3px">2026-03-14 到期</div></div></div>
+    <div class="sect">增加设备数量</div>
+    <div class="chiprow">
+      <span class="c on">+1</span><span class="c">+2</span><span class="c">+3</span><span class="c">+4</span><span class="c">+5</span>
+    </div>
+    <div class="sect">顺延时长（可选）</div>
+    <div class="chiprow">
+      <span class="c dis">不加时长</span>
+      <span class="c">+30 天</span>
+      <span class="c on">+90 天<span class="rc">推荐</span></span>
+      <span class="c">+180 天</span>
+      <span class="c">+365 天</span>
+    </div>
+    <div class="lcard" style="display:flex;align-items:center">
+      <span style="font-size:12.5px;color:var(--txt-2)">应付金额</span>
+      <div class="spacer"></div>
+      <span style="font-family:var(--num);font-size:22px;font-weight:700">¥29.8</span>
+      <span style="font-family:var(--num);font-size:13px;color:var(--txt-3);text-decoration:line-through;margin-left:8px">¥39.8</span>
+    </div>
+    <div class="sect">支付方式</div>
+    <div class="chiprow">
+      <span class="c on">Ⓐ 支付宝</span><span class="c">Ⓦ 微信</span><span class="c">₮ USDT</span>
+    </div>
+    <div class="note">ⓘ 增量升级立即生效；顺延时长在下次到期时叠加。价格预览 350ms 防抖。</div>
+  </div>
+  <div style="padding:12px 22px 10px;background:var(--bg-2);border-top:1px solid var(--line)">
+    <div class="btn">立即支付 ¥29.8</div>
+  </div>
+</div></div><div class="cap">C3 · 设备增量升级（+N 台 / +M 天）</div></div>
+
+<!-- ═══════════════ C4 通知 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>通知中心</h2><span style="font-size:12.5px;color:var(--brand-2);font-weight:600">全部已读</span></div>
+    <div class="lcard" style="background:rgba(69,95,233,.07);position:relative">
+      <div style="position:absolute;left:6px;top:18px;width:7px;height:7px;border-radius:50%;background:var(--brand)"></div>
+      <div class="h"><span class="t">订阅即将到期</span><span style="font-size:11px;color:var(--txt-3)">2 小时前</span></div>
+      <div style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin-top:6px">您的订阅将于 5 天后到期，请及时续费以免影响使用。</div>
+      <div style="position:absolute;right:12px;top:12px;color:var(--txt-3);font-size:13px">✕</div>
+    </div>
+    <div class="lcard" style="position:relative">
+      <div class="h"><span class="t">系统维护通知</span><span style="font-size:11px;color:var(--txt-3)">昨天 18:00</span></div>
+      <div style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin-top:6px">今晚 02:00 – 04:00 进行线路维护，期间可能短暂中断。</div>
+      <div style="position:absolute;right:12px;top:12px;color:var(--txt-3);font-size:13px">✕</div>
+    </div>
+    <div class="lcard">
+      <div class="h"><span class="t">新版本发布</span><span style="font-size:11px;color:var(--txt-3)">3 天前</span></div>
+      <div style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin-top:6px">Mclash v2.3.0 已发布：新增自动选优与诊断包导出。</div>
+      <div style="position:absolute;right:12px;top:12px;color:var(--txt-3);font-size:13px">✕</div>
+    </div>
+    <div class="note" style="text-align:center;margin-top:10px">🆕 每行新增「✕」删除按钮（baseline 仅长按删除，桌面端不可发现）</div>
+  </div>
+</div></div><div class="cap">C4 · 通知中心</div></div>
+
+<!-- ═══════════════ D1 设置页 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>设置</h2><span style="font-size:12.5px;color:var(--brand-2);font-weight:600">恢复默认</span></div>
+    <div class="sect" style="margin-top:2px">连接</div>
+    <div class="row"><div class="ic">◎</div><div class="t">连接模式</div>
+      <div class="seg2"><span class="o on">智能</span><span class="o">全局</span></div></div>
+    <div class="row"><div class="ic">⟳</div><div class="t">自动连接</div><div class="sw off sm"></div></div>
+    <div class="row"><div class="ic">⚡</div><div class="t">自动测速与选优</div><div class="sw sm"></div></div>
+    <div class="row"><div class="ic">🔁</div><div class="t">断线自动重连</div><div class="sw sm"></div></div>
+    <div class="sect">代理与分流</div>
+    <div class="row"><div class="ic">🧭</div><div class="t">代理与分流</div><span class="arr">›</span></div>
+    <div class="row"><div class="ic">📱</div><div class="t">分应用代理</div><span class="arr">›</span></div>
+    <div class="row"><div class="ic">🧩</div><div class="t">分流数据更新</div><span class="arr">›</span></div>
+    <div class="row"><div class="ic">🧱</div><div class="t">直连名单</div><span class="v">12 条</span><span class="arr">›</span></div>
+    <div class="row"><div class="ic">🔢</div><div class="t">本地端口</div><span class="v">2080</span><span class="arr">›</span></div>
+    <div class="row"><div class="ic">🔧</div><div class="t">内核 API 端口</div><span class="v">9090</span><span class="arr">›</span></div>
+    <div class="row"><div class="ic">⏱</div><div class="t">测速地址</div><span class="v">gstatic.com</span><span class="arr">›</span></div>
+    <div class="sect">内核</div>
+    <div class="row"><div class="ic">🌐</div><div class="t">内核管理</div><span class="v">v1.19.30</span><span class="arr">›</span></div>
+    <div class="row"><div class="ic">📋</div><div class="t">内核日志级别</div><span class="v">warning</span><span class="arr">›</span></div>
+    <div class="row"><div class="ic">🔓</div><div class="t">放宽 hy2/tuic 证书校验</div><div class="sw sm"></div></div>
+    <div class="sect">外观</div>
+    <div class="row"><div class="ic">🎨</div><div class="t">外观模式</div>
+      <div style="display:flex;gap:6px">
+        <span style="width:24px;height:24px;border-radius:50%;background:#F5F6FA;display:block"></span>
+        <span style="width:24px;height:24px;border-radius:50%;background:#E8862E;display:block"></span>
+        <span style="width:24px;height:24px;border-radius:50%;background:#5B7CFA;display:block"></span>
+        <span style="width:24px;height:24px;border-radius:50%;background:#5B8DEF;display:block;box-shadow:0 0 0 2px var(--brand)"></span>
+        <span style="width:24px;height:24px;border-radius:50%;background:#4E7CF6;display:block"></span>
+        <span style="width:24px;height:24px;border-radius:50%;background:#6C7BFF;display:block"></span>
+      </div></div>
+    <div class="row"><div class="ic">🌏</div><div class="t">语言</div><span class="v">简体中文</span><span class="arr">›</span></div>
+    <div class="sect">诊断</div>
+    <div class="row"><div class="ic">🧾</div><div class="t">日志中心</div><span class="arr">›</span></div>
+    <div class="row"><div class="ic">📤</div><div class="t">导出诊断包</div><span class="arr">›</span></div>
+  </div>
+  <div style="padding:8px 22px 10px;border-top:1px solid var(--line)">
+    <div class="num" style="text-align:center;font-size:11px;color:var(--txt-3)">Mclash v2.3.0 · 内核 v1.19.30</div>
+  </div>
+</div></div><div class="cap">D1 · 设置页（重新分组为 7 组）</div></div>
+
+<!-- ═══════════════ D2 内核管理 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>内核管理</h2></div>
+    <div class="sect" style="margin-top:2px">内核状态</div>
+    <div class="row"><div class="ic">🧩</div><div class="t">当前内核</div><span class="v">内置 v1.19.30</span></div>
+    <div class="row"><div class="ic">●</div><div class="t">运行状态</div><span class="v" style="color:var(--green)">运行中</span></div>
+    <div class="sect">内核更新（桌面端）</div>
+    <div class="row"><div class="ic">🔍</div><div class="t">检测最新版本</div><span class="arr">›</span></div>
+    <div class="lcard" style="background:linear-gradient(120deg,rgba(69,95,233,.14),rgba(69,95,233,.03));border-color:rgba(69,95,233,.35)">
+      <div class="h"><div class="tile" style="background:var(--g-brand)">🆕</div><div style="flex:1"><div style="font-size:13.5px;font-weight:600">发现新内核 v1.19.32</div><div style="font-size:11px;color:var(--txt-3);margin-top:3px">官方 release · 可经隧道下载</div></div></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+        <div class="bar thin" style="flex:1"><i style="width:68%"></i></div>
+        <span class="num" style="font-size:11.5px;color:var(--brand-2)">68%</span>
+      </div>
+    </div>
+    <div class="row"><div class="ic">🔀</div><div class="t">内核变体</div>
+      <div class="seg2"><span class="o on">兼容版</span><span class="o">标准版</span></div></div>
+    <div class="row"><div class="ic">♻</div><div class="t">恢复内置内核</div><span class="arr">›</span></div>
+    <div class="note" style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
+      ⓘ 官方内核来自 MetaCubeX/mihomo。<b style="color:var(--amber)">Intel / 老 CPU 请使用「兼容版」</b>（标准版需要 AVX2 指令集，老机器会启动即崩溃）。<br><br>
+      Android：内核随 App 更新，不支持运行期替换。<br>
+      内核位置：用户副本目录（绝不修改安装目录）；下载缓存命中则秒切；自检失败自动回滚。
+    </div>
+  </div>
+</div></div><div class="cap">D2 · 内核管理（两阶段替换：下载 → 自检 → 激活 / 回滚）</div></div>
+
+<!-- ═══════════════ D3 日志中心 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>日志中心</h2></div>
+    <div class="tabs"><div class="tb on">内核日志</div><div class="tb">运行日志</div></div>
+    <div style="height:12px"></div>
+    <div class="lvchips">
+      <span class="c">DEBUG</span><span class="c">INFO</span><span class="c on">WARNING</span><span class="c">ERROR</span><span class="c">SILENT</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11.5px;color:var(--txt-2)">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:block"></span>已连接
+      <div class="spacer"></div><span style="font-size:14px">⧉</span><span style="font-size:14px">🗑</span>
+    </div>
+    <div class="note" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px">
+      ⓘ ERROR 是错误级别记录，<b>不是崩溃日志</b>。崩溃日志为 Dart 未捕获异常，单独存于 crash_logs/。
+    </div>
+    <div class="logbox">
+      <div class="l"><span class="ts">14:32:18</span><span class="i">[INFO]</span><span>inbound/tun: started</span></div>
+      <div class="l"><span class="ts">14:32:18</span><span class="i">[INFO]</span><span>dns: fake-ip enabled 172.19.0.1/16</span></div>
+      <div class="l"><span class="ts">14:32:17</span><span class="w">[WARN]</span><span>proxy group url-test interval 300s</span></div>
+      <div class="l"><span class="ts">14:32:16</span><span class="e">[ERROR]</span><span>dial tcp 1.2.3.4:443 timeout</span></div>
+      <div class="l"><span class="ts">14:32:15</span><span class="i">[INFO]</span><span>external-controller 127.0.0.1:9090</span></div>
+      <div class="l"><span class="ts">14:32:14</span><span class="i">[INFO]</span><span>mixed-port 2080</span></div>
+      <div class="l"><span class="ts">14:32:14</span><span class="d">[DEBUG]</span><span>geodata loaded country.mmdb</span></div>
+    </div>
+    <div class="note" style="text-align:center;margin-top:10px">最新在<b>上</b>（避免日志少时内容堆在底部留白）</div>
+  </div>
+</div></div><div class="cap">D3 · 日志中心（内核日志 Tab）</div></div>
+
+<!-- ═══════════════ D4 代理与分流 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>代理与分流</h2></div>
+    <div class="sect" style="margin-top:2px">连接（Android）</div>
+    <div class="row"><div class="ic">🧱</div><div class="t">TUN 模式</div><div class="seg2"><span class="o on">自动</span><span class="o">关</span></div></div>
+    <div class="row"><div class="ic">🌐</div><div class="t">TUN 内核栈</div><div class="seg2"><span class="o on">gvisor</span><span class="o">system</span></div></div>
+    <div class="note" style="background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:12px;padding:10px;color:var(--amber);margin-bottom:6px">
+      ⚠ TUN 模式会接管全部流量，部分游戏 / UDP 应用可能异常。桌面端需要管理员权限。
+    </div>
+    <div class="sect">DNS</div>
+    <div class="row"><div class="ic">🌏</div><div class="t">DNS 模式</div><div class="seg2"><span class="o on">自动</span><span class="o">手动</span></div></div>
+    <div class="row"><div class="ic">📋</div><div class="t">上游 DNS</div><span class="v">2 条</span><span class="arr">›</span></div>
+    <div class="row"><div class="ic">🧩</div><div class="t">fake-ip 额外白名单</div><span class="v">0 条</span><span class="arr">›</span></div>
+    <div class="sect">直连</div>
+    <div class="row"><div class="ic">🏠</div><div class="t">局域网直连</div><div class="sw sm"></div></div>
+    <div class="row"><div class="ic">🚫</div><div class="t">直连名单</div><span class="v">12 条</span><span class="arr">›</span></div>
+    <div class="sect">直连名单（子页预览）</div>
+    <div class="bypass"><span class="k">后缀</span><span style="flex:1;font-size:12.5px">example.com</span><span class="x">✕</span></div>
+    <div class="bypass"><span class="k" style="background:rgba(46,230,168,.12);color:var(--green)">精确</span><span style="flex:1;font-size:12.5px">DOMAIN:api.test.com</span><span class="x">✕</span></div>
+    <div class="bypass"><span class="k" style="background:rgba(255,176,32,.12);color:var(--amber)">IP段</span><span style="flex:1;font-size:12.5px">IP-CIDR:10.0.0.0/8</span><span class="x">✕</span></div>
+  </div>
+</div></div><div class="cap">D4 · 代理与分流 + 直连名单</div></div>
+
+<!-- ═══════════════ D5 分应用代理 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>分应用代理</h2><span style="font-size:12.5px;color:var(--brand-2);font-weight:600">⟳ 重连</span></div>
+    <div class="seg" style="margin-bottom:12px">
+      <div class="o">全部走代理</div><div class="o on" style="font-size:12px">仅以下应用</div><div class="o" style="font-size:12px">排除以下</div>
+    </div>
+    <div class="note" style="background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:12px;padding:10px;margin-bottom:12px">
+      当前模式：只有勾选的应用流量经过代理<br>已选 3 个 · 更改已保存，点「重连」生效
+    </div>
+    <div class="searchbar" style="margin-bottom:8px"><div class="box" style="height:44px">🔍 搜索应用</div></div>
+    <div class="approw"><span class="cb on">✓</span><div class="sq" style="background:#4285F4">C</div><div><div class="nm">Chrome</div><div class="pk">com.android.chrome</div></div></div>
+    <div class="approw"><span class="cb"></span><div class="sq" style="background:#07C160">微</div><div><div class="nm">微信</div><div class="pk">com.tencent.mm</div></div></div>
+    <div class="approw"><span class="cb on">✓</span><div class="sq" style="background:#FF0000">Y</div><div><div class="nm">YouTube</div><div class="pk">com.google.android.youtube</div></div></div>
+    <div class="approw"><span class="cb on">✓</span><div class="sq" style="background:#1DA1F2">T</div><div><div class="nm">Telegram</div><div class="pk">org.telegram.messenger</div></div></div>
+    <div class="approw" style="border-bottom:none"><span class="cb"></span><div class="sq" style="background:#EA4335">G</div><div><div class="nm">Gmail</div><div class="pk">com.google.android.gm</div></div></div>
+    <div class="note" style="text-align:center;margin-top:12px">⚠ 该模式下<b>不得</b>把本 App 放进隧道（进程内内核会自代理循环 → 无流量）</div>
+  </div>
+</div></div><div class="cap">D5 · 分应用代理（Android）</div></div>
+
+<!-- ═══════════════ D6 分流数据 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><span style="font-size:20px">‹</span><h2>分流数据更新</h2></div>
+    <div class="sect" style="margin-top:2px">当前数据</div>
+    <div class="row"><div class="ic">📦</div><div class="t">country.mmdb</div><span class="v">随 App 内置</span>
+      <span style="width:9px;height:9px;border-radius:50%;background:var(--green);display:block"></span></div>
+    <div class="row"><div class="ic">📦</div><div class="t">geosite.dat</div><span class="v">随 App 内置</span>
+      <span style="width:9px;height:9px;border-radius:50%;background:var(--green);display:block"></span></div>
+    <div class="row"><div class="ic">📦</div><div class="t">手动更新副本</div><span class="v">2026-03-01</span>
+      <span style="width:9px;height:9px;border-radius:50%;background:var(--txt-3);display:block"></span></div>
+    <div class="note" style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
+      ⓘ 分流数据用于「智能模式」下判断哪些流量直连。随 App 内置一份，也可手动更新。
+      更新采用<b>原子写</b>（临时文件 → 校验 → rename），<b>失败绝不标记已同步</b> —— 否则会静默损坏分流规则。
+    </div>
+    <div class="btn" style="margin-top:16px">检查并更新</div>
+    <div class="note" style="text-align:center;margin-top:12px">数据来源：MetaCubeX/meta-rules-dat</div>
+  </div>
+</div></div><div class="cap">D6 · 分流数据更新</div></div>
+
+<!-- ═══════════════ 状态与空态集合 ═══════════════ -->
+<div class="stage"><div class="phone"><div class="screen">
+  <div class="statusbar"><span>9:41</span><span class="ic">▂▄▆ ᯤ ▮</span></div>
+  <div class="content" style="padding:0 22px">
+    <div class="title"><h2>状态与空态规范</h2></div>
+    <div class="sect" style="margin-top:2px">加载中（骨架屏）</div>
+    <div class="lcard"><div class="skel" style="height:14px;width:40%"></div><div class="skel" style="height:22px;width:60%;margin-top:10px"></div><div class="skel" style="height:11px;width:50%;margin-top:10px"></div></div>
+    <div class="lcard"><div class="skel" style="height:14px;width:35%"></div><div class="skel" style="height:22px;width:55%;margin-top:10px"></div></div>
+    <div class="lcard"><div class="skel" style="height:14px;width:45%"></div><div class="skel" style="height:22px;width:50%;margin-top:10px"></div></div>
+
+    <div class="sect">空态</div>
+    <div class="empty" style="padding:26px 0">
+      <div class="i">☁</div><div class="t">暂无订单记录</div><div class="h">下单后可在此查看</div>
+      <span class="chip" style="margin-top:6px">去购买</span>
+    </div>
+
+    <div class="sect">错误态（必须指向可操作方向）</div>
+    <div style="background:var(--red-soft);border:1px solid var(--red-line);border-radius:14px;padding:12px">
+      <div style="font-size:12.5px;color:var(--red);line-height:1.6">内核进程反复异常退出，已停止自动恢复。请检查安全软件是否拦截内核进程（退出码 -9）</div>
+      <div style="display:flex;gap:8px;margin-top:10px"><span class="chip">重试</span><span class="chip ghost">换节点</span></div>
+    </div>
+
+    <div class="sect">加载态 ≠ 错误态</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt-2);margin-bottom:8px">
+      <span class="spin" style="width:12px;height:12px;border-width:1.5px;border-color:rgba(108,123,255,.25);border-top-color:var(--brand-2)"></span>
+      正在同步订阅…
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div class="bar thin" style="flex:1"><i style="width:45%"></i></div><span class="num" style="font-size:12px;color:var(--brand-2)">31 / 68</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--amber)">
+      <span class="spin" style="width:12px;height:12px;border-width:1.5px;border-color:rgba(255,176,32,.25);border-top-color:var(--amber)"></span>
+      正在连接…
+    </div>
+    <div class="note" style="margin-top:14px;color:var(--red)">❌ 过程态绝不可显示为红色错误文案</div>
+  </div>
+</div></div><div class="cap">全局：骨架屏 / 空态 / 错误态 / 加载态</div></div>
+
+</body>
+</html>

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Mclash 设计稿 · 桌面端（Windows / macOS）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+body{gap:56px}
+.hd{display:flex;align-items:center;gap:12px;padding:12px 0 14px}
+.hd .logo{width:32px;height:32px;border-radius:10px;background:#000;display:flex;align-items:center;justify-content:center}
+.hd .logo svg{width:18px;height:18px}
+.hd .nm{font-family:var(--num);font-size:15px;font-weight:700}
+.hd .sp{flex:1}
+.ibtn{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--txt-2);font-size:15px;position:relative}
+.ibtn:hover{background:rgba(255,255,255,.06)}
+.ibtn .rd{position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+.grid2{display:flex;gap:20px;align-items:flex-start}
+.colL{width:400px;flex:0 0 400px;display:flex;flex-direction:column;gap:14px}
+.colR{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0}
+.cc{border-radius:22px;padding:18px;border:1px solid;background:var(--g-connect)}
+.cc .st{text-align:center;font-size:13px;font-weight:600}
+.cc .ses{text-align:center;font-family:var(--num);font-size:10.5px;color:var(--txt-3);margin-top:4px}
+.pw{width:88px;height:88px;border-radius:50%;margin:14px auto;display:flex;align-items:center;justify-content:center;position:relative}
+.pw .core{width:66px;height:66px;border-radius:50%;border:1.2px solid;display:flex;align-items:center;justify-content:center;font-size:32px}
+.node{display:flex;align-items:center;gap:10px;padding:11px 13px;background:rgba(26,33,50,.55);border:1px solid var(--line);border-radius:14px}
+.node .fl{font-size:19px;width:28px;text-align:center}
+.node .info{flex:1;min-width:0}
+.node .info .l{font-size:10px;color:var(--txt-3)}
+.node .info .n{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.node .swx{display:flex;align-items:center;gap:2px;padding:5px 10px;background:rgba(69,95,233,.22);border:1px solid rgba(69,95,233,.5);border-radius:9px;font-size:11px;font-weight:700;color:var(--brand-2);flex:0 0 auto}
+.real{text-align:center;font-size:11px;margin-top:10px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;margin-top:12px}
+.seg .o{flex:1;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--txt-2)}
+.seg .o.on{background:var(--g-brand);color:#fff;box-shadow:0 6px 18px rgba(69,95,233,.4)}
+.panel{border-radius:16px;background:var(--card);border:1px solid var(--line);padding:14px 16px}
+.panel h4{font-size:12.5px;font-weight:700;color:var(--txt-2);letter-spacing:.04em;margin-bottom:12px}
+.kv{display:flex;align-items:center;margin-bottom:10px}
+.kv .k{font-size:12px;color:var(--txt-3)}
+.kv .v{margin-left:auto;font-family:var(--num);font-size:13px;font-weight:600}
+.bar{height:8px;border-radius:6px;background:#232B3D;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--brand),var(--brand-2));box-shadow:0 0 12px rgba(69,95,233,.6)}
+.stat2{display:flex;gap:12px}
+.stat2 .s{flex:1;border-radius:16px;background:var(--card);border:1px solid var(--line);padding:14px 16px}
+.stat2 .s .h{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.stat2 .s .v{display:flex;align-items:baseline;gap:6px;margin-top:8px}
+.stat2 .s .v b{font-family:var(--num);font-size:24px;font-weight:700;line-height:1}
+.stat2 .s .v span{font-size:12px;color:var(--txt-3)}
+.spark{height:24px;margin-top:8px;display:flex;align-items:flex-end;gap:2px}
+.spark i{flex:1;border-radius:2px}
+.at{border-radius:16px;padding:12px 14px;background:var(--g-autotest);border:1px solid var(--brand-line)}
+.at .h{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.at .h .i{width:26px;height:26px;border-radius:8px;background:var(--g-brand);display:flex;align-items:center;justify-content:center;font-size:13px}
+.at .h .t{font-size:13px;font-weight:700}
+.at .h .s{margin-left:auto;font-size:10.5px;font-weight:600;color:var(--green);background:var(--green-soft);border:1px solid var(--green-line);padding:3px 9px;border-radius:99px}
+.at .b{display:flex;align-items:center;gap:10px}
+.at .bn{flex:1;display:flex;align-items:center;gap:8px;background:rgba(11,14,20,.6);border:1px solid var(--line);border-radius:11px;padding:8px 11px;position:relative}
+.at .bn .n{font-size:12.5px;font-weight:600;flex:1}
+.at .bn .ms{font-family:var(--num);font-size:12px;font-weight:700;color:var(--green)}
+.at .bn .tg{font-size:9.5px;font-weight:700;color:#fff;background:var(--g-brand);padding:2px 8px;border-radius:10px}
+.at .ft{display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--txt-3)}
+.at .ft b{font-family:var(--num);color:var(--txt-2)}
+.qc .lab{font-size:11.5px;color:var(--txt-2);margin-bottom:8px}
+.qc .pills{display:flex;flex-wrap:wrap;gap:8px}
+.qc .p{height:32px;border-radius:99px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);font-size:12px;font-weight:600}
+.qc .p .ms{font-family:var(--num);font-size:10px;color:var(--txt-3);font-weight:500}
+.qc .p.on{border-color:rgba(69,95,233,.7);background:rgba(69,95,233,.2);color:var(--brand-2)}
+.qc .p.auto{border-color:rgba(46,230,168,.7);background:rgba(46,230,168,.18);color:var(--green)}
+/* list */
+.toolbar{display:flex;align-items:center;gap:12px;padding:12px 0 14px}
+.toolbar h2{font-size:17px;font-weight:700;flex:1}
+.gbtn{height:34px;border-radius:10px;padding:0 14px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
+  background:var(--card);border:1px solid var(--line-2);color:var(--txt-2)}
+.gbtn.pri{background:var(--g-brand);border:none;color:#fff;box-shadow:var(--sh-brand-sm)}
+.autobar{border-radius:14px;padding:10px 12px;background:var(--g-autotest);border:1px solid var(--brand-line);display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.autobar .l{flex:1;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.autobar .l .s{font-size:10px;font-weight:700;color:var(--green);background:var(--green-soft);border:1px solid var(--green-line);padding:2px 8px;border-radius:99px}
+.sb{display:flex;gap:12px;margin-bottom:12px}
+.sb .box{flex:1;height:40px;background:var(--card);border:1px solid var(--line-2);border-radius:12px;display:flex;align-items:center;gap:9px;padding:0 14px;font-size:13px;color:var(--txt-3)}
+.sb .cnt{height:40px;padding:0 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;font-size:12px;color:var(--txt-2)}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.prog .bar{flex:1;height:4px}
+.prog .n{font-family:var(--num);font-size:12px;font-weight:600;color:var(--brand-2)}
+.gh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt-3);font-weight:600;letter-spacing:.06em;margin:12px 2px 8px}
+.gh .c{margin-left:auto;font-family:var(--num);font-size:11px}
+.nrow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;margin-bottom:6px;background:var(--card);border:1px solid var(--line);height:48px}
+.nrow:hover{border-color:var(--line-2);background:#171D2B}
+.nrow .fl{width:30px;height:30px;flex:0 0 30px;border-radius:10px;background:var(--tile);display:flex;align-items:center;justify-content:center;font-size:17px}
+.nrow .info{flex:1;min-width:0;display:flex;align-items:center;gap:12px}
+.nrow .info .n{font-size:13.5px;font-weight:600}
+.nrow .info .s{font-size:11px;color:var(--txt-3);font-family:var(--num)}
+.nrow .ck{width:17px;height:17px;border-radius:50%;background:var(--g-brand);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff}
+.nrow.on{border-color:rgba(69,95,233,.7);background:linear-gradient(180deg,rgba(69,95,233,.16),rgba(69,95,233,.05))}
+/* plan grid */
+.pgrid{display:flex;gap:16px;margin-bottom:16px}
+.pcard{flex:1;border-radius:18px;padding:18px 16px;background:var(--card);border:1px solid var(--line);position:relative;height:180px;display:flex;flex-direction:column}
+.pcard.on{border-color:rgba(69,95,233,.8);background:linear-gradient(180deg,rgba(69,95,233,.18),var(--card));box-shadow:0 10px 30px rgba(69,95,233,.25)}
+.pcard .nm{font-size:14px;font-weight:700}
+.pcard .pr{font-family:var(--num);font-size:26px;font-weight:700;margin-top:10px}
+.pcard .pr small{font-size:12px;color:var(--txt-3);font-weight:500}
+.pcard .ds{font-size:11.5px;color:var(--txt-3);margin-top:auto;line-height:1.7}
+.pcard.on .pr{color:var(--brand-2)}
+.detail{display:flex;border-radius:16px;background:var(--card);border:1px solid var(--line);padding:14px 0;margin-bottom:16px}
+.detail .it{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.detail .it .v{font-size:14px;font-weight:600}
+.detail .it .k{font-size:10.5px;color:var(--txt-3)}
+.payrow{display:flex;gap:12px;margin-bottom:16px}
+.payrow .p{flex:1;display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px}
+.payrow .p.on{border-color:rgba(69,95,233,.7);background:linear-gradient(180deg,rgba(69,95,233,.14),var(--card))}
+.payrow .pi{width:32px;height:32px;flex:0 0 32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff}
+.payrow .pn{font-size:13.5px;font-weight:600}
+.payrow .pd{font-size:10.5px;color:var(--txt-3);margin-top:2px}
+.radio{width:19px;height:19px;flex:0 0 19px;border-radius:50%;border:2px solid var(--line-2);position:relative}
+.payrow .p.on .radio{border-color:var(--brand-2)}
+.payrow .p.on .radio::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--brand-2)}
+.checkout{display:flex;align-items:center;gap:16px;border-radius:16px;background:var(--card);border:1px solid var(--line);padding:14px 16px}
+.checkout .cin{flex:1;height:44px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:12px;display:flex;align-items:center;padding:0 14px;font-size:13px;color:var(--txt-3)}
+.checkout .cgo{height:44px;padding:0 18px;border-radius:12px;background:transparent;border:1px solid var(--line-2);color:var(--brand-2);font-size:13px;font-weight:600;display:flex;align-items:center}
+.checkout .sum{font-family:var(--num);font-size:22px;font-weight:700}
+.checkout .btn{height:44px;padding:0 28px;border-radius:14px;font-size:14px}
+/* settings */
+.row{height:44px;margin-bottom:6px}
+.row .ic{width:26px;height:26px;flex:0 0 26px;border-radius:8px}
+.row .t{font-size:13px}
+.sect{margin:14px 2px 8px}
+/* overlays */
+.ovl{position:absolute;inset:0;background:rgba(3,5,10,.72);backdrop-filter:blur(6px);z-index:40;display:flex;align-items:center;justify-content:center}
+.modal{border-radius:20px;background:var(--g-modal);border:1px solid var(--line-2);box-shadow:var(--sh-modal);padding:22px 20px 16px;width:420px}
+.modal h3{font-size:16px;font-weight:700}
+.modal .bd{font-size:13.5px;color:var(--txt-2);line-height:1.6;margin-top:10px}
+.modal .chk{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:12.5px;color:var(--txt-2)}
+.modal .chk .cb{width:17px;height:17px;border-radius:5px;border:1.6px solid var(--line-2)}
+.modal .ft{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal .ft .tb{height:36px;padding:0 16px;border-radius:10px;display:flex;align-items:center;font-size:13px;color:var(--txt)}
+.modal .ft .tb.r{color:var(--red)}
+.modal .ft .tb.pri{background:var(--g-brand);color:#fff;font-weight:600}
+/* tray */
+.traymenu{position:absolute;width:230px;border-radius:14px;background:#161B26;border:1px solid var(--line-2);
+  box-shadow:0 20px 50px rgba(0,0,0,.7);padding:6px;font-size:12.5px}
+.traymenu .mi{height:32px;border-radius:8px;display:flex;align-items:center;gap:9px;padding:0 10px;color:var(--txt)}
+.traymenu .mi:hover{background:rgba(255,255,255,.07)}
+.traymenu .sep{height:1px;background:var(--line);margin:5px 8px}
+.traymenu .info{height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--txt-3);font-size:11.5px}
+.traymenu .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+/* statusbar desktop */
+.stbar{height:30px;flex:0 0 30px;display:flex;align-items:center;gap:10px;padding:0 16px;
+  border-top:1px solid var(--line);background:var(--bg-2);font-size:11.5px;color:var(--txt-2)}
+.stbar .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.stbar .num{font-family:var(--num)}
+</style>
+</head>
+<body>
+<h1 class="doc">Mclash · 桌面端（Windows / macOS）高保真设计稿 v1.0</h1>
+<p class="doc">窗口默认 <code>980 × 680</code>（最小 380 × 620）· 内容最大宽 <code>1040px</code> 居中（设置页 <code>760px</code>）· 侧栏 <code>NavigationRail 96px</code>（≥ 840px 显示，否则回退底部导航）· 规格见 <code>docs/design/07-页面设计-桌面端.md</code></p>
+<div class="legend">
+  桌面三态：<b>宽屏双栏</b>（≥900px 首页）· <b>窄屏单列</b>（&lt;900px 自动退化）· <b>紧凑</b>（&lt;840px 回退底部导航）。
+  桌面专属：底部<b>连接状态条</b>、托盘菜单、关闭询问弹窗、系统代理保活、内核热替换、键盘快捷键（<b>Ctrl/Cmd+K</b> 连接、<b>Ctrl/Cmd+,</b> 设置）。
+</div>
+
+<!-- ═══════════════ 桌面首页（双栏） ═══════════════ -->
+<div class="stage"><div class="win">
+  <div class="titlebar">
+    <div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+    <div class="t">Mclash</div><div style="width:44px"></div>
+  </div>
+  <div class="winbody">
+    <div class="rail">
+      <div class="r on"><span class="ri">⌂</span>首页</div>
+      <div class="r"><span class="ri">▤</span>节点</div>
+      <div class="r"><span class="ri">▦</span>套餐</div>
+      <div class="r" style="position:relative"><span class="ri">◔</span>我的<span style="position:absolute;top:8px;right:20px;width:7px;height:7px;border-radius:50%;background:var(--red)"></span></div>
+      <div class="sp"></div>
+      <div class="div"></div>
+      <div class="r"><span class="ri">⚙</span>设置</div>
+    </div>
+    <div class="main">
+      <div style="flex:1;overflow:hidden">
+        <div class="wrap">
+          <div class="hd">
+            <div class="logo"><svg viewBox="0 0 48 48"><path d="M9 35V13l15 15L39 13v22" stroke="#455FE9" stroke-width="7" stroke-linecap="round" fill="none"/></svg></div>
+            <div class="nm">MoneyFly</div>
+            <div class="sp"></div>
+            <div class="ibtn">⟳</div><div class="ibtn">🔔<span class="rd"></span></div>
+          </div>
+          <div class="grid2">
+            <!-- 左栏 -->
+            <div class="colL">
+              <div class="cc" style="border-color:rgba(46,230,168,.55)">
+                <div class="st" style="color:var(--green)">已连接</div>
+                <div class="ses">已连接 00:12:30 · ↑ 1.2 MB ↓ 840.0 MB</div>
+                <div class="pw" style="box-shadow:0 0 34px rgba(46,230,168,.5)">
+                  <div class="core" style="border-color:rgba(46,230,168,.5);background:radial-gradient(circle at 50% 32%,#1E3B3A,#0E1716 75%);color:var(--green)">⏻</div>
+                </div>
+                <div class="node">
+                  <span class="fl">🇯🇵</span>
+                  <div class="info"><div class="l">当前线路</div><div class="n">日本 · 东京 · 01</div></div>
+                  <span class="badge g">86 ms</span><span class="swx">切换 ›</span>
+                </div>
+                <div class="real" style="color:var(--green)">🇯🇵 真实出口 · 日本</div>
+                <div class="seg"><div class="o on">◎ 智能模式</div><div class="o">⊕ 全局模式</div></div>
+              </div>
+              <div class="panel" style="background:linear-gradient(135deg,rgba(69,95,233,.18),rgba(69,95,233,.06));border-color:rgba(69,95,233,.4)">
+                <div class="kv" style="margin-bottom:12px"><span class="k">订阅到期</span><span class="v">2026-03-14</span></div>
+                <div class="kv"><span class="k">剩余天数</span><span class="v" style="color:var(--green)">128 天</span></div>
+                <div class="kv"><span class="k">设备</span><span class="v">2 / 3</span></div>
+              </div>
+            </div>
+            <!-- 右栏 -->
+            <div class="colR">
+              <div class="panel">
+                <h4>流量配额</h4>
+                <div class="kv"><span class="k">已用</span><span class="v">42.3 GB / 100 GB</span></div>
+                <div class="bar"><i style="width:42%"></i></div>
+                <div class="kv" style="margin:10px 0 0"><span class="k">重置日期</span><span class="v">2026-03-14</span></div>
+              </div>
+              <div class="stat2">
+                <div class="s"><div class="h" style="color:var(--brand-2)">↑ 上行</div>
+                  <div class="v"><b style="color:var(--brand-2)">1.2</b><span>MB/s</span></div>
+                  <div class="spark"><i style="height:40%;background:var(--brand-2)"></i><i style="height:70%;background:var(--brand-2)"></i><i style="height:30%;background:var(--brand-2)"></i><i style="height:85%;background:var(--brand-2)"></i><i style="height:55%;background:var(--brand-2)"></i><i style="height:90%;background:var(--brand-2)"></i><i style="height:45%;background:var(--brand-2)"></i><i style="height:65%;background:var(--brand-2)"></i><i style="height:50%;background:var(--brand-2)"></i><i style="height:78%;background:var(--brand-2)"></i></div>
+                </div>
+                <div class="s"><div class="h" style="color:var(--green)">↓ 下行</div>
+                  <div class="v"><b style="color:var(--green)">8.4</b><span>MB/s</span></div>
+                  <div class="spark"><i style="height:55%;background:var(--green)"></i><i style="height:35%;background:var(--green)"></i><i style="height:80%;background:var(--green)"></i><i style="height:60%;background:var(--green)"></i><i style="height:95%;background:var(--green)"></i><i style="height:50%;background:var(--green)"></i><i style="height:75%;background:var(--green)"></i><i style="height:88%;background:var(--green)"></i><i style="height:62%;background:var(--green)"></i><i style="height:70%;background:var(--green)"></i></div>
+                </div>
+              </div>
+              <div class="at">
+                <div class="h"><div class="i">⚡</div><div class="t">自动测速与选优</div><div class="s">● 已自动选优</div></div>
+                <div class="b">
+                  <div class="bn"><span style="font-size:16px">🇯🇵</span><span class="n">日本 · 东京 · 01</span><span class="ms">86 ms</span><span class="tg">最优</span></div>
+                  <span class="chip">⚡ 重新测速</span>
+                </div>
+                <div class="ft"><span>上次测速 <b>14:28</b></span><span>共 <b>68</b> 个节点 · <b>62</b> 在线</span></div>
+              </div>
+              <div class="panel qc">
+                <div class="lab">快速切换国家 · 点按即切最优节点</div>
+                <div class="pills">
+                  <span class="p auto">✦ 自动</span>
+                  <span class="p on">🇯🇵 日本 <span class="ms">86ms</span></span>
+                  <span class="p">🇸🇬 新加坡 <span class="ms">94ms</span></span>
+                  <span class="p">🇺🇸 美国 <span class="ms">112ms</span></span>
+                  <span class="p">🇭🇰 香港 <span class="ms">72ms</span></span>
+                  <span class="p">🇩🇪 德国 <span class="ms">340ms</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stbar">
+        <span class="dot"></span>已连接 · 日本 · 东京 · 01 · <span class="num">86ms</span>
+        <div style="flex:1"></div>
+        <span class="num">↑ 1.2 MB/s</span><span class="num">↓ 8.4 MB/s</span>
+      </div>
+    </div>
+  </div>
+</div><div class="cap">桌面首页 · 双栏（左连接区 400px + 右信息栏）· 底部状态条任意页面可见</div></div>
+
+<!-- ═══════════════ 桌面节点页 ═══════════════ -->
+<div class="stage"><div class="win">
+  <div class="titlebar">
+    <div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+    <div class="t">Mclash</div><div style="width:44px"></div>
+  </div>
+  <div class="winbody">
+    <div class="rail">
+      <div class="r"><span class="ri">⌂</span>首页</div>
+      <div class="r on"><span class="ri">▤</span>节点</div>
+      <div class="r"><span class="ri">▦</span>套餐</div>
+      <div class="r"><span class="ri">◔</span>我的</div>
+      <div class="sp"></div><div class="div"></div>
+      <div class="r"><span class="ri">⚙</span>设置</div>
+    </div>
+    <div class="main">
+      <div style="flex:1;overflow:hidden">
+        <div class="wrap">
+          <div class="toolbar">
+            <h2>节点列表</h2>
+            <span class="gbtn">⟳ 刷新订阅</span>
+            <span class="gbtn">⇅ 排序</span>
+            <span class="gbtn pri">✨ 最优</span>
+          </div>
+          <div class="autobar">
+            <div class="l">⚡ 自动选优已开启 <span class="s">● 已选优</span></div>
+            <span class="gbtn pri">立即选优</span>
+          </div>
+          <div class="sb">
+            <div class="box">🔍 搜索节点 / 国家</div>
+            <div class="cnt">68 个节点 · <span style="color:var(--green);margin-left:4px">62 在线</span></div>
+          </div>
+          <div class="prog"><div class="bar"><i style="width:18%"></i></div><span class="n">12 / 68</span></div>
+          <div class="gh">▾ 🇯🇵 日本<span class="c">8 个节点</span></div>
+          <div class="nrow on">
+            <span class="fl">🇯🇵</span>
+            <div class="info"><span class="n">日本 · 东京 · 01</span><span class="s">vmess · 443</span></div>
+            <span class="badge g">86 ms</span><span class="ck">✓</span>
+          </div>
+          <div class="nrow">
+            <span class="fl">🇯🇵</span>
+            <div class="info"><span class="n">日本 · 大阪 · 02</span><span class="s">trojan · 443</span></div>
+            <span class="badge y">112 ms</span>
+          </div>
+          <div class="gh">▸ 🇺🇸 美国<span class="c">12 个节点</span></div>
+          <div class="gh">▸ 🇸🇬 新加坡<span class="c">6 个节点</span></div>
+          <div class="gh">▸ 🇭🇰 香港<span class="c">9 个节点</span></div>
+          <div class="note" style="margin-top:10px">桌面行高 48px（移动 56px）· 悬停右侧浮出测速/复制图标 · 右键上下文菜单</div>
+        </div>
+      </div>
+      <div class="stbar">
+        <span class="dot"></span>已连接 · 日本 · 东京 · 01 · <span class="num">86ms</span>
+        <div style="flex:1"></div><span class="num">↑ 1.2 MB/s</span><span class="num">↓ 8.4 MB/s</span>
+      </div>
+    </div>
+  </div>
+</div><div class="cap">桌面节点页 · 操作按钮平铺 + 节点统计胶囊 + 紧凑行高</div></div>
+
+<!-- ═══════════════ 桌面套餐页 ═══════════════ -->
+<div class="stage"><div class="win">
+  <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Mclash</div><div style="width:44px"></div></div>
+  <div class="winbody">
+    <div class="rail">
+      <div class="r"><span class="ri">⌂</span>首页</div><div class="r"><span class="ri">▤</span>节点</div>
+      <div class="r on"><span class="ri">▦</span>套餐</div><div class="r"><span class="ri">◔</span>我的</div>
+      <div class="sp"></div><div class="div"></div><div class="r"><span class="ri">⚙</span>设置</div>
+    </div>
+    <div class="main">
+      <div style="flex:1;overflow:hidden">
+        <div class="wrap-narrow" style="max-width:980px">
+          <div style="padding:14px 0 4px;font-size:20px;font-weight:700">套餐购买</div>
+          <div style="font-size:12.5px;color:var(--txt-3);margin-bottom:16px">选择一个适合你的套餐</div>
+          <div class="pgrid">
+            <div class="pcard on"><span class="tagbest">最划算</span>
+              <div class="nm">标准版</div><div class="pr">¥ 19.9 <small>/月</small></div>
+              <div class="ds">30 天 · 3 设备 · 100 GB</div>
+            </div>
+            <div class="pcard"><div class="nm">轻量版</div><div class="pr">¥ 9.9 <small>/月</small></div>
+              <div class="ds">30 天 · 1 设备 · 30 GB</div></div>
+            <div class="pcard"><div class="nm">旗舰版</div><div class="pr">¥ 49.9 <small>/月</small></div>
+              <div class="ds">30 天 · 5 设备 · 500 GB</div></div>
+          </div>
+          <div class="detail">
+            <div class="it"><span class="v">100 GB</span><span class="k">流量</span></div>
+            <div class="it"><span class="v">3 台</span><span class="k">设备</span></div>
+            <div class="it"><span class="v">30 天</span><span class="k">有效期</span></div>
+            <div class="it"><span class="v">全平台</span><span class="k">支持</span></div>
+          </div>
+          <div class="payrow">
+            <div class="p on"><div class="pi" style="background:#1677FF">支</div><div style="flex:1"><div class="pn">支付宝</div><div class="pd">推荐 · 扫码支付</div></div><div class="radio"></div></div>
+            <div class="p"><div class="pi" style="background:#07C160">微</div><div style="flex:1"><div class="pn">微信支付</div><div class="pd">扫码支付</div></div><div class="radio"></div></div>
+            <div class="p"><div class="pi" style="background:#2A3242;color:var(--amber)">₮</div><div style="flex:1"><div class="pn">USDT</div><div class="pd">链上确认后开通</div></div><div class="radio"></div></div>
+          </div>
+          <div class="checkout">
+            <div class="cin">输入优惠码</div><div class="cgo">验证</div>
+            <div style="flex:1"></div>
+            <span style="font-size:12.5px;color:var(--txt-2)">合计</span>
+            <span class="sum">¥19.9</span>
+            <span class="btn">立即支付</span>
+          </div>
+          <div class="note" style="margin-top:14px">桌面端：套餐卡横向 3 列 · 支付方式同行 · 结算栏与优惠码同行（移动端为纵向 / 固定底部栏）</div>
+        </div>
+      </div>
+      <div class="stbar"><span class="dot"></span>已连接 · 日本 · 东京 · 01 · <span class="num">86ms</span><div style="flex:1"></div><span class="num">↑ 1.2 MB/s</span><span class="num">↓ 8.4 MB/s</span></div>
+    </div>
+  </div>
+</div><div class="cap">桌面套餐页 · 横向 3 列 + 同行结算</div></div>
+
+<!-- ═══════════════ 桌面我的页 ═══════════════ -->
+<div class="stage"><div class="win" style="height:620px">
+  <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Mclash</div><div style="width:44px"></div></div>
+  <div class="winbody">
+    <div class="rail">
+      <div class="r"><span class="ri">⌂</span>首页</div><div class="r"><span class="ri">▤</span>节点</div>
+      <div class="r"><span class="ri">▦</span>套餐</div><div class="r on"><span class="ri">◔</span>我的</div>
+      <div class="sp"></div><div class="div"></div><div class="r"><span class="ri">⚙</span>设置</div>
+    </div>
+    <div class="main">
+      <div style="flex:1;overflow:hidden">
+        <div class="wrap">
+          <div class="grid2" style="margin-top:14px">
+            <div class="colL" style="width:340px;flex:0 0 340px">
+              <div class="panel" style="display:flex;align-items:center;gap:14px;padding:16px">
+                <div style="width:52px;height:52px;flex:0 0 52px;border-radius:15px;background:#000;display:flex;align-items:center;justify-content:center;font-size:24px">✈</div>
+                <div style="flex:1"><div style="font-size:16px;font-weight:700">MoneyFly</div><div style="font-size:11.5px;color:var(--txt-3);margin-top:3px">moneyfly@example.com</div></div>
+                <div style="text-align:right"><div class="num" style="font-size:16px;font-weight:700;color:var(--brand-2)">¥ 128.50</div><div style="font-size:10.5px;color:var(--txt-3)">账户余额</div></div>
+              </div>
+              <div style="border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,rgba(255,176,32,.18),rgba(255,176,32,.06));border:1px solid rgba(255,176,32,.45)">
+                <span style="font-size:15px">⏰</span><span style="flex:1;font-size:12px">订阅将于 5 天后到期</span><span class="chip">立即续费</span>
+              </div>
+              <div class="panel" style="background:var(--g-subcard);border-color:rgba(69,95,233,.4)">
+                <div style="display:flex;align-items:center;margin-bottom:14px"><span style="font-size:14px;font-weight:700">标准版 · 100G</span><span class="pill" style="margin-left:auto">● 生效中</span></div>
+                <div style="display:flex">
+                  <div style="flex:1"><div class="num" style="font-size:15px;font-weight:700">2026-03-14</div><div style="font-size:10.5px;color:var(--txt-3);margin-top:4px">到期时间</div></div>
+                  <div style="flex:1"><div class="num" style="font-size:15px;font-weight:700">128 天</div><div style="font-size:10.5px;color:var(--txt-3);margin-top:4px">剩余天数</div></div>
+                  <div style="flex:1"><div class="num" style="font-size:15px;font-weight:700">2 / 3</div><div style="font-size:10.5px;color:var(--txt-3);margin-top:4px">设备数</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="colR">
+              <div class="row"><div class="ic">📱</div><div class="t">设备管理</div><span class="pill" style="font-size:10.5px">2/3</span><span class="arr">›</span></div>
+              <div class="row"><div class="ic">🧾</div><div class="t">订单记录</div><span class="arr">›</span></div>
+              <div class="row"><div class="ic">🔔</div><div class="t">通知中心</div><span class="pill b" style="font-size:10.5px">3</span><span class="arr">›</span></div>
+              <div class="row"><div class="ic">🔒</div><div class="t">修改密码</div><span class="arr">›</span></div>
+              <div class="row"><div class="ic">💬</div><div class="t">在线客服</div><span class="arr">›</span></div>
+              <div class="row"><div class="ic">⚙</div><div class="t">设置</div><span class="arr">›</span></div>
+              <div class="row"><div class="ic">ℹ</div><div class="t">关于 Mclash</div><span class="v">v2.3.0</span><span class="arr">›</span></div>
+              <div class="row"><div class="ic">⟳</div><div class="t">版本更新</div><span class="arr">›</span></div>
+              <div class="btn danger" style="margin-top:14px;height:44px;font-size:13.5px">退出登录</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stbar"><span class="dot"></span>已连接 · 日本 · 东京 · 01 · <span class="num">86ms</span><div style="flex:1"></div><span class="num">↑ 1.2 MB/s</span><span class="num">↓ 8.4 MB/s</span></div>
+    </div>
+  </div>
+</div><div class="cap">桌面我的页 · 左账号+订阅 / 右功能菜单</div></div>
+
+<!-- ═══════════════ 桌面设置页 ═══════════════ -->
+<div class="stage"><div class="win" style="height:700px">
+  <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Mclash</div><div style="width:44px"></div></div>
+  <div class="winbody">
+    <div class="rail">
+      <div class="r"><span class="ri">⌂</span>首页</div><div class="r"><span class="ri">▤</span>节点</div>
+      <div class="r"><span class="ri">▦</span>套餐</div><div class="r"><span class="ri">◔</span>我的</div>
+      <div class="sp"></div><div class="div"></div><div class="r on"><span class="ri">⚙</span>设置</div>
+    </div>
+    <div class="main">
+      <div style="flex:1;overflow:hidden">
+        <div class="wrap-narrow">
+          <div class="toolbar"><h2>设置</h2><span class="gbtn">恢复默认</span></div>
+          <div class="sect">连接</div>
+          <div class="row"><div class="ic">◎</div><div class="t">连接模式</div><div class="spacer"></div>
+            <div class="seg2"><span class="o on">智能</span><span class="o">全局</span></div></div>
+          <div class="row"><div class="ic">⟳</div><div class="t">自动连接</div><div class="spacer"></div><div class="sw off sm"></div></div>
+          <div class="row"><div class="ic">⚡</div><div class="t">自动测速与选优</div><div class="spacer"></div><div class="sw sm"></div></div>
+          <div class="row"><div class="ic">🔁</div><div class="t">断线自动重连</div><div class="spacer"></div><div class="sw sm"></div></div>
+          <div class="row"><div class="ic">🚀</div><div class="t">开机自启动</div><div class="spacer"></div><div class="sw off sm"></div></div>
+          <div class="row"><div class="ic">🖥</div><div class="t">系统代理</div><div class="spacer"></div><div class="sw sm"></div></div>
+          <div class="sect">代理与分流</div>
+          <div class="row"><div class="ic">🧭</div><div class="t">代理与分流</div><div class="spacer"></div><span class="arr">›</span></div>
+          <div class="row"><div class="ic">🧩</div><div class="t">分流数据更新</div><div class="spacer"></div><span class="arr">›</span></div>
+          <div class="row"><div class="ic">🧱</div><div class="t">直连名单</div><div class="spacer"></div><span class="v">12 条</span><span class="arr">›</span></div>
+          <div class="row"><div class="ic">🔢</div><div class="t">本地端口</div><div class="spacer"></div><span class="v">2080</span><span class="arr">›</span></div>
+          <div class="row"><div class="ic">🔧</div><div class="t">内核 API 端口</div><div class="spacer"></div><span class="v">9090</span><span class="arr">›</span></div>
+          <div class="row"><div class="ic">⏱</div><div class="t">测速地址</div><div class="spacer"></div><span class="v">gstatic.com</span><span class="arr">›</span></div>
+          <div class="sect">内核</div>
+          <div class="row"><div class="ic">🌐</div><div class="t">内核管理</div><div class="spacer"></div><span class="v">v1.19.30</span><span class="arr">›</span></div>
+          <div class="row"><div class="ic">🔓</div><div class="t">放宽 hy2/tuic 证书校验</div><div class="spacer"></div><div class="sw sm"></div></div>
+          <div class="sect">外观</div>
+          <div class="row"><div class="ic">🎨</div><div class="t">外观模式</div><div class="spacer"></div>
+            <div style="display:flex;gap:6px">
+              <span style="width:22px;height:22px;border-radius:50%;background:#F5F6FA;display:block"></span>
+              <span style="width:22px;height:22px;border-radius:50%;background:#E8862E;display:block"></span>
+              <span style="width:22px;height:22px;border-radius:50%;background:#5B7CFA;display:block"></span>
+              <span style="width:22px;height:22px;border-radius:50%;background:#5B8DEF;display:block;box-shadow:0 0 0 2px var(--brand)"></span>
+              <span style="width:22px;height:22px;border-radius:50%;background:#4E7CF6;display:block"></span>
+              <span style="width:22px;height:22px;border-radius:50%;background:#6C7BFF;display:block"></span>
+            </div></div>
+          <div class="row"><div class="ic">🌏</div><div class="t">语言</div><div class="spacer"></div><span class="v">简体中文</span><span class="arr">›</span></div>
+          <div class="sect">桌面</div>
+          <div class="row"><div class="ic">🚪</div><div class="t">关闭窗口行为</div><div class="spacer"></div><span class="v">每次询问</span><span class="arr">›</span></div>
+          <div class="sect">诊断</div>
+          <div class="row"><div class="ic">🧾</div><div class="t">日志中心</div><div class="spacer"></div><span class="arr">›</span></div>
+          <div class="row"><div class="ic">📤</div><div class="t">导出诊断包</div><div class="spacer"></div><span class="arr">›</span></div>
+          <div class="note" style="text-align:center;margin-top:16px">
+            快捷键：<b style="color:var(--brand-2)">Ctrl/Cmd + K</b> 连接/断开 · <b style="color:var(--brand-2)">Ctrl/Cmd + ,</b> 设置 · <b style="color:var(--brand-2)">Ctrl/Cmd + R</b> 刷新订阅 · <b style="color:var(--brand-2)">Esc</b> 关闭弹层
+          </div>
+        </div>
+      </div>
+      <div class="stbar"><span class="dot"></span>已连接 · 日本 · 东京 · 01 · <span class="num">86ms</span><div style="flex:1"></div><span class="num">↑ 1.2 MB/s</span><span class="num">↓ 8.4 MB/s</span></div>
+    </div>
+  </div>
+</div><div class="cap">桌面设置页 · 容器最大宽 760px 居中 · 显示桌面专属行</div></div>
+
+<!-- ═══════════════ 关闭询问弹窗 + 托盘菜单 ═══════════════ -->
+<div class="stage"><div class="win" style="height:600px">
+  <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Mclash</div><div style="width:44px"></div></div>
+  <div class="winbody">
+    <div class="rail"><div class="r on"><span class="ri">⌂</span>首页</div><div class="r"><span class="ri">▤</span>节点</div><div class="r"><span class="ri">▦</span>套餐</div><div class="r"><span class="ri">◔</span>我的</div><div class="sp"></div><div class="div"></div><div class="r"><span class="ri">⚙</span>设置</div></div>
+    <div class="main" style="position:relative">
+      <div style="flex:1;opacity:.35;padding:20px">
+        <div class="cc" style="width:400px;border-color:rgba(46,230,168,.55)">
+          <div class="st" style="color:var(--green)">已连接</div>
+          <div class="pw" style="box-shadow:0 0 34px rgba(46,230,168,.5)"><div class="core" style="border-color:rgba(46,230,168,.5);background:radial-gradient(circle at 50% 32%,#1E3B3A,#0E1716 75%);color:var(--green)">⏻</div></div>
+        </div>
+      </div>
+      <div class="ovl">
+        <div class="modal">
+          <h3>关闭窗口</h3>
+          <div class="bd">你想最小化到托盘还是退出 Mclash？<br>最小化到托盘后，代理连接将保持。</div>
+          <div class="chk"><span class="cb"></span>记住我的选择</div>
+          <div class="ft">
+            <span class="tb">取消</span>
+            <span class="tb">最小化到托盘</span>
+            <span class="tb r">退出</span>
+          </div>
+        </div>
+      </div>
+      <!-- 托盘菜单 -->
+      <div class="traymenu" style="position:absolute;right:16px;bottom:44px">
+        <div class="mi">🗗 显示主窗口</div>
+        <div class="sep"></div>
+        <div class="mi">⏻ 断开连接</div>
+        <div class="info"><span class="dot"></span>日本 · 东京 · 01 · 86ms</div>
+        <div class="sep"></div>
+        <div class="mi" style="color:var(--red)">✕ 退出 Mclash</div>
+      </div>
+      <div class="stbar"><span class="dot"></span>已连接 · 日本 · 东京 · 01 · <span class="num">86ms</span><div style="flex:1"></div><span class="num">↑ 1.2 MB/s</span><span class="num">↓ 8.4 MB/s</span></div>
+    </div>
+  </div>
+</div><div class="cap">关闭询问弹窗（F3）+ 托盘右键菜单 · 弹窗必须用 rootNavigatorKey.currentContext</div></div>
+
+<!-- ═══════════════ 支付弹窗（桌面） ═══════════════ -->
+<div class="stage"><div class="win" style="height:600px">
+  <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Mclash</div><div style="width:44px"></div></div>
+  <div class="winbody">
+    <div class="rail"><div class="r"><span class="ri">⌂</span>首页</div><div class="r"><span class="ri">▤</span>节点</div><div class="r on"><span class="ri">▦</span>套餐</div><div class="r"><span class="ri">◔</span>我的</div><div class="sp"></div><div class="div"></div><div class="r"><span class="ri">⚙</span>设置</div></div>
+    <div class="main" style="position:relative">
+      <div style="flex:1;opacity:.35;padding:20px">
+        <div style="font-size:20px;font-weight:700">套餐购买</div>
+        <div class="pgrid" style="margin-top:16px;max-width:700px">
+          <div class="pcard on"><div class="nm">标准版</div><div class="pr">¥ 19.9</div></div>
+          <div class="pcard"><div class="nm">轻量版</div><div class="pr">¥ 9.9</div></div>
+        </div>
+      </div>
+      <div class="ovl">
+        <div class="modal" style="width:400px;text-align:center;border-radius:26px;padding:24px 22px 20px">
+          <h3 style="font-size:17px">扫码支付</h3>
+          <div style="font-size:11px;color:var(--txt-3);letter-spacing:.08em;margin-top:5px">请使用支付宝扫描二维码</div>
+          <div style="width:196px;height:196px;margin:18px auto 14px;border-radius:18px;background:#fff;padding:12px;box-shadow:0 14px 40px rgba(0,0,0,.5)">
+            <div style="width:100%;height:100%;border-radius:4px;background:repeating-conic-gradient(#111 0 25%,#fff 0 50%) 0 0/12px 12px"></div>
+          </div>
+          <div class="num" style="font-size:32px;font-weight:700">¥ 19.9</div>
+          <div class="num" style="font-size:11.5px;color:var(--txt-3);margin-top:6px">订单号 MF20260314001234</div>
+          <div style="display:inline-flex;align-items:center;gap:8px;margin:14px 0 16px;font-size:12.5px;color:var(--txt-2)">
+            <span style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(69,95,233,.25);border-top-color:var(--brand-2);display:block"></span>等待支付…
+          </div>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1;height:46px;border-radius:14px;border:1px solid var(--line-2);color:var(--txt-2);display:flex;align-items:center;justify-content:center;font-size:14.5px">取消订单</div>
+            <div style="flex:1;height:46px;border-radius:14px;background:var(--g-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14.5px;font-weight:600">我已支付</div>
+          </div>
+          <div class="note" style="margin-top:12px">桌面端不显示「打开支付宝支付」深链（无 App 深链）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><div class="cap">桌面支付弹窗 · 宽度 min(420px, 90vw)</div></div>
+
+<!-- ═══════════════ 窄屏退化 ═══════════════ -->
+<div class="stage"><div class="win" style="width:420px;height:720px">
+  <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Mclash</div><div style="width:44px"></div></div>
+  <div class="winbody">
+    <div class="main">
+      <div style="flex:1;overflow:hidden;padding:0 16px">
+        <div class="hd"><div class="logo"><svg viewBox="0 0 48 48"><path d="M9 35V13l15 15L39 13v22" stroke="#455FE9" stroke-width="7" stroke-linecap="round" fill="none"/></svg></div><div class="nm">MoneyFly</div><div class="sp"></div><div class="ibtn">⟳</div><div class="ibtn">⚙</div></div>
+        <div class="cc" style="border-color:rgba(46,230,168,.55)">
+          <div class="st" style="color:var(--green)">已连接</div>
+          <div class="ses">已连接 00:12:30 · ↑ 1.2 ↓ 840 MB</div>
+          <div class="pw" style="box-shadow:0 0 34px rgba(46,230,168,.5)"><div class="core" style="border-color:rgba(46,230,168,.5);background:radial-gradient(circle at 50% 32%,#1E3B3A,#0E1716 75%);color:var(--green)">⏻</div></div>
+          <div class="node"><span class="fl">🇯🇵</span><div class="info"><div class="l">当前线路</div><div class="n">日本 · 东京 · 01</div></div><span class="badge g">86 ms</span><span class="swx">切换 ›</span></div>
+          <div class="real" style="color:var(--green)">🇯🇵 真实出口 · 日本</div>
+          <div class="seg"><div class="o on">◎ 智能模式</div><div class="o">⊕ 全局模式</div></div>
+        </div>
+        <div class="stat2">
+          <div class="s"><div class="h" style="color:var(--brand-2)">↑ 上行</div><div class="v"><b style="color:var(--brand-2)">1.2</b><span>MB/s</span></div></div>
+          <div class="s"><div class="h" style="color:var(--green)">↓ 下行</div><div class="v"><b style="color:var(--green)">8.4</b><span>MB/s</span></div></div>
+        </div>
+        <div class="at" style="margin-top:12px">
+          <div class="h"><div class="i">⚡</div><div class="t">自动测速与选优</div><div class="s">● 已选优</div></div>
+          <div class="b"><div class="bn"><span>🇯🇵</span><span class="n">日本 · 东京 · 01</span><span class="ms">86ms</span></div></div>
+        </div>
+        <div class="note" style="text-align:center;margin-top:14px">窗口 <b>&lt; 840px</b> → 侧栏隐藏，回退底部导航<br>（与移动端同一份 <code>_mainNavEntries</code>）</div>
+      </div>
+      <div style="height:60px;display:flex;align-items:center;justify-content:space-around;border-top:1px solid var(--line);background:rgba(11,14,20,.94)">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--brand-2)"><span style="font-size:17px">⌂</span>首页</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--txt-3)"><span style="font-size:17px">▤</span>节点</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--txt-3)"><span style="font-size:17px">▦</span>套餐</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--txt-3)"><span style="font-size:17px">◔</span>我的</div>
+      </div>
+    </div>
+  </div>
+</div><div class="cap">窄屏退化（420 × 720）· 隐藏侧栏、首页自动切回单列、保持底部导航</div></div>
+
+</body>
+</html>

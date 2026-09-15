@@ -1,0 +1,80 @@
+# ---------- 通用 ----------
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history/
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IDE
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# ---------- Flutter / Dart ----------
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+app.*.symbols
+app.*.map.json
+
+# Android Studio 构建产物
+/android/app/debug
+/android/app/profile
+/android/app/release
+dist/
+
+# ---------- 内核二进制（CI 下载/编译，绝不入库） ----------
+# Android：moneyfly004/mihomo-lib 的预编译 AAR
+android/app/libs/*.aar
+android/app/libs/*.jar
+# 本地调试编译内核用的临时目录
+android/mihomo-core/build/
+mihomo-bin/
+build/mihomo/
+
+# ---------- 离线分流数据（CI 从 MetaCubeX/meta-rules-dat 下载） ----------
+# 本地开发：bash tool/fetch_geodata.sh
+assets/rules/*.dat
+assets/rules/*.mmdb
+
+# ---------- 签名与密钥（绝不入库） ----------
+android/key.properties
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# ---------- iOS（本期范围外，但目录已预留） ----------
+ios/Mihomelib.xcframework/
+ios/PacketTunnel/country.mmdb
+ios/PacketTunnel/geosite.dat
+ios/build/
+ios/Pods/
+
+# ---------- macOS ----------
+macos/Pods/
+macos/Flutter/ephemeral/
+macos/build/
+
+# ---------- Windows ----------
+windows/flutter/ephemeral/
+windows/build/
+*.vcxproj.user
+
+# ---------- 设计稿临时产物 ----------
+docs/design/mockups/.cache/
+docs/design/img/*.tmp
