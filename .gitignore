@@ -59,6 +59,18 @@ app.*.map.json
 android/app/libs/*.aar
 android/app/libs/*.jar
 packages/libclash_vpn_service/android/libs/*.aar
+# 下载中间产物也必须挡住。
+#
+# 踩过的坑：原有规则只写了 *.aar，而脚本的原子落位流程是「先下到
+# libmihomo.aar.part → 校验 → mv 成 libmihomo.aar」。于是 .part 与
+# libmihomo.aar.part.sha256 这两个**中间文件不在忽略范围内**：
+#   · 下载进行中执行 git add -A，就把 81MB 的半成品提交了进去（已推到远端）；
+#   · 下一次下载中途提交时更是到 161MB，超过 GitHub 单文件 100MB 上限，
+#     push 被 pre-receive hook 直接拒绝。
+# 所以按「所有 .part* 一律忽略」写，而不是只枚举具体文件名。
+*.part
+*.part.sha256
+*.part.sha256sum
 packages/libclash_vpn_service/android/libs/*.jar
 # 桌面端内核（CI 下载官方预编译，本地用 tool/fetch_mihomo.sh）
 mihomo-bin/
