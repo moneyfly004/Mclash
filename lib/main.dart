@@ -298,9 +298,18 @@ class MyAppState extends State<MyApp>
 
     // 冷启动时若已有会话（自动登录），同步启动账户状态轮询；
     // 账号受限时首页开关会在构建期就禁用，而不是点下去才发现
-    if (MclashApi.isLoggedIn) {
-      MclashAccountService.instance.start();
-    }
+    //
+    // 必须先 restore()：CBoard 的凭据（access/refresh token）存在安全存储里，
+    // 不 restore 的话 isLoggedIn 恒为 false，表现为「明明登录过，重启就退登」。
+    //
+    // 这里用 then 而非 await：本段所在作用域不是 async（它是单实例回调链上的
+    // 一段同步初始化），加 await 需要改动外层结构，风险大于收益。
+    // 账户服务本身是轮询器，晚一个微任务启动无任何可观测差异。
+    MclashApi.restore().then((loggedIn) {
+      if (loggedIn) {
+        MclashAccountService.instance.start();
+      }
+    });
     AppLifecycleStateNofity.init();
     LocaleSettings.getLocaleStream().listen((event) {});
     String launchStartupArg = processArgs.firstWhere(

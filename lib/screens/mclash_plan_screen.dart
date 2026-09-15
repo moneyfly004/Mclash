@@ -34,7 +34,9 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
   List<Map<String, dynamic>> _methods = [];
 
   int? _selectedPlanId;
-  int? _selectedMethodId;
+  /// 选中的支付通道（`pay_type` 字符串，或 "balance"）。
+  /// 后端 `PayOrder` 只认 `payment_method` 这个字符串字段，没有按数字 ID 选通道的写法。
+  String? _selectedMethod;
   final TextEditingController _coupon = TextEditingController();
   double _discount = 0;
 
@@ -69,7 +71,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           return null;
         }),
         MclashApi.packages().then((v) => plans = v),
-        MclashApi.paymentMethods().then((v) => methods = v),
+        MclashApi.availablePaymentMethods().then((v) => methods = v),
       ]);
       if (!mounted) {
         return;
@@ -85,9 +87,12 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
                   )["id"]) as num?)
                 ?.toInt()
             : null;
-        _selectedMethodId ??= methods.isNotEmpty
-            ? (methods.first["id"] as num?)?.toInt()
+        _selectedMethod ??= methods.isNotEmpty
+            ? (methods.first["pay_type"] ?? "").toString()
             : null;
+        if (_selectedMethod != null && _selectedMethod!.isEmpty) {
+          _selectedMethod = null;
+        }
         _loading = false;
       });
     } catch (e) {
@@ -404,29 +409,25 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           separatorBuilder: (_, _) => const Divider(height: 1, thickness: 0.3),
           itemBuilder: (context, i) {
             final m = _methods[i];
-            final id = _asInt(m["id"]);
-            final selected = id == _selectedMethodId;
+            final payType = (m["pay_type"] ?? "").toString();
+            final selected = payType == _selectedMethod;
+            // 后端只下发 pay_type，没有 name；label 由 MclashApi 兜底映射成中文。
+            // 直接取 m["name"] 会渲染出一列空白行。
+            final label = (m["label"] ?? "").toString().isNotEmpty
+                ? m["label"].toString()
+                : MclashApi.paymentMethodLabel(payType);
             return ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
-                m["name"]?.toString() ?? "",
+                label,
                 style: TextStyle(
                   color: selected ? ThemeDefine.kColorBlue : null,
                 ),
               ),
-              subtitle: m["description"] != null
-                  ? Text(
-                      m["description"].toString(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: ThemeDefine.kColorGrey,
-                      ),
-                    )
-                  : null,
               trailing: selected
                   ? const Icon(Icons.done, size: 20)
                   : const SizedBox(width: 20),
-              onTap: () => setState(() => _selectedMethodId = id),
+              onTap: () => setState(() => _selectedMethod = payType),
             );
           },
         ),
@@ -444,7 +445,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     );
     final price = double.tryParse(plan["price"]?.toString() ?? "0") ?? 0;
     final payable = (price - _discount).clamp(0.0, double.infinity).toDouble();
-    final canPay = _selectedPlanId != null && _selectedMethodId != null;
+    final canPay = _selectedPlanId != null && _selectedMethod != null;
 
     return Card(
       child: Padding(
@@ -484,7 +485,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
       if (orderNo.isEmpty) {
         return;
       }
-      final r = await MclashApi.payOrder(orderNo, _selectedMethodId!);
+      final r = await MclashApi.payOrder(orderNo, _selectedMethod!);
       if (!mounted) {
         return;
       }
