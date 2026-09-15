@@ -64,7 +64,6 @@ class BoardProviderConfig {
   String homeUrl;
   String appIconUrl;
 
-  //benefits begin
   bool panelLogin = true;
   bool highlightPin = false;
   bool logoBranding = false;
@@ -76,7 +75,7 @@ class BoardProviderConfig {
   bool unbanSubscription = true;
   bool customSpell = false;
   bool notificationPush = false;
-  //benefits end
+
   String botCookie;
   DateTime? lastUpdated;
   BoardProviderConfig({
@@ -116,7 +115,7 @@ class BoardProviderConfig {
     this.unbanSubscription = true,
     this.customSpell = false,
     this.notificationPush = false,
-    this.botCookie = '', //'cf_clearance',
+    this.botCookie = '',
     this.lastUpdated,
   });
 
@@ -158,7 +157,7 @@ class BoardProviderConfig {
     'custom_spell': customSpell,
     'notification_push': notificationPush,
     'bot_cookie': botCookie,
-    //'last_updated': lastUpdated?.microsecondsSinceEpoch,
+
   };
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {
@@ -215,10 +214,8 @@ class BoardProviderConfig {
     customSpell = map["custom_spell"] ?? false;
     notificationPush = map["notification_push"] ?? false;
 
-    botCookie = map["bot_cookie"] ?? ""; //"cf_clearance";
-    // lastUpdated = map["last_updated"] != null
-    //     ? DateTime.fromMicrosecondsSinceEpoch(map["last_updated"])
-    //    : null;
+    botCookie = map["bot_cookie"] ?? "";
+
   }
 }
 
@@ -312,7 +309,7 @@ class BoardProviderManager {
       return ReturnResult(data: BoardProviderType.xboard);
     }
     if (result.data!.item2.contains("/auth/login")) {
-      //sspanel
+
       String content = result.data!.item2.length > 512
           ? result.data!.item2.substring(0, 512)
           : result.data!.item2;

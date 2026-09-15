@@ -214,7 +214,7 @@ class _BackupAndSyncWebdavScreenState
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           width: double.infinity,
-          //height: 66,
+
           child: Row(
             children: [
               Row(
@@ -322,9 +322,7 @@ class _BackupAndSyncWebdavScreenState
       if (result.error == null) {
         break;
       }
-      /*if (WebdavClientUtils.isInnerError(result.error!.message)) {
-        break;
-      }*/
+
     }
     if (!mounted) {
       return;

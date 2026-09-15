@@ -36,7 +36,7 @@ class Themes with ChangeNotifier {
       case ThemeDefine.kThemeDark:
         return ThemeDataDark.theme(context);
     }
-    //ThemeDefine.kThemeSystem:
+
     return brightness == Brightness.dark
         ? ThemeDataDark.theme(context)
         : ThemeDataLight.theme(context);

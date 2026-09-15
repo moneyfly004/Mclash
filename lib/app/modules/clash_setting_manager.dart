@@ -17,6 +17,7 @@ import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'package:path/path.dart' as path;
@@ -78,10 +79,6 @@ class ClashSettingManager {
   }
 
   static RawTun defaultTun() {
-    // 注：此处原有一份 routeAddress 常量路由表，但**从未被使用**
-    // （分析器报 unused_local_variable），已删除。
-    // 若将来需要为 TUN 指定绕行路由，应把它真正接进下面返回的 RawTun，
-    // 而不是留一份不会被读取的清单。
 
     return RawTun.by(
       OverWrite: true,
@@ -90,7 +87,7 @@ class ClashSettingManager {
       MTU: 1280,
       Inet4Address: [iNet4Address],
       Inet6Address: [iNet6Address],
-      //RouteAddress: routeAddress,
+
       DNSHijack: [dnsHijack],
       DisableICMPForwarding: true,
     );
@@ -145,11 +142,7 @@ class ClashSettingManager {
       "system",
     ];
     const List<String> fallback = [
-      /*"tls://223.5.5.5:853",
-        "https://dns.alidns.com/dns-query#h3=true",
-        "https://cloudflare-dns.com/dns-query",
-        "https://1.12.12.12/dns-query",
-        "https://120.53.53.53/dns-query"*/
+
     ];
     const List<String> fakeIPFilter = [
       "*.lan",
@@ -551,6 +544,12 @@ class ClashSettingManager {
         await PathUtils.serviceCoreRuntimeProfileFilePath();
   }
 
+  /// 测试缝：直接设定当前模式（真实设置要落盘，测试不该碰文件）。
+  @visibleForTesting
+  static void debugSetMode(String mode) {
+    _setting.Mode = mode;
+  }
+
   static Future<ReturnResultError?> setConfigsMode(
     ClashConfigsMode mode,
   ) async {
@@ -597,5 +596,14 @@ class ClashSettingManager {
 
   static int getMixedPort() {
     return _setting.MixedPort ?? 7890;
+  }
+
+  static Future<void> setMixedPort(int port) async {
+    if (port <= 0 || _setting.MixedPort == port) {
+      return;
+    }
+    _setting.MixedPort = port;
+    await save();
+    Log.w("ClashSettingManager: 混合端口已改为 $port");
   }
 }

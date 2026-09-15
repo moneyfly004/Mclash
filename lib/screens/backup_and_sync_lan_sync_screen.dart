@@ -106,12 +106,6 @@ class _BackupAndSyncLanSyncScreenState
         return;
       }
 
-      /*if (Platform.isWindows && proxy.autoAddToFirewall) {
-        FlutterVpnService.firewallAddPorts([
-          listenPort,
-        ], PathUtils.getExeName());
-      }*/
-
       List<String> ips = [];
       var addrs = await NetworkUtils.getInterfaces();
       for (var addr in addrs) {

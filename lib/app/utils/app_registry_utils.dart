@@ -46,7 +46,6 @@ abstract final class AppRegistryUtils {
     );
   }
 
-  /// Generic method to retrieve a registry value with type checking
   static T? getValue<T>(String name, RegistryValueType expectedType) {
     if (!Platform.isWindows) {
       return null;
@@ -63,7 +62,6 @@ abstract final class AppRegistryUtils {
     }
   }
 
-  /// Generic method to save a registry value
   static void setValue<T>(String name, RegistryValueType type, T value) {
     if (!Platform.isWindows) {
       return;
@@ -73,7 +71,7 @@ abstract final class AppRegistryUtils {
       final key = Registry.currentUser.createKey(_registryPath);
       key.createValue(RegistryValue(name, type, value as Object));
     } catch (_) {
-      // Handle other errors silently
+
     }
   }
 }

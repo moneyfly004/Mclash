@@ -25,7 +25,7 @@ class V2boardLogin {
       );
     }
     Log.i('v2board: login, provider: ${provider.name}, email: $email');
-    //session.v2board!.proxyUrl = "127.0.0.1:8888";
+
     final loginRequest = LoginRequest(email: email, password: password);
     session.v2board!.timeout = const Duration(seconds: 10);
     final loginResponse = await session.v2board!.login(loginRequest);
@@ -45,7 +45,6 @@ class V2boardLogin {
       return BoardSessionLoginError(session: session, message: err);
     }
 
-    // 登录成功 → 启动账户状态轮询（首页状态条 / 准入闸门 / 「我的」Tab 共用）
     MclashAccountService.instance.start();
     onEventLogin.forEach((key, value) {
       value.call();
@@ -59,14 +58,7 @@ class V2boardLogin {
     BoardSession session, {
     bool reloadProfile = true,
   }) async {
-    /*final userInfoResponse = await session.v2board!.getUserInfo();
-    if (userInfoResponse.statusCode != 200) {
-      return userInfoResponse.getFullMessage();
-    }
-    if (userInfoResponse.data!.planId == null ||
-        userInfoResponse.data!.planId == 0) {
-      return null;
-    }*/
+
     if (session.v2board == null) {
       return null;
     }
@@ -108,7 +100,7 @@ class V2boardLogin {
     if (session == null) {
       return;
     }
-    // 登出 → 停轮询并清空账户状态（防下一个账号看到上一个的状态）
+
     MclashAccountService.instance.stop();
     onEventLogout.forEach((key, value) {
       value.call();

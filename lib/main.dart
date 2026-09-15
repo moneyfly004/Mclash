@@ -27,6 +27,7 @@ import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/mclash_gate.dart';
+import 'package:mclash/screens/mclash_mode_action.dart';
 import 'package:mclash/screens/launch_failed_screen.dart';
 import 'package:mclash/screens/theme_data_dark.dart';
 import 'package:mclash/screens/themes.dart';
@@ -150,8 +151,7 @@ Future<void> run(List<String> args) async {
       await windowManager.ensureInitialized();
       const inProduction = bool.fromEnvironment("dart.vm.product");
       if (inProduction) {
-        //await windowManager.setResizable(false);
-        //await windowManager.setMaximizable(false);
+
         if (Platform.isLinux) {
           await windowManager.setMinimumSize(Size(400, 740));
         } else {
@@ -196,9 +196,7 @@ Future<void> run(List<String> args) async {
     SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
-  // VPN 平台实现现在是**惰性直接构造**的（见 vpn_service_platform.dart 的
-  // _createDefault），因此不依赖任何注册时机。这里显式调用只是留一个覆盖点，
-  // 便于测试注入 mock，不调用也能正常工作。
+
   registerMclashVpnService();
 
   runApp(TranslationProvider(child: const MyApp()));
@@ -206,8 +204,7 @@ Future<void> run(List<String> args) async {
 
 Future<void> _ensureSingleInstanceOrExit() async {
   FlutterSingleInstance.debugMode = false;
-  // Use a stable lock file key. On Linux, process names can vary by launch
-  // path (e.g. xdg-open/AppImage), which breaks single-instance detection.
+
   FlutterSingleInstance.processName = AppUtils.getId();
   FlutterSingleInstance.onFocus = (metadata) async {
     await windowManager.show();
@@ -237,7 +234,6 @@ Future<void> _ensureSingleInstanceOrExit() async {
       Log.w("single instance focus exception: ${err.toString()}");
     }
 
-    // Never continue launching a second process.
     exit(0);
   }
 }
@@ -296,15 +292,6 @@ class MyAppState extends State<MyApp>
       });
     }
 
-    // 冷启动时若已有会话（自动登录），同步启动账户状态轮询；
-    // 账号受限时首页开关会在构建期就禁用，而不是点下去才发现
-    //
-    // 必须先 restore()：CBoard 的凭据（access/refresh token）存在安全存储里，
-    // 不 restore 的话 isLoggedIn 恒为 false，表现为「明明登录过，重启就退登」。
-    //
-    // 这里用 then 而非 await：本段所在作用域不是 async（它是单实例回调链上的
-    // 一段同步初始化），加 await 需要改动外层结构，风险大于收益。
-    // 账户服务本身是轮询器，晚一个微任务启动无任何可观测差异。
     MclashApi.restore().then((loggedIn) {
       if (loggedIn) {
         MclashAccountService.instance.start();
@@ -392,7 +379,7 @@ class MyAppState extends State<MyApp>
               SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
             },
             child: MaterialApp(
-              //showSemanticsDebugger: false,
+
               debugShowCheckedModeBanner: false,
               locale: TranslationProvider.of(context).flutterLocale,
               supportedLocales: AppLocaleUtils.supportedLocales,
@@ -405,9 +392,7 @@ class MyAppState extends State<MyApp>
                     MoveToBackgroundUtils.moveToBackground();
                   }
                 },
-                // 启动失败优先展示失败原因；
-                // 否则交给 MclashGate 决定首屏 —— 未登录时**必须是登录页**，
-                // 因为订阅要按账号从后台拉取，没有账号则整个 App 无事可做。
+
                 child: startFailedReason != null
                     ? LaunchFailedScreen(
                         startFailedReason: startFailedReason!,
@@ -432,7 +417,7 @@ class MyAppState extends State<MyApp>
           );
 
           if (linuxRotate180Fix) {
-            // Workaround for some Linux devices where Flutter content is upside down.
+
             app = RotatedBox(quarterTurns: 2, child: app);
           }
 
@@ -474,14 +459,6 @@ class MyAppState extends State<MyApp>
       }
     }
   }
-
-  // 说明：这里原本还有两个 @override —— onWindowDeviceShutdown /
-  // onWindowUserSessionDisconnect，它们来自 KaringX 对 window_manager 的
-  // 私有 fork（本项目的依赖已全部换回 pub.dev 版本）。
-  // window_manager 0.5.0 的 WindowListener **没有这两个钩子**，
-  // 所以它们从来不会被调用（分析器报 override_on_non_overriding_member）。
-  // 保留"看似有实现"的假钩子比没有更糟 —— 会让人以为设备关机/会话断开时
-  // 已经做了优雅退出。已删除；正常退出路径走 onWindowClose（该钩子存在且已接）。
 
   void firstShowWindow(bool forceShow) {
     if (!PlatformUtils.isPC()) {
@@ -644,19 +621,19 @@ class MyAppState extends State<MyApp>
     } else if (menuItem.key == kMenuDisconnect) {
       VpnActionHandler.vpnDisconnect?.call("menu", false);
     } else if (menuItem.key == kMenuModeRule) {
-      await ClashSettingManager.setConfigsMode(ClashConfigsMode.rule);
+      await mclashSetMode(ClashConfigsMode.rule);
       menuItem.checked = true;
       _menu?.getMenuItem(kMenuModeGlobal)?.checked = false;
       _menu?.getMenuItem(kMenuModeDirect)?.checked = false;
       trayManager.setContextMenu(_menu!);
     } else if (menuItem.key == kMenuModeGlobal) {
-      await ClashSettingManager.setConfigsMode(ClashConfigsMode.global);
+      await mclashSetMode(ClashConfigsMode.global);
       menuItem.checked = true;
       _menu?.getMenuItem(kMenuModeRule)?.checked = false;
       _menu?.getMenuItem(kMenuModeDirect)?.checked = false;
       trayManager.setContextMenu(_menu!);
     } else if (menuItem.key == kMenuModeDirect) {
-      await ClashSettingManager.setConfigsMode(ClashConfigsMode.direct);
+      await mclashSetMode(ClashConfigsMode.direct);
       menuItem.checked = true;
       _menu?.getMenuItem(kMenuModeRule)?.checked = false;
       _menu?.getMenuItem(kMenuModeGlobal)?.checked = false;

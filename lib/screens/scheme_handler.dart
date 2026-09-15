@@ -14,10 +14,7 @@ class SchemeHandler {
     BuildContext context,
     String url,
   ) async {
-    //clash://install-config?url=https://xxxxx.com/clash/config
-    //clash://connect?background=true
-    //clash://disconnect
-    //clash://reconnect
+
     Uri? uri = Uri.tryParse(url);
     if (uri == null) {
       return ReturnResultError("parse url failed: $url");

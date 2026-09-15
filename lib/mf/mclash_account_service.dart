@@ -1,39 +1,31 @@
-/// 账户状态与准入闸门。
-///
-/// 对应设计稿：`docs/design/06` §6.2.5（账户状态条）与 §4.7.2（准入闸门 5 态）。
-///
-/// 为什么单独做一个 ChangeNotifier：
-///   * 首页的连接开关需要**在构建时**就知道账号是否受限（受限要禁用开关），
-///     而不是点下去再弹窗 —— 后者会让用户以为"点了没反应"；
-///   * 「我的」Tab、「套餐」Tab 也要读同一份状态，集中一处避免三处各自请求。
+
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/app/utils/path_utils.dart';
+import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:path/path.dart' as path;
 
-/// 受限原因（与后台状态一一对应）
 enum MclashBlockKind {
   none,
 
-  /// 未开通套餐
   noSubscription,
 
-  /// 已到期
   expired,
 
-  /// 订阅被停用
   subscriptionDisabled,
 
-  /// 账号被禁用
   accountDisabled,
 
-  /// 设备数已达上限
   deviceFull,
 
-  /// 本设备已被踢下线
   deviceKicked,
 }
 
@@ -47,17 +39,98 @@ class MclashAccountService extends ChangeNotifier {
 
   bool _loading = false;
 
-  /// 设备被踢下线：由订阅拉取的 403 文案触发（`SubscriptionService.isKickedMessage`）
   bool _kicked = false;
 
   Map<String, dynamic>? get dashboard => _dash;
   Map<String, dynamic>? get subscription => _sub;
+
+  MclashAccountInfo get info => MclashAccountInfo(_dash, _sub);
+
+  @visibleForTesting
+  void debugSetData(Map<String, dynamic>? dash, Map<String, dynamic>? sub) {
+    _dash = dash;
+    _sub = sub;
+    notifyListeners();
+  }
   bool get loading => _loading;
+
+  bool _fresh = false;
+  bool get fresh => _fresh;
+
+  DateTime? _cachedAt;
+  DateTime? get cachedAt => _cachedAt;
+
+  static const String _cacheFileName = "account_cache.json";
+
+  Future<File> _cacheFile() async {
+    final dir = await PathUtils.profileDir();
+    return File(path.join(dir, _cacheFileName));
+  }
+
+  Future<void> loadCache() async {
+    try {
+      final f = await _cacheFile();
+      if (!await f.exists()) {
+        return;
+      }
+      final raw = await f.readAsString();
+      if (raw.trim().isEmpty) {
+        return;
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        return;
+      }
+      final dash = decoded['dashboard'];
+      final sub = decoded['subscription'];
+      if (dash is Map) {
+        _dash = dash.map((k, v) => MapEntry(k.toString(), v));
+      }
+      if (sub is Map) {
+        _sub = sub.map((k, v) => MapEntry(k.toString(), v));
+      }
+      final at = DateTime.tryParse(decoded['cachedAt']?.toString() ?? "");
+      _cachedAt = at;
+      _fresh = false;
+      notifyListeners();
+      Log.i("MclashAccountService: 已回填账号缓存（${at?.toIso8601String() ?? '未知时间'}）");
+    } catch (e) {
+      Log.w("MclashAccountService.loadCache 失败 $e");
+    }
+  }
+
+  Future<void> _saveCache() async {
+    try {
+      final f = await _cacheFile();
+      await f.writeAsString(
+        jsonEncode({
+          'dashboard': _dash,
+          'subscription': _sub,
+          'cachedAt': DateTime.now().toIso8601String(),
+        }),
+        flush: true,
+      );
+    } catch (e) {
+      Log.w("MclashAccountService.saveCache 失败 $e");
+    }
+  }
 
   Timer? _timer;
 
-  /// 登录后启动：立即拉一次，之后每 5 分钟刷新
+  bool _started = false;
+
+  /// 幂等启动。
+  ///
+  /// gate 与其它入口都会调它，重复调用会重复读缓存（日志里出现两次
+  /// 「已回填账号缓存」）并叠加定时器；这里只允许真正启动一次，
+  /// 后续调用退化成「立刻刷一次」。
   void start() {
+    if (_started) {
+      unawaited(refresh());
+      return;
+    }
+    _started = true;
+    unawaited(loadCache());
     refresh();
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(minutes: 5), (_) => refresh());
@@ -66,16 +139,29 @@ class MclashAccountService extends ChangeNotifier {
   void stop() {
     _timer?.cancel();
     _timer = null;
+    _started = false;
     _dash = null;
     _sub = null;
     _kicked = false;
+    _fresh = false;
     notifyListeners();
   }
 
-  /// 被踢下线（订阅 403）→ 立即转为受限态并断开
   void markKicked() {
     _kicked = true;
     notifyListeners();
+  }
+
+  Future<void> disconnectIfBlocked() async {
+    if (!isBlocked) {
+      return;
+    }
+    final started = await VPNService.getStarted();
+    if (!started) {
+      return;
+    }
+    Log.w("MclashAccountService: 账号受限($blockTitle)，已断开连接");
+    await VPNService.stop();
   }
 
   Future<void> refresh() async {
@@ -105,15 +191,17 @@ class MclashAccountService extends ChangeNotifier {
       if (sub != null) {
         _sub = sub;
       }
+      if (dash != null || sub != null) {
+        _fresh = true;
+        _cachedAt = DateTime.now();
+        unawaited(_saveCache());
+      }
     } finally {
       _loading = false;
       notifyListeners();
+      unawaited(disconnectIfBlocked());
     }
   }
-
-  // ---------------------------------------------------------------------
-  // 准入判定
-  // ---------------------------------------------------------------------
 
   bool get isBlocked => blockKind != MclashBlockKind.none;
 
@@ -121,41 +209,43 @@ class MclashAccountService extends ChangeNotifier {
     if (_kicked) {
       return MclashBlockKind.deviceKicked;
     }
-    // 账号级禁用优先于订阅级（禁用账号连套餐页也不该让他买）
-    if (_dash?["is_active"] == false) {
-      return MclashBlockKind.accountDisabled;
+    final acc = info;
+    if (!acc.hasData) {
+      return MclashBlockKind.none;
     }
-    final status = _dash?["subscription_status"]?.toString() ??
-        _sub?["status"]?.toString() ??
-        "";
-    final subActive = _sub?["is_active"] != false;
-    final expired = _sub?["is_expired"] == true || status == "expired";
+    final status = acc.status;
 
-    if (!subActive || status == "disabled") {
+    final subActive = acc.isActive;
+    final expired = _sub?["is_expired"] == true ||
+        status == "expired" ||
+        (!subActive && status.isEmpty);
+    final limit = acc.deviceLimit ?? 0;
+    final used = acc.deviceUsed ?? 0;
+
+    if (!subActive) {
+      return MclashBlockKind.subscriptionDisabled;
+    }
+    if (status == "disabled") {
       return MclashBlockKind.subscriptionDisabled;
     }
     if (expired) {
       return MclashBlockKind.expired;
     }
-
-    final limit = (_sub?["device_limit"] as num?)?.toInt() ??
-        (_dash?["total_devices"] as num?)?.toInt() ??
-        0;
-    final used = (_sub?["current_devices"] as num?)?.toInt() ??
-        (_dash?["online_devices"] as num?)?.toInt() ??
-        0;
     if (limit > 0 && used >= limit) {
       return MclashBlockKind.deviceFull;
     }
 
-    final url = _sub?["subscribe_url"]?.toString() ?? "";
-    if (url.isEmpty && status != "active") {
+    if (acc.hasSubscription) {
+      return MclashBlockKind.none;
+    }
+    final url = (_sub?["subscription_url"] ?? _sub?["subscribe_url"] ?? "")
+        .toString();
+    if (url.isEmpty && acc.planName.isEmpty && acc.remainingDays == null) {
       return MclashBlockKind.noSubscription;
     }
     return MclashBlockKind.none;
   }
 
-  /// 首页状态条 / 弹窗标题
   String get blockTitle {
     switch (blockKind) {
       case MclashBlockKind.expired:
@@ -175,14 +265,13 @@ class MclashAccountService extends ChangeNotifier {
     }
   }
 
-  /// 弹窗正文（受限时文案必须指向可操作方向，不允许含糊）
   String get blockText {
     switch (blockKind) {
       case MclashBlockKind.expired:
         return "您的套餐已到期，购买套餐后即可继续畅连全球节点。";
       case MclashBlockKind.deviceFull:
-        final limit = (_sub?["device_limit"] as num?)?.toInt() ?? 0;
-        final used = (_sub?["current_devices"] as num?)?.toInt() ?? 0;
+        final limit = info.deviceLimit ?? 0;
+        final used = info.deviceUsed ?? 0;
         return "设备数量已达上限（$used/$limit），无法连接新设备。"
             "可在「我的 - 设备管理」中删除不常用设备，或升级更高设备数的套餐。";
       case MclashBlockKind.accountDisabled:
@@ -198,7 +287,6 @@ class MclashAccountService extends ChangeNotifier {
     }
   }
 
-  /// 状态条上的 emoji（Clash Mi 的 dialog 用 emoji 做视觉锚点）
   String get blockEmoji {
     switch (blockKind) {
       case MclashBlockKind.expired:
@@ -217,29 +305,24 @@ class MclashAccountService extends ChangeNotifier {
     }
   }
 
-  /// 首页账户状态条文案（正常态与受限态共用一行）
   String get statusBarText {
     if (isBlocked) {
       return "$blockEmoji $blockTitle";
     }
-    final membership = _dash?["membership"]?.toString() ?? "";
-    final remaining = (_dash?["remaining_days"] as num?)?.toInt() ?? 0;
-    final online = (_dash?["online_devices"] as num?)?.toInt() ?? 0;
-    final total = (_dash?["total_devices"] as num?)?.toInt() ?? 0;
+    final acc = info;
     final parts = <String>[
-      if (membership.isNotEmpty) membership,
-      if (remaining > 0) "剩余 $remaining 天",
-      if (total > 0) "设备 $online/$total",
+      if (acc.planName.isNotEmpty) acc.planName,
+      if ((acc.remainingDays ?? 0) > 0) "剩余 ${acc.remainingDays} 天",
+      if ((acc.deviceLimit ?? 0) > 0) "设备 ${acc.deviceUsed ?? 0}/${acc.deviceLimit}",
     ];
     return parts.isEmpty ? "" : parts.join(" · ");
   }
 
-  /// 即将到期（≤7 天）—— 用红色但不算"受限"
   bool get expiringSoon {
     if (isBlocked) {
       return false;
     }
-    final remaining = (_dash?["remaining_days"] as num?)?.toInt() ?? 0;
+    final remaining = info.remainingDays ?? 0;
     return remaining > 0 && remaining <= 7;
   }
 }

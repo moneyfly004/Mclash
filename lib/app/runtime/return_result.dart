@@ -1,4 +1,3 @@
-//import 'package:stack_trace/stack_trace.dart';
 
 class ReturnResultError {
   ReturnResultError(this.message, {this.report = true, this.stacktrace});
@@ -14,6 +13,3 @@ class ReturnResult<T> {
   ReturnResultError? error;
   T? data;
 }
-
-
-//https://codewithandrea.com/articles/flutter-exception-handling-try-catch-result-type/

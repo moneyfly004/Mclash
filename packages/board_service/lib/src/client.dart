@@ -1,13 +1,4 @@
-/// Mclash 后台客户端核心 —— XBoard 兼容 API 的通用实现。
-///
-/// 后台：`https://new.moneyfly.top/api/v1`（CBoard / XBoard 兼容）
-/// 统一响应：`{ "code": 0, "message": "success", "data": { ... } }`
-///
-/// 设计说明：
-///   原 Clash Mi 的 `board_service` 支持 v2board / xboard / sspanel 三种第三方机场面板，
-///   Mclash 只对接自家后台，因此这里实现**同一套客户端接口**（V2BoardClient /
-///   XboardClient / SSPanelUimClient），但底层都指向自有后端。
-///   好处：Clash Mi 的会话持久化、配置管理、覆写管线（约 3000 行）零改动可用。
+
 library;
 
 import 'dart:async';
@@ -17,7 +8,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
-/// 会话持久化接口（由 App 侧的 BoardSessionPersistentManager 实现）
 abstract class BoardSessionPersistent {
   void updateLoginAuthData(String id, String account, String authData);
 
@@ -36,7 +26,6 @@ abstract class BoardSessionPersistent {
   );
 }
 
-/// 后台统一响应包（对齐 `/api/v1` 的 `{code, message, data}`）
 class BoardResponse<T> {
   BoardResponse({
     this.statusCode = 0,
@@ -46,21 +35,17 @@ class BoardResponse<T> {
     this.ret,
   });
 
-  /// HTTP 状态码（200 视为成功，与 Clash Mi 的判定保持一致）
   int statusCode;
 
-  /// 业务码（0 = 成功）
   int code;
 
   String message;
   T? data;
 
-  /// SSPanel-UIM 风格的布尔结果（`{"ret": 1}`）。null 表示该后端不返回此字段。
   bool? ret;
 
   bool get ok => statusCode == 200 && code == 0;
 
-  /// 供 UI 直接展示的完整错误信息
   String getFullMessage() {
     if (message.isNotEmpty) {
       return message;
@@ -75,7 +60,6 @@ class BoardResponse<T> {
   String toString() => "BoardResponse($statusCode, $code, $message)";
 }
 
-/// 登录请求
 class LoginRequest {
   LoginRequest({required this.email, required this.password});
 
@@ -85,7 +69,6 @@ class LoginRequest {
   Map<String, dynamic> toJson() => {"email": email, "password": password};
 }
 
-/// 登录响应数据
 class LoginResponseData {
   LoginResponseData({
     this.accessToken = "",
@@ -110,7 +93,6 @@ class LoginResponseData {
   }
 }
 
-/// 订阅响应数据
 class SubscribeResponseData {
   SubscribeResponseData({
     this.subscribeUrl = "",
@@ -151,7 +133,6 @@ class SubscribeResponseData {
   }
 }
 
-/// 用户信息响应数据
 class UserInfoResponseData {
   UserInfoResponseData({
     this.id = 0,
@@ -179,7 +160,6 @@ class UserInfoResponseData {
   }
 }
 
-/// 客户端公共参数
 class BoardClientOptions {
   BoardClientOptions({
     required this.baseUrl,
@@ -194,11 +174,8 @@ class BoardClientOptions {
   BoardSessionPersistent persistent;
 }
 
-/// XBoard 兼容客户端核心。三个"面板类型"共用这一份实现。
 class BoardApiClient {
-  // 这里原先还有一个 `_base` 字段（构造时净化 options.baseUrl），但它从未被读取 ——
-  // 真正生效的是下面的 `baseUrl` getter（_baseUrlOverride ?? options.baseUrl）。
-  // 分析器报 unused_field，已删除字段与对应初始化式。
+
   BoardApiClient(this.options);
 
   final BoardClientOptions options;
@@ -214,7 +191,6 @@ class BoardApiClient {
 
   String get account => _account;
 
-  /// 客户端版本（部分面板按版本返回不同订阅格式）
   String version = "";
 
   void setVersion(String v) => version = v;
@@ -238,17 +214,12 @@ class BoardApiClient {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // HTTP
-  // ---------------------------------------------------------------------
   Future<http.Client> _client() async {
     final proxy = proxyUrl;
     if (proxy == null || proxy.isEmpty) {
       return http.Client();
     }
-    // 已连接时经本地混合代理发起请求（与原 Clash Mi 行为一致：
-    // 后台域名在部分网络环境下直连不可达）。
-    // http 包默认不读系统代理，因此这里显式指定。
+
     final inner = HttpClient();
     inner.connectionTimeout = timeout;
     inner.findProxy = (_) => "PROXY $proxy";
@@ -524,6 +495,5 @@ class BoardApiClient {
 
   /// 密码最小长度（**静态**）。与后台 `auth.ValidatePasswordStrength` 对齐：8。
   static int getPasswordMinLen() => 8;
-
 
 }

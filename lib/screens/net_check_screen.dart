@@ -79,19 +79,6 @@ class _NetCheckScreenState extends LasyRenderingState<NetCheckScreen> {
       }
     }
 
-    /*String connections = await FlutterVpnService.clashiApiConnections(true);
-    print(connections + "\n");
-    try {
-      var obj = jsonDecode(connections);
-      ClashConnections body = ClashConnections();
-      body.fromJson(obj, true);
-      for (var item in body.connections) {
-        print(
-          "start: ${item.start}, rule: ${item.rule}, rulePayload: ${item.rulePayload}, chains: ${item.chains.join(',')}, providerChains: ${item.providerChains.join(',')}",
-        );
-      }
-    } catch (err) {}*/
-
     if (!mounted) {
       return;
     }

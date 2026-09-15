@@ -1,39 +1,3 @@
-//
-//  CBoard 客户端 —— Mclash 唯一认可的业务后台协议实现。
-//
-//  为什么是「唯一」：Mclash 最初照搬 Clash Mi 的客户端分层，实现了 V2Board /
-//  XBoard / SSPanel-UIM 三套「面板协议」。但实测确认，new.moneyfly.top 跑的
-//  既不是 V2Board 也不是 XBoard，而是自研的 Go 后端 CBoard：
-//
-//      V2Board / XBoard（旧实现，错）        CBoard（本文件，对）
-//      --------------------------------      --------------------------------
-//      POST /passport/auth/login             POST /auth/login
-//      data.auth_data.token                  data.access_token + refresh_token
-//      Cookie 会话（PHPSESSID / laravel_*）   Authorization: Bearer <token>
-//      响应 {status, data, message}          响应 {code, message, data}
-//      status == "success" 判成功            code == 0 判成功
-//      无 CSRF                               写操作必须带 X-CSRF-Token
-//      GET /user/subscribe                   GET /subscriptions/user-subscription
-//      GET /user/info                        GET /users/me
-//      POST /user/order/save                 POST /orders
-//      POST /user/order/checkout             POST /orders/:orderNo/pay
-//
-//  权威依据：后端仓库 /Users/apple/v2 的 API.md 与
-//  internal/api/router/router.go（本文档注释均逐条核对过路由）。
-//
-//  两处最容易踩、且文档一句话带过、但实现上必须当真的约定：
-//
-//  1) CSRF Token 是**一次性**的，且每次校验成功后后端立即轮换。
-//     所以「启动时取一次存起来反复用」必然在第二次写操作就 40300。
-//     本实现的处理是：每次写操作前现取（GET /csrf-token），
-//     并在收到 40300 时重取一次 + 重试一次（覆盖「取到即被并发消费」的窗口）。
-//
-//  2) 订阅下发地址不在「订阅信息」里，而是从订阅信息里的
-//     token_clash_url 直接拿。它就是 mihomo 能直接吃的 Clash 配置地址，
-//     形如 https://<host>/api/v1/client/subscribe?token=<sub_token>&format=clash
-//     拉取它会返回 text/yaml，并带 Subscription-Title / Profile-Title 头
-//     （订阅名中文化、流量信息都靠这两个头，不要自己拼标题）。
-//
 
 import 'dart:async';
 import 'dart:convert';
@@ -42,7 +6,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:mclash/app/utils/secure_storage.dart';
 
-/// 统一的 CBoard 响应包装。
 class CBoardResponse<T> {
   CBoardResponse({
     required this.code,
@@ -51,7 +14,6 @@ class CBoardResponse<T> {
     required this.httpStatus,
   });
 
-  /// 业务码。0 = 成功。
   final int code;
   final String message;
   final T? data;
@@ -59,20 +21,16 @@ class CBoardResponse<T> {
 
   bool get ok => code == 0;
 
-  /// 需要重新登录（Token 失效）。
   bool get isUnauthorized => code == 40100 || httpStatus == 401;
 
-  /// CSRF 校验失败。
   bool get isCsrfFailure => code == 40300;
 
-  /// 订阅过期 / 无订阅（后端在业务码里用 40400/40900 表达，语义由调用方决定）。
   bool get isNotFound => code == 40400 || httpStatus == 404;
 
   @override
   String toString() => 'CBoardResponse(code: $code, message: $message)';
 }
 
-/// 业务异常。带上 [code] 便于 UI 分流（例如 40100 直接踢回登录页）。
 class CBoardException implements Exception {
   CBoardException(this.message, {this.code = -1, this.httpStatus = 0});
 
@@ -86,7 +44,6 @@ class CBoardException implements Exception {
   String toString() => message;
 }
 
-/// 登录态。持久化在安全存储里（access/refresh 是凭据，不进 SharedPreferences）。
 class CBoardSession {
   CBoardSession({
     required this.accessToken,
@@ -133,7 +90,6 @@ class CBoardSession {
   }
 }
 
-/// 会话持久化。key 加版本前缀，将来换协议不会读到旧结构。
 class CBoardSessionStore {
   static const _key = 'mclash.cboard.session.v1';
 
@@ -163,8 +119,7 @@ class CBoardSessionStore {
         await SecureStorage.write(_key, jsonEncode(s.toJson()));
       }
     } catch (e) {
-      // 写安全存储失败**不能**让登录本身失败：本次进程内仍可用（内存缓存已置），
-      // 只是重启后需要重新登录。故只记录不抛出。
+
       debugPrint('CBoardSessionStore.save failed: $e');
     }
   }
@@ -172,17 +127,11 @@ class CBoardSessionStore {
   static Future<void> clear() => save(null);
 }
 
-/// CBoard 客户端。
-///
-/// 线程模型：Dart 单线程事件循环，[_refreshing] 用 Future 做单飞（single-flight），
-/// 避免多个并发 401 同时触发 N 次 refresh（refresh token 也可能是一次性的，
-/// 并发刷新=互相作废，是最难查的一类「随机掉登录」）。
 class CBoardClient {
   CBoardClient({String? baseUrl, HttpClient? httpClient})
       : baseUrl = _normalize(baseUrl ?? kCBoardDefaultBaseUrl),
         _http = httpClient ?? HttpClient();
 
-  /// 线上实测确认可用（{code:0,message:"success"}）。
   static const kCBoardDefaultHost = 'new.moneyfly.top';
   static const kCBoardDefaultBaseUrl = 'https://new.moneyfly.top/api/v1';
 
@@ -199,7 +148,6 @@ class CBoardClient {
   static String _normalize(String u) =>
       u.endsWith('/') ? u.substring(0, u.length - 1) : u;
 
-  /// 从已保存的会话恢复。
   Future<bool> restore() async {
     _session = await CBoardSessionStore.load();
     return _session != null;
@@ -208,8 +156,7 @@ class CBoardClient {
   Map<String, String> _headers({bool auth = true, String? csrf}) {
     final h = <String, String>{
       'Accept': 'application/json',
-      // 后端按 UA 识别客户端类型（ParseUserAgent / ClientInfo.SubscriptionType），
-      // 用默认 Dart UA 会被判成 Unknown，可能拿到通用格式而非 Clash 格式。
+
       'User-Agent': 'Mclash/1.0 (${Platform.operatingSystem})',
     };
     if (auth) {
@@ -220,7 +167,6 @@ class CBoardClient {
     return h;
   }
 
-  /// 底层请求。`retryAuth` / `retryCsrf` 是内部重试闸，外层不要传。
   Future<CBoardResponse<dynamic>> request(
     String method,
     String path, {
@@ -231,7 +177,7 @@ class CBoardClient {
     bool retryCsrf = true,
   }) async {
     final mutating = method != 'GET' && method != 'HEAD';
-    // /auth/* 是公开的，后端明确不校验 CSRF；对它取 CSRF 反而会 401。
+
     final isAuthPath = path.startsWith('/auth/');
 
     var uri = Uri.parse('$baseUrl$path');
@@ -270,8 +216,7 @@ class CBoardClient {
     try {
       decoded = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
     } catch (_) {
-      // 非 JSON：订阅下发接口是 text/yaml，这里的通用请求不该遇到；
-      // 碰到就当作协议不符大声报错，而不是静默吞掉。
+
       throw CBoardException('响应不是 JSON（HTTP $status）：${_snip(text)}',
           httpStatus: status);
     }
@@ -290,7 +235,6 @@ class CBoardClient {
       httpStatus: status,
     );
 
-    // ── 40100：Token 失效 → 刷新一次 → 重放一次 ──────────────────────────
     if (r.isUnauthorized && auth && retryAuth && !isAuthPath) {
       final refreshed = await _refreshOnce();
       if (refreshed) {
@@ -303,7 +247,6 @@ class CBoardClient {
       }
     }
 
-    // ── 40300：CSRF 无效/被并发消费 → 重取 → 重放一次 ────────────────────
     if (r.isCsrfFailure && mutating && retryCsrf) {
       return request(method, path,
           body: body, query: query, auth: auth, retryAuth: false, retryCsrf: false);
@@ -315,7 +258,6 @@ class CBoardClient {
   static String _snip(String s) =>
       s.length <= 120 ? s : '${s.substring(0, 120)}…';
 
-  /// 取一次性 CSRF Token。失败返回 null（后端若是全新站点未启用 CSRF 也能跑）。
   Future<String?> _fetchCsrfToken() async {
     try {
       final r = await request('GET', '/csrf-token',
@@ -326,12 +268,11 @@ class CBoardClient {
       }
       if (d is String && d.isNotEmpty) return d;
     } catch (_) {
-      // 忽略：写操作若真需要 CSRF，后端会以 40300 告诉我们，届时走重试闸。
+
     }
     return null;
   }
 
-  /// 刷新 Access Token。单飞（single-flight）：并发调用共享同一个 Future。
   Future<bool> _refreshOnce() =>
       _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
 
@@ -359,24 +300,15 @@ class CBoardClient {
     }
   }
 
-  /// 登录态变化通知。
-  ///
-  /// 放在 [_setSession] 这个**唯一会话出口**上发布，因此登录、注册（后端注册即
-  /// 下发 token）、刷新失败导致清会话、登出 —— 全都自动覆盖，不会漏发。
-  /// 启动门禁靠它决定显示「登录页」还是「主界面」，登录/登出后无需手动跳转。
   static final ValueNotifier<bool> sessionChanges = ValueNotifier<bool>(false);
 
   Future<void> _setSession(CBoardSession? s) async {
     _session = s;
     await CBoardSessionStore.save(s);
-    // 通知放在持久化之后：UI 一旦切到主界面就会立刻发请求，
-    // 此时凭据必须已经落盘，否则冷启动竞态下会出现一次 40100。
+
     sessionChanges.value = s != null;
   }
 
-  // ───────────────────────────── 认证 ─────────────────────────────
-
-  /// 登录。[email] 必填，密码由调用方校验（后端要求 ≥8 位）。
   Future<CBoardSession> login(String email, String password) async {
     final r = await request('POST', '/auth/login',
         body: {'email': email.trim(), 'password': password},
@@ -406,52 +338,23 @@ class CBoardClient {
 
   Future<void> logout() async {
     try {
-      // 带上 refresh_token：后端 Logout 会据此吊销 refresh token，
-      // 否则登出后旧 refresh token 仍能换出新 access token（实测确认吊销有效）。
+
       await request('POST', '/auth/logout',
           body: {'refresh_token': session?.refreshToken ?? ''}, retryAuth: false);
     } catch (_) {
-      // 后端登出失败不影响本地清除：本地清掉就是对用户而言「已登出」。
+
     }
     await _setSession(null);
   }
 
-  // ───────────────────────── 注册 / 验证码 / 找回密码 ─────────────────────────
-  //
-  // ⚠️ 实测确认的流程规则（踩过才知道）：
-  //
-  //   POST /auth/verification/verify 会把验证码置为 used=1，
-  //   而 POST /auth/register 校验的是 used=0。
-  //   => 「先 verify 再 register」**必然失败**，报「验证码无效或已过期」。
-  //
-  //   正确流程：send 拿码 → 把 code 直接交给 /auth/register（不要中间 verify）。
-  //   verify 接口是给「只验证邮箱、不注册」这类场景用的。
-  //   实测：send → register 直传 code → 成功；且注册**直接返回 access/refresh token**，
-  //   所以注册完无需再调一次 login。
-  //
-  // 其他实测细节：
-  //   · register 需要 username（3~50 位），不是只要邮箱密码；
-  //   · 有蜜罐字段 `website`，正常用户必须留空 —— 填了会被当成机器人（后端静默返回假 token）；
-  //   · 发码接口挂了 **IP 级**限流（3 次/分钟），不只是按邮箱限流，
-  //     所以「点了没反应」时要能识别 429 并提示稍后再试；
-  //   · 注册码 5 分钟有效，重置码 15 分钟有效。
-
-  /// 发送邮箱验证码。[purpose] 用 `register` 或 `reset_password`（后端按其限流分桶）。
   Future<void> sendVerificationCode(String email, {String purpose = 'register'}) =>
       post('/auth/verification/send',
           body: {'email': email.trim().toLowerCase(), 'purpose': purpose}).then((_) {});
 
-  /// 校验验证码（**会消耗该码**，之后不能再用于注册/重置）。
   Future<void> verifyCode(String email, String code) => post('/auth/verification/verify',
           body: {'email': email.trim().toLowerCase(), 'code': code})
       .then((_) {});
 
-  /// 注册。
-  ///
-  /// 成功后会直接拿到 access/refresh token 并写入会话（后端行为），
-  /// 因此调用方**不需要**再调 [login]。
-  ///
-  /// [website] 是蜜罐字段，务必保持为空 —— 这里不对外暴露，恒传空串。
   Future<CBoardSession> register({
     required String username,
     required String email,
@@ -465,7 +368,7 @@ class CBoardClient {
       'password': password,
       if (verificationCode.isNotEmpty) 'verification_code': verificationCode,
       if (inviteCode.isNotEmpty) 'invite_code': inviteCode,
-      'website': '', // 蜜罐：正常用户留空
+      'website': '',
     });
     if (!r.ok) {
       throw CBoardException(
@@ -484,20 +387,15 @@ class CBoardClient {
       await _setSession(s);
       return s;
     }
-    // 后端未下发 token（例如蜜罐命中返回 fake_token）——不静默，抛出让人看得见。
+
     throw CBoardException('注册响应未包含 access_token，可能触发了风控或站点配置不同',
         code: r.code);
   }
 
-  /// 请求重置密码验证码。
-  ///
-  /// 后端对**不存在的邮箱**也返回成功（防枚举），所以「成功」不代表邮箱存在；
-  /// UI 文案应按此措辞（「如果邮箱存在…」）。
   Future<void> forgotPassword(String email) => post('/auth/forgot-password',
           body: {'email': email.trim().toLowerCase()})
       .then((_) {});
 
-  /// 用验证码重置密码（码 15 分钟有效，用后即废）。
   Future<void> resetPassword({
     required String email,
     required String code,
@@ -509,24 +407,6 @@ class CBoardClient {
         'password': password,
       }).then((_) {});
 
-  // ───────────────────────── 在线支付 ─────────────────────────
-  //
-  // 后端有**两个**支付入口，标识方式还不一样，极易搞混（实测确认）：
-  //
-  //   · POST /orders/:orderNo/pay  —— **只支持余额**。
-  //        body {payment_method: "balance"}
-  //        传在线通道会返回「暂不支持该支付方式，请使用余额支付或通过支付接口创建支付」。
-  //
-  //   · POST /payment              —— 在线支付。
-  //        body {order_id(数字), payment_method_id(数字), is_mobile}
-  //        返回含 payment_url（二维码/跳转地址）与 transaction_id。
-  //
-  // 也就是说：*字符串* pay_type 属于前者（且只认 "balance"），
-  //          *数字* method_id 属于后者。两者不能互换。
-  //
-  // 回调靠轮询：GET /payment/status/:id → status 变为已支付即成功。
-
-  /// 在线支付下单，返回 `{payment_url, transaction_id, amount, ...}`。
   Future<Map<String, dynamic>> createPayment({
     required int orderId,
     required int paymentMethodId,
@@ -544,19 +424,59 @@ class CBoardClient {
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 支付状态（回调轮询）。返回原始对象，含 status。
   Future<Map<String, dynamic>> paymentStatus(int paymentId) async {
     final d = await get('/payment/status/$paymentId');
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 余额支付（走 /orders/:orderNo/pay，payment_method 固定 "balance"）。
+  /// 设备/时长增量升级：算价与下单（**实测的服务端契约**）。
+  ///
+  /// 路由与参数名是逐条探出来的，写错就是「价格获取失败 / 支付不了」：
+  ///   * 路由是 `/orders/upgrade`（`/orders/upgrade-devices` 在服务端 404）；
+  ///   * 参数是 `add_devices` / `add_days`（`additional_*` 一律 400 参数错误）。
+  ///
+  /// 另外：后端**不认** `preview_only`，算价请求也会落一笔待支付订单。所以
+  /// 调用方不要「先算价再下单」，而应把这笔算价返回的订单当草稿订单直接用；
+  /// 见 `MclashDeviceUpgrade`（改数量前先取消上一笔，退出时也取消）。
+  static const String kUpgradeOrderPath = '/orders/upgrade';
+
+  Future<Map<String, dynamic>> previewDeviceUpgrade({
+    required int addDevices,
+    int addDays = 0,
+  }) async {
+    final d = await post(
+      kUpgradeOrderPath,
+      body: {
+        'add_devices': addDevices,
+        'add_days': addDays,
+        'preview_only': true,
+      },
+    );
+    return d is Map ? Map<String, dynamic>.from(d) : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> createDeviceUpgradeOrder({
+    required int addDevices,
+    int addDays = 0,
+    String? paymentMethod,
+  }) async {
+    final method = paymentMethod?.trim() ?? "";
+    final d = await post(
+      kUpgradeOrderPath,
+      body: {
+        'add_devices': addDevices,
+        'add_days': addDays,
+        'payment_method': method.isEmpty ? null : method,
+      },
+    );
+    return d is Map ? Map<String, dynamic>.from(d) : <String, dynamic>{};
+  }
+
   Future<Map<String, dynamic>> payWithBalance(String orderNo) async {
     final d = await post('/orders/$orderNo/pay', body: {'payment_method': 'balance'});
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 拉最新用户信息并回写会话（用于昵称/套餐变化后刷新 UI）。
   Future<Map<String, dynamic>> me() async {
     final d = await get('/users/me');
     if (d is Map) {
@@ -566,8 +486,6 @@ class CBoardClient {
     }
     return const {};
   }
-
-  // ───────────────────────── 便捷封装 ─────────────────────────
 
   Future<dynamic> get(String path, {Map<String, String>? query}) =>
       _data(request('GET', path, query: query));
@@ -581,7 +499,6 @@ class CBoardClient {
   Future<dynamic> delete(String path, {Object? body}) =>
       _data(request('DELETE', path, body: body));
 
-  /// 与 get/post 不同：返回整个响应（订阅接口需要读 code 之外的东西时用）。
   Future<CBoardResponse<dynamic>> raw(String method, String path,
           {Object? body, bool auth = true}) =>
       request(method, path, body: body, auth: auth);
@@ -598,16 +515,11 @@ class CBoardClient {
     return r.data;
   }
 
-  // ───────────────────────── 业务接口 ─────────────────────────
-
-  /// 站点公开配置（无需登录）。App 的站点名/图标/客服/注册策略/自定义套餐
-  /// 价格全部来自这里 —— 不要再在客户端硬编码。
   Future<Map<String, dynamic>> siteConfig() async {
     final d = await get('/config');
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 套餐列表（公开，返回**裸数组**，不是 {items:[]}）。
   Future<List<Map<String, dynamic>>> packages() async {
     final d = await get('/packages');
     return _asList(d);
@@ -618,17 +530,11 @@ class CBoardClient {
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 我的订阅。关键字段：
-  ///  · token_clash_url —— mihomo 可直接拉取的 Clash 订阅地址
-  ///  · expire_time / days_remaining / device_limit / current_devices / is_active
   Future<Map<String, dynamic>> userSubscription() async {
     final d = await get('/subscriptions/user-subscription');
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 由订阅信息拼出 mihomo 订阅地址。
-  /// 优先用后端给的 token_clash_url（已带 format=clash），
-  /// 缺失时才回退到自拼（用 universal 的 subscription_url）。
   static String? clashSubscribeUrl(Map<String, dynamic> sub) {
     for (final k in ['token_clash_url', 'token_url', 'subscription_url']) {
       final v = (sub[k] ?? '').toString().trim();
@@ -664,9 +570,6 @@ class CBoardClient {
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 自定义套餐下单（后端 config: custom_package_enabled）。
-  /// 自定义套餐下单。字段名是 `devices`（不是 `device_count`）——
-  /// 后端 binding 里 `devices` 是 required，写错名字会直接 40000 参数错误。
   Future<Map<String, dynamic>> createCustomOrder({
     required int devices,
     required int months,
@@ -680,15 +583,6 @@ class CBoardClient {
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 发起支付。
-  ///
-  /// [paymentMethod] 是**字符串**，取自 `/payment/methods` 里各项的 `pay_type`
-  /// （实测站点为 `alipay` / `codepay_alipay`）；传 `"balance"` 表示余额支付。
-  ///
-  /// 注意：后端 `PayOrder` 只解析 `payment_method` 这一个字段，且**没有**
-  /// `method_id` 这种按数字 ID 选通道的写法。按 ID 传会被静默忽略，
-  /// 后端拿空字符串走默认分支 —— 表现为「点了支付却报通道不可用」，
-  /// 排查时很难联想到是参数名不对。
   Future<Map<String, dynamic>> payOrder(
     String orderNo, {
     required String paymentMethod,
@@ -715,33 +609,6 @@ class CBoardClient {
     return _asList(d);
   }
 
-  Future<Map<String, dynamic>> verifyCoupon(String code, {int? packageId}) async {
-    final d = await post('/coupons/verify', body: {
-      'code': code,
-      if (packageId != null) 'package_id': packageId,
-    });
-    return d is Map ? Map<String, dynamic>.from(d) : const {};
-  }
-
-  Future<int> unreadNoticeCount() async {
-    final d = await get('/notifications/unread-count');
-    if (d is Map) {
-      final v = d['count'] ?? d['unread_count'] ?? d['unread'];
-      if (v is num) return v.toInt();
-    }
-    if (d is num) return d.toInt();
-    return 0;
-  }
-
-  Future<List<Map<String, dynamic>>> notifications({int page = 1}) async {
-    final d = await get('/notifications',
-        query: {'page': '$page', 'page_size': '20'});
-    if (d is Map) return _asList(d['items']);
-    return _asList(d);
-  }
-
-  Future<void> markNoticeRead(int id) =>
-      put('/notifications/$id/read').then((_) {});
 
   Future<List<Map<String, dynamic>>> announcements() async =>
       _asList(await get('/announcements'));
@@ -756,7 +623,6 @@ class CBoardClient {
         body: {'old_password': oldPassword, 'new_password': newPassword},
       ).then((_) {});
 
-  /// 后端一致性：`data` 可能是裸数组，也可能是 {items:[...]}。两种都吃。
   static List<Map<String, dynamic>> _asList(dynamic d) {
     dynamic arr = d;
     if (d is Map) {

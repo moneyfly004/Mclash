@@ -1,15 +1,4 @@
-/// 忘记密码 / 重置密码（M-10）。
-///
-/// 两步同页：先发验证码，再提交「验证码 + 新密码」。
-///
-/// 后端行为（`internal/api/handlers/auth.go`，已实测）：
-///   · `POST /auth/forgot-password {email}` —— 对**不存在的邮箱也返回成功**，
-///     文案固定「如果邮箱存在，重置链接已发送」。这是防账号枚举的正确做法，
-///     所以界面**不能**说「已发送到你的邮箱」，只能照实说「如果该邮箱已注册…」。
-///   · 重置码有效期 **15 分钟**（注册码只有 5 分钟），同邮箱 15 分钟内最多 3 次。
-///   · `POST /auth/reset-password {email, code, password}` 成功后会把
-///     `token_version` 自增 → 所有旧 token 立即失效（客户端会被踢回登录页）。
-///   · 密码策略与注册一致：≥8 位且含字母和数字（见 PasswordPolicy）。
+
 library;
 
 import 'dart:async';
@@ -25,7 +14,6 @@ import 'package:mclash/screens/widgets/framework.dart';
 class MclashForgotPasswordScreen extends LasyRenderingStatefulWidget {
   const MclashForgotPasswordScreen({super.key, this.email = ""});
 
-  /// 从登录页带过来的邮箱，省得用户再输一遍。
   final String email;
 
   @override
@@ -226,7 +214,7 @@ class _MclashForgotPasswordScreenState
       setState(() {
         _sending = false;
         _codeSent = true;
-        // 防枚举：后端对未注册邮箱也返回成功，所以只能说「如果已注册」。
+
         _info = "如果该邮箱已注册，重置验证码已发送（15 分钟内有效）。";
       });
       _startCountdown();
@@ -272,7 +260,7 @@ class _MclashForgotPasswordScreenState
       if (!mounted) return;
       await DialogUtils.showAlertDialog(context, "密码已重置，请用新密码登录");
       if (!mounted) return;
-      // 重置会让所有旧 token 失效，回到登录页重登才是正确归宿。
+
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
       if (!mounted) return;

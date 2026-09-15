@@ -1,20 +1,4 @@
-/// Mclash 登录页（CBoard 账号）。
-///
-/// ## 为什么新写一个而不是复用 Clash Mi 的 `login_screen.dart`
-///
-/// Clash Mi 那套是「多面板」登录：先选面板类型（XBoard / V2Board / SSPanel-UIM），
-/// 再按对应协议登录，凭据走 Cookie 会话。而 Mclash 的产品模型是
-/// **只有一个自有后台**（CBoard，Bearer token），面板选择毫无意义 ——
-/// 更要紧的是协议不同，那条路径对 CBoard 根本走不通。
-/// 所以这里按 Clash Mi 的**视觉语言**重写，但业务走 `MclashApi`。
-///
-/// Clash Mi 原页面保留在树里（供「开发者选项」下的面板导入入口复用）。
-///
-/// ## 视觉
-///
-/// 沿用 Clash Mi 的登录页专属样式：登录按钮是全 App 唯一的渐变按钮
-/// （`[Colors.blue, #7B5FF5]`，圆角 14，高 48）—— 这不是 MoneyFly 风格，
-/// 而是 Clash Mi 设计系统里对登录页的既定例外。
+
 library;
 
 import 'package:flutter/material.dart';
@@ -38,8 +22,6 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
   bool _obscure = true;
   String? _err;
 
-  /// 站点配置（站点名/注册开关）。登录页**不要求登录**即可取，
-  /// 用它决定是否显示「注册」入口 —— 站点关了注册就不该给入口。
   Map<String, dynamic> _cfg = const {};
 
   @override
@@ -224,7 +206,6 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
     );
   }
 
-  /// Clash Mi 登录页专属渐变第二色（设计系统里仅登录页使用）。
   static const Color _primaryPurple = Color(0xFF7B5FF5);
 
   Future<void> _login() async {
@@ -242,11 +223,9 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
       _err = null;
     });
     try {
-      // 密码策略只在**注册/重置**时强校验；登录不该拿强度规则拦人 ——
-      // 老账号的密码可能早于规则变更，拦下来会让用户永远登不进去。
+
       await MclashApi.login(email, _password.text);
-      // 登录成功后不需要在这里跳转：门禁监听了 CBoardClient.sessionChanges，
-      // 会话一变就会自动切到主界面。
+
     } catch (e) {
       if (!mounted) {
         return;
@@ -258,10 +237,6 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
     }
   }
 
-  /// 把后端/网络异常转成用户看得懂的话。
-  ///
-  /// 后端登录失败统一返回 40100「用户名或密码错误」，不区分账号是否存在
-  /// （防枚举），所以这里也不能自作聪明地区分。
   String _friendly(Object e) {
     if (e is CBoardException) {
       if (e.code == 40100 || e.httpStatus == 401) {

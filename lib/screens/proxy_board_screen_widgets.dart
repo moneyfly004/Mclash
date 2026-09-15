@@ -19,8 +19,6 @@ class ProxyScreenProxiesNodeWidgetController {
   Future<void> Function()? delayTestFun;
   int Function()? delayTestingFun;
 
-  /// 本轮测速的节点总数（与 [delayTestingFun] 的「剩余数」配对，
-  /// 用来给 UI 算真实进度：已完成 = 总数 − 剩余）。
   int Function()? delayTestTotalFun;
   ProxyScreenProxiesNodeWidgetController({required this.onTesting});
   Future<void> delayTest() async {
@@ -36,7 +34,6 @@ class ProxyScreenProxiesNodeWidgetController {
     return 0;
   }
 
-  /// 本轮测速总数；未在测速时为 0。
   int delayTestTotal() {
     if (delayTestTotalFun != null) {
       return delayTestTotalFun!.call();
@@ -51,11 +48,15 @@ class ProxyScreenProxiesNodeWidget extends StatefulWidget {
     required this.nodes,
     this.filter = "",
     required this.controller,
+    this.kernelOffline = false,
+    this.kernelAlive,
   });
   final List<ClashProxiesNode> nodes;
 
-  /// 节点筛选词。为空 = 不筛选（保持 Clash Mi 原有行为：只列分组）。
-  /// 非空 = 直接平铺列出命中的**节点**，并且「测速」只测这些节点。
+  final bool kernelOffline;
+
+  final Future<bool> Function()? kernelAlive;
+
   final String filter;
   final ProxyScreenProxiesNodeWidgetController? controller;
   @override
@@ -68,7 +69,6 @@ class _ProxyScreenProxiesNodeWidget
   late List<ClashProxiesNode> _nodes;
   final Set<String> _nodesTesting = {};
 
-  /// 本轮测速的总节点数（用于算真实进度；非测速时为 0）。
   int _nodesTestTotal = 0;
 
   @override
@@ -86,12 +86,6 @@ class _ProxyScreenProxiesNodeWidget
     super.initState();
   }
 
-  /// 节点是否命中筛选词。
-  ///
-  /// 匹配范围刻意放大到「名字 + 类型」：用户想找日本节点时会输 `jp`
-  /// 或 `日本`，也可能想按协议筛（`vless`、`ss`）。全部大小写不敏感。
-  /// 另外伪节点（📢 官网/⏰ 到期 等）永不参与筛选 —— 它们不是节点。
-  /// 复用 MclashNodeFilter 的纯逻辑（该文件有独立单元测试覆盖边界条件）。
   bool _matches(ClashProxiesNode n) => MclashNodeFilter.matches(_entry(n), widget.filter);
 
   NodeFilterEntry _entry(ClashProxiesNode n) => NodeFilterEntry(
@@ -103,12 +97,6 @@ class _ProxyScreenProxiesNodeWidget
 
   bool get _filtering => widget.filter.trim().isNotEmpty;
 
-  /// 当前应展示的节点集合。
-  ///
-  ///   · 不筛选 → 保持 Clash Mi 原样：只列**分组**（点进去选节点）；
-  ///   · 筛选时 → 直接平铺列出命中的**真实节点**。
-  ///     这样「输 jp → 看到 JP-日本-直连 → 点闪电只测这几个」是一条连贯动作，
-  ///     而不是筛完只剩空分组、用户不知道筛掉了什么。
   List<ClashProxiesNode> _visibleNodes() {
     if (!_filtering) {
       return _nodes;
@@ -118,7 +106,7 @@ class _ProxyScreenProxiesNodeWidget
       widget.filter,
       describe: _entry,
     );
-    // 与分组视图保持一致：开启「按延迟排序」时把已知延迟排前面
+
     if (SettingManager.getConfig().ui.delayTestSort) {
       out.sort((a, b) {
         if (a.delay == null && b.delay == null) return 0;
@@ -130,7 +118,6 @@ class _ProxyScreenProxiesNodeWidget
     return out;
   }
 
-  /// 本轮测速的目标节点名（跳过分组与伪节点）。
   List<String> _delayTestTargets() {
     final out = <String>[];
     for (final n in _nodes) {
@@ -144,7 +131,7 @@ class _ProxyScreenProxiesNodeWidget
         continue;
       }
       if (_filtering && !_matches(n)) {
-        continue; // 筛选测速：只测当前筛选结果
+        continue;
       }
       out.add(n.name);
     }
@@ -156,12 +143,10 @@ class _ProxyScreenProxiesNodeWidget
     Size windowSize = MediaQuery.of(context).size;
     double iconSize = 20;
     var widgets = [];
-    // 遍历 _visibleNodes()：
-    //   不筛选 → 与原来完全一致（只列分组，行为不变，避免动到保留功能）；
-    //   筛选时 → 平铺列出命中的真实节点。
+
     for (var node in _visibleNodes()) {
       if (!_filtering) {
-        // 未筛选：保持原逻辑，只列分组
+
         if (!ClashProtocolType.GroupToList().contains(node.type)) {
           continue;
         }
@@ -411,6 +396,9 @@ class _ProxyScreenProxiesNodeWidget
           selected: selectNode.now == node.name,
           selectedColor: ThemeDefine.kColorBlue,
           onTap: () async {
+            if (!await _kernelReady()) {
+              return;
+            }
             var error = await ClashHttpApi.setProxiesNode(
               selectNode.name,
               node.name,
@@ -458,24 +446,42 @@ class _ProxyScreenProxiesNodeWidget
     );
   }
 
+  Future<bool> _kernelReady() async {
+    final probe = widget.kernelAlive;
+    final alive = probe == null ? true : await probe();
+    if (alive) {
+      return true;
+    }
+    if (!mounted) {
+      return false;
+    }
+    await DialogUtils.showAlertDialog(
+      context,
+      "此操作需要内核运行：请先在「主页」打开连接开关，再回来操作。",
+    );
+    return false;
+  }
+
   Future<void> delayTest({String nodeName = ""}) async {
+    if (!await _kernelReady()) {
+      return;
+    }
     final setting = SettingManager.getConfig();
     _nodesTesting.clear();
 
     if (nodeName.isNotEmpty) {
-      // 单节点测速（长按某一行触发）：只测它自己
+
       _nodesTesting.add(nodeName);
       _nodesTestTotal = 1;
     } else {
-      // 批量测速：目标 = 全部可测真实节点；**有筛选词时只测筛选结果**，
-      // 这就是「筛选测速」——先筛出想测的那几个，再点闪电只测它们。
+
       for (final n in _delayTestTargets()) {
         _nodesTesting.add(n);
       }
       _nodesTestTotal = _nodesTesting.length;
     }
     if (_nodesTestTotal == 0) {
-      // 没东西可测（例如筛选没命中任何节点）时不要留一个虚假的进行中状态
+
       widget.controller?.onTesting?.call();
       return;
     }
@@ -485,7 +491,7 @@ class _ProxyScreenProxiesNodeWidget
     Future<void> testNext() async {
       while (nextIndex < _nodes.length) {
         final node = _nodes[nextIndex++];
-        // 只测本轮目标集合里的节点（单节点测速 / 筛选测速都靠这个收口）
+
         if (!_nodesTesting.contains(node.name) && nodeName.isEmpty) {
           continue;
         }

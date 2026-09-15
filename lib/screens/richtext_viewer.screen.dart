@@ -1,4 +1,4 @@
-//import 'package:flutter/gestures.dart';
+
 import 'dart:io';
 
 import 'package:mclash/app/utils/file_utils.dart';
@@ -38,8 +38,7 @@ class RichtextViewScreen extends LasyRenderingStatefulWidget {
 
 class _RichtextViewScreenState extends LasyRenderingState<RichtextViewScreen> {
   String? _content;
-  //final TapGestureRecognizer _tgr1 = TapGestureRecognizer();
-  //final TapGestureRecognizer _tgr2 = TapGestureRecognizer();
+
   @override
   void initState() {
     super.initState();

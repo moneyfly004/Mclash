@@ -357,11 +357,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // 「忘记密码」改为走 Mclash 自有的原生重置流程。
-                      //
-                      // 原先这里依赖面板下发的 forgotPasswordUrl（Clash Mi 的做法：
-                      // 用内置 WebView 打开面板的找回页）。CBoard 没有这个 URL，
-                      // 条件永远为假 → 按钮永久禁用且文案为空，用户根本看不到入口。
+
                       TextButton(
                         onPressed: () {
                           Navigator.push(
@@ -381,8 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      // 「注册」同理：CBoard 没有 registerUrl，改为原生注册页，
-                      // 并把 /config 的站点配置带过去（决定是否要验证码/邀请码）。
+
                       TextButton(
                         onPressed: () async {
                           final cfg = await MclashApi.siteConfig();
@@ -643,18 +638,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _logining = false;
     setState(() {});
     if (sessionLoginError != null) {
-      /*if (sessionLoginError.httpStatusCode == 403 && handle403) {
-        if (await BotHelper().handle403(context, provider, sessionLoginError, (
-          bool handle403,
-        ) {
-          _login(handle403: handle403);
-        })) {
-          return;
-        }
-      }
-      if (!mounted) {
-        return;
-      }*/
+
       DialogUtils.showAlertDialog(
         context,
         sessionLoginError.message ?? "unknown error",
@@ -672,8 +656,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 说明：原先这里还有 _forgotpwd / _register，做法是把面板下发的
-  // forgotPasswordUrl / registerUrl 丢给系统浏览器。CBoard 不提供这两个 URL，
-  // 两个入口因此永久失效。现已改为 MclashRegisterScreen /
-  // MclashForgotPasswordScreen 的原生实现，这两个方法随之删除。
 }

@@ -6,8 +6,6 @@ import 'package:crypto/crypto.dart';
 abstract final class CryptoUtils {
   static const int _chunkSize = 1024 * 1024;
 
-  /// Calculates the SHA256 hash of a file.
-  /// Returns the hash value as a hexadecimal string, or null if the file does not exist.
   static Future<String?> getFileSha256(String path) async {
     final file = File(path);
     if (!await file.exists()) {

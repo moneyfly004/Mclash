@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:after_layout/after_layout.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/app/modules/profile_manager.dart';
+import 'package:mclash/mf/mclash_subscription_nodes.dart';
+import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/proxy_board_screen_widgets.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -15,11 +18,6 @@ class ProxyBoardScreen extends LasyRenderingStatefulWidget {
     return const RouteSettings(name: "/");
   }
 
-  /// [tabRoot] = true 时作为一级 Tab 的根页渲染：
-  ///   * 隐藏返回箭头（顶层没有可返回的页面）
-  ///   * 标题改为**左对齐**（Tab 根页规范，见 docs/design/04 §4.5）
-  ///   * 左侧留白 20，与内容区对齐
-  /// 其余行为（延迟色阶 / 排序 / 批量测速 / 节点热切换 / 失败节点提示）完全一致。
   const ProxyBoardScreen({super.key, this.tabRoot = false});
 
   final bool tabRoot;
@@ -32,14 +30,16 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
     with WidgetsBindingObserver, AfterLayoutMixin {
   late ProxyScreenProxiesNodeWidgetController _controller;
 
-  /// 节点筛选词（「筛选测速」的入口）。
-  ///
-  /// Clash Mi 原本没有搜索框，这里按其视觉语言补一个：顶栏 search 图标展开、
-  /// 输入框用默认 InputDecoration（圆角 4，与全局输入框一致）、无 Chip 无
-  /// SnackBar。筛选词会传进节点组件，既过滤列表也限定测速范围。
+  bool _offlineData = false;
+
+  bool _loading = true;
+
   String _filter = "";
   bool _searching = false;
   final TextEditingController _filterController = TextEditingController();
+
+  List<ClashProxiesNode> _nodes = const [];
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -52,6 +52,46 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
       },
     );
     super.initState();
+
+    ProfileManager.onEventUpdate.add(_onProfileUpdated);
+    ProfileManager.onEventCurrentChanged.add(_onProfileChanged);
+    super.initState();
+    _loadNodes();
+  }
+
+  void _onProfileUpdated(String id, bool finish) {
+    if (finish) {
+      _loadNodes();
+    }
+  }
+
+  void _onProfileChanged(String id) {
+    _loadNodes();
+  }
+
+  Future<void> _loadNodes() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadFailed = false;
+      });
+    }
+    var nodes = await _getProxiesFromKernel();
+    var offline = false;
+    if (nodes.isEmpty) {
+
+      nodes = await MclashSubscriptionNodes.load();
+      offline = nodes.isNotEmpty;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _nodes = nodes;
+      _offlineData = offline;
+      _loading = false;
+      _loadFailed = nodes.isEmpty;
+    });
   }
 
   @override
@@ -59,6 +99,8 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
 
   @override
   void dispose() {
+    ProfileManager.onEventUpdate.remove(_onProfileUpdated);
+    ProfileManager.onEventCurrentChanged.remove(_onProfileChanged);
     _filterController.dispose();
     SettingManager.save();
     super.dispose();
@@ -67,7 +109,6 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
   @override
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
-    Size windowSize = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -104,8 +145,8 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                         child: Icon(Icons.arrow_back_ios_outlined, size: 26),
                       ),
                     ),
-                    SizedBox(
-                      width: windowSize.width - 50 * 3,
+
+                    Expanded(
                       child: Text(
                         tcontext.meta.proxy,
                         textAlign: TextAlign.center,
@@ -132,8 +173,7 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                           setState(() {
                             _searching = !_searching;
                             if (!_searching) {
-                              // 收起搜索时一并清掉筛选，避免「看不见的筛选」
-                              // 让用户对着一个空列表莫名其妙
+
                               _filter = "";
                               _filterController.clear();
                             }
@@ -167,9 +207,7 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                       ? Row(
                           children: [
                             SizedBox(width: 12),
-                            // 真实进度：value = 已完成 / 总数。
-                            // 原来只是一个不定量转圈 + 「剩余数」角标，用户无法
-                            // 判断还要多久；现在既画进度弧也显示 已完成/总数。
+
                             Stack(
                               alignment: Alignment.center,
                               children: [
@@ -194,7 +232,7 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                                   "/${_controller.delayTestTotal()}",
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    // 两位数以上缩小字号，避免溢出
+
                                     fontSize:
                                         _controller.delayTestTotal() > 99
                                             ? 7
@@ -247,32 +285,34 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                   ),
                 ),
               const SizedBox(height: 10),
+              if (_offlineData)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 15,
+                        color: ThemeDefine.kColorGrey,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "未连接：下列节点来自你的订阅。测速与切换需要先打开连接开关。",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: ThemeDefine.kColorGrey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
-                  child: FutureBuilder(
-                    future: getProxies(),
-                    builder:
-                        (
-                          BuildContext context,
-                          AsyncSnapshot<List<ClashProxiesNode>> snapshot,
-                        ) {
-                          List<ClashProxiesNode> data = snapshot.hasData
-                              ? snapshot.data!
-                              : [];
-                          return data.isEmpty
-                              ? SizedBox.shrink()
-                              : ProxyScreenProxiesNodeWidget(
-                                  // key 带上筛选词：筛选条件变化时重建内部状态，
-                                  // 否则 _nodes 是 initState 里 copy 的旧列表，
-                                  // 测速目标集合会与实际显示不一致
-                                  key: ValueKey("proxy-nodes-$_filter"),
-                                  nodes: data,
-                                  filter: _filter,
-                                  controller: _controller,
-                                );
-                        },
-                  ),
+                  child: _buildBody(tcontext),
                 ),
               ),
             ],
@@ -282,16 +322,97 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
     );
   }
 
-  Future<List<ClashProxiesNode>> getProxies() async {
+  Widget _buildBody(Translations tcontext) {
+    if (_loading) {
+      return const Center(
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: RepaintBoundary(
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        ),
+      );
+    }
+    if (_nodes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 34,
+                color: ThemeDefine.kColorGrey,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _loadFailed
+                    ? "还没有可用的节点。\n订阅会自动同步；若刚登录，请稍候或下拉重试。"
+                    : "暂无节点",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.6,
+                  color: ThemeDefine.kColorGrey,
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton(
+                onPressed: _loadNodes,
+                child: const Text("重新加载"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return ProxyScreenProxiesNodeWidget(
+
+      key: ValueKey("proxy-nodes-$_filter"),
+      nodes: _nodes,
+      filter: _filter,
+      controller: _controller,
+
+      kernelOffline: _offlineData,
+
+      kernelAlive: _kernelAlive,
+    );
+  }
+
+  Future<bool> _kernelAlive() async {
+    final nodes = await _getProxiesFromKernel();
+    if (nodes.isEmpty) {
+      return false;
+    }
+
+    if (mounted && _offlineData) {
+      setState(() {
+        _nodes = nodes;
+        _offlineData = false;
+      });
+    }
+    return true;
+  }
+
+  Future<List<ClashProxiesNode>> _getProxiesFromKernel() async {
     var result = await ClashHttpApi.getProxies();
     if (result.error == null) {
       return result.data!;
     }
-
     return [];
   }
 
   Future<void> onTapTestDelay() async {
+    if (_offlineData) {
+
+      await DialogUtils.showAlertDialog(
+        context,
+        "测速需要内核运行：请先在「主页」打开连接开关，再回到这里测速。",
+      );
+      return;
+    }
     return _controller.delayTest();
   }
 }

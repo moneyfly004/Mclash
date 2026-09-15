@@ -27,7 +27,7 @@ class TextFieldEx extends TextField {
       'Use `contextMenuBuilder` instead. '
       'This feature was deprecated after v3.3.0-0.5.pre.',
     )
-    //super.toolbarOptions,
+
     super.showCursor,
     super.autofocus = false,
     super.statesController,
@@ -143,7 +143,7 @@ class _TextFieldExState<T> extends State<TextFieldEx> {
         textAlignVertical: widget.textAlignVertical,
         textDirection: widget.textDirection,
         readOnly: TextFieldEx.popupEdit || widget.readOnly,
-        //toolbarOptions: widget.toolbarOptions,
+
         showCursor: widget.showCursor,
         autofocus: TextFieldEx.popupEdit ? false : widget.autofocus,
         statesController: widget.statesController,
@@ -236,7 +236,7 @@ class _TextFieldExState<T> extends State<TextFieldEx> {
                 textAlignVertical: widget.textAlignVertical,
                 textDirection: widget.textDirection,
                 readOnly: false,
-                //toolbarOptions: widget.toolbarOptions,
+
                 showCursor: widget.showCursor,
                 autofocus: true,
                 statesController: widget.statesController,

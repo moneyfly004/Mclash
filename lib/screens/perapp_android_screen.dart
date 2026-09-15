@@ -31,7 +31,6 @@ class PerAppAndroidScreen extends LasyRenderingStatefulWidget {
 
 class _PerAppAndroidScreenState
     extends LasyRenderingState<PerAppAndroidScreen> {
-  //https://github.com/ekoputrapratama/flutter_android_native/blob/6dacb8a0bcc9c8c05159eb916b2f0bea9db60826/lib/content/pm/ApplicationInfo.dart#L14
 
   bool _loading = true;
   final List<PackageInfoEx> _applicationInfoList = [];

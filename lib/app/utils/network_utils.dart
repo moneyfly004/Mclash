@@ -191,7 +191,7 @@ class NetworkUtils {
       return null;
     }
     if (uri.host.isEmpty) {
-      uri = Uri.tryParse("https://$text");
+            uri = Uri.tryParse("https://$text");
     }
     if (uri == null) {
       return null;

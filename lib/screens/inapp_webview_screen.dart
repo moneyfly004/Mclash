@@ -242,7 +242,6 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
   PullToRefreshController? _pullToRefreshController;
   URLRequest? initialUrlRequest;
 
-  // late ContextMenu _contextMenu;
   String _url = "";
   Map<String, String> _headers = {};
   double _progress = 0;
@@ -268,40 +267,13 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
       isInspectable: widget.enableDebug,
       mediaPlaybackRequiresUserGesture: false,
       allowsInlineMediaPlayback: true,
-      //iframeAllow: "camera; microphone",
+
       iframeAllowFullscreen: false,
       userAgent: widget.appendMclashToUseragent
           ? useragent
           : InAppWebViewScreen._defaultUserAgent,
       useShouldOverrideUrlLoading: true,
     );
-    /* _contextMenu = ContextMenu(
-        menuItems: [
-          ContextMenuItem(
-              id: 1,
-              title: "Special",
-              action: () async {
-                print("Menu item Special clicked!");
-                print(await webViewController?.getSelectedText());
-                await webViewController?.clearFocus();
-              })
-        ],
-        settings: ContextMenuSettings(hideDefaultSystemContextMenuItems: false),
-        onCreateContextMenu: (hitTestResult) async {
-          print("onCreateContextMenu");
-          print(hitTestResult.extra);
-          print(await webViewController?.getSelectedText());
-        },
-        onHideContextMenu: () {
-          print("onHideContextMenu");
-        },
-        onContextMenuActionItemClicked: (contextMenuItemClicked) async {
-          var id = contextMenuItemClicked.id;
-          print("onContextMenuActionItemClicked: " +
-              id.toString() +
-              " " +
-              contextMenuItemClicked.title);
-        });*/
 
     _pullToRefreshController =
         ![
@@ -391,7 +363,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
     try {
       await CookieManager.instance(
         webViewEnvironment: InAppWebViewScreen._webViewEnvironment,
-      ).deleteAllCookies(); //only deleteAllCookies works, other api does not work at all
+      ).deleteAllCookies();
     } catch (err) {
       Log.w("Error clearing cookies via CookieManager: $err");
     }
@@ -527,14 +499,12 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
                                                 initialUrlRequest:
                                                     initialUrlRequest,
 
-                                                // URLRequest(url: WebUri(Uri.base.toString().replaceFirst("/#/", "/") + 'page.html')),
-                                                // initialFile: "assets/index.html",
                                                 initialUserScripts:
                                                     UnmodifiableListView(
                                                       _scripts,
                                                     ),
                                                 initialSettings: _settings,
-                                                //contextMenu: _contextMenu,
+
                                                 pullToRefreshController:
                                                     _pullToRefreshController,
                                                 onWebViewCreated:
@@ -547,10 +517,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
                                                     },
                                                 onLoadStart:
                                                     (controller, url) async {
-                                                      /* controller
-                                                    .injectJavascriptFileFromUrl(
-                                                        urlFile: WebUri(
-                                                            "https://github.githubassets.com/assets/global-copilot-menu-11ae0289e00d.js"));*/
+
                                                       _url = url.toString();
                                                     },
                                                 onPermissionRequest:
@@ -558,7 +525,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
                                                       controller,
                                                       request,
                                                     ) async {
-                                                      //https://webcamtests.com/
+
                                                       final Set<
                                                         PermissionResourceType
                                                       >
@@ -805,54 +772,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
     if (!widget.setJSWindowObject) {
       return;
     }
-    /*
-    window.mclash.callHandler('close').then(function(result) {
-        console.log(result);
-        return result;
-    }).catch(function() {
-        var event = new Event('error');
-        self.dispatchEvent(event);
-        if (self.onerror != null) {
-          self.onerror(event);
-        }
-    });
-    window.mclash.callHandler('version').then(function(result) {
-        console.log(result);
-        return result;
-    }).catch(function() {
-        var event = new Event('error');
-        self.dispatchEvent(event);
-        if (self.onerror != null) {
-          self.onerror(event);
-        }
-    });
-    window.mclash.callHandler('openUrl', 'mclash://install-config?url=dHJvamFuOi8vNDFiZWM0OTItY2Q3OS00YjU3LTlhMTUtN2QyYmIwMGZjZmNhQDE2My4xMjMuMTkyLjU3OjQ0Mz9hbGxvd0luc2VjdXJlPTEjJUYwJTlGJTg3JUJBJUYwJTlGJTg3JUI4JTIwX1VTXyVFNyVCRSU4RSVFNSU5QiVCRHx0cm9qYW46Ly9hOGY1NGY0ZS0xZDlkLTQ0ZTQtOWVmNy01MGVlN2JhODk1NjFAamsuamtrLmtpc3NraXNzLnBybzoxODg3P2FsbG93SW5zZWN1cmU9MSMlRjAlOUYlODclQjAlRjAlOUYlODclQjclMjBfS1JfJUU5JTlGJUE5JUU1JTlCJUJE#testname').then(function(result) {
-        console.log(result);
-        return result;
-    }).catch(function() {
-        var event = new Event('error');
-        self.dispatchEvent(event);
-        if (self.onerror != null) {
-          self.onerror(event);
-        }
-    });
-     window.mclash.callHandler('openUrl', 'mclash://disconnect').then(function(result) {
-        console.log(result);
-        return result;
-    }).catch(function() {
-        var event = new Event('error');
-        self.dispatchEvent(event);
-        if (self.onerror != null) {
-          self.onerror(event);
-        }
-    });
-    */
-    /*_webViewController?.addJavaScriptHandler(
-      handlerName: '*',
-      callback: (arguments) async {
-        return "Unimplemented";
-      },
-    );*/
+
     _webViewController?.addJavaScriptHandler(
       handlerName: 'close',
       callback: (arguments) async {
@@ -865,21 +785,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
         return AppUtils.getBuildinVersion();
       },
     );
-    /*_webViewController?.addJavaScriptHandler(
-      handlerName: 'openUrl',
-      callback: (arguments) async {
-        if (arguments.length != 1) {
-          return "arguments length != 1";
-        }
-        try {
-          String url = arguments[0] as String;
-          ReturnResultError? err = await SchemeHandler.handle(context, url);
-          return err != null ? err.message : "";
-        } catch (err) {
-          return err.toString();
-        }
-      },
-    );*/
+
     widget.javaScriptHandlers.forEach((key, value) {
       _webViewController?.addJavaScriptHandler(
         handlerName: key,
@@ -901,7 +807,7 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
     }
     _webViewController?.removeJavaScriptHandler(handlerName: 'close');
     _webViewController?.removeJavaScriptHandler(handlerName: 'version');
-    //_webViewController?.removeJavaScriptHandler(handlerName: 'openUrl');
+
     widget.javaScriptHandlers.forEach((key, value) {
       _webViewController?.removeJavaScriptHandler(handlerName: key);
     });

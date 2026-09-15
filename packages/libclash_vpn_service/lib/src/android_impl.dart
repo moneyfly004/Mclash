@@ -6,13 +6,6 @@ import 'package:flutter/services.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
 
-/// Android 平台实现：MethodChannel → Kotlin `MclashVpnService`
-///
-/// 架构（与桌面端完全同一套上层代码）：
-///   Flutter 侧生成 mihomo Clash YAML → 经 MethodChannel 传给 Kotlin 服务
-///   → `VpnService.establish()` 拿到 TUN fd → `Mihomelib.start(homeDir, yaml, tunFd)`
-///   → 内核直接用该 fd 收发包（非 root 全局代理的关键）
-///   → 内核自带 Clash API（external-controller）→ Flutter 侧热切换/DNS/流量统计
 class AndroidVpnServicePlatform extends VpnServicePlatform {
   AndroidVpnServicePlatform() {
     _channel.setMethodCallHandler(_onNativeCall);
@@ -54,7 +47,6 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     }
     _config = cfg;
 
-    // 落盘 service.json（与原实现一致：原生侧与 Dart 侧都能读）
     try {
       final f = File(cfg.config_file_path);
       await f.parent.create(recursive: true);
@@ -63,24 +55,20 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     return null;
   }
 
-  /// 读取内核最终配置（core + patch 合并由 Kotlin 侧调用内核前完成）
   Future<String> _resolvedConfigYaml(VpnServiceConfig cfg) async {
     if (cfg.core_path_patch.isNotEmpty || cfg.core_path_patch_final.isNotEmpty) {
-      // 内核在 hub.Parse 前会做 YAML+patch 合并；这里把三方路径一并交过去，
-      // 由 Kotlin 侧先合并后调用 Mihomelib.start。
+
       return "";
     }
     return File(cfg.core_path).readAsString();
   }
 
-  /// VpnService.prepare()：返回 true 表示**已经**授权，无需再弹框
   @override
   Future<bool> isServiceAuthorized(String path) async {
     final r = await _channel.invokeMethod<bool>("prepare", {});
     return r == true;
   }
 
-  /// Android 下"授权"= 拉起系统 VPN 授权弹框；返回 null 表示成功
   @override
   Future<VpnServiceResultError?> authorizeService(
     String path,
@@ -118,7 +106,7 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
         "wake_lock": cfg.wake_lock,
       };
       await _channel.invokeMethod<void>("start", args);
-      // 原生侧启动成功后即把状态推成 connected；这里等一小段确认
+
       final deadline = DateTime.now().add(
         timeout == Duration.zero ? const Duration(seconds: 10) : timeout,
       );
@@ -153,7 +141,7 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     } on PlatformException catch (e) {
       _state = FlutterVpnServiceState.disconnected;
       emitStateChanged(_state, const {});
-      // 未授权 VPN 是一种**可引导**的错误，不是崩溃
+
       final msg = e.code == "NEED_PERMISSION"
           ? "noVpnPermission"
           : "启动失败：${e.message ?? e.code}";
@@ -206,7 +194,6 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     }
   }
 
-  /// 内置内核版本（设置页「内核管理」显示）
   Future<String> kernelVersion() async {
     try {
       return await _channel.invokeMethod<String>("kernelVersion") ?? "";
@@ -215,7 +202,6 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     }
   }
 
-  /// 内核日志增量（日志中心页轮询）
   Future<String> fetchKernelLogs({bool incremental = true}) async {
     try {
       return await _channel.invokeMethod<String>("fetchKernelLogs", {
@@ -227,7 +213,6 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     }
   }
 
-  /// 已安装应用列表（分应用代理页）
   Future<List<Map<String, dynamic>>> getInstalledApps() async {
     try {
       final list = await _channel.invokeListMethod<dynamic>("getInstalledApps");
@@ -255,14 +240,12 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     }
   }
 
-  /// 唤醒锁：连接期间保持 CPU 唤醒（防厂商 ROM 杀后台）
   Future<void> setWakeLock(bool enable) async {
     try {
       await _channel.invokeMethod<void>("wakeLock", {"enable": enable});
     } catch (_) {}
   }
 
-  // ---- Android 不适用 ----
   @override
   Future<VpnServiceResultError?> installService() async => null;
   @override
@@ -294,13 +277,7 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
   @override
   Future<bool> autoStartIsActive(String name) async => false;
   @override
-  /// Android 同样**不能返回 null** —— 后果与桌面端完全相同（见 desktop_impl.dart
-  /// 的同名方法注释）：会让 PathUtils.profileDir() 返回空串，App 直接停在
-  /// 「访问配置文件失败」那一屏，连首屏都到不了。
-  ///
-  /// Android 上没有 App Group，用应用支持目录即可：它落在应用私有空间
-  /// （`/data/data/<pkg>/files` 一类），无需任何存储权限，且 VpnService 与
-  /// 主进程同属一个 uid，都能读写 —— 内核 home 目录放在这里最合适。
+
   @override
   Future<Directory?> getAppGroupDirectory(String groupId) async =>
       Directory(await getApplicationSupportDir());

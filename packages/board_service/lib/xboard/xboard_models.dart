@@ -1,4 +1,4 @@
-/// XBoard 模型 re-export
+
 library;
 
 export '../src/client.dart'

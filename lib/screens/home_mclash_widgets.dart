@@ -1,71 +1,239 @@
-/// 首页的 MoneyFly 组件：
-///   * `MclashAccountBar` —— 连接卡下方的**一行账户状态条**（见 docs/design/06 §6.2.5）
-///   * `MclashAccountGateDialog` —— 准入闸门弹窗（D-09）
-///
-/// 视觉完全沿用 Clash Mi：`Card`（r12 / elevation 1 / margin 4）
-/// + `Padding(fromLTRB(20,0,20,0))` + `ListTile`，文字受限时用 `Colors.red`。
+
 library;
 
 import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
+import 'package:mclash/mf/mclash_account_info.dart';
+import 'package:mclash/mf/mclash_node_country.dart';
+import 'package:mclash/mf/mclash_mode_selection.dart';
+import 'package:mclash/mf/mclash_nodes_store.dart';
+import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 
-/// 首页账户状态条：一行摘要，点击跳「套餐购买」Tab。
+class MclashSubscriptionCard extends StatelessWidget {
+  const MclashSubscriptionCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final acc = MclashAccountService.instance;
+    final info = MclashAccountInfo(acc.dashboard, acc.subscription);
+    final blocked = acc.isBlocked;
+    final parts = <String>[
+      if (info.planName.isNotEmpty) info.planName,
+      if (info.expireDate.isNotEmpty) "到期 ${info.expireDate}",
+      if (info.deviceText != null) "设备 ${info.deviceText}",
+    ];
+    final text = blocked ? "${acc.blockEmoji} ${acc.blockTitle}" : parts.join(" · ");
+    if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      child: InkWell(
+        onTap: () {
+          if (blocked) {
+            showMclashAccountGateDialog(context);
+          } else {
+            MainTabController.instance?.setTab(2);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+          child: Row(
+            children: [
+              Icon(
+                blocked ? Icons.error_outline : Icons.workspace_premium_outlined,
+                size: 16,
+                color: blocked ? Colors.red : ThemeDefine.kColorBlue,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: blocked ? Colors.red : null,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: ThemeDefine.kColorGrey,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 主页「快速筛选国家」：**延迟最低的 6 个国家，两排**。
 ///
-/// 为什么压成一行而不是一整张卡：完整的账户中心已经在「我的」Tab，
-/// 主页只保留速览 + 跳转，避免同一批入口在 主页/套餐/我的 三处重复。
-class MclashAccountBar extends StatelessWidget {
-  const MclashAccountBar({super.key});
+/// 点一个国家不只是筛选列表，而是**真的切到该国最快的节点** —— 用户点国家
+/// 的本意就是「我要走这个国家」，只筛选不切换等于没反应。
+class MclashQuickCountries extends StatelessWidget {
+  const MclashQuickCountries({super.key});
+
+  static const int kCountryCount = 6;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: MclashAccountService.instance,
+      animation: MclashNodesStore.instance,
       builder: (context, _) {
-        final acc = MclashAccountService.instance;
-        final text = acc.statusBarText;
-        if (text.isEmpty) {
+        final store = MclashNodesStore.instance;
+        final codes = store.topCountries(limit: kCountryCount);
+        if (codes.isEmpty) {
           return const SizedBox.shrink();
         }
-        final warn = acc.isBlocked || acc.expiringSoon;
+        final latency = store.bestLatencyByCountry;
         return Card(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(
-                text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: warn ? Colors.red : null,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      "快速筛选国家",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: ThemeConfig.kFontWeightListItem,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      "${store.nodes.length} 个节点",
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: ThemeDefine.kColorGrey,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () {
-                if (acc.isBlocked) {
-                  showMclashAccountGateDialog(context);
-                } else {
-                  // 正常态 → 去「套餐购买」Tab
-                  MainTabController.instance?.setTab(2);
-                }
-              },
+                const SizedBox(height: 10),
+                // 两排：每排 3 个（共 6 个，延迟最低的优先）
+                for (var row = 0; row < 2; row++)
+                  Padding(
+                    padding: EdgeInsets.only(top: row == 0 ? 0 : 8),
+                    child: Row(
+                      children: [
+                        for (var col = 0; col < 3; col++)
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(left: col == 0 ? 0 : 8),
+                              child: _countryChip(
+                                context,
+                                store,
+                                codes,
+                                row * 3 + col,
+                                latency,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         );
       },
     );
   }
+
+  Widget _countryChip(
+    BuildContext context,
+    MclashNodesStore store,
+    List<String> codes,
+    int index,
+    Map<String, int> latency,
+  ) {
+    if (index >= codes.length) {
+      return const SizedBox.shrink();
+    }
+    final code = codes[index];
+    final ms = latency[code];
+    return InkWell(
+      key: ValueKey("home-country-$code"),
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => _onTapCountry(context, store, code),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        decoration: BoxDecoration(
+          border: Border.all(color: ThemeDefine.kColorGrey, width: 0.6),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                "${MclashNodeCountry.flagFor(code)} "
+                "${code == "XX" ? "其他" : MclashNodeCountry.displayName(code)}",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            if (ms != null) ...[
+              const SizedBox(width: 4),
+              Text(
+                "${ms}ms",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: ms < 800
+                      ? ThemeDefine.kColorGreenBright
+                      : ThemeDefine.kColorGrey,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onTapCountry(
+    BuildContext context,
+    MclashNodesStore store,
+    String code,
+  ) async {
+    // 1) 列表按国家筛选（并跳到节点页），这是「筛选」
+    store.requestCountryFilter(code);
+    MainTabController.instance?.setTab(1);
+
+    // 2) 真正切到该国最快的节点（全局模式下会写到内核 GLOBAL）
+    final node = store.preferredNodeOfCountry(code);
+    if (node == null) {
+      return;
+    }
+    final country = code == "XX"
+        ? "其他"
+        : MclashNodeCountry.displayName(code);
+    final err = await MclashNodeSelector.select(node.name);
+    if (!context.mounted) {
+      return;
+    }
+    final ms = node.latencyUsable ? "（${node.latencyMs}ms）" : "";
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          err == null
+              ? "已切换到 $country 最快节点：${node.name}$ms"
+              : "已筛选 $country；切换节点失败：${err.message}",
+        ),
+      ),
+    );
+  }
 }
 
-/// 准入闸门弹窗（D-09）。
-///
-/// 用 Clash Mi 的 `SimpleDialog` 家族（`DialogUtils.showAlertDialog`）保证视觉一致，
-/// 但按钮语义按设计稿定制：取消 + 行动（去续费 / 管理设备 / 重新登录 / 好的）。
 Future<void> showMclashAccountGateDialog(BuildContext context) async {
   final acc = MclashAccountService.instance;
   final kind = acc.blockKind;
@@ -98,7 +266,7 @@ Future<void> showMclashAccountGateDialog(BuildContext context) async {
         "${acc.blockEmoji}\n${acc.blockTitle}\n\n${acc.blockText}",
       );
       if (ok == true) {
-        // 清会话后回登录页（「我的」Tab 有登出按钮，这里直接提示即可）
+
         MainTabController.instance?.setTab(3);
       }
       return;
@@ -117,9 +285,6 @@ Future<void> showMclashAccountGateDialog(BuildContext context) async {
   }
 }
 
-/// 首页连接开关的点击前置判定。
-///
-/// 返回 true 表示**放行连接**；false 表示已受限并已弹出闸门弹窗。
 Future<bool> mclashCheckAccountGate(BuildContext context) async {
   final acc = MclashAccountService.instance;
   if (!acc.isBlocked) {
@@ -127,34 +292,4 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
   }
   await showMclashAccountGateDialog(context);
   return false;
-}
-
-/// 受限态的开关外观：禁用（灰）且不可拨动。
-///
-/// 设计意图：受限时**在构建期就禁用开关**，而不是点下去再弹窗 ——
-/// 后者会让用户以为"点了没反应"（Clash Mi 的 VPN 授权流程踩过同一个坑）。
-class MclashGateHint extends StatelessWidget {
-  const MclashGateHint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: MclashAccountService.instance,
-      builder: (context, _) {
-        if (!MclashAccountService.instance.isBlocked) {
-          return const SizedBox.shrink();
-        }
-        return Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            "订阅不可用，连接已暂停",
-            style: TextStyle(
-              fontSize: 12,
-              color: ThemeDefine.kColorGrey,
-            ),
-          ),
-        );
-      },
-    );
-  }
 }

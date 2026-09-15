@@ -1,16 +1,15 @@
-// ignore_for_file: must_be_immutable
-
-import 'package:mclash/screens/theme_define.dart';
 import 'package:flutter/material.dart';
+import 'package:mclash/screens/theme_define.dart';
 
 class SegemntedElevatedButtonItem {
-  SegemntedElevatedButtonItem({required this.value, required this.text});
+  const SegemntedElevatedButtonItem({required this.value, required this.text});
+
   final int value;
   final String text;
 }
 
 class SegmentedElevatedButton extends StatefulWidget {
-  SegmentedElevatedButton({
+  const SegmentedElevatedButton({
     super.key,
     required this.segments,
     required this.selected,
@@ -21,7 +20,8 @@ class SegmentedElevatedButton extends StatefulWidget {
   });
 
   final List<SegemntedElevatedButtonItem> segments;
-  int selected;
+
+  final int selected;
   final EdgeInsetsGeometry? padding;
   final Color? background;
   final ButtonStyle? buttonStyle;
@@ -32,107 +32,74 @@ class SegmentedElevatedButton extends StatefulWidget {
 }
 
 class _SegmentedElevatedButton extends State<SegmentedElevatedButton> {
-  final List<WidgetStatesController> _controllers = [];
+  static const double _height = 34;
+  static const double _radius = 18;
+
+  late int _selected = widget.selected;
 
   @override
-  void initState() {
-    for (int i = 0; i < widget.segments.length; ++i) {
-      var controller = WidgetStatesController();
-      _controllers.add(controller);
+  void didUpdateWidget(SegmentedElevatedButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected != oldWidget.selected) {
+      _selected = widget.selected;
     }
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    for (int i = 0; i < _controllers.length; ++i) {
-      _controllers[i].dispose();
-    }
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final theme = Theme.of(context);
-        for (int i = 0; i < _controllers.length; ++i) {
-          _controllers[i].value = i == widget.selected
-              ? {WidgetState.selected}
-              : {};
-        }
-        const double space = 5;
-        double spaceWidth = (widget.segments.length + 1) * space;
-
-        List<Widget> widgets = [];
-        widgets.add(const SizedBox(width: space));
-
-        for (int i = 0; i < widget.segments.length; ++i) {
-          final button = SizedBox(
-            width: (constraints.maxWidth - spaceWidth) / widget.segments.length,
-            child: ElevatedButton(
-              statesController: _controllers[i],
-              style:
-                  widget.buttonStyle ??
-                  ButtonStyle(
-                    backgroundColor: WidgetStateProperty.resolveWith((
-                      Set<WidgetState> states,
-                    ) {
-                      if (states.contains(WidgetState.focused)) {
-                        return Colors.white;
-                      }
-                      if (states.contains(WidgetState.selected)) {
-                        return Colors.white;
-                      }
-                      return Colors.white.withValues(alpha: 0.3);
-                    }),
-                    shadowColor: WidgetStateProperty.resolveWith((
-                      Set<WidgetState> states,
-                    ) {
-                      return Colors.white.withValues(alpha: 0.0);
-                    }),
-                  ),
-              onPressed: () async {
-                widget.selected = i;
-                for (int j = 0; j < widget.segments.length; ++j) {
-                  _controllers[j].value = i == j ? {WidgetState.selected} : {};
-                }
-
-                widget.onPressed?.call(i);
-                setState(() {});
-              },
-              child: FittedBox(
-                fit: BoxFit.fill,
-                child: Text(
-                  widget.segments[i].text,
-                  style: TextStyle(
-                    color: widget.selected == i
+    final theme = Theme.of(context);
+    return Container(
+      padding: widget.padding ?? const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: widget.background ?? theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(_radius + 3),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          width: 0.6,
+        ),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < widget.segments.length; i++)
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_radius),
+                onTap: () {
+                  if (_selected == i) {
+                    return;
+                  }
+                  setState(() => _selected = i);
+                  widget.onPressed?.call(widget.segments[i].value);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  height: _height,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _selected == i
                         ? ThemeDefine.kColorBlue
-                        : Colors.black,
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(_radius),
+                  ),
+                  child: Text(
+                    widget.segments[i].text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: _selected == i
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: _selected == i
+                          ? Colors.white
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
             ),
-          );
-          widgets.add(button);
-          widgets.add(const SizedBox(width: space));
-        }
-
-        return Container(
-          width: constraints.maxWidth - 40,
-          decoration: BoxDecoration(
-            color: widget.background ?? theme.colorScheme.surface,
-            borderRadius: BorderRadius.all(Radius.circular(25)),
-          ),
-          child: Padding(
-            padding: widget.padding ?? const EdgeInsets.fromLTRB(0, 3, 0, 3),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: widgets,
-            ),
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

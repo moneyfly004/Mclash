@@ -26,7 +26,7 @@ class DeviceUtils {
       var devicePixelRatio = platformDispatcher.displays.first.devicePixelRatio;
       double screenWidthInDp = screenWidthInPixels / devicePixelRatio;
       if (screenWidthInDp >= 600) {
-        //Android 16  https://developer.android.com/about/versions/16/behavior-changes-16?hl=zh-cn#ignore-orientation
+
         String version = await FlutterVpnService.getSystemVersion();
         int? v = int.tryParse(version);
         if (v != null && v >= 36) {

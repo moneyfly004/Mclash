@@ -1,4 +1,4 @@
-/// Mclash 后台客户端 barrel
+
 library;
 
 export 'src/client.dart';

@@ -1,22 +1,4 @@
-/// Mclash 的 VPN 内核启动器（桌面端：Windows / macOS / Linux）。
-///
-/// 设计（与原 Clash Mi 的根本差异）：
-///   原 Clash Mi 为桌面端额外编译了一个原生服务二进制 `clashmiService`（+ mscrt/ucrt/icu
-///   运行时），由它 fork 内核并管理 TUN/系统代理。该二进制在仓库里是 gitignore 的，
-///   不可得。
-///   **Mclash 改为纯 Dart 实现**：直接 `Process.start(mihomo)` + 轮询 Clash REST API
-///   就绪 + 调平台命令设系统代理。少一层原生代码、少一次进程、少一堆运行时依赖，
-///   且与 UI 同进程可精确上报状态。
-///
-/// 关键正确性约束（来自实测踩坑）：
-///   1. **就绪判定必须双条件**：Clash API 返回 200 **且** mixed 端口 TCP 可连接。
-///      只看 API 200 时，端口被占/非法内核照跑照 200 → 误判"已连接"
-///      并把系统代理指向一个死端口 → 界面显示已连接但浏览器打不开网页。
-///   2. **启动互斥**：`_starting` 标志 + `_stopInFlight` Future，防快速连点双开内核
-///      留下清不掉的孤儿进程（占死端口与 cache.db）。
-///   3. **系统代理残留清扫**：判据是"指向本机端口 **且** 该端口已无人监听"。
-///      只看"指向本机端口"会误清活着的代理。
-///   4. **退出必须恢复系统代理**，否则关机后代理指向死端口 → 重启整机断网。
+
 library;
 
 import 'dart:async';
@@ -26,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'geo_data.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
 
@@ -36,18 +19,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   VpnServiceConfig? _config;
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
 
-  /// 启动流程进行中标志。start() 从第一行到 Process.start 之间有多个 await，
-  /// 期间 _proc 仍为 null —— 只检查 _proc 会让并发 start() 双双通过守卫。
   bool _starting = false;
   Future<void>? _stopInFlight;
   bool _intentionalStop = false;
 
-  /// 本机 mixed 入站端口（系统代理指向它）
   int _mixedPort = 0;
 
-  /// 系统代理是否由本进程设置（决定 stop 时是否要恢复）
   bool _systemProxyApplied = false;
   Map<String, String>? _systemProxyOriginal;
+
+  List<String> _missingGeo = const [];
 
   @override
   FlutterVpnServiceState get state => _state;
@@ -60,11 +41,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     emitStateChanged(s, params ?? const {});
   }
 
-  // ======================================================================
-  // 内核二进制定位
-  //   优先级：MLASH_MIHOMO 环境变量（测试/调试注入）→ 用户副本目录
-  //          （设置页切换/更新过的内核）→ 安装目录内置（CI 打包进来的）
-  // ======================================================================
   static String get _exeName => Platform.isWindows ? "mihomo.exe" : "mihomo";
 
   static Future<String?> _userKernelDir() async {
@@ -80,7 +56,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
-  /// 生效内核路径（找不到返回 null）
   static Future<String?> resolveKernelPath() async {
     final override = Platform.environment["MCLASH_MIHOMO"];
     if (override != null && override.isNotEmpty && File(override).existsSync()) {
@@ -93,7 +68,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         return f.path;
       }
     }
-    // 安装目录：与主程序同目录（macOS 在 .app/Contents/MacOS/ 下）
+
     final exeDir = p.dirname(Platform.resolvedExecutable);
     for (final c in [
       p.join(exeDir, _exeName),
@@ -106,9 +81,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return null;
   }
 
-  // ======================================================================
-  // 配置准备
-  // ======================================================================
   @override
   Future<VpnServiceResultError?> prepareConfig(Map<String, dynamic> args) async {
     final cfg = VpnServiceConfig()..fromJson(Map<String, dynamic>.from(args["config"] as Map));
@@ -127,9 +99,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return null;
   }
 
-  // ======================================================================
-  // 启动 / 重启 / 停止
-  // ======================================================================
   @override
   Future<VpnServiceWaitResult> start(Duration timeout) => _startInternal(timeout);
 
@@ -171,7 +140,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       _setState(FlutterVpnServiceState.connecting);
       _intentionalStop = false;
 
-      // ---- 1) 生成最终配置 ----
       final String yamlText;
       final String workDir;
       try {
@@ -186,7 +154,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
       }
 
-      // ---- 2) 确保 homeDir 可写且 geo 数据就位 ----
       final home = Directory(workDir);
       if (!await home.exists()) {
         await home.create(recursive: true);
@@ -196,7 +163,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       final configFile = File(p.join(workDir, "config.yaml"));
       await configFile.writeAsString(yamlText, flush: true);
 
-      // ---- 3) 起内核子进程 ----
       final logFile = cfg.log_path.isNotEmpty
           ? File(cfg.log_path)
           : File(p.join(workDir, "kernel_log.txt"));
@@ -227,7 +193,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       _proc = proc;
 
-      // 内核输出全量落盘（排障："内核被谁杀的"只能靠这份日志）
       proc.stdout.listen((d) => logSink.add(d), onDone: () {}, onError: (_) {});
       proc.stderr.listen((d) => logSink.add(d), onDone: () {}, onError: (_) {});
 
@@ -237,15 +202,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           await logSink.close();
         } catch (_) {}
         if (_proc != proc) {
-          return; // 已被新进程替换
+          return;
         }
         _proc = null;
         if (_intentionalStop) {
           _setState(FlutterVpnServiceState.disconnected);
           return;
         }
-        // 内核异常退出：写崩溃档（退出码 + 尾部），并把状态打成断开，
-        // 由上层 ConnectionController 决定是否自愈。
+
         try {
           await errFile.writeAsString(
             "kernel exited unexpectedly, code=$code\n"
@@ -263,7 +227,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
       }));
 
-      // ---- 4) 就绪探测（双条件） ----
       final ok = await _waitReady(
         cfg.control_port,
         cfg.secret,
@@ -273,27 +236,81 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       );
       if (!ok) {
         final errText = await _readErr(errFile);
+        final kernelTail = await _tail(logFile, 40);
         await stop();
+
+        final String message;
+        if (errText.isNotEmpty) {
+          message = errText;
+        } else if (_missingGeo.isNotEmpty) {
+          message = "缺少内置分流数据（${_missingGeo.join("、")}），"
+              "内核已尝试联网补拉并卡住。请检查网络后重试；"
+              "若反复出现，说明安装包不完整，请重新下载完整安装包。";
+        } else if (kernelTail.contains("address already in use")) {
+          message = "本地代理端口被占用（多为另一个代理程序或残留内核仍在运行）。"
+              "请退出其它代理软件后重试，或在「核心设置」中更换本地端口。";
+        } else if (kernelTail.contains("Can't find MMDB") ||
+            kernelTail.contains("start download")) {
+          message = "内核正在联网下载分流数据（GitHub 不可达时会一直卡住）。"
+              "请检查网络，或使用带内置分流数据的完整安装包。";
+        } else {
+          message = "内核启动超时（${timeout.inSeconds}s）。"
+              "可能被安全软件拦截，或端口被占用。";
+        }
         return VpnServiceWaitResult(
           type: VpnServiceWaitType.error,
-          err: VpnServiceResultError(
-            code: -6,
-            message: errText.isNotEmpty
-                ? errText
-                : "内核启动超时（${timeout.inSeconds}s）。"
-                    "可能被安全软件拦截，或端口被占用。",
-          ),
+          err: VpnServiceResultError(code: -6, message: message),
         );
       }
 
-      // ---- 5) 系统代理 ----
-      if (cfg.control_port == 0) {
-        // 无控制端口配置时不做系统代理
-      }
+      await _applyDataPathFallback(logFile);
       _setState(FlutterVpnServiceState.connected);
       return VpnServiceWaitResult(type: VpnServiceWaitType.done);
     } finally {
       _starting = false;
+    }
+  }
+
+  bool _systemProxyFallbackActive = false;
+
+  @override
+  bool get systemProxyFallbackActive => _systemProxyFallbackActive;
+
+  static bool logIndicatesTunUnavailable(String kernelLogTail) =>
+      kernelLogTail.contains("configure tun interface") ||
+      kernelLogTail.contains("Start TUN listening error");
+
+  Future<void> _applyDataPathFallback(File logFile) async {
+    _systemProxyFallbackActive = false;
+    if (Platform.isLinux) {
+
+      return;
+    }
+    final tail = await _tail(logFile, 40);
+    if (!logIndicatesTunUnavailable(tail)) {
+      return;
+    }
+    final port = _mixedPort;
+    if (port <= 0) {
+      return;
+    }
+    try {
+      final ok = await setSystemProxy(
+        ProxyOption(InternetAddress.loopbackIPv4.address, port, const []),
+      );
+      if (ok) {
+
+        final readBack = await getSystemProxyEnable(
+          ProxyOption(InternetAddress.loopbackIPv4.address, port, const []),
+        );
+        _systemProxyFallbackActive = true;
+        stderr.writeln(
+          "[mclash] TUN 不可用（需要管理员权限），已把系统代理指向 "
+          "127.0.0.1:$port（读回校验: ${readBack ? "一致" : "不一致，请检查系统代理设置"}）",
+        );
+      }
+    } catch (e) {
+      stderr.writeln("[mclash] TUN 兜底设系统代理失败: $e");
     }
   }
 
@@ -314,10 +331,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   Future<void> _stopInternal() async {
     _intentionalStop = true;
     _setState(FlutterVpnServiceState.disconnecting);
-    // 先恢复系统代理：否则浏览器还指着即将消失的端口
+
     if (_systemProxyApplied) {
       await cleanSystemProxy();
     }
+    _systemProxyFallbackActive = false;
     final proc = _proc;
     _proc = null;
     if (proc != null) {
@@ -339,10 +357,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     _setState(FlutterVpnServiceState.disconnected);
   }
 
-  // ======================================================================
-  // 配置合成：core_path (YAML) ← core_path_patch ← core_path_patch_final (JSON)
-  //   优先级语义与 Clash Mi 一致：原始配置 ← 自定义覆写 ← App 覆写
-  // ======================================================================
   Future<(String, String)> _buildFinalConfig(VpnServiceConfig cfg) async {
     final coreFile = File(cfg.core_path);
     if (!await coreFile.exists()) {
@@ -378,7 +392,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           _deepMerge(config, Map<String, dynamic>.from(patch));
         }
       } catch (_) {
-        // patch 可能是 YAML（用户手写的覆写），再试一次
+
         try {
           final patchYaml = loadYaml(text);
           if (patchYaml is Map) {
@@ -388,7 +402,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
     }
 
-    // 保证内核 API 与 mixed 端口可控（系统代理与热切换都依赖它）
     if (cfg.control_port > 0) {
       config["external-controller"] = "127.0.0.1:${cfg.control_port}";
     }
@@ -397,9 +410,46 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
     final mixed = config["mixed-port"];
     _mixedPort = mixed is num ? mixed.toInt() : 7890;
-    config["mixed-port"] = _mixedPort;
+
+    for (final k in ["port", "socks-port", "redir-port", "tproxy-port"]) {
+      config.remove(k);
+    }
+
+    if (!await _portFree(_mixedPort)) {
+      final picked = await _pickFreePort();
+      stderr.writeln(
+        "[mclash] 混合端口 $_mixedPort 被占用，已自动改用 $picked",
+      );
+      _mixedPort = picked;
+      config["mixed-port"] = _mixedPort;
+    }
 
     return (_dumpYaml(config), cfg.work_dir);
+  }
+
+  static Future<bool> _portFree(int port) async {
+    if (port <= 0) {
+      return false;
+    }
+    try {
+      final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+      await s.close();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<int> _pickFreePort() async {
+    for (final p in [17890, 27890, 38890]) {
+      if (await _portFree(p)) {
+        return p;
+      }
+    }
+    final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = s.port;
+    await s.close();
+    return port;
   }
 
   static Map<String, dynamic> _deepCopyMap(Map src) {
@@ -432,7 +482,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     });
   }
 
-  /// 最小 YAML 序列化（不引 yaml_writer，避免多一个依赖）
   static String _dumpYaml(dynamic node, [int indent = 0]) {
     final sb = StringBuffer();
     _writeNode(sb, node, indent);
@@ -515,31 +564,23 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return '"${s.replaceAll(r'\', r'\\').replaceAll('"', r'\"').replaceAll('\n', r'\n')}"';
   }
 
-  // ======================================================================
-  // geo 数据：内核从 homeDir 按默认文件名加载 country.mmdb / geosite.dat
-  // ======================================================================
+  /// geo 数据落盘：真正的逻辑在 [installGeoData]（可被单元测试直接覆盖）。
+  ///
+  /// 这里只负责拿应用支持目录 + 记录缺失清单 —— 缺 geo 时内核会去 GitHub 下载
+  /// 并卡死，所以「缺了什么」必须能一路传到错误提示里。
   Future<void> _ensureGeoData(String workDir) async {
-    for (final name in ["country.mmdb", "geosite.dat"]) {
-      final dst = File(p.join(workDir, name));
-      if (await dst.exists() && await dst.length() > 0) {
-        continue;
-      }
-      // 候选来源：work_dir 自带的 assets 目录、应用支持目录
-      final candidates = <String>[
-        p.join(workDir, "assets", "rules", name),
-        p.join(workDir, "rules", name),
-      ];
-      final support = await getApplicationSupportDir();
-      candidates.add(p.join(support, "rules", name));
-      for (final c in candidates) {
-        final f = File(c);
-        if (await f.exists() && await f.length() > 0) {
-          try {
-            await f.copy(dst.path);
-          } catch (_) {}
-          break;
-        }
-      }
+    String support;
+    try {
+      support = await getApplicationSupportDir();
+    } catch (_) {
+      support = "";
+    }
+    _missingGeo = await installGeoData(workDir, supportDir: support);
+    if (_missingGeo.isNotEmpty) {
+      stderr.writeln(
+        "[mclash] geo data missing in -d dir: ${_missingGeo.join(", ")} "
+        "(searched: ${geoSourceDirs(workDir, support).join(" | ")})",
+      );
     }
   }
 
@@ -663,10 +704,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       return r.stdout.toString().contains("${option.host}:$option.port");
     }
     if (Platform.isMacOS) {
+      // 只比 host 是不够的：`Enabled: Yes` + host 相同、**端口却是 0（空白）**
+      // 是最常见的坏状态（本机上 21 个网络服务长期就是这个值），
+      // 只比 host 会把它判成「已生效」，于是 App 以为设好了、用户却完全没流量。
       for (final svc in await _macNetworkServices()) {
-        final r = await Process.run("networksetup", ["-getwebproxy", svc]);
-        final out = r.stdout.toString();
-        if (out.contains("Enabled: Yes") && out.contains("${option.host}")) {
+        if (await _macServiceProxyMatches(svc, option)) {
           return true;
         }
       }
@@ -676,6 +718,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   }
 
   Future<bool> _setSystemProxyWindows(ProxyOption option) async {
+    // 与 macOS 同一条硬规则：**绝不写无端口的系统代理**。
+    // 端口 0 会让注册表里留下 "127.0.0.1:0"，Windows 流量会被发到一个不存在的
+    // 代理上（浏览器全打不开），而且这个残留会一直留到下次清理。
+    if (option.port <= 0) {
+      stderr.writeln("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
+      return false;
+    }
     try {
       const key =
           r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
@@ -695,6 +744,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       await Process.run("reg", [
         "add", key, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", bypass, "/f",
       ]);
+      // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
+      if (!await _windowsProxyMatches(option)) {
+        stderr.writeln(
+          "[mclash] 系统代理写入后校验不一致（期望 ${option.host}:${option.port}），"
+          "可能被其它代理软件覆盖",
+        );
+        return false;
+      }
       _systemProxyApplied = true;
       // 通知系统代理设置已变更（否则部分应用不会重新读取）
       await Process.run("powershell", [
@@ -745,31 +802,143 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     ];
   }
 
-  Future<bool> _setSystemProxyMacos(ProxyOption option) async {
+  /// 某个网络服务的 HTTP 代理是否**精确**等于期望值（host + 端口）
+  static Future<bool> _macServiceProxyMatches(
+    String svc,
+    ProxyOption option,
+  ) async {
     try {
-      final bypass = [
-        "localhost",
-        "127.0.0.1",
-        "10.0.0.0/8",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "*.local",
-        ...option.bypassDomains,
-      ];
-      for (final svc in await _macNetworkServices()) {
-        await Process.run("networksetup", [
-          "-setwebproxy", svc, option.host, "$option.port",
-        ]);
-        await Process.run("networksetup", [
-          "-setsecurewebproxy", svc, option.host, "$option.port",
-        ]);
-        await Process.run("networksetup", [
-          "-setproxybypassdomains", svc, ...bypass,
-        ]);
+      final r = await Process.run("networksetup", ["-getwebproxy", svc]);
+      final out = r.stdout.toString();
+      if (!out.contains("Enabled: Yes")) {
+        return false;
       }
-      _systemProxyApplied = true;
-      return true;
+      final pm = RegExp(r"Port:\s*(\d+)").firstMatch(out);
+      final port = int.tryParse(pm?.group(1) ?? "");
+      return out.contains("Server: ${option.host}") && port == option.port;
     } catch (_) {
+      return false;
+    }
+  }
+
+  /// Windows：读回注册表，确认 ProxyEnable=1 且 ProxyServer 精确等于期望值
+  static Future<bool> _windowsProxyMatches(ProxyOption option) async {
+    try {
+      const key =
+          r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+      final en = await Process.run("reg", ["query", key, "/v", "ProxyEnable"]);
+      if (en.exitCode != 0 ||
+          !en.stdout.toString().contains(RegExp(r"0x1\b"))) {
+        return false;
+      }
+      final sv = await Process.run("reg", ["query", key, "/v", "ProxyServer"]);
+      return sv.exitCode == 0 &&
+          sv.stdout.toString().contains("${option.host}:${option.port}");
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _setSystemProxyMacos(ProxyOption option) async {
+    // 端口为 0 时**绝不能**下笔：`networksetup -setwebproxy <svc> <host> 0` 会留下
+    // 「代理已开启 + 端口 0（等效 80）」的状态 —— 浏览器把所有流量发给一个不存在的
+    // 代理，表现为「连上了却上不了网」，而且这个残留会一直留到下次清理。
+    if (option.port <= 0) {
+      stderr.writeln("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
+      return false;
+    }
+    final bypass = [
+      "localhost",
+      "127.0.0.1",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "*.local",
+      ...option.bypassDomains,
+    ];
+    try {
+      var anyOk = false;
+      final failed = <String>[];
+      for (final svc in await _macNetworkServices()) {
+        final ok = await _macSetOneService(svc, option, bypass);
+        if (ok) {
+          anyOk = true;
+        } else {
+          failed.add(svc);
+        }
+      }
+      if (!anyOk && failed.isNotEmpty) {
+        // 普通权限下改不动（或被 TCC 拦）时，用一次系统授权兜底：
+        // 这正是用户手动去「系统设置 → 网络 → 代理」填端口的等价操作。
+        stderr.writeln(
+          "[mclash] 普通权限设置系统代理失败（${failed.take(3).join(", ")}…），"
+          "改用系统授权重试",
+        );
+        anyOk = await _macSetByAdmin(failed, option);
+      }
+      _systemProxyApplied = anyOk;
+      if (!anyOk) {
+        stderr.writeln("[mclash] 系统代理设置失败：请检查是否允许修改网络设置");
+      }
+      return anyOk;
+    } catch (e) {
+      stderr.writeln("[mclash] 设置系统代理异常: $e");
+      return false;
+    }
+  }
+
+  /// 设置单个网络服务并**校验结果**（调用成功 ≠ 生效）
+  Future<bool> _macSetOneService(
+    String svc,
+    ProxyOption option,
+    List<String> bypass,
+  ) async {
+    Future<void> run(List<String> args) async {
+      final r = await Process.run("networksetup", args);
+      if (r.exitCode != 0) {
+        // 以前这里完全不看退出码 —— 失败也被当成成功，读回又只比 host，
+        // 于是「设置失败」被伪装成「已生效」。
+        stderr.writeln(
+          "[mclash] networksetup ${args.first} $svc 失败(${r.exitCode}): "
+          "${r.stderr.toString().trim()}",
+        );
+      }
+    }
+
+    await run(["-setwebproxy", svc, option.host, "${option.port}"]);
+    await run(["-setsecurewebproxy", svc, option.host, "${option.port}"]);
+    await run(["-setproxybypassdomains", svc, ...bypass]);
+    return _macServiceProxyMatches(svc, option);
+  }
+
+  /// 用系统授权（一次密码弹窗）设置代理 —— 普通权限失败时的兜底
+  Future<bool> _macSetByAdmin(List<String> services, ProxyOption option) async {
+    final cmds = <String>[];
+    for (final svc in services) {
+      final s = svc.replaceAll('"', r'\"');
+      cmds.add('networksetup -setwebproxy "$s" ${option.host} ${option.port}');
+      cmds.add(
+        'networksetup -setsecurewebproxy "$s" ${option.host} ${option.port}',
+      );
+    }
+    final script =
+        'do shell script "${cmds.join("; ")}" with administrator privileges';
+    try {
+      final r = await Process.run("osascript", ["-e", script]);
+      if (r.exitCode != 0) {
+        stderr.writeln("[mclash] 授权设置系统代理失败: ${r.stderr.toString().trim()}");
+        return false;
+      }
+      var ok = false;
+      for (final svc in services) {
+        if (await _macServiceProxyMatches(svc, option)) {
+          ok = true;
+          break;
+        }
+      }
+      return ok;
+    } catch (e) {
+      stderr.writeln("[mclash] 授权设置系统代理异常: $e");
       return false;
     }
   }
@@ -997,7 +1166,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
     try {
       final req = await client.getUrl(
-        Uri.parse("http://127.0.0.1:${cfg.control_port}$path"),
+                Uri.parse("http://127.0.0.1:${cfg.control_port}$path"),
       );
       if (cfg.secret.isNotEmpty) {
         req.headers.set(HttpHeaders.authorizationHeader, "Bearer ${cfg.secret}");
@@ -1010,11 +1179,6 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     }
   }
 
-  /// 清掉上次残留的内核进程（退出不干净时占着端口与 cache.db 锁，
-  /// 会让之后每次连接都 bind 失败 —— 表现为"退出后重开连不上"）。
-  ///
-  /// ⚠️ 只收**父进程已消失的真孤儿**：仍在工作的内核一律不动，
-  /// 否则会杀掉**另一个实例正在使用的活内核**（症状是莫名断线）。
   static Future<void> killStaleKernels() async {
     try {
       if (Platform.isWindows) {

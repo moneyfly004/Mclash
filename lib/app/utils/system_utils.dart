@@ -19,7 +19,7 @@ class SystemUtils {
           'route',
         ]).timeout(const Duration(seconds: 10));
       } else {
-        // iOS: process spawning is not supported in the sandbox
+
         return '';
       }
       final out = result.stdout.toString().trim();

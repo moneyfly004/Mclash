@@ -1,4 +1,3 @@
-//import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';

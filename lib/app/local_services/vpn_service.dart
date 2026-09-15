@@ -1,5 +1,6 @@
 // ignore_for_file: unused_catch_stack, empty_catches
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -129,10 +130,8 @@ class VPNService {
     var hours = microseconds ~/ Duration.microsecondsPerHour;
     microseconds = microseconds.remainder(Duration.microsecondsPerHour);
 
-    // Correcting for being negative after first division, instead of before,
-    // to avoid negating min-int, -(2^31-1), of a native int64.
     if (negative) {
-      hours = 0 - hours; // Not using `-hours` to avoid creating -0.0 on web.
+      hours = 0 - hours;
       microseconds = 0 - microseconds;
       sign = "-";
     }
@@ -323,6 +322,9 @@ class VPNService {
     } catch (err, stacktrace) {
       return ReturnResultError(err.toString());
     }
+
+    await _ensureMixedPortAvailable();
+
     var setting = SettingManager.getConfig();
     if (Platform.isWindows) {
       final controlPort = ClashSettingManager.getControlPort();
@@ -414,14 +416,90 @@ class VPNService {
       }
     }
 
-    if (SettingManager.getConfig().autoSetSystemProxy) {
-      await setSystemProxy(true);
+    if (PlatformUtils.isPC() && !Platform.isLinux) {
+      final port = ClashSettingManager.getMixedPort();
+      if (port > 0) {
+        await setSystemProxy(true);
+        final ok = await getSystemProxyEnable();
+        Log.i("VPNService: 系统代理 -> 127.0.0.1:$port（读回校验: ${ok ? "已生效" : "未生效"}）");
+        if (ok) {
+          _startProxyWatchdog(port);
+        }
+      } else {
+        Log.w("VPNService: 混合端口无效($port)，已跳过系统代理设置");
+      }
     }
 
     return null;
   }
 
+  static Future<void> _ensureMixedPortAvailable() async {
+    final cur = ClashSettingManager.getMixedPort();
+    if (cur > 0 && await _portFree(cur)) {
+      return;
+    }
+    final picked = await _pickFreePort();
+    Log.w("VPNService: 混合端口 $cur 被占用，改用 $picked 并写入设置");
+    await ClashSettingManager.setMixedPort(picked);
+  }
+
+  static Future<bool> _portFree(int port) async {
+    if (port <= 0) {
+      return false;
+    }
+    try {
+      final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+      await s.close();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<int> _pickFreePort() async {
+    for (final p in [17890, 27890, 38890]) {
+      if (await _portFree(p)) {
+        return p;
+      }
+    }
+    final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = s.port;
+    await s.close();
+    return port;
+  }
+
+  static Timer? _proxyWatchdog;
+
+  static void _startProxyWatchdog(int port) {
+    _proxyWatchdog?.cancel();
+    _proxyWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
+      try {
+        final expect = ClashSettingManager.getMixedPort();
+        if (expect <= 0) {
+          return;
+        }
+        if (await getSystemProxyEnable()) {
+          return;
+        }
+        await setSystemProxy(true);
+        final fixed = await getSystemProxyEnable();
+        Log.w(
+          "VPNService: 系统代理被改动，已按 127.0.0.1:$expect 重新设置"
+          "（读回: ${fixed ? "已生效" : "仍未生效"}）",
+        );
+      } catch (err) {
+        Log.w("VPNService: 系统代理看守异常 ${err.toString()}");
+      }
+    });
+  }
+
+  static void _stopProxyWatchdog() {
+    _proxyWatchdog?.cancel();
+    _proxyWatchdog = null;
+  }
+
   static Future<void> stop() async {
+    _stopProxyWatchdog();
     if (Platform.isIOS || Platform.isMacOS) {
       await FlutterVpnService.setAlwaysOn(false);
     }
@@ -597,17 +675,7 @@ class VPNService {
   static Future<ProxyOption> getSystemProxyOptions() async {
     final bypassDomain = SettingManager.getConfig().systemProxyBypassDomain;
     final mixedPort = ClashSettingManager.getMixedPort();
-    if (Platform.isMacOS) {
-      List<NetInterfacesInfo> interfaces = await NetworkUtils.getInterfaces(
-        addressType: InternetAddressType.IPv4,
-      );
 
-      for (var face in interfaces) {
-        if (face.name.startsWith("en")) {
-          return ProxyOption(face.address, mixedPort, bypassDomain);
-        }
-      }
-    }
     return ProxyOption(localhost, mixedPort, bypassDomain);
   }
 }

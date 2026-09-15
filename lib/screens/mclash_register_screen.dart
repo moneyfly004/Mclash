@@ -1,16 +1,4 @@
-/// 注册（M-09）。
-///
-/// 对齐后台 CBoard 的真实行为（均已实测确认，见 `lib/mf/cboard_client.dart` 注释）：
-///
-///   1. `POST /auth/register` 需要 **username**（3~50 位），不是只要邮箱密码；
-///   2. 站点开启 `register_email_verify` 时必须带 `verification_code`；
-///   3. **验证码不能先调 verify 再用** —— verify 会把码置为 used=1，
-///      而 register 校验 used=0，于是必然报「验证码无效或已过期」。
-///      正确做法：send 拿码 → 直接随 register 提交（本页即如此）。
-///   4. 注册成功后台**直接下发 access/refresh token**，所以注册完就是已登录态，
-///      不需要再走一次登录。
-///   5. 发码接口挂了 IP 级限流（3 次/分钟），触发时后端返回 429，需提示稍后再试。
-///   6. 请求体里的 `website` 是蜜罐字段，正常用户必须留空 —— 客户端不暴露也不填。
+
 library;
 
 import 'dart:async';
@@ -26,7 +14,6 @@ import 'package:mclash/screens/widgets/framework.dart';
 class MclashRegisterScreen extends LasyRenderingStatefulWidget {
   const MclashRegisterScreen({super.key, this.siteConfig = const {}});
 
-  /// `/config` 下发的站点配置：决定是否需要验证码 / 邀请码。
   final Map<String, dynamic> siteConfig;
 
   @override
@@ -46,7 +33,6 @@ class _MclashRegisterScreenState
   bool _sending = false;
   String? _err;
 
-  /// 验证码倒计时（秒）。后端同邮箱 5 分钟内最多 3 次，60s 足够温和。
   int _countdown = 0;
   Timer? _timer;
 
@@ -269,8 +255,7 @@ class _MclashRegisterScreenState
       _err = null;
     });
     try {
-      // 关键：验证码**直接随注册提交**，不能先调 verifyCode——
-      // verify 会把码标记为已用，导致注册必然报「验证码无效或已过期」。
+
       await MclashApi.register(
         username: username,
         email: email,
@@ -281,7 +266,7 @@ class _MclashRegisterScreenState
       if (!mounted) return;
       await DialogUtils.showAlertDialog(context, "注册成功，已自动登录");
       if (!mounted) return;
-      // 注册成功后台已下发 token，直接回到首页即可
+
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
       if (!mounted) return;

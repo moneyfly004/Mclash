@@ -11,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:libclash_vpn_service/vpn_service.dart';
 import 'package:tuple/tuple.dart';
 
-//flutter showdialog setstate https://stackoverflow.com/questions/58977815/flutter-setstate-on-showdialog
 class DialogUtilsResult<T> {
   DialogUtilsResult(this.data);
   T? data;
@@ -44,14 +43,14 @@ class DialogUtils {
       text = text.substring(
         0,
         kMaxLength,
-      ); //android https://www.cnblogs.com/yyhimmy/p/12583251.html
+      );
     }
 
     if (showFAQ && Platform.isAndroid) {
       String version = await FlutterVpnService.getSystemVersion();
       int? v = int.tryParse(version);
       if (v != null && v == 27) {
-        //android 8.1 flutter_inappwebview_android exception:AbstractMethodError: abstract method "void android.webkit.WebSettings.setSafeBrowsingEnabled(boolean)"
+
         showFAQ = false;
       }
       if (!context.mounted) {

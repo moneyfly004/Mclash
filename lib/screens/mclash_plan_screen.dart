@@ -1,16 +1,11 @@
-/// T-2 · 套餐购买（一级 Tab 根页）
-///
-/// 视觉语言完全沿用 Clash Mi（见 docs/design/06 §6.4）：
-///   * 无渐变、无大号彩色价格、无"热门"浮标
-///   * 价格就是 17/w500，推荐标签就是 kColorBlue 的文字
-///   * 区块 = Card（r12 / elevation 1 / margin 4）+ Padding(fromLTRB(20,0,20,0))
-///     + ListView.separated + `Divider(height:1, thickness:0.3)`
-///   * 提示一律用 SimpleDialog（全 App 无 SnackBar）
+
 library;
 
 import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/mf/mclash_account_info.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
@@ -34,14 +29,8 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
   List<Map<String, dynamic>> _methods = [];
 
   int? _selectedPlanId;
-  /// 选中的支付通道（整行，含 `pay_type` 与数字 `id`）。
-  ///
-  /// 必须同时保留两者：余额支付走 `/orders/:no/pay` 要 **pay_type 字符串**
-  /// （且只认 "balance"），在线支付走 `/payment` 要 **数字 method_id**。
-  /// 只存其中一个都会导致另一条路径失败。
+
   Map<String, dynamic>? _selectedMethod;
-  final TextEditingController _coupon = TextEditingController();
-  double _discount = 0;
 
   @override
   void initState() {
@@ -51,7 +40,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
 
   @override
   void dispose() {
-    _coupon.dispose();
     super.dispose();
   }
 
@@ -67,7 +55,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
       Map<String, dynamic>? sub;
       List<Map<String, dynamic>> plans = [];
       List<Map<String, dynamic>> methods = [];
-      // 订阅信息与套餐目录互不依赖，并发拉取
+
       await Future.wait([
         MclashApi.subscription().then((v) => sub = v).catchError((e) {
           Log.w("plan: subscription failed $e");
@@ -154,7 +142,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
                         children: [
                           if (_sub != null) _buildCurrentSub(t, _sub!),
                           ..._buildPlans(t),
-                          _buildCoupon(t),
                           _buildMethods(t),
                           _buildCheckout(t),
                         ],
@@ -167,9 +154,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // 当前订阅
-  // ---------------------------------------------------------------------
   Widget _buildCurrentSub(Translations t, Map<String, dynamic> sub) {
     final status = sub["status"]?.toString() ?? "";
     final active = status == "active" && sub["is_expired"] != true;
@@ -239,9 +223,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // 套餐列表
-  // ---------------------------------------------------------------------
   List<Widget> _buildPlans(Translations t) {
     if (_plans.isEmpty) {
       return [const SizedBox(height: 8)];
@@ -258,7 +239,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           child: InkWell(
             onTap: () => setState(() {
               _selectedPlanId = _asInt(p["id"]);
-              _discount = 0;
             }),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -325,74 +305,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     ];
   }
 
-  // ---------------------------------------------------------------------
-  // 优惠码
-  // ---------------------------------------------------------------------
-  Widget _buildCoupon(Translations t) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _coupon,
-                decoration: const InputDecoration(
-                  hintText: "优惠码",
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding: EdgeInsets.all(10),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            if (_discount > 0)
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: Text(
-                  "-¥${_discount.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: ThemeDefine.kColorGreenBright,
-                  ),
-                ),
-              ),
-            ElevatedButton(
-              onPressed: _verifyCoupon,
-              child: const Text("验证"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _verifyCoupon() async {
-    final code = _coupon.text.trim();
-    if (code.isEmpty) {
-      return;
-    }
-    try {
-      final d = await MclashApi.post("/coupons/verify", {"code": code});
-      final disc = (d?["discount"] as num?)?.toDouble() ?? 0;
-      if (!mounted) {
-        return;
-      }
-      setState(() => _discount = disc);
-      if (disc <= 0) {
-        await DialogUtils.showAlertDialog(context, "优惠码无效");
-      }
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      await DialogUtils.showAlertDialog(context, "$e");
-    }
-  }
-
-  // ---------------------------------------------------------------------
-  // 支付方式
-  // ---------------------------------------------------------------------
   Widget _buildMethods(Translations t) {
     if (_methods.isEmpty) {
       return const SizedBox.shrink();
@@ -410,11 +322,23 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
             final payType = (m["pay_type"] ?? "").toString();
             final selected =
                 payType == (_selectedMethod?["pay_type"] ?? "").toString();
-            // 后端只下发 pay_type，没有 name；label 由 MclashApi 兜底映射成中文。
-            // 直接取 m["name"] 会渲染出一列空白行。
+
             final label = (m["label"] ?? "").toString().isNotEmpty
                 ? m["label"].toString()
                 : MclashApi.paymentMethodLabel(payType);
+
+            final isBalance = payType == "balance";
+            final info = MclashAccountInfo(
+              MclashAccountService.instance.dashboard,
+              MclashAccountService.instance.subscription,
+            );
+            final plan = _plans.firstWhere(
+              (p) => _asInt(p["id"]) == _selectedPlanId,
+              orElse: () => const {},
+            );
+            final price =
+                double.tryParse(plan["price"]?.toString() ?? "0") ?? 0;
+            final notEnough = isBalance && info.balance < price;
             return ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
@@ -423,6 +347,16 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
                   color: selected ? ThemeDefine.kColorBlue : null,
                 ),
               ),
+              subtitle: isBalance
+                  ? Text(
+                      "余额 ¥${info.balance.toStringAsFixed(2)}"
+                      "${notEnough ? "（不足，请先充值）" : ""}",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: notEnough ? Colors.red : ThemeDefine.kColorGrey,
+                      ),
+                    )
+                  : null,
               trailing: selected
                   ? const Icon(Icons.done, size: 20)
                   : const SizedBox(width: 20),
@@ -434,16 +368,13 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // 结算
-  // ---------------------------------------------------------------------
   Widget _buildCheckout(Translations t) {
     final plan = _plans.firstWhere(
       (p) => _asInt(p["id"]) == _selectedPlanId,
       orElse: () => const {},
     );
     final price = double.tryParse(plan["price"]?.toString() ?? "0") ?? 0;
-    final payable = (price - _discount).clamp(0.0, double.infinity).toDouble();
+    final payable = price;
     final canPay = _selectedPlanId != null && _selectedMethod != null;
 
     return Card(
@@ -475,7 +406,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     try {
       final order = await MclashApi.createOrder(
         _selectedPlanId!,
-        couponCode: _discount > 0 ? _coupon.text.trim() : "",
+        couponCode: "",
       );
       if (order == null) {
         return;
@@ -491,20 +422,22 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
 
       String payUrl = "";
       if (payType == "balance") {
-        // 余额支付：/orders/:orderNo/pay，只认 payment_method="balance"
-        await MclashApi.payOrder(orderNo);
-        // 余额支付是同步完成的，没有二维码；直接提示成功
+        // 余额支付由支付面板自己发起（面板里能看到「正在扣款 / 扣款失败原因」）。
+        // 旧实现先在这里静默扣款、再弹一个「扫码支付」二维码，用户完全看不懂。
         if (!mounted) {
           return;
         }
-        await showMclashPaymentSheet(
+        final ok = await showMclashPaymentSheet(
           context,
           orderNo: orderNo,
           amount: amount,
-          qrCode: "",
+          payWithBalance: true,
         );
+        if (ok != true) {
+          return;
+        }
       } else {
-        // 在线支付：POST /payment（数字 payment_method_id）→ 拿 payment_url
+
         if (orderId == null || methodId == null) {
           throw MclashApiError("订单或支付通道信息不完整，无法发起支付", 0);
         }
@@ -528,7 +461,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           qrCode: payUrl,
         );
       }
-      // 支付完成后刷新（订阅状态与套餐目录都可能变）
+
       await _load();
     } catch (e) {
       if (!mounted) {
@@ -558,12 +491,8 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // 工具
-  // ---------------------------------------------------------------------
   static int? _asInt(dynamic v) => v is num ? v.toInt() : int.tryParse("$v");
 
-  /// 金额去掉无意义尾零：0.02 → "0.02"，200 → "200"
   static String _price(dynamic v) {
     final d = double.tryParse("$v") ?? 0;
     var s = d.toStringAsFixed(2);

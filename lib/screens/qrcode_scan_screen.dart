@@ -153,10 +153,9 @@ class _QrcodeScanScreenState extends LasyRenderingState<QrcodeScanScreen> {
   Widget _buildQrView(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     double wh = size.width < size.height ? size.width : size.height;
-    // For this example we check how width or tall the device is and change the scanArea and overlay accordingly.
+
     var scanArea = (wh < 400) ? wh - 20 : 400.0 - 20;
-    // To ensure the Scanner view is properly sizes after rotation
-    // we need to listen for Flutter SizeChanged notification and update controller
+
     return QRView(
       key: qrKey,
       onQRViewCreated: _onQRViewCreated,

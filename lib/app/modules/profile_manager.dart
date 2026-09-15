@@ -1,5 +1,6 @@
 // ignore_for_file: unused_catch_stack, empty_catches
 
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -184,6 +185,17 @@ class ProfileSetting {
     return url.isNotEmpty;
   }
 
+  /// **实际生效**的更新间隔（唯一来源）。
+  ///
+  /// 三处（自动更新 ticker、按需刷新、界面展示）过去各写一份同样的判断，
+  /// 只要有一处漏改就表现为「设置里的更新间隔不生效」。
+  Duration? get effectiveUpdateInterval {
+    if (updateIntervalPreferByProfile) {
+      return updateIntervalByProfile ?? updateInterval;
+    }
+    return updateInterval;
+  }
+
   String getShowName() {
     return remark.isEmpty ? id : remark;
   }
@@ -192,7 +204,7 @@ class ProfileSetting {
     if (header == null) {
       return;
     }
-    //subscription-userinfo: upload=9579993656; download=92563554739; total=2684354560000; expire=1695781320
+
     List<String>? subscription = header["subscription-userinfo"];
     if (subscription == null || subscription.isEmpty) {
       return;
@@ -330,6 +342,47 @@ class ProfileManager {
   static Timer? _timerChecker;
   static final FileSaver _fileSaver = FileSaver();
 
+  /// 测试缝：直接注入配置档集合（真实加载要读写文件，测试不该碰用户数据）。
+  @visibleForTesting
+  static void debugSetProfiles(List<ProfileSetting> profiles, {String? currentId}) {
+    _config.profiles = profiles;
+    if (currentId != null) {
+      _config._currentId = currentId;
+    }
+    _loaded = true;
+  }
+
+  @visibleForTesting
+  static void debugClearProfiles() {
+    _config.profiles = [];
+    _config._currentId = "";
+    _loaded = false;
+  }
+
+  /// 配置档是否已经真正加载过一次。
+  static bool _loaded = false;
+  static Future<void>? _loadInflight;
+
+  /// 幂等加载：已加载过直接返回；正在加载则复用同一个 future。
+  ///
+  /// `ProfileConfig.fromJson` 是**追加**语义（`profiles.add`），所以进程内
+  /// 绝不能重复执行 `load()` —— 那会把每个配置档复制一份。首屏「节点列表」
+  /// 可能比这里的加载更早（它在 gate 里就开跑），因此需要一个可安全并发调用
+  /// 的入口，避免出现「首屏空列表、要等订阅同步完才有节点」。
+  static Future<void> ensureLoaded() {
+    if (_loaded) {
+      return Future.value();
+    }
+    return _loadInflight ??= load()
+        .catchError((Object e) {
+          // 尽力而为：拿不到配置档目录（例如平台通道不可用）时不该把异常抛给
+          // 「顺手补一次加载」的调用方（节点列表、按钮回调）。
+          // `_loaded` 仍是 false，之后还有机会重试。
+          Log.w("ProfileManager.ensureLoaded 失败（忽略）$e");
+        })
+        .whenComplete(() => _loadInflight = null);
+  }
+
   static Future<void> init() async {
     _fileSaver.setSavePath(await PathUtils.profilesConfigFilePath());
     await load();
@@ -451,6 +504,48 @@ class ProfileManager {
     }
     if (_config._currentId.isEmpty && _config.profiles.isNotEmpty) {
       _config._currentId = _config.profiles.first.id;
+    }
+
+    _loaded = true;
+    migrateUserAgent();
+  }
+
+  /// 旧默认 UA 的判据：只有「应用自己写进去的旧默认值」才会被替换，
+  /// 用户手填的 UA 原样保留。
+  static bool isLegacyUserAgent(String userAgent) {
+    final ua = userAgent.trim();
+    return ua.startsWith("ClashMeta/") || ua.startsWith("ClashMi/");
+  }
+
+  /// 返回应当使用的 UA：旧默认值归一成当前默认，其余原样。
+  static String normalizedUserAgent(String userAgent) {
+    if (userAgent.trim().isEmpty || isLegacyUserAgent(userAgent)) {
+      return SettingManager.getConfig().userAgent();
+    }
+    return userAgent;
+  }
+
+  /// 把「旧默认 UA」迁移成当前默认 UA。
+  ///
+  /// 配置档创建时会把当时的默认 UA 快照进 `user_agent`，所以只改默认值
+  /// 救不了老用户 —— 他们的档里仍是 `ClashMeta/1.19.x; mihomo/1.19.x`。
+  /// 只在**确实等于旧默认**时替换，用户自己填过的 UA 一律不动。
+  static void migrateUserAgent() {
+    final current = SettingManager.getConfig().userAgent();
+    var changed = false;
+    for (final p in _config.profiles) {
+      final ua = p.userAgent.trim();
+      if (ua.isEmpty) {
+        continue;
+      }
+      if (isLegacyUserAgent(ua)) {
+        p.userAgent = current;
+        changed = true;
+      }
+    }
+    if (changed) {
+      save();
+      Log.i("ProfileManager: 已把配置档 UA 迁移为 $current");
     }
   }
 
@@ -657,8 +752,6 @@ class ProfileManager {
         await FileUtils.deletePath(savePath);
         return ReturnResult(error: err);
       }
-      //final announce = result.data!.value("announce");
-      //final supportUrl = result.data!.value("support-url");
 
       final profileUpdateInterval = result.data!.value(
         "profile-update-interval",
@@ -795,9 +888,11 @@ class ProfileManager {
       }
     });
 
-    String userAgent = profile.userAgent;
-    if (userAgent.isEmpty) {
-      userAgent = SettingManager.getConfig().userAgent();
+    String userAgent = normalizedUserAgent(profile.userAgent);
+    if (userAgent != profile.userAgent) {
+      profile.userAgent = userAgent;
+      save();
+      Log.i("ProfileManager: 配置档 UA 已归一为 $userAgent");
     }
     final savePath = path.join(await PathUtils.profilesDir(), id);
     final savePathTmp = "$savePath.tmp";
@@ -1014,13 +1109,7 @@ class ProfileManager {
       if (!profile.isRemote()) {
         continue;
       }
-      Duration? updateInterval = profile.updateInterval;
-      if (profile.updateIntervalPreferByProfile) {
-        updateInterval =
-            profile.updateIntervalByProfile ?? profile.updateInterval;
-      } else {
-        updateInterval = profile.updateInterval;
-      }
+      final updateInterval = profile.effectiveUpdateInterval;
       if (updateInterval == null) {
         continue;
       }

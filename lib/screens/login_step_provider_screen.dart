@@ -309,7 +309,7 @@ class _LoginStepProviderScreenState extends State<LoginStepProviderScreen> {
 
   Future<void> _loginByWeb(BoardProviderConfig provider) async {
     if (Platform.isLinux) {
-      //final tcontext = Translations.of(context);
+
       DialogUtils.showAlertDialog(
         context,
         "Linux platforms do not currently support web-based login.",
@@ -334,10 +334,7 @@ class _LoginStepProviderScreenState extends State<LoginStepProviderScreen> {
     if (!mounted) {
       return;
     }
-    // 原 Clash Mi 在 provider.bindJs 为空时回退到它自家的注入脚本
-    // （https://harry.karing.app/assets/bind.js）。Mclash **不外链任何第三方脚本**：
-    // 该脚本用于在机场面板页里注入登录态，而本产品只对接自有后台、不使用第三方机场，
-    // 因此默认置空（为空则跳过注入）。
+
     String bindJs = provider.bindJs;
     if (bindJs.isNotEmpty) {
       if (bindJs.endsWith("?v=") || bindJs.endsWith("&v=")) {

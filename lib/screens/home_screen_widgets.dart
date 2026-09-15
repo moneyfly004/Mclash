@@ -7,44 +7,32 @@ import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
 import 'package:mclash/app/modules/biz.dart';
-import 'package:mclash/app/modules/board_provider_manager.dart';
 import 'package:mclash/app/modules/board_provider_notice_manager.dart';
-import 'package:mclash/app/modules/board_session_persistent_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/modules/zashboard.dart';
-import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_lifecycle_state_notify.dart';
 import 'package:mclash/app/utils/app_scheme_actions.dart';
-import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/move_to_background_utils.dart';
-import 'package:mclash/app/utils/network_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/app/utils/vpn_action_handler.dart';
 import 'package:mclash/i18n/strings.g.dart';
-import 'package:mclash/screens/about_screen.dart';
 import 'package:mclash/screens/dialog_utils.dart';
-import 'package:mclash/screens/file_view_screen.dart';
-import 'package:mclash/screens/group_helper.dart';
-import 'package:mclash/screens/net_check_screen.dart';
-import 'package:mclash/screens/profiles_board_screen.dart';
-import 'package:mclash/screens/proxy_board_screen.dart';
-import 'package:mclash/screens/richtext_viewer.screen.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/mf/mclash_subscription_service.dart';
+import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
+import 'package:mclash/screens/main_tab_shell.dart';
+import 'package:mclash/screens/mclash_mode_action.dart';
 import 'package:mclash/screens/theme_define.dart';
-import 'package:mclash/screens/webview_helper.dart';
 import 'package:mclash/screens/widgets/segmented_elevated_button.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:libclash_vpn_service/state.dart';
-import 'package:libclash_vpn_service/vpn_service.dart';
 import 'package:quick_actions/quick_actions.dart';
-import 'package:tuple/tuple.dart';
 
 class ProxyHttpOverrides extends HttpOverrides {
   ProxyHttpOverrides(this.proxyPort);
@@ -69,15 +57,16 @@ class HomeScreenWidgetPart1 extends StatefulWidget {
 class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   static final String _kNoSpeed = "↑ 0 B/s   ↓ 0 B/s";
   static final String _kNoTrafficTotal = "↑ 0 B   ↓ 0 B";
-  //static final String _kNoMemory = "0 B   0 B";
+
   final FocusNode _focusNodeConnect = FocusNode();
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
+
+  DateTime? _connectedAt;
   Timer? _timerStateChecker;
   Timer? _timerConnectToCore;
   QuickActions? _quickActions;
   bool _quickActionWorking = false;
 
-  //final ValueNotifier<String> _memory = ValueNotifier<String>(_kNoMemory);
   final ValueNotifier<String> _trafficSpeed = ValueNotifier<String>(_kNoSpeed);
   final ValueNotifier<String> _trafficTotal = ValueNotifier<String>(
     _kNoTrafficTotal,
@@ -89,8 +78,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   void initState() {
     super.initState();
     VPNService.onEventStateChanged.add(_onStateChanged);
-    // 账户受限时连接开关要立刻变灰 —— 必须监听账户状态，
-    // 否则用户看到的是"开关还能拨，但拨了没反应"。
+
     MclashAccountService.instance.addListener(_onAccountChanged);
     AppLifecycleStateNofity.onStateResumed(hashCode, _onStateResumed);
     AppLifecycleStateNofity.onStatePaused(hashCode, _onStatePaused);
@@ -186,481 +174,262 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
     bool connected = _state == FlutterVpnServiceState.connected;
-    final currentProfile = ProfileManager.getCurrent();
-    final currentProfileName = currentProfile?.getShowName() ?? "";
-    final provider = BoardProviderManager.getProviderById(
-      currentProfile?.boardProviderId ?? "",
-    );
+    final connecting = _state == FlutterVpnServiceState.connecting ||
+        _state == FlutterVpnServiceState.reasserting;
+    final disconnecting = _state == FlutterVpnServiceState.disconnecting;
 
-    final settings = SettingManager.getConfig();
-    String tranffic = "";
-    Tuple2<bool, String>? tranfficExpire;
-    if (currentProfile != null && currentProfile.isRemote()) {
-      if (currentProfile.upload != 0 ||
-          currentProfile.download != 0 ||
-          currentProfile.total != 0) {
-        String upload = ClashHttpApi.convertTrafficToStringDouble(
-          currentProfile.upload,
-        );
-        String download = ClashHttpApi.convertTrafficToStringDouble(
-          currentProfile.download,
-        );
-        String total = ClashHttpApi.convertTrafficToStringDouble(
-          currentProfile.total,
-        );
-        tranffic = "↑ $upload ↓ $download/$total";
-      }
-      if (currentProfile.expire.isNotEmpty) {
-        tranfficExpire = currentProfile.getExpireTime(settings.languageTag);
-      }
-    }
-    bool notice =
-        BoardProviderNoticeManager.getFirstUnread(provider?.id ?? "") != null;
-    var widgets = [
-      Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: connected ? Colors.green : Colors.grey,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Text(
-                    connected
-                        ? tcontext.meta.connected
-                        : tcontext.meta.disconnected,
-                    textAlign: TextAlign.left,
-                  ),
-                ],
-              ),
-              Stack(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    child: FittedBox(
-                      fit: BoxFit.fill,
-                      // 受限账号：开关**在构建期就禁用**，而不是点下去再弹窗 ——
-                      // 后者会让用户以为"点了没反应"。
-                      // 点击时弹准入闸门弹窗（去续费 / 管理设备 / 联系客服）。
-                      child: Switch.adaptive(
-                        value: _state == FlutterVpnServiceState.connected,
-                        activeThumbColor: Colors.white,
-                        activeTrackColor: ThemeDefine.kColorGreenBright,
-                        focusNode: _focusNodeConnect,
-                        onChanged: MclashAccountService.instance.isBlocked
-                            ? null
-                            : (bool value) async {
-                                // 连接前再过一次闸门：状态条可能已过期，
-                                // 也可能在本次会话期间到期
-                                if (value &&
-                                    !(await mclashCheckAccountGate(
-                                      context,
-                                    ))) {
-                                  return;
-                                }
-                                if (value) {
-                                  await start("switch");
-                                } else {
-                                  await stop();
-                                }
-                              },
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 8,
-                    top: 12,
-                    child: SizedBox(
-                      width: 25,
-                      height: 25,
-                      child:
-                          _state == FlutterVpnServiceState.connecting ||
-                              _state == FlutterVpnServiceState.disconnecting ||
-                              _state == FlutterVpnServiceState.reasserting
-                          ? const RepaintBoundary(
-                              child: CircularProgressIndicator(
-                                color: ThemeDefine.kColorGreenBright,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          /*connected
-              ? Row(mainAxisAlignment: MainAxisAlignment.start, children: [
-                  ValueListenableBuilder<String>(
-                    builder: _buildWithTrafficSpeedValue,
-                    valueListenable: _memory,
-                  ),
-                ])
-              : const SizedBox.shrink(),*/
-          connected
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    ValueListenableBuilder<String>(
-                      builder: _buildWithTrafficSpeedValue,
-                      valueListenable: _trafficTotal,
-                    ),
-                  ],
-                )
-              : const SizedBox.shrink(),
-          connected
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    ValueListenableBuilder<String>(
-                      builder: _buildWithTrafficSpeedValue,
-                      valueListenable: _trafficSpeed,
-                    ),
-                  ],
-                )
-              : const SizedBox.shrink(),
-          SizedBox(height: connected ? 10 : 0),
-        ],
-      ),
-      Container(
-        padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-        height: 70,
-        child: SegmentedElevatedButton(
-          segments: [
-            SegemntedElevatedButtonItem(
-              value: ClashConfigsMode.rule.index,
-              text: tcontext.meta.rule,
-            ),
-            SegemntedElevatedButtonItem(
-              value: ClashConfigsMode.global.index,
-              text: tcontext.meta.global,
-            ),
-            SegemntedElevatedButtonItem(
-              value: ClashConfigsMode.direct.index,
-              text: tcontext.meta.direct,
-            ),
-          ],
-          selected: ClashSettingManager.getConfigsMode().index,
-          padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
-          onPressed: (int value) async {
-            ClashConfigsMode type = ClashConfigsMode.values[value];
-            var error = await ClashSettingManager.setConfigsMode(type);
-            if (!context.mounted) {
-              return;
-            }
-            if (error != null) {
-              DialogUtils.showAlertDialog(
-                context,
-                error.message,
-                withVersion: true,
-              );
-              return;
-            }
-            _updateProxyNow();
-          },
-        ),
-      ),
-      ListTile(
-        title: Text(tcontext.meta.myProfiles),
-        subtitle: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (currentProfile != null) ...[
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  currentProfileName,
-                  style: TextStyle(color: ThemeDefine.kColorBlue, fontSize: 12),
-                ),
-              ),
-            ],
-            if (tranffic.isNotEmpty) ...[
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  tranffic,
-                  style: TextStyle(color: ThemeDefine.kColorBlue, fontSize: 12),
-                ),
-              ),
-            ],
-            if (tranfficExpire != null) ...[
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  tranfficExpire.item2,
-                  style: TextStyle(
-                    color: tranfficExpire.item1
-                        ? Colors.red
-                        : ThemeDefine.kColorBlue,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        trailing: SizedBox(
-          width: 100,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (provider != null &&
-                  GroupHelper.canShowVpnProvider(provider)) ...[
-                SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: InkWell(
-                    onTap: () async {
-                      final session = BoardSessionPersistentManager.instance()
-                          .getBySubscribeUrl(currentProfile?.url ?? "");
-                      await GroupHelper.showVpnProvider(
-                        context,
-                        provider,
-                        session,
-                      );
-                    },
-                    child: Stack(
-                      children: [
-                        provider.appIconUrl.isNotEmpty && provider.logoBranding
-                            ? FastCachedImage(
-                                url: provider.appIconUrl,
-                                width: 32,
-                                height: 32,
-                                cacheWidth: 64,
-                                cacheHeight: 64,
-                                loadingBuilder: (context, loadingProgress) {
-                                  return SizedBox.shrink();
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(Icons.business, size: 32);
-                                },
-                              )
-                            : Icon(Icons.business, size: 32),
-                        if (notice) ...[
-                          Positioned(
-                            left: 0,
-                            top: 0,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              // 这里原本有一个「+」按钮，点了进「添加配置」（手动填订阅链接/粘贴内容）。
-              //
-              // Mclash 的产品模型是「客户不需要导入订阅，订阅从后台按账号拉取」，
-              // 所以这个入口已按设计移除：登录成功后由
-              // `MclashSubscriptionService` 自动建档并刷新，用户不需要也不应该
-              // 自己填订阅地址（填错、填到别人的链接，都是只有坏处的自由度）。
-              //
-              // 手动导入的能力仍保留在「开发者选项」里（Clash Mi 的面板导入链路），
-              // 只是不再暴露在主页第一屏。
-              Icon(Icons.keyboard_arrow_right, size: 20),
-            ],
-          ),
-        ),
-        minVerticalPadding: 20,
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: ProfilesBoardScreen.routeSettings(),
-              builder: (context) => ProfilesBoardScreen(),
-            ),
-          );
-          setState(() {});
-        },
-      ),
-    ];
-
-    if (connected) {
-      widgets.add(
-        ListTile(
-          title: Text(tcontext.meta.proxy),
-          subtitle: ValueListenableBuilder<String>(
-            builder: _buildWithValue,
-            valueListenable: _proxyNow,
-          ),
-          trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-          minVerticalPadding: 20,
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                settings: ProxyBoardScreen.routeSettings(),
-                builder: (context) => ProxyBoardScreen(),
-              ),
-            );
-            _updateProxyNow();
-          },
-        ),
-      );
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    _onTapBoard();
-                  },
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 5),
-                      Icon(Icons.dashboard_outlined),
-                      const SizedBox(height: 5),
-                      SizedBox(
-                        height: 40,
-                        child: Text(
-                          tcontext.meta.board,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(width: 5),
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    _onTapRunTimeProfile();
-                  },
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 5),
-                      Icon(Icons.file_present),
-                      const SizedBox(height: 5),
-                      SizedBox(
-                        height: 40,
-                        child: Text(
-                          tcontext.meta.runtimeProfile,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(width: 5),
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    _onTapNetCheck();
-                  },
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 5),
-                      Icon(Icons.network_check_outlined),
-                      const SizedBox(height: 5),
-                      SizedBox(
-                        height: 40,
-                        child: Text(
-                          tcontext.meta.networkCheck,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          itemBuilder: (_, index) {
-            return widgets[index];
-          },
-          separatorBuilder: (BuildContext context, int index) {
-            return const Divider(height: 1, thickness: 0.3);
-          },
-          itemCount: widgets.length,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                // 连接中/断开中显示转圈动画：以前连接过程没有任何反馈，
+                // 用户点完开关看不出"正在连"，会以为没反应。
+                connecting || disconnecting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: RepaintBoundary(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: ThemeDefine.kColorGreenBright,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: connected ? Colors.green : Colors.grey,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _stateText(context, connected),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: ThemeConfig.kFontWeightTitle,
+                        ),
+                      ),
+                      Text(
+                        connecting
+                            ? "正在连接…"
+                            : (disconnecting
+                                  ? "正在断开…"
+                                  : (connected ? "点击开关断开" : "点击开关连接")),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ThemeDefine.kColorGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Transform.scale(
+                  scale: 1.15,
+                  child: Switch.adaptive(
+                    value: _state == FlutterVpnServiceState.connected,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: ThemeDefine.kColorGreenBright,
+                    onChanged: MclashAccountService.instance.isBlocked
+                        ? null
+                        : (bool value) async {
+                            if (value &&
+                                !(await mclashCheckAccountGate(context))) {
+                              return;
+                            }
+                            if (value) {
+                              await start("switch");
+                            } else {
+                              await stop();
+                            }
+                          },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            InkWell(
+              onTap: () => MainTabController.instance?.setTab(1),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.dns_outlined,
+                    size: 18,
+                    color: ThemeDefine.kColorGrey,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: _proxyNow,
+                      builder: (context, value, _) => Text(
+                        value.isEmpty ? "未选择节点" : value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: ThemeConfig.kFontWeightListItem,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_right,
+                    size: 18,
+                    color: ThemeDefine.kColorGrey,
+                  ),
+                ],
+              ),
+            ),
+
+            if (connected)
+              AnimatedBuilder(
+                animation: MclashNodesStore.instance,
+                builder: (context, _) {
+                  final note = MclashNodesStore.instance.autoPickNote;
+                  if (note.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          size: 14,
+                          color: ThemeDefine.kColorBlue,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            note,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ThemeDefine.kColorBlue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            if (connected) ...[
+              const SizedBox(height: 12),
+
+              ValueListenableBuilder<String>(
+                valueListenable: _trafficSpeed,
+                builder: (context, v, _) => _trafficLine("实时速度", v),
+              ),
+              const SizedBox(height: 4),
+              ValueListenableBuilder<String>(
+                valueListenable: _trafficTotal,
+                builder: (context, v, _) => _trafficLine("累计流量", v),
+              ),
+            ],
+            const Divider(height: 22, thickness: 0.3),
+            SegmentedElevatedButton(
+              segments: [
+                SegemntedElevatedButtonItem(
+                  value: ClashConfigsMode.rule.index,
+                  text: tcontext.meta.rule,
+                ),
+                SegemntedElevatedButtonItem(
+                  value: ClashConfigsMode.global.index,
+                  text: tcontext.meta.global,
+                ),
+                SegemntedElevatedButtonItem(
+                  value: ClashConfigsMode.direct.index,
+                  text: tcontext.meta.direct,
+                ),
+              ],
+              selected: ClashSettingManager.getConfigsMode().index,
+              padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
+              onPressed: (int value) async {
+                ClashConfigsMode type = ClashConfigsMode.values[value];
+                var error = await mclashSetMode(type);
+                if (!context.mounted) {
+                  return;
+                }
+                if (error != null) {
+                  DialogUtils.showAlertDialog(
+                    context,
+                    error.message,
+                    withVersion: true,
+                  );
+                  return;
+                }
+                _updateProxyNow();
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildWithTrafficSpeedValue(
-    BuildContext context,
-    String value,
-    Widget? child,
-  ) {
-    return SizedBox(
-      child: Text(
-        value,
-        textAlign: TextAlign.left,
-        style: const TextStyle(fontSize: ThemeConfig.kFontSizeListSubItem),
-      ),
-    );
+  String _stateText(BuildContext context, bool connected) {
+    final tcontext = Translations.of(context);
+    if (_state == FlutterVpnServiceState.connecting) {
+      return tcontext.meta.connecting;
+    }
+    if (!connected) {
+      return tcontext.meta.disconnected;
+    }
+    final secs = _connectedSeconds();
+    final h = secs ~/ 3600;
+    final m = (secs % 3600) ~/ 60;
+    final s = secs % 60;
+    String two(int v) => v.toString().padLeft(2, "0");
+    return h > 0 ? "$h:${two(m)}:${two(s)}" : "${two(m)}:${two(s)}";
   }
 
-  Widget _buildWithValue(BuildContext context, String value, Widget? child) {
-    return SizedBox(
-      child: Text(
-        value,
-        textAlign: TextAlign.start,
-        style: TextStyle(
-          color: ThemeDefine.kColorBlue,
-          fontFamily: Platform.isWindows ? 'Emoji' : null,
+  int _connectedSeconds() {
+    final start = _connectedAt;
+    if (start == null) {
+      return 0;
+    }
+    return DateTime.now().difference(start).inSeconds;
+  }
+
+  Widget _trafficLine(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
         ),
-      ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            value.isEmpty ? "-" : value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+      ],
     );
-  }
-
-  Future<String> _getLocalAddress() async {
-    String ipLocal = "127.0.0.1";
-    String ipInterface = ipLocal;
-
-    List<NetInterfacesInfo> interfaces = await NetworkUtils.getInterfaces(
-      addressType: InternetAddressType.IPv4,
-    );
-    if (interfaces.isNotEmpty) {
-      ipInterface = interfaces.first.address;
-    }
-    for (var interf in interfaces) {
-      if (interf.name.startsWith("en") || interf.name.startsWith("wlan")) {
-        ipInterface = interf.address;
-        break;
-      }
-    }
-
-    return ipInterface;
   }
 
   Future<void> _onInitAllFinish() async {
+
+    MclashNodesStore.instance.onNodeSwitched = _updateProxyNow;
     VpnActionHandler.vpnConnect = _vpnConnect;
     VpnActionHandler.vpnDisconnect = _vpnDisconnect;
     VpnActionHandler.vpnReconnect = _vpnReconnect;
@@ -677,16 +446,36 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<bool> start(String from) async {
+    // 每一处连接入口都先过账户门禁：托盘菜单、快捷键、桌面小组件都会直接调到这里，
+    // 只在开关的 onChanged 里判断会漏（用户会用托盘连接）。
+    if (!await mclashCheckAccountGate(context)) {
+      return false;
+    }
     final currentProfile = ProfileManager.getCurrent();
     if (currentProfile == null) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          settings: ProfilesBoardScreen.routeSettings(),
-          builder: (context) => ProfilesBoardScreen(),
-        ),
-      );
+
+      if (!mounted) {
+        return false;
+      }
+      MclashSubSyncResult? result;
+      try {
+        result = await MclashSubscriptionService.sync();
+      } catch (_) {}
+      await MclashAccountService.instance.refresh();
+      if (!mounted) {
+        return false;
+      }
       setState(() {});
+      final msg = switch (result?.status) {
+        MclashSubSyncStatus.ok => "订阅已同步，请再次点击连接。",
+        MclashSubSyncStatus.noSubscription => "该账号暂无可用套餐，请先购买套餐。",
+        MclashSubSyncStatus.notLoggedIn => "登录已失效，请重新登录。",
+        MclashSubSyncStatus.skipped => "正在同步订阅，请稍候再试。",
+        MclashSubSyncStatus.failed =>
+          "订阅同步失败：${result?.message ?? ""}\n请检查网络后重试。",
+        null => "订阅同步失败，请稍后重试。",
+      };
+      await DialogUtils.showAlertDialog(context, msg, withVersion: true);
       return false;
     }
     if (Platform.isLinux) {
@@ -804,6 +593,11 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       return;
     }
     _state = state;
+    if (state == FlutterVpnServiceState.connected) {
+      _connectedAt ??= DateTime.now();
+    } else if (state == FlutterVpnServiceState.disconnected) {
+      _connectedAt = null;
+    }
     if (state == FlutterVpnServiceState.disconnected) {
       _disconnectToCore();
       Biz.vpnStateChanged(false);
@@ -844,7 +638,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _disconnectToCore(resetUI: false);
   }
 
-  /// 账户状态变化 → 重绘一次（连接开关禁用态 + 首页账户状态条由各自 listen）。
   void _onAccountChanged() {
     if (!mounted) {
       return;
@@ -913,8 +706,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       var obj = jsonDecode(connections);
       ClashConnections body = ClashConnections();
       body.fromJson(obj, false);
-      //_memory.value =
-      //    ClashHttpApi.convertTrafficToStringDouble(body.memory);
+
       trafficTotalNew =
           "↑ ${ClashHttpApi.convertTrafficToStringDouble(body.uploadTotal)}  ↓ ${ClashHttpApi.convertTrafficToStringDouble(body.downloadTotal)} ";
     } catch (err) {}
@@ -963,7 +755,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       _trafficTotal.value = _kNoTrafficTotal;
       _trafficSpeed.value = _kNoSpeed;
       Biz.trafficChanged("", "");
-      // _memory.value = _kNoMemory;
+
       _proxyNow.value = "";
     }
   }
@@ -1007,251 +799,4 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
-  Future<void> _onTapBoard() async {
-    final tcontext = Translations.of(context);
-    var setting = SettingManager.getConfig();
-    if (setting.boardOnline && setting.boardUrl.isNotEmpty) {
-      final uri = Uri.tryParse(setting.boardUrl);
-      if (uri == null) {
-        final msg = "${tcontext.meta.urlInvalid}:${setting.boardUrl}";
-        DialogUtils.showAlertDialog(context, msg, withVersion: true);
-        return;
-      }
-      final shortUrl = Uri(
-        scheme: uri.scheme,
-        userInfo: uri.userInfo,
-        host: uri.host,
-        port: uri.port,
-      );
-      String host = Platform.isIOS ? await _getLocalAddress() : "127.0.0.1";
-      String secret = ClashSettingManager.getConfig().Secret!;
-      final url =
-          '${shortUrl.toString()}/?hostname=$host&port=${ClashSettingManager.getControlPort()}&secret=$secret&http=true';
-
-      if (!mounted) {
-        return;
-      }
-      await WebviewHelper.loadUrl(
-        context,
-        url,
-        "onlineboard",
-        title: tcontext.meta.board,
-        inappWebViewOpenExternal: true,
-      );
-      return;
-    }
-    ReturnResult result = await Zashboard.start();
-    if (result.error != null) {
-      if (!mounted) {
-        return;
-      }
-      DialogUtils.showAlertDialog(
-        context,
-        result.error!.message,
-        withVersion: true,
-      );
-      return;
-    }
-    String url = result.data!;
-    if (!mounted) {
-      return;
-    }
-    await WebviewHelper.loadUrl(
-      context,
-      url,
-      "board",
-      title: tcontext.meta.board,
-      inappWebViewOpenExternal: false,
-    );
-    if (PlatformUtils.isMobile()) {
-      await Zashboard.stop();
-    }
-    _updateProxyNow();
-  }
-
-  Future<void> _onTapRunTimeProfile() async {
-    final tcontext = Translations.of(context);
-    late String content;
-    try {
-      final path = await PathUtils.serviceCoreRuntimeProfileFilePath();
-      content = await File(path).readAsString();
-    } catch (err) {
-      if (!mounted) {
-        return;
-      }
-      DialogUtils.showAlertDialog(
-        context,
-        err.toString(),
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: FileViewScreen.routeSettings(),
-        builder: (context) => FileViewScreen(
-          title: tcontext.meta.runtimeProfile,
-          content: content,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _onTapNetCheck() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: NetCheckScreen.routeSettings(),
-        builder: (context) => const NetCheckScreen(),
-      ),
-    );
-  }
-}
-
-class HomeScreenWidgetPart2 extends StatelessWidget {
-  const HomeScreenWidgetPart2({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    AutoUpdateCheckVersion versionCheck = AutoUpdateManager.getVersionCheck();
-    final tcontext = Translations.of(context);
-    var widgets = [
-      ListTile(
-        title: Text(tcontext.meta.settingApp),
-        leading: Icon(Icons.settings, size: 20),
-        trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-        minVerticalPadding: 22,
-        onTap: () async {
-          await GroupHelper.showAppSettings(context);
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.settingCore),
-        leading: Icon(Icons.settings, size: 20),
-        trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-        minVerticalPadding: 22,
-        onTap: () async {
-          await GroupHelper.showClashSettings(context);
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.coreLog),
-        leading: Icon(Icons.set_meal, size: 20),
-        trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-        minVerticalPadding: 22,
-        onTap: () async {
-          String content = "";
-          final fileErrPath = await PathUtils.serviceStdErrorFilePath();
-          final filePath = await PathUtils.serviceLogFilePath();
-          File file = File(fileErrPath);
-          final split = "\n-------------------------------\n";
-          if (await file.exists()) {
-            final errContent = await file.readAsString();
-            if (errContent.isNotEmpty) {
-              content += split;
-              content += errContent;
-            }
-          }
-          final item = await FileUtils.readAsStringReverse(
-            filePath,
-            50 * 1024,
-            false,
-          );
-          if (item != null) {
-            if (content.isNotEmpty) {
-              content += split;
-            }
-            content += item.item1;
-          }
-          if (!context.mounted) {
-            return;
-          }
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: RichtextViewScreen.routeSettings(),
-              builder: (context) => RichtextViewScreen(
-                title: tcontext.meta.coreLog,
-                file: "",
-                content: content,
-                showAction: true,
-              ),
-            ),
-          );
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.backupAndSync),
-        leading: Icon(Icons.cloud_sync_outlined, size: 20),
-        trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-        minVerticalPadding: 22,
-        onTap: () async {
-          GroupHelper.showBackupAndSync(context);
-        },
-      ),
-    ];
-    if (versionCheck.newVersion) {
-      widgets.add(
-        ListTile(
-          title: Text(tcontext.meta.hasNewVersion(p: versionCheck.version)),
-          leading: Icon(Icons.fiber_new_outlined, size: 20, color: Colors.red),
-          trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-          minVerticalPadding: 22,
-          onTap: () async {
-            GroupHelper.newVersionUpdate(context);
-          },
-        ),
-      );
-    }
-
-    widgets.addAll([
-      ListTile(
-        title: Text(tcontext.meta.help),
-        leading: Icon(Icons.help, size: 20),
-        trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-        minVerticalPadding: 22,
-        onTap: () async {
-          await GroupHelper.showHelp(context);
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.about),
-        leading: Icon(Icons.info, size: 20),
-        trailing: Icon(Icons.keyboard_arrow_right, size: 20),
-        minVerticalPadding: 22,
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: AboutScreen.routeSettings(),
-              builder: (context) => AboutScreen(),
-            ),
-          );
-        },
-      ),
-    ]);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          itemBuilder: (_, index) {
-            return widgets[index];
-          },
-          separatorBuilder: (BuildContext context, int index) {
-            return const Divider(height: 1, thickness: 0.3);
-          },
-          itemCount: widgets.length,
-        ),
-      ),
-    );
-  }
 }

@@ -15,12 +15,14 @@ import 'package:mclash/app/utils/local_storage.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/system_scheme_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
 import 'package:mclash/screens/language_settings_screen.dart';
 import 'package:mclash/screens/scheme_handler.dart';
 import 'package:mclash/screens/theme_config.dart';
+import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/themes.dart';
 import 'package:mclash/screens/user_agreement_screen.dart';
 import 'package:mclash/screens/webview_helper.dart';
@@ -123,17 +125,7 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     } catch (e) {}
 
     if (agreement != null) {
-      /*String? installer = await AutoUpdateManager.checkReplace();
-      if (installer != null) {
-        await Navigator.push(
-            context,
-            MaterialPageRoute(
-                settings: VersionUpdateScreen.routeSettings(),
-                fullscreenDialog: true,
-                builder: (context) => const VersionUpdateScreen(
-                      force: true,
-                    )));
-      }*/
+
       return;
     }
     if (Platform.isIOS || Platform.isMacOS) {
@@ -274,23 +266,26 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
                 children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppUtils.getName(),
-                        style: const TextStyle(
-                          fontWeight: ThemeConfig.kFontWeightTitle,
-                          fontSize: ThemeConfig.kFontSizeTitle,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                    ],
+                  Text(
+                    AppUtils.getName(),
+                    style: const TextStyle(
+                      fontWeight: ThemeConfig.kFontWeightTitle,
+                      fontSize: ThemeConfig.kFontSizeTitle,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+
+                    "订阅自动同步 · 无需手动添加节点",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ThemeDefine.kColorGrey,
+                    ),
                   ),
                 ],
               ),
@@ -299,18 +294,35 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
                 child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      HomeScreenWidgetPart1(),
-                      SizedBox(height: 15),
-                      // 🆕 MoneyFly 账户状态条（一行摘要，点击跳「套餐购买」Tab）。
-                      // 完整账户中心在「我的」Tab，主页只留速览 + 跳转，
-                      // 避免同一批入口在 主页/套餐/我的 三处重复出现。
-                      MclashAccountBar(),
-                      SizedBox(height: 15),
-                      HomeScreenWidgetPart2(),
-                    ],
+                  child: AnimatedBuilder(
+                    animation: MclashAccountService.instance,
+                    builder: (context, _) {
+                      final blocked = MclashAccountService.instance.isBlocked;
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+
+                          if (blocked) ...[
+                            const MclashSubscriptionCard(
+                              key: ValueKey('home-sub-bar'),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          HomeScreenWidgetPart1(
+                            key: const ValueKey('home-connect-card'),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!blocked)
+                            const MclashSubscriptionCard(
+                              key: ValueKey('home-sub-bar'),
+                            ),
+                          const SizedBox(height: 12),
+                          const MclashQuickCountries(
+                            key: ValueKey('home-quick-countries'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),

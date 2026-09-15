@@ -22,7 +22,7 @@ class AutoupdateItem {
   String version = "";
   String url = "";
   String sha256 = "";
-  List<String> updateChannel = []; //stable, beta
+  List<String> updateChannel = [];
 
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {

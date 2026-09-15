@@ -1,32 +1,89 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/app/utils/path_utils.dart';
+import 'package:path/path.dart' as path;
 
 class SecureStorage {
   static final FlutterSecureStorage _storage = _initStorage();
+
+  static const String _desktopFileName = "session.secure";
+
+  static bool get _useDesktopFile =>
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+
+  static Future<File> _desktopFile() async {
+    final dir = await PathUtils.profileDir();
+    return File(path.join(dir, _desktopFileName));
+  }
+
+  static Future<Map<String, String>> _readAll() async {
+    try {
+      final f = await _desktopFile();
+      if (!await f.exists()) {
+        return {};
+      }
+      final raw = await f.readAsString();
+      if (raw.trim().isEmpty) {
+        return {};
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        return {};
+      }
+      return decoded.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ""));
+    } catch (e) {
+      Log.w("SecureStorage: 读取本地会话文件失败 $e");
+      return {};
+    }
+  }
+
+  static Future<void> _writeAll(Map<String, String> values) async {
+    final f = await _desktopFile();
+    await f.writeAsString(jsonEncode(values), flush: true);
+
+    if (!Platform.isWindows) {
+      try {
+        await Process.run("chmod", ["600", f.path]);
+      } catch (e) {
+        Log.w("SecureStorage: chmod 600 失败 $e");
+      }
+    }
+  }
+
   static Future<String?> read(String key) async {
+    if (_useDesktopFile) {
+      final all = await _readAll();
+      return all[key];
+    }
     return await _storage.read(key: key);
   }
 
   static Future<void> write(String key, String? value) async {
+    if (_useDesktopFile) {
+      final all = await _readAll();
+      if (value == null || value.isEmpty) {
+        all.remove(key);
+      } else {
+        all[key] = value;
+      }
+      await _writeAll(all);
+      return;
+    }
     await _storage.write(key: key, value: value);
   }
 
   static FlutterSecureStorage _initStorage() {
     AndroidOptions getAndroidOptions() =>
-        // Android：EncryptedSharedPreferences（密钥由 Keystore 托管）。
-        // 注：该参数在新版 flutter_secure_storage 已废弃（Google 弃用了
-        // Jetpack Security），会被忽略并自动迁移到自定义 cipher，行为安全。
+
         const AndroidOptions(encryptedSharedPreferences: true);
-    // macOS / iOS 必须走传统 keychain：
-    //   Data Protection Keychain 要求应用带 team identifier 与
-    //   keychain-access-groups 授权。Mclash 的 macOS 包是 ad-hoc 签名（无 team），
-    //   用默认配置会抛：
-    //     PlatformException(Unexpected security result code, Code: -34018, "没有所需的授权")
-    //   —— 表现为 token 写不进去、「自动登录」永远不生效。
-    //   传统 keychain 不需要任何 entitlement，ad-hoc 下可用。
+
     return FlutterSecureStorage(
       aOptions: getAndroidOptions(),
       mOptions: const MacOsOptions(usesDataProtectionKeychain: false),
-      // iOS：设备解锁后可读（后台任务也能取到 token）
+
       iOptions: const IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
       ),

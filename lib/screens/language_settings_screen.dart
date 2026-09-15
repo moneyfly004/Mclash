@@ -51,29 +51,9 @@ class _LanguageSettingsScreenState
     }
 
     _searchedData = _langData;
-    //
+
     super.initState();
   }
-
-  /*_loadSearch(String? textVal) {
-    if ((textVal != null) && textVal.isNotEmpty) {
-      final data = _langData.where((locale) {
-        var lang = t.locales[locale.languageTag]!;
-        return lang.toLowerCase().contains(textVal.toLowerCase());
-      }).toList();
-      _searchedData = data;
-      setState(() {});
-    } else {
-      _searchedData = _langData;
-      setState(() {});
-    }
-  }
-
-  _clearSearch() {
-    _searchController.clear();
-    _searchedData = _langData;
-    setState(() {});
-  }*/
 
   @override
   void dispose() {
@@ -157,36 +137,7 @@ class _LanguageSettingsScreenState
                       ],
                     ),
                   ),
-                  /*Container(
-                        margin: const EdgeInsets.only(
-                          top: 10,
-                        ),
-                        padding: const EdgeInsets.only(left: 15, right: 15),
-                        height: 44,
-                        width: double.infinity,
-                        decoration: const BoxDecoration(
-                          borderRadius: ThemeDefine.kBorderRadius,
-                        ),
-                        child: TextFieldEx(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.done,
-                          onChanged: _loadSearch,
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            icon: Icon(
-                              Icons.search_outlined,
-                            ),
-                            hintText: tcontext.search,
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear_outlined),
-                                    onPressed: _clearSearch,
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),*/
+
                   const SizedBox(height: 10),
                   Expanded(child: _loadListView()),
                 ],

@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:mclash/app/runtime/return_result.dart';
-//import 'package:http/http.dart' as http;
-import 'package:mclash/app/utils/app_utils.dart';
+
+import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/hwid_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:http/http.dart' as http;
@@ -22,9 +22,7 @@ abstract final class HttpUtils {
   }
 
   static Future<String> getUserAgent() async {
-    String version = AppUtils.getBuildinVersion();
-    final coreVersion = AppUtils.getCoreVersion();
-    return "ClashMi/$version platform/${Platform.operatingSystem} ClashMeta/$coreVersion; mihomo/$coreVersion";
+    return SettingManager.getConfig().userAgent();
   }
 
   static Future<ReturnResult<Tuple2<int, HttpHeaders>>> httpHeadRequest(
@@ -141,7 +139,7 @@ abstract final class HttpUtils {
         final hwidHeaders = await HwidUtils.getHwidHeaders();
         hwidHeaders.forEach((key, value) => request.headers.set(key, value));
       }
-      //request.cookies.add(Cookie("expire_in", "1689576560"));
+
       HttpClientResponse? response = await Future.any([
         waitResponseDone(request, path),
         waitResponseTimeout(request, timeout),
@@ -665,7 +663,7 @@ abstract final class HttpUtils {
     Duration duration,
   ) async {
     await Future.delayed(duration);
-    //request.abort();
+
     return null;
   }
 

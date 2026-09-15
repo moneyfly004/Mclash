@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'package:mclash/app/utils/error_reporter_utils.dart';
-import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:logger/logger.dart';
 
@@ -10,88 +8,99 @@ class DevelopmentFilter extends LogFilter {
 }
 
 class FileLogOutput extends LogOutput {
-  File? _file;
-  RandomAccessFile? _raf;
-  final bool _inProduction = bool.fromEnvironment("dart.vm.product");
-  bool _noSpace = false;
 
-  final List<OutputEvent> _cacheEvents = [];
-  bool _fileAppending = false;
+  /// `MCLASH_LOG_STDERR=1` 启动时把日志同时打到 stderr。
+  ///
+  /// 诊断用：日志文件写不进去时（磁盘满 / 权限 / 路径异常）这是唯一还能看到
+  /// 运行时信息的通道，不影响正常启动。
+  final bool _mirrorToStderr =
+      Platform.environment["MCLASH_LOG_STDERR"] == "1";
+
+  RandomAccessFile? _raf;
+
+  bool _opened = false;
+
+  final List<String> _pending = [];
+
+  bool _reportedError = false;
 
   @override
   Future<void> init() async {
-    String logFilePath = await PathUtils.logFilePath();
-    if (_inProduction) {
-      await FileUtils.deletePath(logFilePath);
+    if (_opened) {
+      return;
     }
+    _opened = true;
 
-    _file = File(logFilePath);
-    _raf = await _file!.open(mode: FileMode.writeOnlyAppend);
+    try {
+      final logFilePath = await PathUtils.logFilePath();
+      if (logFilePath.isEmpty) {
+        throw StateError("日志文件路径为空");
+      }
+      final file = File(logFilePath);
+      await file.create(recursive: true);
+
+      _raf = await file.open(mode: FileMode.write);
+
+      writeRaw(
+        "---- log opened ${DateTime.now().toIso8601String()} pid=$pid ----",
+      );
+      final pending = List<String>.from(_pending);
+      _pending.clear();
+      for (final line in pending) {
+        writeRaw(line);
+      }
+    } catch (err) {
+      _opened = false;
+      stderr.writeln("Mclash log: 无法打开日志文件: $err");
+    }
+  }
+
+  /// 绕过级别过滤直接写一行（启动标记、生效级别这类**必须留下**的信息）。
+  ///
+  /// 用同步写：异步写一旦重入或与关闭竞争就会静默丢行，日志这种东西宁可
+  /// 慢一点也不能丢。
+  void writeRaw(String line) {
+    if (_mirrorToStderr) {
+      stderr.writeln(line);
+    }
+    final raf = _raf;
+    if (raf == null) {
+      if (_pending.length < 200) {
+        _pending.add(line);
+      }
+      return;
+    }
+    try {
+      raf.writeStringSync("$line\n");
+    } catch (err) {
+      _reportWriteError(err);
+    }
   }
 
   @override
   Future<void> destroy() async {
-    _cacheEvents.clear();
-    try {
-      await _raf?.close();
-    } catch (err) {}
+    final raf = _raf;
     _raf = null;
-    _file = null;
+    _opened = false;
+    _pending.clear();
+    try {
+      await raf?.close();
+    } catch (err) {}
   }
 
   @override
-  void output(OutputEvent event) async {
-    if (_file == null || _raf == null) {
-      return;
+  void output(OutputEvent event) {
+    for (final line in event.lines) {
+      writeRaw(line);
     }
-    if (_noSpace) {
-      return;
-    }
-
-    if (_cacheEvents.length < 100) {
-      _cacheEvents.add(event);
-    }
-
-    _write();
   }
 
-  Future<void> _write() async {
-    if (_file == null || _raf == null) {
+  void _reportWriteError(Object err) {
+    if (_reportedError) {
       return;
     }
-    if (_noSpace) {
-      return;
-    }
-    if (_fileAppending || _cacheEvents.isEmpty) {
-      return;
-    }
-
-    _fileAppending = true;
-    final buffer = StringBuffer();
-    for (var event in _cacheEvents) {
-      buffer.writeAll(event.lines, ' ');
-    }
-    _cacheEvents.clear();
-
-    try {
-      final fileSize = await _file!.length();
-      if (fileSize > 100 * 1024) {
-        await _raf!.setPosition(0);
-      } else {
-        final pos = await _raf!.position();
-        if (pos > fileSize) {
-          await _raf!.setPosition(fileSize);
-        }
-      }
-
-      await _raf!.writeString(buffer.toString());
-    } catch (err) {
-      if (!_noSpace) {
-        _noSpace = ErrorReporterUtils.tryReportNoSpace(err.toString());
-      }
-    }
-    _fileAppending = false;
-    Future.delayed(const Duration(seconds: 1), _write);
+    _reportedError = true;
+    stderr.writeln("Mclash log: 写入失败: $err");
   }
 }
 
@@ -131,18 +140,34 @@ class Printer extends LogPrinter {
 class Log {
   static final FileLogOutput _fileLogOutput = FileLogOutput();
   static final DevelopmentFilter _filter = DevelopmentFilter();
+
+  static Level? _requestedLevel;
+
   static final Logger _logger = Logger(
     printer: Printer(),
     filter: _filter,
     output: _fileLogOutput,
-    level: bool.fromEnvironment("dart.vm.product")
-        ? Level.warning
-        : Logger.level,
   );
 
   Log._();
   static Future<void> init() async {
+
+    try {
+      await _logger.init;
+    } catch (err) {
+      stderr.writeln("Mclash log: logger init 异常: $err");
+    }
+
+    final level = _requestedLevel;
+    if (level != null) {
+      _filter.level = level;
+    }
     await _fileLogOutput.init();
+
+    _fileLogOutput.writeRaw(
+      "log level = ${level ?? Level.trace}"
+      "${level == null ? "（未显式设置，使用默认）" : ""}",
+    );
   }
 
   static Future<void> uninit() async {
@@ -150,16 +175,24 @@ class Log {
   }
 
   static void setLevel(String logLevel) {
-    if (logLevel == "trace") {
-      _filter.level = Level.trace;
-    } else if (logLevel == "debug") {
-      _filter.level = Level.debug;
-    } else if (logLevel == "info") {
-      _filter.level = Level.info;
-    } else if (logLevel == "warning") {
-      _filter.level = Level.warning;
-    } else if (logLevel == "error") {
-      _filter.level = Level.error;
+    _requestedLevel = _parseLevel(logLevel);
+    _filter.level = _requestedLevel;
+  }
+
+  static Level? _parseLevel(String logLevel) {
+    switch (logLevel) {
+      case "trace":
+        return Level.trace;
+      case "debug":
+        return Level.debug;
+      case "info":
+        return Level.info;
+      case "warning":
+        return Level.warning;
+      case "error":
+        return Level.error;
+      default:
+        return Level.info;
     }
   }
 

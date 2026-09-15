@@ -2,7 +2,7 @@ name: mclash
 description: Mclash - MoneyFly 多平台加速客户端（Mclash 风格 + 4 Tab）
 
 publish_to: none 
-version: 1.0.0+1
+version: 0.0.1+1
 environment:
   sdk: ">=3.12.2 <4.0.0"
   flutter: ">=3.44.0"
@@ -118,6 +118,20 @@ flutter:
     - path: assets/datas/geosite.zip
       platforms: [windows, linux, macos, android, ios]
     - path: assets/datas/ASN.mmdb
+      platforms: [windows, linux, macos, android]
+    # 离线分流数据（`tool/fetch_geodata.sh` 下载，CI 构建前拉取）。
+    #
+    # **必须随包内置，且必须声明在这里。** 内核（mihomo）以 `-d <work_dir>`
+    # 启动后，会按**固定文件名** country.mmdb / geosite.dat 在 `-d` 目录里找
+    # 分流数据；找不到时它**不是降级而是去 GitHub 下载**
+    # （日志 `Can't find MMDB, start download`）——国内不可达 → 内核永不就绪 →
+    # 上层 60s 超时，用户看到的就是「核心启动不起来 / 连不上」。
+    #
+    # 此前 `assets/rules/` 已被 `tool/fetch_geodata.sh` 下载到磁盘，但**没有
+    # 在这里声明**，于是两个文件从未进入 flutter_assets，内核无论如何都找不到。
+    - path: assets/rules/country.mmdb
+      platforms: [windows, linux, macos, android]
+    - path: assets/rules/geosite.dat
       platforms: [windows, linux, macos, android]
 
   fonts:

@@ -6,13 +6,6 @@ import 'package:win32/win32.dart';
 class VersionHelper {
   static VersionHelper instance = VersionHelper._();
 
-  /// Whether the current OS is Windows 10 Redstone 5 or later.
-  /// This is used to determine whether the modern Share UI i.e. `DataTransferManager` is available or not.
-  ///
-  /// References: https://en.wikipedia.org/wiki/Windows_10_version_history
-  ///             https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-osversioninfoexa
-  ///
-  ///
   int majorVersion = 0;
   int minorVersion = 0;
   int buildNumber = 0;

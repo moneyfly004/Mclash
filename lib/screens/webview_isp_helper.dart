@@ -13,29 +13,6 @@ class WebviewISPHelper {
     return handler;
   }
 
-  /*
-  window.mclash.callHandler('ispInstallConfig',  '34345345', 'ispUser', 'https://xxxxxx.yaml', 'ispName').then(function(result) {
-        console.log(result);
-        return result;
-    }).catch(function() {
-        var event = new Event('error');
-        self.dispatchEvent(event);
-        if (self.onerror != null) {
-          self.onerror(event);
-        }
-  });
-   window.mclash.callHandler('ispInfo').then(function(result) {
-        console.log(result);
-        return result;
-    }).catch(function() {
-        var event = new Event('error');
-        self.dispatchEvent(event);
-        if (self.onerror != null) {
-          self.onerror(event);
-        }
-  });
-  */
-
   static Future<String> ispInstallConfig(
     BuildContext context,
     String url,

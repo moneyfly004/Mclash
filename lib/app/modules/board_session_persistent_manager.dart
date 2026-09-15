@@ -240,7 +240,7 @@ class BoardSessionPersistentManager implements BoardSessionPersistent {
     if (id.isEmpty || account.isEmpty) {
       return;
     }
-    //subscribeUrl = ""; //todo for test
+
     for (int i = 0; i < _config.sessions.length; i++) {
       var session = _config.sessions[i];
       if (session.provider.id == id && session.account == account) {

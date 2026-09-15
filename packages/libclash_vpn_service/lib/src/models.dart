@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 
-/// VPN 服务状态（与 Android VpnService / 桌面内核进程状态一一对应）
 enum FlutterVpnServiceState {
   invalid,
   disconnected,
@@ -46,10 +45,8 @@ String flutterVpnServiceStateToString(FlutterVpnServiceState s) {
   }
 }
 
-/// 等待结果类型
 enum VpnServiceWaitType { done, timeout, error }
 
-/// 服务返回的错误
 class VpnServiceResultError {
   VpnServiceResultError({this.code = 0, this.message = ""});
 
@@ -70,7 +67,6 @@ class VpnServiceResultError {
   String toString() => "VpnServiceResultError($code, $message)";
 }
 
-/// start / restart 的等待结果
 class VpnServiceWaitResult {
   VpnServiceWaitResult({this.type = VpnServiceWaitType.done, this.err});
 
@@ -96,7 +92,6 @@ class VpnServiceWaitResult {
   }
 }
 
-/// 系统代理选项
 class ProxyOption {
   ProxyOption(this.host, this.port, this.bypassDomains);
 
@@ -111,10 +106,6 @@ class ProxyOption {
   };
 }
 
-/// 传给原生服务 / 桌面内核启动器的配置。
-///
-/// 字段名沿用原 Clash Mi 的 `libclash_vpn_service` 契约（snake_case），
-/// 避免改动 613 行的 `VPNService` 调用方。
 class VpnServiceConfig {
   int control_port = 0;
   String base_dir = "";
@@ -141,7 +132,6 @@ class VpnServiceConfig {
   bool enforce_routes = false;
   bool auto_route_use_sub_ranges_by_default = false;
 
-  // ---- 由 prepareConfig 填充（不属于序列化契约的一部分，但原生侧会读） ----
   String tunnel_service_path = "";
   String config_file_path = "";
   bool system_extension = false;

@@ -238,14 +238,13 @@ class ProxyGroupTemplate {
   String icon = "";
   String type = getTypes().first;
   List<String> proxies = [];
-  //String proxyRegExps;
 
   Map<String, dynamic> toJson() => {
     'name': name,
     'icon': icon,
     'type': type,
     'proxies': proxies,
-    // 'proxyRegExps': proxyRegExps,
+
   };
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {
@@ -255,7 +254,7 @@ class ProxyGroupTemplate {
     icon = map['icon'] ?? '';
     type = map['type'] ?? '';
     proxies = List<String>.from(map['proxies'] ?? []);
-    //proxyRegExps = List<String>.from(map['proxyRegExps'] ?? []);
+
     if (!ProxyGroupTemplate.getTypes().contains(type)) {
       type = ProxyGroupTemplate.getTypes().first;
     }
@@ -267,7 +266,7 @@ class ProxyGroupTemplate {
       icon: icon,
       type: type,
       proxies: proxies.toList(),
-      //proxyRegExps: proxyRegExps.toList(),
+
     );
   }
 

@@ -16,7 +16,6 @@ import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/text_field.dart';
 
-
 class SettingConfigItemUI {
   String theme = ThemeDefine.kThemeLight;
   bool autoOrientation = false;
@@ -119,32 +118,21 @@ class SettingConfigItemWebDev {
 }
 
 class SettingConfig {
-  // 默认"在线面板"地址。
-  // 原 Clash Mi 指向其自家的第三方面板服务（board.zash.run.place）。
-  // Mclash 已按设计移除 zashboard 内嵌面板（ADR/D-01），且不外链第三方域名，
-  // 因此置空 —— 「使用在线面板」开关默认关闭，用户若自建面板可自行填写。
+
   static const String kDefaultBoardUrl = "";
   static const int kDefaultBoardPort = 7066;
   static const String kDefaultDelayTestUrl =
       "https://www.gstatic.com/generate_204";
   String languageTag = "";
 
-  /// 首次运行的「语言选择」步骤是否已完成。
-  ///
-  /// 为什么不复用 [languageTag] 判断：`parseConfig()` 在首次运行时也会
-  /// **从系统语言推导并写回** languageTag（见该函数），所以它启动后永不为空，
-  /// 无法用来区分「用户选过语言」和「跟随系统」。必须有独立的标记。
-  ///
-  /// 默认 false：全新安装先走语言选择，再进登录页。
   bool setupDone = false;
   SettingConfigItemUI ui = SettingConfigItemUI();
   SettingConfigItemWebDev webdav = SettingConfigItemWebDev();
   bool devMode = false;
   bool alwayOn = false;
-  String logLevel = bool.fromEnvironment("dart.vm.product")
-      ? "warning"
-      : "info"; //trace, debug, info, warning, error
-  String autoUpdateChannel = "stable"; //stable, beta
+
+  String logLevel = "info";
+  String autoUpdateChannel = "stable";
   bool autoDownloadUpdatePkg = true;
   bool autoConnectAfterLaunch = false;
   bool autoSetSystemProxy = getAutoSetSystemProxyDefault();
@@ -155,12 +143,12 @@ class SettingConfig {
   int boardLocalPort = kDefaultBoardPort;
   String delayTestUrl = kDefaultDelayTestUrl;
   int delayTestTimeout = 5000;
-  bool hideDockIcon = false; //macos
-  bool showTrayTraffic = false; //macos
-  bool excludeFromRecent = false; //android
-  bool wakeLock = false; //android
-  bool autoConnectAtBoot = false; //android
-  bool hideVpn = false; //ios
+  bool hideDockIcon = false;
+  bool showTrayTraffic = false;
+  bool excludeFromRecent = false;
+  bool wakeLock = false;
+  bool autoConnectAtBoot = false;
+  bool hideVpn = false;
 
   Map<String, dynamic> toJson() => {
     'language_tag': languageTag,
@@ -197,9 +185,7 @@ class SettingConfig {
     ui = SettingConfigItemUI.fromJsonStatic(map["ui"]);
     webdav = SettingConfigItemWebDev.fromJsonStatic(map["webdav"]);
     alwayOn = map["alway_on"] ?? false;
-    logLevel =
-        map["log_level"] ??
-        (bool.fromEnvironment("dart.vm.product") ? "warning" : "info");
+    logLevel = map["log_level"] ?? "info";
     autoUpdateChannel = map["auto_update_channel"] ?? "stable";
     if (autoUpdateChannel.isEmpty) {
       autoUpdateChannel = Random().nextInt(10) < 5 ? "beta" : "stable";
@@ -229,10 +215,15 @@ class SettingConfig {
     hideVpn = map["hide_vpn"] ?? false;
   }
 
+  static String defaultUserAgent() {
+    final version = AppUtils.getBuildinVersion();
+    final coreVersion = AppUtils.getCoreVersion();
+    return "${AppUtils.getName()}/$version platform/${Platform.operatingSystem} mihomo/$coreVersion";
+  }
+
   String userAgent() {
     if (_userAgent.isEmpty) {
-      final coreVersion = AppUtils.getCoreVersion();
-      return "ClashMeta/$coreVersion; mihomo/$coreVersion";
+      return defaultUserAgent();
     }
     return _userAgent;
   }

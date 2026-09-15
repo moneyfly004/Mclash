@@ -1,4 +1,4 @@
-/// 我的订单（M-04）。Clash Mi 风格：Card + ListView.separated + Divider(1,0.3)。
+
 library;
 
 import 'package:flutter/material.dart';
@@ -159,12 +159,21 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                       onPressed: () async {
                         final r = await MclashApi.orderStatus(orderNo);
                         if (!context.mounted) return;
+                        final method =
+                            (r?["payment_method"] ??
+                                    o["payment_method_name"] ??
+                                    "")
+                                .toString();
                         await showMclashPaymentSheet(
                           context,
                           orderNo: orderNo,
                           amount: amount,
                           qrCode: r?["qr_code"]?.toString() ?? "",
+                          payWithBalance: method == "balance",
                         );
+                        if (!mounted) {
+                          return;
+                        }
                         await _load();
                       },
                       child: const Text("继续支付"),
@@ -180,7 +189,6 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
   }
 }
 
-/// 通用顶部栏（Clash Mi 规格：50×44 命中区 / 标题 18 w600 居中 / 图标 26）
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.title,

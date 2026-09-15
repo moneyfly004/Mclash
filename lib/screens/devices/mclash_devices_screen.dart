@@ -1,9 +1,14 @@
-/// 设备管理（M-05）。Clash Mi 风格。
+
 library;
 
 import 'package:flutter/material.dart';
+import 'package:mclash/mf/mclash_account_info.dart';
+import 'package:mclash/mf/mclash_device_upgrade.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 import 'package:mclash/screens/dialog_utils.dart';
+import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
@@ -107,10 +112,12 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                           style: const TextStyle(color: Colors.red),
                         ),
                       )
-                    : ListView.builder(
+                    : ListView(
                         padding: const EdgeInsets.only(bottom: 24),
-                        itemCount: _items.length,
-                        itemBuilder: (_, i) => _buildDevice(_items[i]),
+                        children: [
+                          _buildUpgradeCard(),
+                          for (final d in _items) _buildDevice(d),
+                        ],
                       ),
               ),
             ],
@@ -118,6 +125,316 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         ),
       ),
     );
+  }
+
+  Widget _buildUpgradeCard() {
+    final info = MclashAccountInfo(
+      MclashAccountService.instance.dashboard,
+      MclashAccountService.instance.subscription,
+    );
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: Column(
+          children: [
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    info.planName.isNotEmpty ? info.planName : "当前套餐",
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: ThemeConfig.kFontWeightListItem,
+                    ),
+                  ),
+                ),
+                Text(
+                  "设备 ${info.deviceText ?? "-"}",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: ThemeDefine.kColorGrey,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24, thickness: 0.3),
+            // 一个入口搞定：以前分成「加设备数」「加时长」两个入口，用户想同时
+            // 加台数和天数就做不到（必须分两次下单、付两次钱）。
+            _upgradeRow(
+              Icons.add_circle_outline,
+              "升级设备数 / 延长时长",
+              "可同时增加台数与天数，一起算价一次支付",
+              _showUpgradeSheet,
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _upgradeRow(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    leading: Icon(icon, size: 20),
+    title: Text(title, style: const TextStyle(fontSize: 15)),
+    subtitle: Text(
+      subtitle,
+      style: const TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
+    ),
+    trailing: const Icon(Icons.chevron_right, size: 20),
+    onTap: onTap,
+  );
+
+  /// 升级面板：**设备台数与天数是同一张面板里的两组选择**。
+  ///
+  /// 旧实现分两张面板，用户没法「既加台数又加时长」；而且面板打开时**不发起
+  /// 算价**，价格停在 ¥0.00、按钮禁用 —— 用户看到的就是「获取价格失败 / 付不了款」。
+  Future<void> _showUpgradeSheet() async {
+    var addDevices = 0;
+    var addDays = 0;
+    Map<String, dynamic> quote = const {};
+    var quoting = false;
+    String? quoteError;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            Future<void> refreshQuote() async {
+              // 两项都选 0 时没有意义，不算价（也不建草稿订单）
+              if (addDevices <= 0 && addDays <= 0) {
+                setSheetState(() {
+                  quote = const {};
+                  quoteError = null;
+                });
+                return;
+              }
+              setSheetState(() {
+                quoting = true;
+                quoteError = null;
+              });
+              try {
+                final d = await MclashDeviceUpgrade.quote(
+                  addDevices: addDevices,
+                  addDays: addDays,
+                );
+                if (!sheetContext.mounted) {
+                  return;
+                }
+                setSheetState(() => quote = d);
+              } catch (e) {
+                if (!sheetContext.mounted) {
+                  return;
+                }
+                setSheetState(() => quoteError = "$e");
+              } finally {
+                if (sheetContext.mounted) {
+                  setSheetState(() => quoting = false);
+                }
+              }
+            }
+
+            if (quote.isEmpty && quoteError == null && !quoting) {
+              // 首帧就开算（默认 +1 台），避免用户看到 ¥0.00 的空面板
+              addDevices = addDevices == 0 && addDays == 0 ? 1 : addDevices;
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => refreshQuote(),
+              );
+            }
+
+            final amount = MclashDeviceUpgrade.amountOf(quote);
+            final orderNo = (quote["order_no"] ?? "").toString();
+            final canPay = !quoting && quoteError == null && amount > 0;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                20 + MediaQuery.of(sheetContext).padding.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "升级设备数 / 延长时长",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: ThemeConfig.kFontWeightTitle,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "增加台数",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ThemeDefine.kColorGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final n in [0, 1, 2, 5, 10])
+                        ChoiceChip(
+                          key: ValueKey("upgrade-devices-$n"),
+                          label: Text(n == 0 ? "不增加" : "+$n 台"),
+                          selected: addDevices == n,
+                          onSelected: (_) {
+                            setSheetState(() => addDevices = n);
+                            refreshQuote();
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "增加天数",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ThemeDefine.kColorGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final n in [0, 30, 90, 180, 365])
+                        ChoiceChip(
+                          key: ValueKey("upgrade-days-$n"),
+                          label: Text(n == 0 ? "不延长" : "+$n 天"),
+                          selected: addDays == n,
+                          onSelected: (_) {
+                            setSheetState(() => addDays = n);
+                            refreshQuote();
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      if (quoting)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Text(
+                          quoteError != null
+                              ? "价格获取失败"
+                              : "应付 ¥${amount.toStringAsFixed(2)}",
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: quoteError != null ? Colors.red : null,
+                            fontWeight: ThemeConfig.kFontWeightListItem,
+                          ),
+                        ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: quoting ? null : refreshQuote,
+                        child: const Text("重新算价"),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: canPay
+                            ? () => _submitUpgrade(
+                                sheetContext,
+                                orderNo: orderNo,
+                                amount: amount,
+                              )
+                            : null,
+                        child: const Text("去支付"),
+                      ),
+                    ],
+                  ),
+                  if (quoteError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      "$quoteError",
+                      style: const TextStyle(fontSize: 11, color: Colors.red),
+                    ),
+                  ],
+                  if (addDevices <= 0 && addDays <= 0) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      "请至少选择要增加的台数或天数",
+                      style: TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(MclashDeviceUpgrade.cancelDraft);
+  }
+
+  /// 用算价时那笔草稿订单去支付。
+  ///
+  /// 不再「重新下单」：后端算价就已经建单，重新下单会在订单列表里多出一笔。
+  Future<void> _submitUpgrade(
+    BuildContext sheetContext, {
+    required String orderNo,
+    required double amount,
+  }) async {
+    if (orderNo.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      await DialogUtils.showAlertDialog(context, "订单信息不完整，请点「重新算价」再试");
+      return;
+    }
+    final info = MclashAccountInfo(
+      MclashAccountService.instance.dashboard,
+      MclashAccountService.instance.subscription,
+    );
+    final balance = info.balance;
+    final payWithBalance = balance >= amount;
+
+    if (!payWithBalance) {
+      final go = await DialogUtils.showConfirmDialog(
+        context,
+        "余额不足（¥${balance.toStringAsFixed(2)}，需付 ¥${amount.toStringAsFixed(2)}）。\n"
+        "是否先去充值？",
+      );
+      if (go == true) {
+        MainTabController.instance?.setTab(2);
+      }
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    final sheetNavigator = Navigator.of(sheetContext);
+    sheetNavigator.pop();
+    final ok = await showMclashPaymentSheet(
+      context,
+      orderNo: orderNo,
+      amount: amount,
+      payWithBalance: true,
+    );
+    if (ok == true) {
+      MclashDeviceUpgrade.markPaid();
+      await MclashAccountService.instance.refresh();
+      await _load();
+    }
   }
 
   Widget _buildDevice(Map<String, dynamic> d) {

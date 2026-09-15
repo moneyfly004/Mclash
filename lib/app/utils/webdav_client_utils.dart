@@ -45,28 +45,11 @@ class WebdavClientUtils {
       url: uri.toString(),
       auth: BasicAuth(user: user.trim(), pwd: password.trim()),
     );
-    // ------------------------------------------------------------------
-    // WebDAV 走**直连**，不经本地混合代理。
-    //
-    // 原因：pub.dev 版 webdav_client_plus 1.0.2 不暴露 setHttpClientAdapter /
-    // setFollowRedirects（那是 KaringX fork 的私有改动）。
-    // 而且 WebDAV 服务器通常是用户自己的 NAS 或国内云盘，直连更快；
-    // 订阅隧道的主要用途是访问被墙站点。需要代理时用户可开 TUN 全局模式。
-    // proxyUrl 参数保留以维持调用方签名兼容（当前未使用）。
-    // ------------------------------------------------------------------
 
     client.setHeaders({'accept-charset': 'utf-8'});
 
-    // Set the connection server timeout time in milliseconds.
     client.setConnectTimeout(8000);
 
-    // Set send data timeout time in milliseconds.
-    /* _client!.setSendTimeout(8000);
-
-    // Set transfer data time in milliseconds.
-    _client!.setReceiveTimeout(8000);*/
-
-    // Test whether the service can connect
     try {
       await client.ping();
     } catch (err, stacktrace) {

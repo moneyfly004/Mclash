@@ -16,6 +16,7 @@ import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
 import 'package:mclash/app/modules/remote_config_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/app/modules/zashboard.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_scheme_actions.dart';
@@ -1015,6 +1016,31 @@ class GroupHelper {
         ],
       ];
       List<GroupItemOptions> options01 = [
+        GroupItemOptions(
+          stringPickerOptions: GroupItemStringPickerOptions(
+            name: "订阅自动更新间隔",
+            selected: MclashSubscriptionService.intervalLabel(
+              MclashSubscriptionService.accountInterval(),
+            ),
+            strings: MclashSubscriptionService.intervalChoices.keys.toList(),
+            textWidthPercent: 0.35,
+            onPicker: (String? selected) async {
+              if (selected == null) {
+                return;
+              }
+              final err = await MclashSubscriptionService.setAccountInterval(
+                MclashSubscriptionService.intervalChoices[selected],
+              );
+              if (!context.mounted) {
+                return;
+              }
+              if (err != null) {
+                await DialogUtils.showAlertDialog(context, err);
+              }
+              setstate?.call();
+            },
+          ),
+        ),
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
             name: tcontext.meta.logLevel,
@@ -2206,24 +2232,7 @@ class GroupHelper {
                   },
           ),
         ),
-        /*   GroupItemOptions(
-          switchOptions: GroupItemSwitchOptions(
-              name: "RespectRules",
-              switchValue: dns.RespectRules,
-              onSwitch: dns.OverWrite != true || dns.Enable != true
-                    ? null
-                    : (bool value) async {
-                dns.RespectRules = value;
-              }))  ,
-        GroupItemOptions(
-          switchOptions: GroupItemSwitchOptions(
-              name: "DirectNameServerFollowPolicy",
-              switchValue: dns.DirectNameServerFollowPolicy,
-              onSwitch:dns.OverWrite != true || dns.Enable != true
-                    ? null
-                    :  (bool value) async {
-                dns.DirectNameServerFollowPolicy = value;
-              }))  ,*/
+
       ];
 
       List<GroupItemOptions> options0 = [
@@ -2865,14 +2874,7 @@ class GroupHelper {
             },
           ),
         ),
-        /*GroupItemOptions(
-            textFormFieldOptions: GroupItemTextFieldOptions(
-                name: "ASN",
-                text: ruleset.AsnUrl,
-                textWidthPercent: 0.6,
-                onChanged: (String value) {
-                  ruleset.AsnUrl = value;
-                })),*/
+
       ];
 
       return [GroupItem(options: options)];
@@ -2915,7 +2917,7 @@ class GroupHelper {
           title: Text(tcontext.meta.homePage),
           onTap: () async {
             Navigator.pop(context);
-            //UrlLauncherUtils.loadUrl(provider.homeUrl);
+
             WebviewHelper.loadUrl(
               context,
               provider.homeUrl,

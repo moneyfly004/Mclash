@@ -11,7 +11,7 @@ class ClashConfigsTun {
   bool enable = false;
   String device = "";
   String stack = "";
-  //"dns-hijack": null,
+
   bool auto_route = false;
   bool auto_detect_interface = false;
   int file_descriptor = 0;
@@ -35,16 +35,7 @@ class ClashConfigs {
   int tproxy_port = 0;
   int mixed_port = 0;
   ClashConfigsTun tun = ClashConfigsTun();
-  /*
- "tun": {
-        "enable": false,
-        "device": "",
-        "stack": "gVisor",
-        "dns-hijack": null,
-        "auto-route": false,
-        "auto-detect-interface": false,
-        "file-descriptor": 0
-    }, */
+
   bool allow = false;
   String bind_address = "";
   bool inbound_tfo = false;
@@ -55,12 +46,7 @@ class ClashConfigs {
   bool ipv6 = false;
   String interface_name = "";
   int routing_mark = 0;
-  /* "geox-url": {
-        "geo-site": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
-        "geo-ip": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat",
-        "mmdb": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb",
-        "asn": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb",
-    },*/
+
   bool geo_auto_update = false;
   int geo_update_interval = 24;
   bool geodata_mode = false;
@@ -97,12 +83,7 @@ class ClashConfigs {
       ipv6 = map["ipv6"] ?? false;
       interface_name = map["interface-name"] ?? "";
       routing_mark = map["routing-mark"] ?? 0;
-      /* "geox-url": {
-        "geo-ip": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat",
-        "mmdb": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb",
-        "asn": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb",
-        "geo-site": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
-    },*/
+
       geo_auto_update = map["geo-auto-update"] ?? false;
       geo_update_interval = map["geo-update-interval"] ?? 0;
       geodata_mode = map["geodata-mode"] ?? false;
@@ -249,8 +230,6 @@ class ClashProxiesNode {
   }
 }
 
-//https://yacd.haishan.me/#/proxies
-//http://127.0.0.1:9090/proxies  GET application/json
 class ClashProxies {
   List<ClashProxiesNode> proxies = [];
 
@@ -414,6 +393,44 @@ class ClashHttpApi {
       return ReturnResult(data: delay);
     } catch (err) {
       return ReturnResult(error: ReturnResultError(err.toString()));
+    }
+  }
+
+  static Future<Map<String, int>> getGroupDelay(
+    String group, {
+    String url = "https://www.gstatic.com/generate_204",
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final secret = getSecret?.call() ?? "";
+    final headers = getHeaders(secret);
+    final encodeGroup = Uri.encodeComponent(group);
+    final encodeUrl = Uri.encodeComponent(url);
+    final result = await HttpUtils.httpGetRequest(
+      "$host:${getControlPort?.call()}/group/$encodeGroup/delay?url=$encodeUrl&timeout=${timeout.inMilliseconds}",
+      null,
+      headers,
+
+      timeout + const Duration(seconds: 10),
+      null,
+      null,
+    );
+    if (result.error != null) {
+      return {};
+    }
+    try {
+      final decoded = jsonDecode(result.data!.item2);
+      if (decoded is! Map) {
+        return {};
+      }
+      final out = <String, int>{};
+      decoded.forEach((k, v) {
+        if (v is num) {
+          out[k.toString()] = v.toInt();
+        }
+      });
+      return out;
+    } catch (err) {
+      return {};
     }
   }
 

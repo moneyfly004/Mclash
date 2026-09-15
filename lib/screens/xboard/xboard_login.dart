@@ -25,7 +25,7 @@ class XboardLogin {
       );
     }
     Log.i('xboard: login, provider: ${provider.name}, email: $email');
-    //session.xboard!.proxyUrl = "127.0.0.1:8888";
+
     final loginRequest = LoginRequest(email: email, password: password);
     session.xboard!.timeout = const Duration(seconds: 10);
     final loginResponse = await session.xboard!.login(loginRequest);
@@ -45,7 +45,6 @@ class XboardLogin {
       return BoardSessionLoginError(session: session, message: err);
     }
 
-    // 登录成功 → 启动账户状态轮询（首页状态条 / 准入闸门 / 「我的」Tab 共用）
     MclashAccountService.instance.start();
     onEventLogin.forEach((key, value) {
       value.call();
@@ -59,14 +58,7 @@ class XboardLogin {
     BoardSession session, {
     bool reloadProfile = true,
   }) async {
-    /*final userInfoResponse = await session.xboard!.getUserInfo();
-    if (userInfoResponse.statusCode != 200) {
-      return userInfoResponse.getFullMessage();
-    }
-    if (userInfoResponse.data!.planId == null ||
-        userInfoResponse.data!.planId == 0) {
-      return null;
-    }*/
+
     if (session.xboard == null) {
       return null;
     }
@@ -108,7 +100,7 @@ class XboardLogin {
     if (session == null) {
       return;
     }
-    // 登出 → 停轮询并清空账户状态（防下一个账号看到上一个的状态）
+
     MclashAccountService.instance.stop();
     onEventLogout.forEach((key, value) {
       value.call();

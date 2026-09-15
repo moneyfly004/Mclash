@@ -1,4 +1,4 @@
-/// 修改密码（M-08）。成功后按设计清会话并要求重新登录。
+
 library;
 
 import 'package:flutter/material.dart';
@@ -32,11 +32,6 @@ class _MclashChangePasswordScreenState
     super.dispose();
   }
 
-  // 策略统一到 PasswordPolicy（= 后台 ValidatePasswordStrength 的真实规则：
-  // ≥8 位且同时含字母和数字）。
-  //
-  // 这里原本自己实现了一套「四种里凑三种」的校验，比后台更严，导致后台
-  // 明明接受的密码（如 abcd1234）被客户端先拦下，且提示的是后台并不存在的规则。
   static String? _check(String pwd) => PasswordPolicy.validate(pwd);
 
   @override

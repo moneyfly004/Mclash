@@ -1,5 +1,5 @@
 // ignore_for_file: non_constant_identifier_names
-// https://github.com/MetaCubeX/mihomo/blob/Alpha/docs/config.yaml
+
 import 'dart:io';
 
 import 'package:mclash/i18n/strings.g.dart';
@@ -325,7 +325,6 @@ enum ClashFindProcessMode {
   }
 }
 
-///Extension
 @JsonSerializable(explicitToJson: true)
 class RawExtensionTunHttpProxy {
   @JsonKey(name: 'enable')
@@ -489,7 +488,6 @@ class RawExtension {
   Map<String, dynamic> toJson() => _$RawExtensionToJson(this);
 }
 
-///
 @JsonSerializable(explicitToJson: true)
 class RawTunnel {
   @JsonKey(name: 'overwrite')
@@ -1202,7 +1200,7 @@ class RawConfig {
   @JsonKey(name: 'bind-address')
   String? BindAddress;
   @JsonKey(name: 'mode')
-  String? Mode; //ClashConfigsMode
+  String? Mode;
   @JsonKey(name: 'unified-delay')
   bool? UnifiedDelay;
   @JsonKey(name: 'log-level')
@@ -1277,9 +1275,7 @@ class RawConfig {
   bool? OverWriteProxyGroups;
   @JsonKey(name: 'proxy-groups')
   List<dynamic>? ProxyGroups;
-  //map[string]map[string]any ProxyProvider  `yaml:"proxy-providers" json:"proxy-providers"`
-  //[]map[string]any Proxy                   `yaml:"proxies" json:"proxies"`
-  //[]map[string]any ProxyGroup              `yaml:"proxy-groups" json:"proxy-groups"`
+
   @JsonKey(name: 'overwrite-listeners')
   bool? OverwriteListeners;
   @JsonKey(name: 'listeners')

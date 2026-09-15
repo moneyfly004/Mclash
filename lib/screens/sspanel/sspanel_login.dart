@@ -23,7 +23,7 @@ class SSPanelLogin {
         message: "create session failed, check provider or account",
       );
     }
-    //session.ssPanel!.proxyUrl = "127.0.0.1:8888";
+
     Log.i('sspanel: login, provider: ${provider.name}, email: $email');
     session.ssPanel!.timeout = const Duration(seconds: 10);
     final loginResponse = await session.ssPanel!.loginWith(email, password);
@@ -43,7 +43,6 @@ class SSPanelLogin {
       return BoardSessionLoginError(session: session, message: err);
     }
 
-    // 登录成功 → 启动账户状态轮询（首页状态条 / 准入闸门 / 「我的」Tab 共用）
     MclashAccountService.instance.start();
     onEventLogin.forEach((key, value) {
       value.call();
@@ -70,13 +69,7 @@ class SSPanelLogin {
         userProfileUrlResponse.ret != true) {
       return userProfileUrlResponse.getFullMessage();
     }
-    /*final userSubscribeResponse = await session.ssPanel!.getSubscribe(
-      userProfileUrlResponse.data!.item2,
-    );
-    if (userSubscribeResponse.statusCode != 200 ||
-        userSubscribeResponse.ret != true) {
-      return userSubscribeResponse.getFullMessage();
-    }*/
+
     Log.i('sspanel: add profile, provider: ${provider.name}');
     final patch = provider.overwrite
         ? kProfilePatchBuildinOverwrite
@@ -106,7 +99,7 @@ class SSPanelLogin {
     if (session == null) {
       return;
     }
-    // 登出 → 停轮询并清空账户状态（防下一个账号看到上一个的状态）
+
     MclashAccountService.instance.stop();
     onEventLogout.forEach((key, value) {
       value.call();

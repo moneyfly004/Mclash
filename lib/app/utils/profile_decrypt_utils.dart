@@ -5,10 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart';
 
 abstract final class ProfileDecryptUtils {
-  /// Try to decrypt subscription content (AES-128-CBC).
-  /// Key: MD5(password) as 32-char hex -> 16 bytes
-  /// IV: first 16 bytes of base64 decoded data
-  /// Cipher: bytes 16.. of base64 decoded data
+
   static String? decryptProfileContent(String password, String base64Data) {
     if (base64Data.isEmpty || password.isEmpty) return null;
 
