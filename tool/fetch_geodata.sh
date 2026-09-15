@@ -72,14 +72,24 @@ for f in geosite.dat country.mmdb; do
     continue
   fi
 
-  # MaxMind DB 的魔数在文件尾部；geosite.dat 是 protobuf 无魔数，跳过此项。
+  # MaxMind DB 的魔数 `\xab\xcd\xefMaxMind.com` 位于**元数据段开头**，
+  # 而元数据段本身跟在标记之后，所以标记并不在文件最后几个字节。
+  # 实测：meta-rules-dat 的 country.mmdb 里标记距末尾 257 字节。
+  #
+  # 我第一版只 tail -c 32，于是把一个**完全合法**的 mmdb 判成非法并删掉重下 ——
+  # 这是本仓库第二次因为「魔数窗口开得太窄」产生假阳性（另一次是把 mihomo
+  # 规则的 no-resolve 修饰符误判成策略组名）。所以窗口放宽到 2KB，
+  # 并改用精确的四字节前缀 `\xab\xcd\xef` 来避免误命中正文里的同名串。
   if [ "$f" = "country.mmdb" ]; then
-    if ! tail -c 32 "$PART" | grep -q "MaxMind.com"; then
-      echo "错误: country.mmdb 尾部缺少 'MaxMind.com' 标记，不是合法的 mmdb。" >&2
+    # LC_ALL=C 必须加：macOS 的 BSD grep 在 UTF-8 locale 下会把二进制字节
+    # 当成非法多字节序列而直接报 "illegal byte sequence" 并返回非零 ——
+    # 那又会被当成「文件不合法」。按字节匹配就绕开了 locale 这层。
+    if ! tail -c 2048 "$PART" | LC_ALL=C grep -qa "$(printf '\253\315\357')MaxMind.com"; then
+      echo "错误: country.mmdb 未找到 MaxMind DB 元数据标记，不是合法的 mmdb。" >&2
       FAIL=1
       continue
     fi
-    echo "✓ mmdb 魔数检查通过"
+    echo "✓ mmdb 元数据标记检查通过"
   fi
 
   mv -f "$PART" "$TARGET"
