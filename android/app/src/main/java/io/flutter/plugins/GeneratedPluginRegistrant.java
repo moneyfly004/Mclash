@@ -76,11 +76,6 @@ public final class GeneratedPluginRegistrant {
       Log.e(TAG, "Error registering plugin libclash_vpn_service, top.moneyfly.vpnservice.VpnServicePlugin", e);
     }
     try {
-      flutterEngine.getPlugins().add(new com.sayegh.move_to_background.MoveToBackgroundPlugin());
-    } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin move_to_background, com.sayegh.move_to_background.MoveToBackgroundPlugin", e);
-    }
-    try {
       flutterEngine.getPlugins().add(new com.crazecoder.openfile.OpenFilePlugin());
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin open_file_android, com.crazecoder.openfile.OpenFilePlugin", e);

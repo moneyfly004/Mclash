@@ -131,23 +131,20 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
 
     // ---------------------------------------------------------------------
-    // mihomo 内核：libmihomo.aar
-    //   来源 github.com/moneyfly004/mihomo-lib（官方 MetaCubeX/mihomo 源码 +
-    //   gomobile bind，无 fork）。CI 直接下载，本地用 tool/build_mihomo_aar.sh 现编。
-    //   缺失时构建**不会失败**，但连接会不可用 —— 由 Dart 侧在
-    //   KernelManager.detectCurrent() 里给出明确提示。
+    // mihomo 内核（libmihomo.aar）**不在这里声明**。
+    //
+    // 内核由插件 `packages/libclash_vpn_service` 独家提供：它的
+    // android/build.gradle 会把 android/libs/*.aar 加进实现依赖，
+    // 并同时把 libs 加进 jniLibs.srcDirs。也就是说 AAR 只应存在一份，
+    // 位置是 packages/libclash_vpn_service/android/libs/libmihomo.aar。
+    //
+    // 这里原先还有一段 `implementation(files("libs/libmihomo.aar"))`，
+    // 并在缺失时打印「请下载到 android/app/libs/」。那是个陷阱：
+    // 一旦真按提示放了一份，同一份 AAR 就会被链接两次 →
+    //   · duplicate class（mobile.*、go.* 会重复）
+    //   · libmihomo.so 在打包时路径冲突
+    // 所以整段删除，只留这条说明，避免后人照做过时的提示。
     // ---------------------------------------------------------------------
-    val aar = file("libs/libmihomo.aar")
-    if (aar.exists()) {
-        implementation(files(aar))
-    } else {
-        logger.warn(
-                "[Mclash] android/app/libs/libmihomo.aar 不存在 —— " +
-                        "内置内核不可用（VpnService 无法启动）。请先下载：\n" +
-                        "  curl -fL -o android/app/libs/libmihomo.aar \\\n" +
-                        "    https://github.com/moneyfly004/mihomo-lib/releases/download/v1.19.30/libmihomo.aar"
-        )
-    }
 }
 
 configurations.configureEach {
