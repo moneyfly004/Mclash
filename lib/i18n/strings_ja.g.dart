@@ -237,6 +237,7 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String get milliseconds => 'ミリ秒';
 	@override String get protocol => 'プロトコル';
 	@override String get search => '検索';
+	@override String get searchNodeHint => 'ノードを絞り込む（名前またはプロトコル）';
 	@override String get custom => 'カスタム';
 	@override String get connect => '接続';
 	@override String get disconnect => '切断';
@@ -644,6 +645,7 @@ extension on TranslationsJa {
 			'meta.milliseconds' => 'ミリ秒',
 			'meta.protocol' => 'プロトコル',
 			'meta.search' => '検索',
+			'meta.searchNodeHint' => 'ノードを絞り込む（名前またはプロトコル）',
 			'meta.custom' => 'カスタム',
 			'meta.connect' => '接続',
 			'meta.disconnect' => '切断',

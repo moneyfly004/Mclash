@@ -106,6 +106,7 @@
     "milliseconds": "Milisegundos",
     "protocol": "Protocolo",
     "search": "Buscar",
+    "searchNodeHint": "Filtrar nodos (nombre o protocolo)",
     "custom": "Personalizado",
     "connect": "Conectar",
     "disconnect": "Desconectar",

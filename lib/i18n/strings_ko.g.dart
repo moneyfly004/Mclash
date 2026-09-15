@@ -237,6 +237,7 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String get milliseconds => '밀리초';
 	@override String get protocol => '프로토콜';
 	@override String get search => '검색';
+	@override String get searchNodeHint => '노드 필터 (이름 또는 프로토콜)';
 	@override String get custom => '사용자 정의';
 	@override String get connect => '연결';
 	@override String get disconnect => '연결 해제';
@@ -644,6 +645,7 @@ extension on TranslationsKo {
 			'meta.milliseconds' => '밀리초',
 			'meta.protocol' => '프로토콜',
 			'meta.search' => '검색',
+			'meta.searchNodeHint' => '노드 필터 (이름 또는 프로토콜)',
 			'meta.custom' => '사용자 정의',
 			'meta.connect' => '연결',
 			'meta.disconnect' => '연결 해제',

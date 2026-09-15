@@ -106,6 +106,7 @@
     "milliseconds": "毫秒",
     "protocol": "协议",
     "search": "搜索",
+    "searchNodeHint": "筛选节点（名称或协议）",
     "custom": "自定义",
     "connect": "连接",
     "disconnect": "断开",

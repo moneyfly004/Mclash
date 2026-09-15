@@ -37,7 +37,7 @@ while IFS= read -r -d '' f; do
       mv "$f.thin" "$f"
       chmod +x "$f" 2>/dev/null || true
     else
-      echo "警告: $f 不含 $ARCH（archs: $archs）"
+      echo "警告: $f 不含 ${ARCH}（archs: ${archs}）"
       missing=1
     fi
   fi
@@ -53,5 +53,5 @@ if [ "$FINAL" != "$ARCH" ]; then
   exit 1
 fi
 if [ "$missing" -eq 1 ]; then
-  echo "警告: 有组件缺少 $ARCH（见上方），该包可能无法在对应架构上运行" >&2
+  echo "警告: 有组件缺少 ${ARCH}（见上方），该包可能无法在对应架构上运行" >&2
 fi

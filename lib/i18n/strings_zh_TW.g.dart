@@ -237,6 +237,7 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get milliseconds => '毫秒';
 	@override String get protocol => '協議';
 	@override String get search => '搜索';
+	@override String get searchNodeHint => '篩選節點（名稱或協定）';
 	@override String get custom => '自定義';
 	@override String get connect => '連接';
 	@override String get disconnect => '斷開';
@@ -644,6 +645,7 @@ extension on TranslationsZhTw {
 			'meta.milliseconds' => '毫秒',
 			'meta.protocol' => '協議',
 			'meta.search' => '搜索',
+			'meta.searchNodeHint' => '篩選節點（名稱或協定）',
 			'meta.custom' => '自定義',
 			'meta.connect' => '連接',
 			'meta.disconnect' => '斷開',

@@ -55,7 +55,7 @@ if [ -s "$TARGET" ]; then
   rm -f "$TARGET"
 fi
 
-echo "下载 libmihomo.aar v$VERSION（约 180MB，请耐心等待）..."
+echo "下载 libmihomo.aar v${VERSION}（约 180MB，请耐心等待）..."
 curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 3600 \
   -o "$PART" \
   "https://github.com/$REPO/releases/download/v$VERSION/libmihomo.aar"

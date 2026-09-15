@@ -237,6 +237,7 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get milliseconds => 'ميلي ثانية';
 	@override String get protocol => 'بروتوكول';
 	@override String get search => 'يبحث';
+	@override String get searchNodeHint => 'تصفية العُقد (الاسم أو البروتوكول)';
 	@override String get custom => 'مخصص';
 	@override String get connect => 'يتصل';
 	@override String get disconnect => 'قطع الاتصال';
@@ -644,6 +645,7 @@ extension on TranslationsAr {
 			'meta.milliseconds' => 'ميلي ثانية',
 			'meta.protocol' => 'بروتوكول',
 			'meta.search' => 'يبحث',
+			'meta.searchNodeHint' => 'تصفية العُقد (الاسم أو البروتوكول)',
 			'meta.custom' => 'مخصص',
 			'meta.connect' => 'يتصل',
 			'meta.disconnect' => 'قطع الاتصال',

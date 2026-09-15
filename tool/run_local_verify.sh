@@ -26,7 +26,7 @@ if lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 # 3) 启动
-[ -x "$BIN" ] || { echo "未找到 $BIN，请先: cd $BACKEND_DIR && go build -o $BIN ./cmd/server" >&2; exit 1; }
+[ -x "$BIN" ] || { echo "未找到 ${BIN}，请先: cd $BACKEND_DIR && go build -o $BIN ./cmd/server" >&2; exit 1; }
 ( cd "$BACKEND_DIR" && "$BIN" > /tmp/cboard-local.log 2>&1 & )
 for i in $(seq 1 30); do
   if curl -s -m 3 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"; then

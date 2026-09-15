@@ -67,7 +67,7 @@ for f in geosite.dat country.mmdb; do
 
   SIZE=$(wc -c <"$PART" | tr -d ' ')
   if [ "$SIZE" -lt "$MIN" ]; then
-    echo "错误: $f 只有 $SIZE 字节（下限 $MIN），判定为残缺。" >&2
+    echo "错误: $f 只有 $SIZE 字节（下限 ${MIN}），判定为残缺。" >&2
     FAIL=1
     continue
   fi

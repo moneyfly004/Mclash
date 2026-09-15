@@ -424,6 +424,9 @@ class Translations$meta$en {
 	/// en: 'Search'
 	String get search => 'Search';
 
+	/// en: 'Filter nodes (name or protocol)'
+	String get searchNodeHint => 'Filter nodes (name or protocol)';
+
 	/// en: 'Custom'
 	String get custom => 'Custom';
 
@@ -1322,6 +1325,7 @@ extension on Translations {
 			'meta.milliseconds' => 'Milliseconds',
 			'meta.protocol' => 'Protocol',
 			'meta.search' => 'Search',
+			'meta.searchNodeHint' => 'Filter nodes (name or protocol)',
 			'meta.custom' => 'Custom',
 			'meta.connect' => 'Connect',
 			'meta.disconnect' => 'Disconnect',

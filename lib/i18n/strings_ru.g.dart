@@ -237,6 +237,7 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get milliseconds => 'миллисекунды';
 	@override String get protocol => 'Протокол';
 	@override String get search => 'Поиск';
+	@override String get searchNodeHint => 'Фильтр узлов (имя или протокол)';
 	@override String get custom => 'Настроить самостоятельно';
 	@override String get connect => 'Соединить';
 	@override String get disconnect => 'Отключить';
@@ -644,6 +645,7 @@ extension on TranslationsRu {
 			'meta.milliseconds' => 'миллисекунды',
 			'meta.protocol' => 'Протокол',
 			'meta.search' => 'Поиск',
+			'meta.searchNodeHint' => 'Фильтр узлов (имя или протокол)',
 			'meta.custom' => 'Настроить самостоятельно',
 			'meta.connect' => 'Соединить',
 			'meta.disconnect' => 'Отключить',

@@ -237,6 +237,7 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String get milliseconds => 'Milisegundos';
 	@override String get protocol => 'Protocolo';
 	@override String get search => 'Buscar';
+	@override String get searchNodeHint => 'Filtrar nodos (nombre o protocolo)';
 	@override String get custom => 'Personalizado';
 	@override String get connect => 'Conectar';
 	@override String get disconnect => 'Desconectar';
@@ -644,6 +645,7 @@ extension on TranslationsEs {
 			'meta.milliseconds' => 'Milisegundos',
 			'meta.protocol' => 'Protocolo',
 			'meta.search' => 'Buscar',
+			'meta.searchNodeHint' => 'Filtrar nodos (nombre o protocolo)',
 			'meta.custom' => 'Personalizado',
 			'meta.connect' => 'Conectar',
 			'meta.disconnect' => 'Desconectar',

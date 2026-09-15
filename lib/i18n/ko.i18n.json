@@ -106,6 +106,7 @@
     "milliseconds": "밀리초",
     "protocol": "프로토콜",
     "search": "검색",
+    "searchNodeHint": "노드 필터 (이름 또는 프로토콜)",
     "custom": "사용자 정의",
     "connect": "연결",
     "disconnect": "연결 해제",

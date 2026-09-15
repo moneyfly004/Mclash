@@ -106,6 +106,7 @@
     "milliseconds": "میلی‌ثانیه",
     "protocol": "پروتکل",
     "search": "جستجو",
+    "searchNodeHint": "فیلتر گره‌ها (نام یا پروتکل)",
     "custom": "سفارشی",
     "connect": "اتصال",
     "disconnect": "قطع‌ اتصال",

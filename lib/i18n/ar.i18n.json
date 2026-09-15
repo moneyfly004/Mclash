@@ -106,6 +106,7 @@
     "milliseconds": "ميلي ثانية",
     "protocol": "بروتوكول",
     "search": "يبحث",
+    "searchNodeHint": "تصفية العُقد (الاسم أو البروتوكول)",
     "custom": "مخصص",
     "connect": "يتصل",
     "disconnect": "قطع الاتصال",

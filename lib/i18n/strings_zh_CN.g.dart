@@ -237,6 +237,7 @@ class Translations$meta$zh_CN implements Translations$meta$en {
 	@override String get milliseconds => '毫秒';
 	@override String get protocol => '协议';
 	@override String get search => '搜索';
+	@override String get searchNodeHint => '筛选节点（名称或协议）';
 	@override String get custom => '自定义';
 	@override String get connect => '连接';
 	@override String get disconnect => '断开';
@@ -644,6 +645,7 @@ extension on TranslationsZhCn {
 			'meta.milliseconds' => '毫秒',
 			'meta.protocol' => '协议',
 			'meta.search' => '搜索',
+			'meta.searchNodeHint' => '筛选节点（名称或协议）',
 			'meta.custom' => '自定义',
 			'meta.connect' => '连接',
 			'meta.disconnect' => '断开',

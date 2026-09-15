@@ -237,6 +237,7 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get milliseconds => 'میلی‌ثانیه';
 	@override String get protocol => 'پروتکل';
 	@override String get search => 'جستجو';
+	@override String get searchNodeHint => 'فیلتر گره‌ها (نام یا پروتکل)';
 	@override String get custom => 'سفارشی';
 	@override String get connect => 'اتصال';
 	@override String get disconnect => 'قطع‌ اتصال';
@@ -644,6 +645,7 @@ extension on TranslationsFa {
 			'meta.milliseconds' => 'میلی‌ثانیه',
 			'meta.protocol' => 'پروتکل',
 			'meta.search' => 'جستجو',
+			'meta.searchNodeHint' => 'فیلتر گره‌ها (نام یا پروتکل)',
 			'meta.custom' => 'سفارشی',
 			'meta.connect' => 'اتصال',
 			'meta.disconnect' => 'قطع‌ اتصال',

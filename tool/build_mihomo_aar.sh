@@ -42,7 +42,7 @@ command -v gomobile >/dev/null 2>&1 || go install golang.org/x/mobile/cmd/gomobi
 gomobile init
 
 mkdir -p "$OUT"
-echo "编译 libmihomo.aar（mihomo v$VERSION, NDK=$ANDROID_NDK_HOME）..."
+echo "编译 libmihomo.aar（mihomo v$VERSION, NDK=${ANDROID_NDK_HOME}）..."
 (
   cd "$SRC"
   go mod download

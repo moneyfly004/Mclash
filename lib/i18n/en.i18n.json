@@ -106,6 +106,7 @@
     "milliseconds": "Milliseconds",
     "protocol": "Protocol",
     "search": "Search",
+    "searchNodeHint": "Filter nodes (name or protocol)",
     "custom": "Custom",
     "connect": "Connect",
     "disconnect": "Disconnect",

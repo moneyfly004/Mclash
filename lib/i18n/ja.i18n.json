@@ -106,6 +106,7 @@
     "milliseconds": "ミリ秒",
     "protocol": "プロトコル",
     "search": "検索",
+    "searchNodeHint": "ノードを絞り込む（名前またはプロトコル）",
     "custom": "カスタム",
     "connect": "接続",
     "disconnect": "切断",

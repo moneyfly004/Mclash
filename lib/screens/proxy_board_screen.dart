@@ -6,6 +6,7 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/proxy_board_screen_widgets.dart';
 import 'package:mclash/screens/theme_config.dart';
+import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
 import 'package:flutter/material.dart';
 
@@ -31,6 +32,15 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
     with WidgetsBindingObserver, AfterLayoutMixin {
   late ProxyScreenProxiesNodeWidgetController _controller;
 
+  /// 节点筛选词（「筛选测速」的入口）。
+  ///
+  /// Clash Mi 原本没有搜索框，这里按其视觉语言补一个：顶栏 search 图标展开、
+  /// 输入框用默认 InputDecoration（圆角 4，与全局输入框一致）、无 Chip 无
+  /// SnackBar。筛选词会传进节点组件，既过滤列表也限定测速范围。
+  String _filter = "";
+  bool _searching = false;
+  final TextEditingController _filterController = TextEditingController();
+
   @override
   void initState() {
     _controller = ProxyScreenProxiesNodeWidgetController(
@@ -49,6 +59,7 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
 
   @override
   void dispose() {
+    _filterController.dispose();
     SettingManager.save();
     super.dispose();
   }
@@ -107,6 +118,31 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                     ),
                   ],
                   Tooltip(
+                    message: tcontext.meta.search,
+                    child: SizedBox(
+                      width: 50,
+                      height: 30,
+                      child: InkWell(
+                        child: Icon(
+                          Icons.search,
+                          size: 26,
+                          color: _searching ? ThemeDefine.kColorBlue : null,
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _searching = !_searching;
+                            if (!_searching) {
+                              // 收起搜索时一并清掉筛选，避免「看不见的筛选」
+                              // 让用户对着一个空列表莫名其妙
+                              _filter = "";
+                              _filterController.clear();
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  Tooltip(
                     message: tcontext.meta.sort,
                     child: SizedBox(
                       width: 50,
@@ -131,28 +167,39 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                       ? Row(
                           children: [
                             SizedBox(width: 12),
+                            // 真实进度：value = 已完成 / 总数。
+                            // 原来只是一个不定量转圈 + 「剩余数」角标，用户无法
+                            // 判断还要多久；现在既画进度弧也显示 已完成/总数。
                             Stack(
+                              alignment: Alignment.center,
                               children: [
                                 SizedBox(
                                   height: 26,
                                   width: 26,
                                   child: RepaintBoundary(
-                                    child: CircularProgressIndicator(),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      value: _controller.delayTestTotal() > 0
+                                          ? (1 -
+                                                  _controller.delayTesting() /
+                                                      _controller
+                                                          .delayTestTotal())
+                                              .clamp(0.0, 1.0)
+                                          : null,
+                                    ),
                                   ),
                                 ),
-                                Positioned(
-                                  left: 0,
-                                  top: 6,
-                                  height: 20,
-                                  width: 26,
-                                  child: Text(
-                                    _controller.delayTesting().toString(),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: _controller.delayTesting() > 999
-                                          ? 8
-                                          : 10,
-                                    ),
+                                Text(
+                                  "${_controller.delayTestTotal() - _controller.delayTesting()}"
+                                  "/${_controller.delayTestTotal()}",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    // 两位数以上缩小字号，避免溢出
+                                    fontSize:
+                                        _controller.delayTestTotal() > 99
+                                            ? 7
+                                            : 9,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
@@ -175,6 +222,30 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                         ),
                 ],
               ),
+              if (_searching)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  child: TextField(
+                    controller: _filterController,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (v) => setState(() => _filter = v),
+                    decoration: InputDecoration(
+                      hintText: tcontext.meta.searchNodeHint,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _filter.isEmpty
+                          ? null
+                          : InkWell(
+                              onTap: () => setState(() {
+                                _filter = "";
+                                _filterController.clear();
+                              }),
+                              child: const Icon(Icons.close, size: 20),
+                            ),
+                      isDense: true,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 10),
               Expanded(
                 child: Padding(
@@ -192,7 +263,12 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
                           return data.isEmpty
                               ? SizedBox.shrink()
                               : ProxyScreenProxiesNodeWidget(
+                                  // key 带上筛选词：筛选条件变化时重建内部状态，
+                                  // 否则 _nodes 是 initState 里 copy 的旧列表，
+                                  // 测速目标集合会与实际显示不一致
+                                  key: ValueKey("proxy-nodes-$_filter"),
                                   nodes: data,
+                                  filter: _filter,
                                   controller: _controller,
                                 );
                         },
