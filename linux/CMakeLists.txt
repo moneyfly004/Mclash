@@ -148,6 +148,15 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
-install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/../bind/linux/core/mclashService"
-  DESTINATION "${BUILD_BUNDLE_DIR}" 
-  COMPONENT Runtime)
+# ============================================================================
+#  mihomo 内核内置（Linux）
+#  原 Clash Mi 从 ../bind/linux/core/ 安装外置的 mclashService（该目录已删除）。
+#  Mclash 直接 spawn 官方 mihomo 二进制，与主程序同目录。
+#  下载：见 tool/fetch_mihomo.sh（Linux 请手动取 mihomo-linux-amd64）
+# ============================================================================
+set(MCLASH_CORE_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../build/mihomo/mihomo")
+if(EXISTS "${MCLASH_CORE_BIN}")
+  install(PROGRAMS "${MCLASH_CORE_BIN}" DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)
+else()
+  message(WARNING "Mclash: build/mihomo/mihomo not found - run tool/fetch_mihomo.sh")
+endif()

@@ -243,17 +243,23 @@ jobs:
       - name: 构建 macOS（arm64）
         run: flutter build macos --release
 
-      - name: 校验架构
-        run: |
-          lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch arm64
-
-      - name: 内置 mihomo 内核并校验架构
+      - name: 内置 mihomo 内核（arm64）
         run: |
           APP="build/macos/Build/Products/Release/Mclash.app"
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
             "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-arm64-v$MIHOMO_VERSION.gz"
           gunzip -f mihomo.gz && cp mihomo "$APP/Contents/MacOS/mihomo" && chmod +x "$APP/Contents/MacOS/mihomo"
           lipo "$APP/Contents/MacOS/mihomo" -verify_arch arm64
+
+      # Flutter 的 macOS release **默认产出 universal**。若不裁剪就直接标成
+      # "arm64" 发布，包里会同时带着 x86_64 主程序 —— 而内嵌内核是 arm64-only，
+      # Intel 用户装上后表现为"能开但连不上"。所以必须把 app 与内核一起裁成 arm64。
+      - name: 裁剪为纯 arm64 并校验
+        run: |
+          bash scripts/thin_app.sh arm64 build/macos/Build/Products/Release/Mclash.app
+          APP="build/macos/Build/Products/Release/Mclash.app"
+          [ "$(lipo -archs "$APP/Contents/MacOS/Mclash")" = "arm64" ] || { echo "主程序不是纯 arm64"; exit 1; }
+          [ "$(lipo -archs "$APP/Contents/MacOS/mihomo")" = "arm64" ] || { echo "内核不是纯 arm64"; exit 1; }
 
       - name: 打包 arm64 DMG
         run: |
@@ -324,17 +330,23 @@ jobs:
       - name: 构建 macOS（x64，Rosetta 整链）
         run: arch -x86_64 flutter build macos --release
 
-      - name: 校验架构
-        run: |
-          lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch x86_64
-
-      - name: 内置 mihomo 内核（compatible）并校验架构
+      - name: 内置 mihomo 内核（**compatible**，必须）
         run: |
           APP="build/macos/Build/Products/Release/Mclash.app"
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
             "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-amd64-compatible-v$MIHOMO_VERSION.gz"
           gunzip -f mihomo.gz && cp mihomo "$APP/Contents/MacOS/mihomo" && chmod +x "$APP/Contents/MacOS/mihomo"
           lipo "$APP/Contents/MacOS/mihomo" -verify_arch x86_64
+
+      # Rosetta 整链本应只产 x86_64，但仍显式裁剪一次并断言：
+      # 若某天 Flutter 改成在 Rosetta 下也产 universal，这里会立刻失败而不是
+      # 静默发出一个"标着 Intel、实际带 arm64"的包。
+      - name: 裁剪为纯 x86_64 并校验
+        run: |
+          bash scripts/thin_app.sh x86_64 build/macos/Build/Products/Release/Mclash.app
+          APP="build/macos/Build/Products/Release/Mclash.app"
+          [ "$(lipo -archs "$APP/Contents/MacOS/Mclash")" = "x86_64" ] || { echo "主程序不是纯 x86_64"; exit 1; }
+          [ "$(lipo -archs "$APP/Contents/MacOS/mihomo")" = "x86_64" ] || { echo "内核不是纯 x86_64"; exit 1; }
 
       - name: 打包 x64 DMG
         run: |
@@ -395,9 +407,12 @@ jobs:
       - name: 构建 macOS release（Flutter 直出 universal）
         run: flutter build macos --release
 
-      - name: 校验双架构
+      - name: 校验双架构（主程序必须同时含 arm64 与 x86_64）
         run: |
           lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch arm64 x86_64
+          archs="$(lipo -archs build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash)"
+          echo "$archs" | grep -qw arm64   || { echo "缺 arm64"; exit 1; }
+          echo "$archs" | grep -qw x86_64  || { echo "缺 x86_64"; exit 1; }
 
       - name: 内置 mihomo 内核（universal：arm64 + amd64-compatible）
         run: |

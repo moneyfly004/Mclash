@@ -133,29 +133,37 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
+# ============================================================================
+#  mihomo 内核内置
+#
+#  原 Clash Mi 从 ../bind/windows/{core,debug,mscrt,ucrt,icu} 安装一个外置的
+#  clashmiService 服务二进制及其 C/C++/ICU 运行时。那些目录是 gitignore 的、
+#  发布在私有仓库里，本项目**已整体删除**。
+#
+#  Mclash 的方案（见 packages/libclash_vpn_service/lib/src/desktop_impl.dart）：
+#  直接 spawn 官方 MetaCubeX/mihomo 预编译二进制，与主程序同目录。
+#  本地：bash tool/fetch_mihomo.sh（落到 build/mihomo/mihomo.exe）
+#  CI：.github/workflows/release.yml 下载后拷进 Release 目录
+#
+#  文件不存在时只告警不中断 —— 内核缺失是运行期问题，
+#  由 Dart 侧 KernelManager 给出明确提示，不该阻断构建。
+# ============================================================================
+set(MCLASH_CORE_EXE "${CMAKE_CURRENT_SOURCE_DIR}/../build/mihomo/mihomo.exe")
+if(EXISTS "${MCLASH_CORE_EXE}")
+  message(STATUS "Mclash: bundling mihomo core from ${MCLASH_CORE_EXE}")
+  install(FILES "${MCLASH_CORE_EXE}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    CONFIGURATIONS Debug;Profile;Release
+    COMPONENT Runtime)
+else()
+  message(WARNING
+    "Mclash: build/mihomo/mihomo.exe not found - the app will build but cannot "
+    "connect. Run: bash tool/fetch_mihomo.sh")
+endif()
+
 message("CMAKE_CURRENT_SOURCE_DIR:${CMAKE_CURRENT_SOURCE_DIR}")
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bind/windows/debug/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" 
-  CONFIGURATIONS Debug
-  COMPONENT Runtime)
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bind/windows/mscrt/x64/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" 
-  CONFIGURATIONS Profile;Release
-  COMPONENT Runtime)
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bind/windows/ucrt/x64/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" 
-  CONFIGURATIONS Profile;Release
-  COMPONENT Runtime)
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bind/windows/icu/x64/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" 
-  CONFIGURATIONS Debug;Profile;Release
-  COMPONENT Runtime)
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bind/windows/core/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" 
-  CONFIGURATIONS Profile;Release
-  COMPONENT Runtime)
