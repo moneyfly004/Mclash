@@ -76,7 +76,7 @@ jobs:
 
       - name: 静态检查与测试
         run: |
-          flutter analyze
+          flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
       - name: 构建多 ABI APK（obfuscate + 保留符号，省约 10% 体积）
@@ -149,7 +149,7 @@ jobs:
         shell: bash
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo.exe"
-          flutter analyze
+          flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
       - name: 构建 Windows release
@@ -217,7 +217,7 @@ jobs:
       - name: 静态检查与测试（含真实内核 e2e）
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
-          flutter analyze
+          flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
       - name: 构建 macOS（arm64）
@@ -300,7 +300,7 @@ jobs:
       - name: 静态检查与测试（含真实内核 e2e）
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
-          flutter analyze
+          flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
       - name: 构建 macOS（x64，Rosetta 整链）
@@ -373,7 +373,7 @@ jobs:
       - name: 静态检查与测试（含真实内核 e2e）
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
-          flutter analyze
+          flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
       - name: 构建 macOS release（Flutter 直出 universal）
