@@ -40,6 +40,19 @@ class MclashVpnService : VpnService() {
 
         const val ACTION_START = "top.moneyfly.mclash.vpn.START"
         const val ACTION_STOP = "top.moneyfly.mclash.vpn.STOP"
+
+        // 下面两个是**面向原生监听方**的广播（目前是快捷设置磁贴 TileService）。
+        //
+        // 为什么需要它们：Dart 侧的状态是通过 MethodChannel 推的，原生侧（磁贴、
+        // 通知栏）收不到。原先磁贴按 ACTION_START_RESULT / ACTION_STOPED 注册了
+        // 接收器，但服务端从来没发过这两个广播 —— 编译期就暴露了
+        // （Unresolved reference），也就是说**磁贴状态永远不会更新**：
+        // 连上了磁贴仍显示未连接，再点一次会重复下发 START。
+        const val ACTION_START_RESULT = "top.moneyfly.mclash.vpn.START_RESULT"
+        const val ACTION_STOPED = "top.moneyfly.mclash.vpn.STOPPED"
+
+        /** ACTION_START_RESULT 的错误附加项：空串表示成功（与磁贴约定一致）。 */
+        const val EXTRA_ERR = "err"
         const val EXTRA_CONFIG = "config_yaml"
         const val EXTRA_HOME = "home_dir"
         const val EXTRA_NEED_TUN = "need_tun"
@@ -83,8 +96,44 @@ class MclashVpnService : VpnService() {
 
         private fun setState(s: String, extra: Map<String, String> = emptyMap()) {
             state = s
+            // Dart 侧
             VpnServicePlugin.notifyState(s, extra)
+            // 原生侧（磁贴等）
+            //
+            // 放在 setState 这个**唯一的状态出口**里发出，就不会出现
+            //「某条分支改了状态却忘了通知磁贴」的漏发 —— 磁贴状态不同步正是
+            // 之前那个 bug 的形态。
+            when (s) {
+                "connected" -> broadcastStartResult(lastStartError ?: "")
+                "disconnected" -> {
+                    // 启动失败时把原因一并带给磁贴（磁贴据此保持未激活态）
+                    if (lastStartError != null) {
+                        broadcastStartResult(lastStartError!!)
+                    }
+                    broadcastStopped()
+                }
+            }
         }
+
+        private fun broadcast(action: String, err: String? = null) {
+            val ctx = appContext ?: return
+            try {
+                val i = Intent(action)
+                // Android 14 起，隐式广播不能投递给动态注册的接收器；
+                // 显式 setPackage 把范围限定在本应用内，既合规又能收到。
+                i.setPackage(ctx.packageName)
+                if (err != null) {
+                    i.putExtra(EXTRA_ERR, err)
+                }
+                ctx.sendBroadcast(i)
+            } catch (e: Exception) {
+                Log.w(TAG, "broadcast $action failed: ${e.message}")
+            }
+        }
+
+        private fun broadcastStartResult(err: String) = broadcast(ACTION_START_RESULT, err)
+
+        private fun broadcastStopped() = broadcast(ACTION_STOPED)
 
         fun kernelVersion(): String =
                 try {
@@ -94,14 +143,47 @@ class MclashVpnService : VpnService() {
                     ""
                 }
 
-        /** 自上次调用以来的内核日志增量，或全量（incremental=false） */
-        fun fetchKernelLogs(incremental: Boolean): String =
-                try {
-                    Mihomelib.logs(incremental) ?: Mihomelib.logs() ?: ""
-                } catch (e: Exception) {
-                    Log.w(TAG, "fetchKernelLogs: ${e.message}")
-                    ""
-                }
+        /**
+         * 内核日志。incremental=true 时只返回「自上次调用以来新增的部分」。
+         *
+         * 这里必须自己算增量：**AAR 暴露的 `Mihomelib.logs()` 是不带参数的**
+         * （已用 javap 核对生成类的真实签名：
+         *     public static native java.lang.String logs();
+         *     public static native void start(java.lang.String, byte[], int);
+         *     public static native boolean running();
+         *     public static native void stop();
+         *     public static native java.lang.String version();
+         *     public static native boolean meta();
+         *     public static native void reload(byte[]);
+         *     public static void touch(); )
+         * 也就是说 gomobile 只给了「取全部日志」。
+         * 原先这里写的 `Mihomelib.logs(incremental)` 是我按「应该有增量参数」
+         * 想当然写的 —— 编译期直接报 Too many arguments（这也是本轮才暴露的：
+         * AAR 之前一直没能下载下来，从来没编译过）。
+         *
+         * 增量按**字符串长度取尾部**实现。它能成立的前提是内核日志只追加、
+         * 不重写历史；一旦发现本次长度比上次短（例如内核重启导致日志清空），
+         * 就退回返回全量，避免切出一个错位的片段给用户看。
+         * 语义与 Dart 侧预期一致，不需要改上层。
+         */
+        @Volatile private var lastLogLength = 0
+
+        fun fetchKernelLogs(incremental: Boolean): String {
+            val all =
+                    try {
+                        Mihomelib.logs() ?: ""
+                    } catch (e: Exception) {
+                        Log.w(TAG, "fetchKernelLogs: ${e.message}")
+                        return ""
+                    }
+            if (!incremental) {
+                lastLogLength = all.length
+                return all
+            }
+            val from = if (all.length >= lastLogLength) lastLogLength else 0
+            lastLogLength = all.length
+            return if (from == 0) all else all.substring(from)
+        }
 
         /** 已安装应用列表（分应用代理页）。Android 11+ 需 QUERY_ALL_PACKAGES。 */
         fun installedApps(ctx: Context): List<Map<String, Any>> {

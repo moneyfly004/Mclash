@@ -27,11 +27,11 @@ class TileService : TileService() {
                         intent: Intent,
                 ) {
                     when (intent.action) {
-                        top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_START_RESULT -> {
+                        top.moneyfly.vpnservice.MclashVpnService.ACTION_START_RESULT -> {
                             val err = intent.getStringExtra("err")
                             updateTile(err == "")
                         }
-                        top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_STOPED -> {
+                        top.moneyfly.vpnservice.MclashVpnService.ACTION_STOPED -> {
                             updateTile(false)
                         }
                     }
@@ -42,9 +42,9 @@ class TileService : TileService() {
         if (!receiverRegistered) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 var intentFilter = IntentFilter()
-                intentFilter.addAction(top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_STOPED)
+                intentFilter.addAction(top.moneyfly.vpnservice.MclashVpnService.ACTION_STOPED)
                 intentFilter.addAction(
-                        top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_START_RESULT
+                        top.moneyfly.vpnservice.MclashVpnService.ACTION_START_RESULT
                 )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED)
@@ -69,11 +69,11 @@ class TileService : TileService() {
         if (isRuning()) {
             var intent =
                     Intent().apply {
-                        action = top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_STOP
+                        action = top.moneyfly.vpnservice.MclashVpnService.ACTION_STOP
                     }
             intent.setClassName(
                     getPackageName(),
-                    top.moneyfly.vpnservice.ClashVpnServiceImpl::class.java.name
+                    top.moneyfly.vpnservice.MclashVpnService::class.java.name
             )
             intent.putExtra("exitProcess", true)
             startService(intent)
@@ -136,10 +136,10 @@ class TileService : TileService() {
 
     private fun startByService() {
         var intent =
-                Intent().apply { action = top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_START }
+                Intent().apply { action = top.moneyfly.vpnservice.MclashVpnService.ACTION_START }
         intent.setClassName(
                 getPackageName(),
-                top.moneyfly.vpnservice.ClashVpnServiceImpl::class.java.name
+                top.moneyfly.vpnservice.MclashVpnService::class.java.name
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -173,7 +173,7 @@ class TileService : TileService() {
     private fun isMainRuning(): Boolean = isServiceRuning(MainActivity::class.java.name)
 
     private fun isRuning(): Boolean =
-            isServiceRuning(top.moneyfly.vpnservice.ClashVpnServiceImpl::class.java.name)
+            isServiceRuning(top.moneyfly.vpnservice.MclashVpnService::class.java.name)
 
     private fun isServiceRuning(serviceName: String): Boolean {
         try {

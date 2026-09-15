@@ -23,7 +23,7 @@ class AutomationCommandReceiver : BroadcastReceiver() {
 
     private fun connect(context: Context) {
         val serviceIntent = createServiceIntent(context)
-        serviceIntent.action = top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_START
+        serviceIntent.action = top.moneyfly.vpnservice.MclashVpnService.ACTION_START
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)
         } else {
@@ -33,7 +33,7 @@ class AutomationCommandReceiver : BroadcastReceiver() {
 
     private fun disconnect(context: Context) {
         val serviceIntent = createServiceIntent(context)
-        serviceIntent.action = top.moneyfly.vpnservice.ClashVpnServiceImpl.ACTION_STOP
+        serviceIntent.action = top.moneyfly.vpnservice.MclashVpnService.ACTION_STOP
         context.startService(serviceIntent)
     }
 
@@ -46,7 +46,7 @@ class AutomationCommandReceiver : BroadcastReceiver() {
         val serviceIntent = Intent()
         serviceIntent.setClassName(
                 context.packageName,
-                top.moneyfly.vpnservice.ClashVpnServiceImpl::class.java.name
+                top.moneyfly.vpnservice.MclashVpnService::class.java.name
         )
         serviceIntent.putExtra("actionBy", "automation")
         serviceIntent.putExtra("source", "broadcast")

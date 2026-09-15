@@ -136,13 +136,18 @@ dependencies {
     // 内核由插件 `packages/libclash_vpn_service` 独家提供：它的
     // android/build.gradle 会把 android/libs/*.aar 加进实现依赖，
     // 并同时把 libs 加进 jniLibs.srcDirs。也就是说 AAR 只应存在一份，
-    // 位置是 packages/libclash_vpn_service/android/libs/libmihomo.aar。
+    // 位置是 packages/libclash_vpn_service/android/libs/libmihomo.aar
+    // （实测该 AAR：classes.jar 含 top.moneyfly.mihomelib.Mihomelib + go.*，
+    //   jni 下 arm64-v8a / armeabi-v7a / x86 / x86_64 各一个 libgojni.so，
+    //   共 177MB —— 所以"只放一份"很关键）。
     //
     // 这里原先还有一段 `implementation(files("libs/libmihomo.aar"))`，
     // 并在缺失时打印「请下载到 android/app/libs/」。那是个陷阱：
     // 一旦真按提示放了一份，同一份 AAR 就会被链接两次 →
-    //   · duplicate class（mobile.*、go.* 会重复）
-    //   · libmihomo.so 在打包时路径冲突
+    //   · duplicate class：AAR 里的 go.Seq / go.Universe /
+    //     top.moneyfly.mihomelib.Mihomelib 会被链接两次
+    //   · 原生库冲突：AAR 的 .so 名是 **libgojni.so**（gomobile 的固定名字），
+    //     打包时四套 ABI 目录下都会出现同路径文件
     // 所以整段删除，只留这条说明，避免后人照做过时的提示。
     // ---------------------------------------------------------------------
 }

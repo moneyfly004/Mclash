@@ -21,8 +21,19 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 
+// 注意 `MethodCallHandler` 是 MethodChannel 的**嵌套接口**
+// （io.flutter.plugin.common.MethodChannel.MethodCallHandler），
+// 顶层并不存在同名类型。写成裸 MethodCallHandler 会得到：
+//   Unresolved reference 'MethodCallHandler'
+//   Argument type mismatch: actual type is 'VpnServicePlugin',
+//       but 'MethodChannel.MethodCallHandler?' was expected
+//   'onMethodCall' overrides nothing
+// 三个报错其实是同一个原因。
 class VpnServicePlugin :
-        FlutterPlugin, MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
+        FlutterPlugin,
+        MethodChannel.MethodCallHandler,
+        ActivityAware,
+        PluginRegistry.ActivityResultListener {
 
     companion object {
         const val CHANNEL = "top.moneyfly/vpn_core"
