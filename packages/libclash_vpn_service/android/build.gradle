@@ -1,0 +1,54 @@
+group = 'top.moneyfly.vpnservice'
+version = '1.0.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace = 'top.moneyfly.vpnservice'
+    compileSdk = 35
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    defaultConfig {
+        minSdk = 26
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        main.jniLibs.srcDirs += ['libs']
+    }
+}
+
+dependencies {
+    // libmihomo.aar：官方 MetaCubeX/mihomo 源码 + gomobile bind（无 fork）
+    // 由 CI 从 moneyfly004/mihomo-lib 下载到本插件的 libs/ 目录；
+    // 本地开发用 tool/build_mihomo_aar.sh 现编。
+    // 缺失时不中断构建（连接会在 Dart 侧给出明确提示）。
+    file('libs').listFiles()?.each { f ->
+        if (f.name.endsWith('.aar') || f.name.endsWith('.jar')) {
+            implementation files(f)
+        }
+    }
+}

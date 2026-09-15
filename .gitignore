@@ -1,4 +1,4 @@
-# ---------- 通用 ----------
+# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -7,74 +7,74 @@
 .atom/
 .build/
 .buildlog/
-.history/
+.history
 .svn/
 .swiftpm/
 migrate_working_dir/
 
-# IDE
+# IntelliJ related
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# ---------- Flutter / Dart ----------
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
-/coverage/
+
+# Web related
+lib/generated_plugin_registrant.dart
+lib/generated/
+
+# Symbolication related
 app.*.symbols
+
+# Obfuscation related
 app.*.map.json
 
-# Android Studio 构建产物
-/android/app/debug
-/android/app/profile
-/android/app/release
-dist/
+# Android Studio will place build artifacts here
+/android/app/src/debug
+/android/app/src/profile
+/android/app/src/release
+/logs
+/.vs
+/*.zip
+/dist/*.apk
+/dist/*.exe
+/dist/*.zip
+/dist/*.xcarchive
+/dist/*+*
+/bind/apple/Libclash.xcframework
+/bind/android
+/bind/windows
+/bind/linux
+ios/mclashWidget/VpnServiceHandler.swift
+/.idea/workspace.xml
+/lib/app/private
+/android/app/build
+/dist/ios
+/dist/macos
+/todo.txt
+/.vscode
+/private
+*.hprof
+/android/.kotlin
+/android/build
+/dist
 
-# ---------- 内核二进制（CI 下载/编译，绝不入库） ----------
-# Android：moneyfly004/mihomo-lib 的预编译 AAR
-android/app/libs/*.aar
-android/app/libs/*.jar
-# 本地调试编译内核用的临时目录
-android/mihomo-core/build/
-mihomo-bin/
-build/mihomo/
-
-# ---------- 离线分流数据（CI 从 MetaCubeX/meta-rules-dat 下载） ----------
-# 本地开发：bash tool/fetch_geodata.sh
-assets/rules/*.dat
-assets/rules/*.mmdb
-
-# ---------- 签名与密钥（绝不入库） ----------
-android/key.properties
-*.keystore
-*.jks
-*.p12
-*.mobileprovision
-
-# ---------- iOS（本期范围外，但目录已预留） ----------
-ios/Mihomelib.xcframework/
-ios/PacketTunnel/country.mmdb
-ios/PacketTunnel/geosite.dat
-ios/build/
-ios/Pods/
-
-# ---------- macOS ----------
-macos/Pods/
-macos/Flutter/ephemeral/
-macos/build/
-
-# ---------- Windows ----------
-windows/flutter/ephemeral/
-windows/build/
-*.vcxproj.user
-
-# ---------- 设计稿临时产物 ----------
-docs/design/mockups/.cache/
-docs/design/img/*.tmp
+# ---------- 本地包解析产物 ----------
+packages/*/pubspec.lock
+packages/*/.dart_tool/
+packages/*/build/

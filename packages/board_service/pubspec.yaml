@@ -1,0 +1,15 @@
+name: board_service
+description: Mclash 的后台 API 客户端。原 Clash Mi 依赖外置的 board-service（支持 v2board/xboard/sspanel 三种机场面板）；Mclash 只对接自家的 XBoard 兼容后台（https://new.moneyfly.top），因此实现同一套客户端接口、指向自有后端，使 Clash Mi 的登录/配置/会话基础设施零改动可用。
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  crypto: ^3.0.6
+  http: ^1.2.2
+  tuple: ^2.0.2
+
+dev_dependencies:
+  lints: ^5.0.0

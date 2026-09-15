@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Mclash
+GenericName=Mclash
+Comment=Mclash client
+Exec=mclash %u
+TryExec=mclash
+Terminal=false
+Categories=Network;
+StartupNotify=true
+Icon=com.nebula.mclash
+MimeType=x-scheme-handler/clash;x-scheme-handler/mclash;

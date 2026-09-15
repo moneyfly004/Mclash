@@ -1,0 +1,14 @@
+display_name: Mclash
+package_name: mclash
+maintainer:
+  name: KaringX
+
+icon: assets/images/app_icon_256.png
+
+keywords:
+  - Mclash
+
+generic_name: Mclash
+
+categories:
+  - Network

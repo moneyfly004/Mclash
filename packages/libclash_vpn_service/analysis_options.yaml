@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # VpnServiceConfig 的字段名沿用原 libclash_vpn_service 的 snake_case 契约，
+    # 以便 613 行的 VPNService 调用方与原生侧 JSON 契约零改动。
+    non_constant_identifier_names: ignore

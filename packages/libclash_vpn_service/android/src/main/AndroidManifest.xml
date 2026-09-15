@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- VpnService 是系统级 VPN 通道，防断连的核心 -->
+    <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!--
+      Android 14+ 前台服务必须声明类型。VPN 类应用用 specialUse + subtype=vpn
+      （与 FlClash / sing-box 一致）。
+
+      ⚠️ 不能用 connectedDevice：它在 targetSdk>=34 + Android 14+ 上要求
+      一堆前置权限（CHANGE_NETWORK_STATE / 蓝牙 / CDM 关联），本应用一个都没有，
+      startForeground() 会直接抛 SecurityException → VPN 服务崩溃，
+      表现为「授权过一次之后点连接不再弹框、也永远连不上」。
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application>
+        <service
+            android:name=".MclashVpnService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vpn" />
+        </service>
+    </application>
+</manifest>

@@ -1,0 +1,35 @@
+name: libclash_vpn_service
+description: Mclash 的 VPN 服务插件 —— Android 走进程内 libmihomo.aar（VpnService + TUN fd 注入），Windows/macOS/Linux 走 mihomo 子进程 + 系统代理。原 Clash Mi 依赖外置的 libclash-vpn-service，此处为 Mclash 自有的等价实现。
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path: ^1.9.0
+  path_provider: ^2.1.4
+  device_info_plus: ^11.1.0
+  yaml: ^3.1.2
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: top.moneyfly.vpnservice
+        pluginClass: VpnServicePlugin
+      windows:
+        # 桌面端完全由 Dart 实现（mihomo 子进程 + 系统代理），
+        # 无需原生服务二进制；这里只声明平台以便 Flutter 生成注册代码。
+        dartPluginClass: DesktopVpnServiceImpl
+      macos:
+        dartPluginClass: DesktopVpnServiceImpl
+      linux:
+        dartPluginClass: DesktopVpnServiceImpl
