@@ -200,6 +200,7 @@
 				CEBE65E52A22EAE1004691A4 /* Embed Foundation Extensions */,
 				99C3439515FD7ECFBA91E2AB /* [CP] Embed Pods Frameworks */,
 				CE04E7CA29EEC43E005A52B5 /* Copy Files */,
+				CEAD0C512E7A1000000000C1 /* Ad-hoc Sign App */,
 			);
 			buildRules = (
 			);
@@ -348,6 +349,25 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		CEAD0C512E7A1000000000C1 /* Ad-hoc Sign App */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Ad-hoc Sign App";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# No Apple Developer team is available for this checkout, so Xcode code signing is\n# disabled (CODE_SIGNING_ALLOWED = NO) and the bundle is ad-hoc signed here instead.\n# Xcode refuses to sign a target that carries restricted entitlements\n# (application-groups, keychain-access-groups, iCloud) without a provisioning profile,\n# so those entitlements are applied by this explicit ad-hoc signing pass.\nif [ \"$CODE_SIGNING_ALLOWED\" = \"NO\" ]; then\n  APP=\"$TARGET_BUILD_DIR/$WRAPPER_NAME\"\n  if [ -d \"$APP\" ]; then\n    /usr/bin/codesign --force --deep --sign - --timestamp=none --entitlements \"$SRCROOT/Runner/Runner.entitlements\" \"$APP\"\n    /usr/bin/codesign --verify --deep --strict \"$APP\" && echo \"ad-hoc signed: $APP\"\n  else\n    echo \"warning: $APP not found, skipped ad-hoc signing\" >&2\n  fi\nelse\n  echo \"CODE_SIGNING_ALLOWED=$CODE_SIGNING_ALLOWED, Xcode signs the bundle\"\nfi\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -440,6 +460,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = "";
@@ -579,6 +600,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = "";
@@ -612,6 +634,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = "";

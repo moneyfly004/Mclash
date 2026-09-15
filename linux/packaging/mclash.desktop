@@ -9,5 +9,5 @@ TryExec=mclash
 Terminal=false
 Categories=Network;
 StartupNotify=true
-Icon=com.nebula.mclash
+Icon=top.moneyfly.mclash
 MimeType=x-scheme-handler/clash;x-scheme-handler/mclash;

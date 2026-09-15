@@ -8,7 +8,7 @@
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.nebula.mclash</string>
+		<string>group.top.moneyfly.mclash</string>
 	</array>
 	<key>com.apple.security.network.client</key>
 	<true/>

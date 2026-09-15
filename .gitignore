@@ -64,12 +64,10 @@ packages/libclash_vpn_service/android/libs/*.jar
 mihomo-bin/
 build/mihomo/
 
-# 原 Clash Mi 的外置内核产物：Mclash 改用自有 AAR 与官方 mihomo 二进制，
-# 这些目录不存在也不需要（保留规则以免误提交历史残留）
-/bind/apple/Libclash.xcframework
-/bind/android
-/bind/windows
-/bind/linux
+# 原 Clash Mi 的外置内核产物目录 bind/{android,windows,linux,apple/Libclash.xcframework}
+# **已整体删除** —— Mclash 改用自有 AAR（Android）与官方 mihomo 二进制（桌面），
+# 且桌面端不使用 NetworkExtension，因此不再需要 LibVpnCore / Libclash.xcframework。
+# 见 docs/design/01 §1.6 与 08。
 
 # ---------- 离线分流数据（CI 从 MetaCubeX/meta-rules-dat 下载） ----------
 # 本地开发：bash tool/fetch_geodata.sh

@@ -1,0 +1,63 @@
+name: CI
+
+# PR / push 门禁：静态检查 + 测试。
+# 不做平台构建（那是 release.yml 的事），但会跑 flutter analyze，
+# 它同时校验 packages/ 下两个自有插件（path 依赖，analyze 会一并分析）。
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.44.4'
+  PUB_HOSTED_URL: 'https://pub.flutter-io.cn'
+  FLUTTER_STORAGE_BASE_URL: 'https://storage.flutter-io.cn'
+
+jobs:
+  analyze-and-test:
+    name: analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 依赖
+        run: flutter pub get
+
+      - name: 生成本地化（slang）
+        run: dart run slang
+
+      - name: 静态检查
+        # 失败即门禁失败：Mclash 的纪律是 0 error 才能合并
+        run: flutter analyze
+
+      - name: 测试
+        run: flutter test --concurrency=1
+
+      - name: 仓库卫生检查
+        # 防止把密钥/内核二进制误提交（这些已 gitignore，这里是第二道闸）
+        run: |
+          set -e
+          fail=0
+          for pat in '*.keystore' '*.jks' '*.p12' '*.aar' 'key.properties'; do
+            hits=$(git ls-files -- "$pat" | head -5)
+            if [ -n "$hits" ]; then
+              echo "::error::不应入库的文件被跟踪: $pat"
+              echo "$hits"
+              fail=1
+            fi
+          done
+          # 必需源码不能被 gitignore 误伤（历史上踩过：/lib/app/private 被忽略）
+          for f in lib/app/private/app_url_utils_private.dart lib/generated/build_time.dart; do
+            if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error::必需源码未被跟踪（可能被 .gitignore 误伤）: $f"
+              fail=1
+            fi
+          done
+          exit $fail

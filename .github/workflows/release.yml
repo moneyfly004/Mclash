@@ -1,0 +1,479 @@
+name: Release (Android / Windows / macOS)
+
+# 触发：
+#   1) push tag（如 v1.0.0）→ 构建并发布到 GitHub Releases
+#   2) workflow_dispatch 手动触发（可填版本号）
+#
+# 需要的仓库 Secrets（Android 正式签名；缺失时回退 debug 签名并打印警告）：
+#   KEYSTORE_BASE64    release.keystore 的 base64
+#   KEYSTORE_PASSWORD  keystore 密码
+#   KEY_ALIAS          密钥别名
+#   KEY_PASSWORD       密钥密码
+#
+#   keytool -genkey -v -keystore release.keystore -alias mclash \
+#     -keyalg RSA -keysize 2048 -validity 10000 -storetype JKS
+#   base64 -i release.keystore | pbcopy   # 填入 KEYSTORE_BASE64
+#
+# 内核策略（详见 docs/design/08）：
+#   · Android：moneyfly004/mihomo-lib 的预编译 libmihomo.aar
+#     （官方 MetaCubeX/mihomo 源码 + gomobile bind，**无 fork**，每日自动跟随官方新版）
+#   · Windows：官方 mihomo-windows-amd64-**compatible**（标准版要求 AVX2，老 CPU 启动即崩）
+#   · macOS arm64：官方 mihomo-darwin-arm64
+#   · macOS x64：官方 mihomo-darwin-amd64-**compatible**（Rosetta/老 Intel 跑不了标准版）
+#   · macOS universal：上面两个 lipo -create 合并
+# 升级内核只需改 MIHOMO_VERSION 一处。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.0.0；留空则用 tag 或 pubspec）'
+        required: false
+        default: ''
+
+env:
+  FLUTTER_VERSION: '3.44.4'   # 与开发机一致，保证构建可复现
+  MIHOMO_VERSION: '1.19.31'   # 内核版本（唯一真源）
+  PUB_HOSTED_URL: 'https://pub.flutter-io.cn'
+  FLUTTER_STORAGE_BASE_URL: 'https://storage.flutter-io.cn'
+
+jobs:
+  # ================= Android：多 ABI 分版本 =================
+  android:
+    name: Android (arm64-v8a / armeabi-v7a / x86_64 / AAB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 离线分流数据（构建时下载，不入库）
+        run: |
+          mkdir -p assets/rules
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
+            -o assets/rules/geosite.dat \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
+            -o assets/rules/country.mmdb \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+          ls -lh assets/rules/
+
+      # libmihomo.aar 约 180MB，从发布仓库秒级下载（不在主仓库现编）
+      - name: 下载 libmihomo.aar
+        run: |
+          mkdir -p packages/libclash_vpn_service/android/libs
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 1800 \
+            -o packages/libclash_vpn_service/android/libs/libmihomo.aar \
+            "https://github.com/moneyfly004/mihomo-lib/releases/download/v$MIHOMO_VERSION/libmihomo.aar"
+          ls -lh packages/libclash_vpn_service/android/libs/libmihomo.aar
+
+      - name: 依赖
+        run: flutter pub get
+
+      - name: 静态检查与测试
+        run: |
+          flutter analyze
+          flutter test --concurrency=1
+
+      - name: 构建多 ABI APK（obfuscate + 保留符号，省约 10% 体积）
+        run: flutter build apk --release --split-per-abi --split-debug-info=build/symbols --obfuscate
+        env:
+          # 必须在此注入，否则 Gradle 读不到 → 每次构建用临时 debug 签名 →
+          # 版本间签名不一致 → 用户无法覆盖升级、必须卸载重装
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: 构建 AAB（应用商店备用）
+        run: flutter build appbundle --release --split-debug-info=build/symbols --obfuscate
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: 重命名产物
+        run: |
+          V="${{ github.event.inputs.version || github.ref_name }}"
+          V="${V#v}"
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/Mclash-android-armeabi-v7a-$V.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk  dist/Mclash-android-arm64-v8a-$V.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk     dist/Mclash-android-x86_64-$V.apk
+          cp build/app/outputs/bundle/release/app-release.aab         dist/Mclash-android-$V.aab
+          cd dist && sha256sum * > SHA256SUMS-android.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mclash-android
+          path: dist/
+
+  # ================= Windows：exe 安装包 + zip 便携版 =================
+  windows:
+    name: Windows (exe 安装包 + zip 便携版)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 依赖
+        run: flutter pub get
+
+      - name: 离线分流数据
+        shell: bash
+        run: |
+          mkdir -p assets/rules
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
+            -o assets/rules/geosite.dat \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
+            -o assets/rules/country.mmdb \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+
+      - name: 下载 mihomo 内核（官方预编译，**compatible** 版）
+        shell: bash
+        run: |
+          mkdir -p build/mihomo
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.zip \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-windows-amd64-compatible-v$MIHOMO_VERSION.zip"
+          unzip -o mihomo.zip -d sb
+          # 官方 zip 内文件名带平台前缀，按扩展名取
+          EXE=$(find sb -iname "*.exe" | head -1)
+          [ -n "$EXE" ] || { echo "zip 内未找到 exe"; exit 1; }
+          cp "$EXE" build/mihomo/mihomo.exe
+          ./build/mihomo/mihomo.exe -v | head -1
+
+      - name: 静态检查与测试（含真实内核 e2e）
+        shell: bash
+        run: |
+          export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo.exe"
+          flutter analyze
+          flutter test --concurrency=1
+
+      - name: 构建 Windows release
+        run: flutter build windows --release
+
+      - name: 内置 mihomo 内核（与 Mclash.exe 同目录）
+        shell: bash
+        run: |
+          RELEASE_DIR="build/windows/x64/runner/Release"
+          cp build/mihomo/mihomo.exe "$RELEASE_DIR/mihomo.exe"
+          ls -la "$RELEASE_DIR/mihomo.exe"
+
+      - name: 安装 Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: 打包（zip 便携版 + exe 安装版）
+        shell: bash
+        run: |
+          V="${INPUT_VERSION:-$GITHUB_REF_NAME}"
+          V="${V#v}"
+          RELEASE_DIR="build/windows/x64/runner/Release"
+          mkdir -p dist
+          WIN_RELEASE_DIR=$(cygpath -w "$(pwd)/$RELEASE_DIR")
+          WIN_DIST=$(cygpath -w "$(pwd)/dist")
+          powershell -Command "Compress-Archive -Path '$WIN_RELEASE_DIR\*' -DestinationPath '$WIN_DIST\Mclash-windows-x64-portable-$V.zip' -Force"
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
+            //DVERSION="$V" //DBUILD_DIR="$WIN_RELEASE_DIR" \
+            windows/packaging/exe/inno_setup.iss
+          cd dist && sha256sum * > SHA256SUMS-windows.txt
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mclash-windows
+          path: dist/
+
+  # ================= macOS arm64（Apple 芯片）=================
+  macos-arm64:
+    name: macOS arm64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 依赖
+        run: flutter pub get
+
+      - name: 离线分流数据
+        run: |
+          mkdir -p assets/rules
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/geosite.dat \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/country.mmdb \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+
+      - name: 下载 mihomo 内核（arm64）
+        run: |
+          mkdir -p build/mihomo
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-arm64-v$MIHOMO_VERSION.gz"
+          gunzip -f mihomo.gz && mv mihomo build/mihomo/mihomo && chmod +x build/mihomo/mihomo
+          ./build/mihomo/mihomo -v | head -1
+
+      - name: 静态检查与测试（含真实内核 e2e）
+        run: |
+          export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
+          flutter analyze
+          flutter test --concurrency=1
+
+      - name: 构建 macOS（arm64）
+        run: flutter build macos --release
+
+      - name: 校验架构
+        run: |
+          lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch arm64
+
+      - name: 内置 mihomo 内核并校验架构
+        run: |
+          APP="build/macos/Build/Products/Release/Mclash.app"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-arm64-v$MIHOMO_VERSION.gz"
+          gunzip -f mihomo.gz && cp mihomo "$APP/Contents/MacOS/mihomo" && chmod +x "$APP/Contents/MacOS/mihomo"
+          lipo "$APP/Contents/MacOS/mihomo" -verify_arch arm64
+
+      - name: 打包 arm64 DMG
+        run: |
+          V="${INPUT_VERSION:-$GITHUB_REF_NAME}"; V="${V#v}"
+          APP="build/macos/Build/Products/Release/Mclash.app"; mkdir -p dist
+          STAGE="build/dmg-stage-arm64"; rm -rf "$STAGE"; mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/Mclash.app"; ln -s /Applications "$STAGE/Applications"
+          [ -f scripts/uninstall_macos.command ] && cp scripts/uninstall_macos.command "$STAGE/uninstall.command" && chmod +x "$STAGE/uninstall.command" || true
+          codesign --force --deep -s - --entitlements macos/Runner/Release.entitlements "$STAGE/Mclash.app" || true
+          hdiutil create -volname Mclash -srcfolder "$STAGE" -ov -format UDZO "dist/Mclash-macos-arm64-$V.dmg"
+          cd dist && shasum -a 256 Mclash-macos-arm64-$V.dmg > SHA256SUMS-macos-arm64.txt
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mclash-macos-arm64
+          path: |
+            dist/Mclash-macos-arm64-*.dmg
+            dist/SHA256SUMS-macos-arm64.txt
+
+  # ================= macOS x64（Intel，Rosetta 整链）=================
+  # 说明：GitHub 公共 Intel runner(macos-13) 队列极长，故 x64 在 Apple Silicon
+  # runner 上用 Rosetta 执行整条 x86_64 构建链（arch -x86_64 flutter build），
+  # 产物为纯 x86_64，快照/引擎自洽（不做 universal→thin 裁剪）。
+  macos-x64:
+    name: macOS x64 (Intel)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 安装 Rosetta 2
+        run: |
+          if ! arch -x86_64 true 2>/dev/null; then
+            softwareupdate --install-rosetta --agree-to-license || true
+          fi
+
+      - name: 依赖
+        run: flutter pub get
+
+      - name: 离线分流数据
+        run: |
+          mkdir -p assets/rules
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/geosite.dat \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/country.mmdb \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+
+      - name: 下载 mihomo 内核（**compatible**，x64）
+        run: |
+          mkdir -p build/mihomo
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-amd64-compatible-v$MIHOMO_VERSION.gz"
+          gunzip -f mihomo.gz && mv mihomo build/mihomo/mihomo && chmod +x build/mihomo/mihomo
+          ./build/mihomo/mihomo -v | head -1
+
+      - name: 静态检查与测试（含真实内核 e2e）
+        run: |
+          export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
+          flutter analyze
+          flutter test --concurrency=1
+
+      - name: 构建 macOS（x64，Rosetta 整链）
+        run: arch -x86_64 flutter build macos --release
+
+      - name: 校验架构
+        run: |
+          lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch x86_64
+
+      - name: 内置 mihomo 内核（compatible）并校验架构
+        run: |
+          APP="build/macos/Build/Products/Release/Mclash.app"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-amd64-compatible-v$MIHOMO_VERSION.gz"
+          gunzip -f mihomo.gz && cp mihomo "$APP/Contents/MacOS/mihomo" && chmod +x "$APP/Contents/MacOS/mihomo"
+          lipo "$APP/Contents/MacOS/mihomo" -verify_arch x86_64
+
+      - name: 打包 x64 DMG
+        run: |
+          V="${INPUT_VERSION:-$GITHUB_REF_NAME}"; V="${V#v}"
+          APP="build/macos/Build/Products/Release/Mclash.app"; mkdir -p dist
+          STAGE="build/dmg-stage-x64"; rm -rf "$STAGE"; mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/Mclash.app"; ln -s /Applications "$STAGE/Applications"
+          [ -f scripts/uninstall_macos.command ] && cp scripts/uninstall_macos.command "$STAGE/uninstall.command" && chmod +x "$STAGE/uninstall.command" || true
+          codesign --force --deep -s - --entitlements macos/Runner/Release.entitlements "$STAGE/Mclash.app" || true
+          hdiutil create -volname Mclash -srcfolder "$STAGE" -ov -format UDZO "dist/Mclash-macos-x64-$V.dmg"
+          cd dist && shasum -a 256 Mclash-macos-x64-$V.dmg > SHA256SUMS-macos-x64.txt
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mclash-macos-x64
+          path: |
+            dist/Mclash-macos-x64-*.dmg
+            dist/SHA256SUMS-macos-x64.txt
+
+  # ================= macOS universal =================
+  macos-universal:
+    name: macOS universal（arm64 + x86_64）
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 依赖
+        run: flutter pub get
+
+      - name: 离线分流数据
+        run: |
+          mkdir -p assets/rules
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/geosite.dat \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/country.mmdb \
+            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+
+      - name: 下载 mihomo 内核（测试用 arm64）
+        run: |
+          mkdir -p build/mihomo
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-arm64-v$MIHOMO_VERSION.gz"
+          gunzip -f mihomo.gz && mv mihomo build/mihomo/mihomo && chmod +x build/mihomo/mihomo
+
+      - name: 静态检查与测试（含真实内核 e2e）
+        run: |
+          export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
+          flutter analyze
+          flutter test --concurrency=1
+
+      - name: 构建 macOS release（Flutter 直出 universal）
+        run: flutter build macos --release
+
+      - name: 校验双架构
+        run: |
+          lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch arm64 x86_64
+
+      - name: 内置 mihomo 内核（universal：arm64 + amd64-compatible）
+        run: |
+          APP="build/macos/Build/Products/Release/Mclash.app"
+          mkdir -p sb && cd sb
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo-arm64.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-arm64-v$MIHOMO_VERSION.gz"
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo-x64.gz \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-amd64-compatible-v$MIHOMO_VERSION.gz"
+          gunzip -f mihomo-arm64.gz mihomo-x64.gz
+          lipo -create mihomo-arm64 mihomo-x64 -output mihomo
+          chmod +x mihomo
+          cd ..
+          cp sb/mihomo "$APP/Contents/MacOS/mihomo"
+          chmod +x "$APP/Contents/MacOS/mihomo"
+          lipo "$APP/Contents/MacOS/mihomo" -verify_arch arm64 x86_64
+
+      - name: 打包 universal DMG
+        run: |
+          V="${INPUT_VERSION:-$GITHUB_REF_NAME}"; V="${V#v}"
+          APP="build/macos/Build/Products/Release/Mclash.app"; mkdir -p dist
+          STAGE="build/dmg-stage-universal"; rm -rf "$STAGE"; mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/Mclash.app"; ln -s /Applications "$STAGE/Applications"
+          [ -f scripts/uninstall_macos.command ] && cp scripts/uninstall_macos.command "$STAGE/uninstall.command" && chmod +x "$STAGE/uninstall.command" || true
+          codesign --force --deep -s - --entitlements macos/Runner/Release.entitlements "$STAGE/Mclash.app" || true
+          hdiutil create -volname Mclash -srcfolder "$STAGE" -ov -format UDZO "dist/Mclash-macos-universal-$V.dmg"
+          cd dist && shasum -a 256 Mclash-macos-universal-$V.dmg > SHA256SUMS-macos-universal.txt
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mclash-macos-universal
+          path: |
+            dist/Mclash-macos-universal-*.dmg
+            dist/SHA256SUMS-macos-universal.txt
+
+  # ================= 发布 =================
+  release:
+    name: 发布到 GitHub Releases
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [android, windows, macos-arm64, macos-x64, macos-universal]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: 创建 Release 并上传产物
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          # 必须为 true：App 的更新检查读 /releases/latest，
+          # 若被同仓库里更晚发布但内容更旧的 release 占着，用户会更新到缺修复的包
+          make_latest: true
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          body: |
+            # Mclash ${{ github.ref_name }}
+
+            ## 安装包与系统要求
+            - **Android**: `Mclash-android-{arm64-v8a|armeabi-v7a|x86_64}.apk` + `.aab`（Android 8.0+）
+            - **Windows**: `Mclash-setup-*.exe` 安装版 + `Mclash-windows-x64-portable-*.zip`（Windows 10+）
+            - **macOS arm64**（Apple 芯片 / M 系列）: `Mclash-macos-arm64-*.dmg` — 需 **macOS 11+**
+            - **macOS x64**（Intel）: `Mclash-macos-x64-*.dmg` — 需 **macOS 10.15+**（建议 11+）
+            - **macOS universal**: `Mclash-macos-universal-*.dmg`（同时支持两种芯片）
+
+            ⚠️ **各架构安装包均为原生编译、内置匹配架构内核，请勿跨架构混装。**
+            Intel Mac 使用 `compatible` 内核（标准版要求 AVX2 指令集，老机器会启动即崩溃）。
+
+            ## 内核
+            官方 [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) v${{ env.MIHOMO_VERSION }}
+            （Android 经 [moneyfly004/mihomo-lib](https://github.com/moneyfly004/mihomo-lib) gomobile 预编译，**无 fork**）。
+
+            ## 校验
+              shasum -a 256 -c SHA256SUMS-*.txt

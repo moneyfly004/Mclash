@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Mclash 桌面端不使用 NetworkExtension（无 packet-tunnel-provider /
+	     system-extension.install），而是 spawn 官方 mihomo 子进程 + 调 networksetup
+	     设系统代理。因此：
+	       · 必须关闭 App Sandbox（沙盒禁止进程派生与 systemconfiguration 访问）
+	       · 必须允许 network client/server（本地混合代理监听 + 内核 API）
+	     本应用经 DMG 分发（非 Mac App Store），关闭沙盒是合规的。 -->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<!-- mihomo 子进程是 ad-hoc 签名的，需要关闭库校验才能加载 -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.top.moneyfly.mclash</string>
+	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)top.moneyfly.mclash</string>
+	</array>
+</dict>
+</plist>

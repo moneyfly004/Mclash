@@ -25,11 +25,9 @@ flutter:
       android:
         package: top.moneyfly.vpnservice
         pluginClass: VpnServicePlugin
-      windows:
-        # 桌面端完全由 Dart 实现（mihomo 子进程 + 系统代理），
-        # 无需原生服务二进制；这里只声明平台以便 Flutter 生成注册代码。
-        dartPluginClass: DesktopVpnServiceImpl
-      macos:
-        dartPluginClass: DesktopVpnServiceImpl
-      linux:
-        dartPluginClass: DesktopVpnServiceImpl
+      # 桌面端（windows/macos/linux）故意不在这里声明。
+      # 桌面实现完全由 Dart 负责（mihomo 子进程 + 系统代理），注册走显式调用：
+      # lib/main.dart 的 registerMclashVpnService()（原因见 lib/libclash_vpn_service.dart）。
+      # 一旦声明 dartPluginClass，Flutter 的 dart_plugin_registrant 会生成
+      # `DesktopVpnServiceImpl.registerWith()` 调用，而该类是 VpnServicePlatform 的
+      # 子类、并没有该静态方法 → kernel_snapshot 编译失败，任何平台都构建不了。

@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.nebula.mclash</string>
+		<string>group.top.moneyfly.mclash</string>
 	</array>
 </dict>
 </plist>

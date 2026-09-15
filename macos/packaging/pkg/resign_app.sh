@@ -26,7 +26,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 APP_NAME="Mclash"
 APP_BUNDLE_NAME="${APP_NAME}.app"
 ARTIFACT_NAME_PREFIX="mclash"
-PKG_IDENTIFIER="com.nebula.mclash.pkg"
+PKG_IDENTIFIER="top.moneyfly.mclash.pkg"
 
 APP_SIGN_IDENTITY="Developer ID Application: SUPERNOVA NEBULA LLC (TNPM9PFX3W)"
 INSTALLER_SIGN_IDENTITY="Developer ID Installer: SUPERNOVA NEBULA LLC (TNPM9PFX3W)"

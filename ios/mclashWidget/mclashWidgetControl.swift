@@ -12,9 +12,9 @@ import WidgetKit
 import NetworkExtension
 
 struct mclashWidgetControl: ControlWidget {
-    public static let controlKind: String = "com.nebula.mclash.mclashWidget.ControlCenterToggle"
-    private static let bundleIdentifier = "com.nebula.mclash.mclashService"
-    private static let groupIdentifier = "group.com.nebula.mclash"
+    public static let controlKind: String = "top.moneyfly.mclash.mclashWidget.ControlCenterToggle"
+    private static let bundleIdentifier = "top.moneyfly.mclash.mclashService"
+    private static let groupIdentifier = "group.top.moneyfly.mclash"
     private static let defaultSharedDirectory: URL! = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)!
     public static let configFile = defaultSharedDirectory.appendingPathComponent("service.json", isDirectory: false)
     public init(){
@@ -53,7 +53,7 @@ extension mclashWidgetControl {
                 ControlCenter.shared.reloadControls(ofKind: mclashWidgetControl.controlKind)
                 //WidgetCenter.shared.reloadAllTimelines()
             },
-            "com.nebula.mclash.vpn.statusChanged" as CFString,
+            "top.moneyfly.mclash.vpn.statusChanged" as CFString,
             nil,
             .deliverImmediately
         )
