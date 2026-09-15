@@ -92,6 +92,10 @@ jobs:
           rm -rf build/app/intermediates/shrunk_resources_proto_format || true
           flutter build appbundle --release --split-debug-info=build/symbols --obfuscate
         env:
+          # 关掉 Gradle 的 ABI splits：否则 bundleRelease 会因为目录里有多份
+          # shrunk-resources 而失败（AGP 402800800）。Gradle 会把
+          # ORG_GRADLE_PROJECT_xxx 自动映射成项目属性 xxx，见 build.gradle.kts。
+          ORG_GRADLE_PROJECT_disableAbiSplits: "true"
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -185,8 +189,22 @@ jobs:
           WIN_RELEASE_DIR=$(cygpath -w "$(pwd)/$RELEASE_DIR")
           WIN_DIST=$(cygpath -w "$(pwd)/dist")
           powershell -Command "Compress-Archive -Path '$WIN_RELEASE_DIR\*' -DestinationPath '$WIN_DIST\Mclash-windows-x64-portable-$V.zip' -Force"
+          # inno_setup.iss 是 flutter_distributor 的模板，里面是 {{占位符}}。
+          # 之前直接调 ISCC 只传了 VERSION/BUILD_DIR，于是 SetupIconFile 之类
+          # 变成字面量 "{{SETUP_ICON_FILE}}" → Inno 报「系统找不到指定的文件」，
+          # Windows 安装包整个作业红。这里把模板需要的占位符全部 /D 传进去。
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
-            //DVERSION="$V" //DBUILD_DIR="$WIN_RELEASE_DIR" \
+            //DAPP_ID="74F1C307-2E21-4951-BB25-763C3A2AE9EF" \
+            //DAPP_VERSION="$V" \
+            //DDISPLAY_NAME="Mclash" \
+            //DPUBLISHER_NAME="MoneyFly" \
+            //DPUBLISHER_URL="https://new.moneyfly.top" \
+            //DEXECUTABLE_NAME="mclash.exe" \
+            //DOUTPUT_BASE_FILENAME="Mclash-setup-$V" \
+            //DSETUP_ICON_FILE="$(cygpath -w "$(pwd)/windows/runner/resources/app_icon.ico")" \
+            //DSOURCE_DIR="$WIN_RELEASE_DIR" \
+            //DBUILD_DIR="$WIN_RELEASE_DIR" \
+            //DVERSION="$V" \
             windows/packaging/exe/inno_setup.iss
           cd dist && sha256sum * > SHA256SUMS-windows.txt
         env:

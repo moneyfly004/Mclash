@@ -98,10 +98,19 @@ android {
         }
     }
 
-    // 多 ABI 分版本：三档 APK + universal
+    // 多 ABI 分版本：三档 APK + universal。
+    //
+    // ⚠️ 构建 AAB 时必须关掉：AGP 的 bundleRelease 在 splits 打开时会在
+    // build/app/intermediates/shrunk_resources_proto_format/.../ 下发现多个
+    // shrunk-resources 文件并直接失败
+    // （「Multiple shrunk-resources files found ... Please disable building multiple
+    //   APKs when building an Android app bundle」，issuetracker 402800800）。
+    // 应用商店的 AAB 本来就要求单一产物，所以由 CI 传
+    // `ORG_GRADLE_PROJECT_disableAbiSplits=true`（Gradle 会自动映射为项目属性），
+    // 本地默认行为不变。
     splits {
         abi {
-            isEnable = true
+            isEnable = !project.hasProperty("disableAbiSplits")
             isUniversalApk = true
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86_64")
