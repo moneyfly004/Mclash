@@ -202,7 +202,12 @@ jobs:
           ISSPP_ICON="$ICON_W" \
           ISSPP_VERSION="$V" \
           python3 - <<'PYEOF'
-          import os, pathlib
+          import os, pathlib, sys
+
+          # Windows runner 的控制台是 cp1252：不重配就打印非 ASCII 会直接
+          # UnicodeEncodeError（这个坑在 fetch_*.sh 里已经踩过一次）。
+          sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+          sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
           tpl = pathlib.Path("windows/packaging/exe/inno_setup.iss").read_text(
               encoding="utf-8"
@@ -225,11 +230,11 @@ jobs:
           tpl = tpl.replace("OutputDir=.", "OutputDir=%s" % os.environ["ISSPP_DIST"])
           left = [l for l in tpl.splitlines() if "{{" in l]
           if left:
-              raise SystemExit("模板里还有未替换的占位符: %s" % left)
+              raise SystemExit("unresolved placeholders in iss template: %s" % left)
           out = pathlib.Path("build/inno_run.iss")
           out.parent.mkdir(parents=True, exist_ok=True)
           out.write_text(tpl, encoding="utf-8")
-          print("已生成", out)
+          print("generated:", out)
           PYEOF
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "$(cygpath -w "$(pwd)/build/inno_run.iss")"
           cd dist && sha256sum * > SHA256SUMS-windows.txt
