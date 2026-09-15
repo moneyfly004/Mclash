@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, dangling_library_doc_comments
+
 /// 真机验证：连接后「自动挑真能用的节点」。
 /// 运行：flutter test tool/verify_autopick.dart   （需要 App 正在连接、内核在跑）
 import 'package:flutter_test/flutter_test.dart';

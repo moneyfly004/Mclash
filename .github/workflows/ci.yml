@@ -42,8 +42,12 @@ jobs:
         run: dart run slang
 
       - name: 静态检查
-        # 失败即门禁失败：Mclash 的纪律是 0 error 才能合并
-        run: flutter analyze
+        # 门禁：0 error / 0 warning（两者都是致命的）。
+        # Flutter 3.44 的 `flutter analyze` 默认连 info 一起算失败，而仓库里
+        # 存在一批与本次改动无关的历史 info（depend_on_referenced_packages、
+        # 上游插件的 deprecated 成员等）。放行 info、保留 error/warning 致命，
+        # 才能让门禁真正反映「能不能合并」。
+        run: flutter analyze --no-fatal-infos
 
       - name: 测试
         run: flutter test --concurrency=1

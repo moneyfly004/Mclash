@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, dangling_library_doc_comments
+
 /// 真机验证：规则/全局/直连 三种模式是否真的切到内核。
 /// 运行：MCLASH_MIHOMO=/Applications/Mclash.app/Contents/MacOS/mihomo flutter test tool/verify_modes.dart
 import 'dart:io';

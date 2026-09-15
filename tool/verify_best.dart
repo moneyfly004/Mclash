@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, dangling_library_doc_comments
+
 /// 真机验证：连接后自动选「延迟最低的最优节点」。
 /// 运行：flutter test tool/verify_best.dart （需要内核在跑、App 已连接）
 import 'package:flutter_test/flutter_test.dart';

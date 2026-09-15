@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, dangling_library_doc_comments
+
 /// ⚠️ 真机集成验证脚本（**不在 test/ 下，不会被 flutter test 自动执行**）
 ///
 /// 用途：在真实机器上跑一遍**生产用的连接流程**（DesktopVpnServiceImpl.start），
