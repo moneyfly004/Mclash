@@ -60,15 +60,7 @@ jobs:
           java-version: '21'
 
       - name: 离线分流数据（构建时下载，不入库）
-        run: |
-          mkdir -p assets/rules
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
-            -o assets/rules/geosite.dat \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
-            -o assets/rules/country.mmdb \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
-          ls -lh assets/rules/
+        run: bash tool/fetch_geodata.sh
 
       # libmihomo.aar 约 180MB，从发布仓库秒级下载（不在主仓库现编）
       - name: 下载 libmihomo.aar
@@ -139,26 +131,18 @@ jobs:
 
       - name: 离线分流数据
         shell: bash
-        run: |
-          mkdir -p assets/rules
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
-            -o assets/rules/geosite.dat \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 \
-            -o assets/rules/country.mmdb \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+        run: bash tool/fetch_geodata.sh
 
       - name: 下载 mihomo 内核（官方预编译，**compatible** 版）
         shell: bash
+        env:
+          MIHOMO_VERSION: ${{ env.MIHOMO_VERSION }}
         run: |
-          mkdir -p build/mihomo
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.zip \
-            "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-windows-amd64-compatible-v$MIHOMO_VERSION.zip"
-          unzip -o mihomo.zip -d sb
-          # 官方 zip 内文件名带平台前缀，按扩展名取
-          EXE=$(find sb -iname "*.exe" | head -1)
-          [ -n "$EXE" ] || { echo "zip 内未找到 exe"; exit 1; }
-          cp "$EXE" build/mihomo/mihomo.exe
+          # 走工具脚本而不是内联 curl：脚本里有 zip 完整性 + PE 架构校验
+          # （内联版本只解压不校验，错误架构的产物会潜伏到用户机器才闪退）。
+          bash tool/fetch_mihomo.sh --target windows "$MIHOMO_VERSION"
+          # 再补一次「在 Windows 上真的能跑起来」的验证 —— 这是 CI 独有的优势，
+          # 交叉编译环境做不了，所以脚本里没有。
           ./build/mihomo/mihomo.exe -v | head -1
 
       - name: 静态检查与测试（含真实内核 e2e）
@@ -220,11 +204,7 @@ jobs:
 
       - name: 离线分流数据
         run: |
-          mkdir -p assets/rules
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/geosite.dat \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/country.mmdb \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+          bash tool/fetch_geodata.sh
 
       - name: 下载 mihomo 内核（arm64）
         run: |
@@ -307,11 +287,7 @@ jobs:
 
       - name: 离线分流数据
         run: |
-          mkdir -p assets/rules
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/geosite.dat \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/country.mmdb \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+          bash tool/fetch_geodata.sh
 
       - name: 下载 mihomo 内核（**compatible**，x64）
         run: |
@@ -385,11 +361,7 @@ jobs:
 
       - name: 离线分流数据
         run: |
-          mkdir -p assets/rules
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/geosite.dat \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat"
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 300 -o assets/rules/country.mmdb \
-            "https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/country.mmdb"
+          bash tool/fetch_geodata.sh
 
       - name: 下载 mihomo 内核（测试用 arm64）
         run: |
