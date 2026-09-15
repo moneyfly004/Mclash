@@ -59,13 +59,17 @@ class _FakeResponse extends Stream<List<int>> implements HttpClientResponse {
 class _FakeRequest implements HttpClientRequest {
   _FakeRequest(this.method, this.uri, this.client);
 
+  @override
   final String method;
+
+  @override
   final Uri uri;
+
   final _FakeHttpClient client;
-  final _FakeHeaders headers = _FakeHeaders();
   final List<int> body = [];
 
-  HttpHeaders get headers2 => headers;
+  @override
+  final _FakeHeaders headers = _FakeHeaders();
 
   @override
   void add(List<int> data) => body.addAll(data);
