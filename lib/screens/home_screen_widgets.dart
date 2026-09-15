@@ -26,8 +26,8 @@ import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
-import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
+import 'package:mclash/screens/mclash_node_picker_sheet.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/segmented_elevated_button.dart';
 import 'package:flutter/material.dart';
@@ -104,6 +104,15 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   @override
   void dispose() {
+    // 这两个定时器必须在这里取消：周期性状态检查（1s）会一直跑下去并持有
+    // 已销毁的 State（测试里直接暴露成 "Pending timers"）。
+    _timerStateChecker?.cancel();
+    _timerStateChecker = null;
+    _timerConnectToCore?.cancel();
+    _timerConnectToCore = null;
+    _trafficSpeed.dispose();
+    _trafficTotal.dispose();
+    _proxyNow.dispose();
     VPNService.onEventStateChanged.remove(_onStateChanged);
     AppLifecycleStateNofity.onStateResumed(hashCode, null);
     AppLifecycleStateNofity.onStatePaused(hashCode, null);
@@ -261,7 +270,12 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             const SizedBox(height: 12),
 
             InkWell(
-              onTap: () => MainTabController.instance?.setTab(1),
+              // 用户反馈：点这一行会跳到「节点列表」整页，很打断操作。
+              // 主页只需要「就地换节点」，所以改为弹层（完整列表仍有明确入口）。
+              onTap: () => showMclashNodePickerSheet(
+                context,
+                current: _proxyNow.value,
+              ),
               child: Row(
                 children: [
                   const Icon(

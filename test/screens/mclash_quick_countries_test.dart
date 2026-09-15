@@ -7,6 +7,7 @@ import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
+import 'package:mclash/screens/main_tab_shell.dart';
 
 /// 主页「快速筛选国家」的两条产品要求 + 一条交互要求：
 ///
@@ -42,9 +43,15 @@ void main() {
       ..online = true,
   ];
 
+  late List<int> tabSwitches;
+
   setUp(() {
     MclashNodesStore.instance.debugResetLoadState();
     MclashNodesStore.instance.debugSetNodes(sample, loading: false);
+    // 主页上的快捷操作**不应该**把用户甩到别的标签页（用户反馈的原话：
+    // 点国家会跳到节点列表整页）。这里用控制器记录是否被切过标签。
+    tabSwitches = [];
+    MainTabController(tabSwitches.add);
   });
 
   tearDown(() {
@@ -158,6 +165,38 @@ void main() {
       find.textContaining("已切换到 香港 最快节点"),
       findsOneWidget,
       reason: '切了必须有反馈，用户才知道生效了',
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('点国家不再跳到「节点列表」整页（主页自己的独立选项）', (tester) async {
+    final writes = <String>[];
+    final proxies = [
+      ClashProxiesNode()
+        ..name = "🚀 节点选择"
+        ..type = "Selector"
+        ..all = ["🇭🇰 香港 02"]
+        ..now = "🇭🇰 香港 01",
+    ];
+    MclashNodeSelector.debugProxiesOverride = () async => proxies;
+    MclashNodeSelector.debugSetNodeOverride = (group, node) async {
+      writes.add("$group->$node");
+      return null;
+    };
+    ClashSettingManager.debugSetMode("global");
+
+    await pump(tester);
+    await tester.tap(chip("HK"));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(writes, ["GLOBAL->🇭🇰 香港 02"], reason: '仍然要真的切到该国最快节点');
+    expect(
+      tabSwitches,
+      isEmpty,
+      reason: '点国家是主页自己的动作，不能把人切到「节点列表」页',
     );
 
     await tester.pumpWidget(const SizedBox.shrink());

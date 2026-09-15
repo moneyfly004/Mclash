@@ -205,11 +205,10 @@ class MclashQuickCountries extends StatelessWidget {
     MclashNodesStore store,
     String code,
   ) async {
-    // 1) 列表按国家筛选（并跳到节点页），这是「筛选」
-    store.requestCountryFilter(code);
-    MainTabController.instance?.setTab(1);
-
-    // 2) 真正切到该国最快的节点（全局模式下会写到内核 GLOBAL）
+    // 只做「切到该国最快节点」这一件事，并且**留在主页**：
+    // 用户反馈点国家会跳到节点列表整页，他想要的是主页自己的独立选项。
+    // （也不再顺手改节点列表的筛选条件 —— 那属于「节点列表」页自己的状态，
+    //   主页点一下却让另一个页面变样子，同样是意外行为。）
     final node = store.preferredNodeOfCountry(code);
     if (node == null) {
       return;
