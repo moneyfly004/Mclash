@@ -16,7 +16,6 @@ import 'package:tuple/tuple.dart';
 typedef DecodeCallback = String Function(String);
 
 abstract final class HttpUtils {
-  static const String _proxy = "PROXY 127.0.0.1:8888";
   static const String kStatusError = "http statusCode:";
   static bool isStatusError(ReturnResultError error) {
     return error.message.contains(kStatusError);

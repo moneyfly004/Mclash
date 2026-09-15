@@ -24,7 +24,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/mclash_login_screen.dart';
 
@@ -91,8 +93,10 @@ class _MclashGateState extends State<MclashGate> {
     }
     setState(() => _loggedIn = now);
     if (now) {
-      // 登录后立刻启动账号状态轮询（受限/过期要能及时反映到首页开关）
-      MclashAccountService.instance.start();
+      _onLoggedIn();
+    } else {
+      // 登出：清掉账号订阅档，避免下一个账号看到上一个账号的节点
+      MclashSubscriptionService.purgeAccountProfiles();
     }
   }
 
@@ -106,8 +110,19 @@ class _MclashGateState extends State<MclashGate> {
     }
     setState(() => _loggedIn = ok);
     if (ok) {
-      MclashAccountService.instance.start();
+      _onLoggedIn();
     }
+  }
+
+  /// 已登录时要做的事：启动账号状态轮询 + **自动拉取账号订阅**。
+  ///
+  /// 订阅这一步是 Mclash 的核心：没有它，主页就没有到期时间/设备数，
+  /// 连接也没有可用配置。放在门禁这里做，是为了保证「登录成功」与
+  /// 「冷启动已登录」两条路径都会执行，不依赖某个页面被打开。
+  void _onLoggedIn() {
+    Log.i("MclashGate: _onLoggedIn");
+    MclashAccountService.instance.start();
+    MclashSubscriptionService.sync();
   }
 
   @override

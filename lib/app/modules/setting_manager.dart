@@ -16,7 +16,6 @@ import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/text_field.dart';
 
-import 'package:libclash_vpn_service/proxy_manager.dart';
 
 class SettingConfigItemUI {
   String theme = ThemeDefine.kThemeLight;
@@ -129,6 +128,15 @@ class SettingConfig {
   static const String kDefaultDelayTestUrl =
       "https://www.gstatic.com/generate_204";
   String languageTag = "";
+
+  /// 首次运行的「语言选择」步骤是否已完成。
+  ///
+  /// 为什么不复用 [languageTag] 判断：`parseConfig()` 在首次运行时也会
+  /// **从系统语言推导并写回** languageTag（见该函数），所以它启动后永不为空，
+  /// 无法用来区分「用户选过语言」和「跟随系统」。必须有独立的标记。
+  ///
+  /// 默认 false：全新安装先走语言选择，再进登录页。
+  bool setupDone = false;
   SettingConfigItemUI ui = SettingConfigItemUI();
   SettingConfigItemWebDev webdav = SettingConfigItemWebDev();
   bool devMode = false;
@@ -156,6 +164,7 @@ class SettingConfig {
 
   Map<String, dynamic> toJson() => {
     'language_tag': languageTag,
+    'setup_done': setupDone,
     'ui': ui,
     'webdav': webdav,
     'alway_on': alwayOn,
@@ -184,6 +193,7 @@ class SettingConfig {
     }
 
     languageTag = map["language_tag"] ?? "";
+    setupDone = map["setup_done"] ?? false;
     ui = SettingConfigItemUI.fromJsonStatic(map["ui"]);
     webdav = SettingConfigItemWebDev.fromJsonStatic(map["webdav"]);
     alwayOn = map["alway_on"] ?? false;

@@ -21,7 +21,6 @@ import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/mclash_forgot_password_screen.dart';
 import 'package:mclash/screens/mclash_register_screen.dart';
-import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
 

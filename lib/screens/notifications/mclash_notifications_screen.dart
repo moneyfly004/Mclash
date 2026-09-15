@@ -130,11 +130,25 @@ class _MclashNotificationsScreenState
                           style: const TextStyle(color: Colors.red),
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        itemCount: _items.length,
-                        itemBuilder: (_, i) => _buildNotice(_items[i]),
-                      ),
+                    // _loading 之前只被赋值、从未被读取，于是加载期间直接渲染空列表 ——
+                    // 用户看到一屏空白，会以为「没有通知」而不会知道还在加载。
+                    // 现在先把加载态显示出来，并且只在列表为空时占位，
+                    // 避免刷新时把已有内容替换成转圈（那样更烦人）。
+                    : (_loading && _items.isEmpty)
+                        ? const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: RepaintBoundary(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            itemCount: _items.length,
+                            itemBuilder: (_, i) => _buildNotice(_items[i]),
+                          ),
               ),
             ],
           ),

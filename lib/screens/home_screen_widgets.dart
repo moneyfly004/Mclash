@@ -464,24 +464,15 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                   ),
                 ),
               ],
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: InkWell(
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        settings: ProfilesBoardScreen.routeSettings(),
-                        builder: (context) =>
-                            ProfilesBoardScreen(navigateToAdd: true),
-                      ),
-                    );
-                    setState(() {});
-                  },
-                  child: Icon(Icons.add, size: 30),
-                ),
-              ),
+              // 这里原本有一个「+」按钮，点了进「添加配置」（手动填订阅链接/粘贴内容）。
+              //
+              // Mclash 的产品模型是「客户不需要导入订阅，订阅从后台按账号拉取」，
+              // 所以这个入口已按设计移除：登录成功后由
+              // `MclashSubscriptionService` 自动建档并刷新，用户不需要也不应该
+              // 自己填订阅地址（填错、填到别人的链接，都是只有坏处的自由度）。
+              //
+              // 手动导入的能力仍保留在「开发者选项」里（Clash Mi 的面板导入链路），
+              // 只是不再暴露在主页第一屏。
               Icon(Icons.keyboard_arrow_right, size: 20),
             ],
           ),

@@ -196,11 +196,12 @@ class BoardClientOptions {
 
 /// XBoard 兼容客户端核心。三个"面板类型"共用这一份实现。
 class BoardApiClient {
-  BoardApiClient(this.options)
-      : _base = options.baseUrl.replaceAll(RegExp(r'/+$'), '');
+  // 这里原先还有一个 `_base` 字段（构造时净化 options.baseUrl），但它从未被读取 ——
+  // 真正生效的是下面的 `baseUrl` getter（_baseUrlOverride ?? options.baseUrl）。
+  // 分析器报 unused_field，已删除字段与对应初始化式。
+  BoardApiClient(this.options);
 
   final BoardClientOptions options;
-  final String _base;
 
   String? proxyUrl;
   String userAgent = "";

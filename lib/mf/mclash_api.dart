@@ -30,19 +30,64 @@ export 'package:mclash/mf/cboard_client.dart'
 class MclashApi {
   MclashApi._();
 
-  static CBoardClient _client = CBoardClient();
+  /// 后台地址可用 `--dart-define=MCLASH_API_BASE=...` 覆盖。
+  ///
+  /// 为什么要留这个口子：本地联调与预发环境不该靠改源码切地址
+  /// （改源码既有误提交风险，也没法在同一份代码上并存两套环境）。
+  /// 空值表示走 [CBoardClient.kCBoardDefaultBaseUrl] 的正式域名。
+  static const String _baseUrlOverride =
+      String.fromEnvironment("MCLASH_API_BASE", defaultValue: "");
+
+  static CBoardClient _client = CBoardClient(
+    baseUrl: _baseUrlOverride.isEmpty ? null : _baseUrlOverride,
+  );
   static bool _restored = false;
 
   /// 底层客户端（需要用到本门面未封装的方法时用）。
   static CBoardClient get client => _client;
 
-  /// 进程启动时恢复登录态。幂等。
-  static Future<bool> restore() async {
+  /// 进程启动时恢复登录态。幂等，且**并发安全**。
+  ///
+  /// ## 这里踩过一个很隐蔽的启动竞态（务必保持单飞）
+  ///
+  /// 原实现是：
+  ///     if (_restored) return isLoggedIn;
+  ///     _restored = true;                 // ← 先置位
+  ///     final ok = await _client.restore(); // ← 再 await（读 keychain，实测要 ~4 秒）
+  ///
+  /// 问题在于 `_restored` 在 await **之前**就置位了。启动时有两个调用方：
+  ///   · main.dart 里那段非 async 作用域的 `restore().then(...)`
+  ///   · MclashGate.initState 里的 `restore()`
+  /// main 先调用并把 `_restored` 置为 true 后开始 await；门禁紧接着调用，
+  /// 看到 `_restored == true` 就直接返回 `isLoggedIn` —— 而此时 keychain 还没读完，
+  /// `_client._session` 仍是 null，于是**返回 false**。
+  ///
+  /// 实测日志（同一个进程内，相隔 4 秒）：
+  ///     MclashGate: restore 完成 ok=false
+  ///     MclashApi.restore -> 已登录          ← main 那次这时才回来
+  ///
+  /// 后果不是"偶尔闪一下登录页"那么轻：
+  ///   · 门禁判定未登录 → 走登录页，`_onLoggedIn()` **永不执行**
+  ///   · 于是**自动拉取订阅整条链路被跳过** → 主页没有到期时间/设备数
+  ///   · 「节点列表 / 套餐购买 / 我的」三个 Tab 都没有账号数据可显示
+  /// 即用户实测到的「登录进去了但什么都没拉取到」。
+  ///
+  /// 修法与其他几处一致：**共享同一个 in-flight Future**（单飞），
+  /// 让并发调用者 await 同一次结果，而不是各自看到半成品状态。
+  static Future<bool>? _restoreInflight;
+
+  static Future<bool> restore() {
     if (_restored) {
-      return isLoggedIn;
+      return Future.value(isLoggedIn);
     }
-    _restored = true;
+    return _restoreInflight ??=
+        _doRestore().whenComplete(() => _restoreInflight = null);
+  }
+
+  static Future<bool> _doRestore() async {
     final ok = await _client.restore();
+    // 只有真正读完凭据才置位，之后才允许走上面的快速路径
+    _restored = true;
     Log.i("MclashApi.restore -> ${ok ? "已登录" : "未登录"}");
     return ok;
   }

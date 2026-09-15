@@ -2,7 +2,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -51,7 +50,6 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = Translations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: PreferredSize(preferredSize: Size.zero, child: AppBar()),

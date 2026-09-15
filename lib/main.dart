@@ -475,16 +475,13 @@ class MyAppState extends State<MyApp>
     }
   }
 
-  @override
-  void onWindowDeviceShutdown() {
-    Log.d("main.dart onWindowDeviceShutdown");
-    _quit();
-  }
-
-  @override
-  void onWindowUserSessionDisconnect() {
-    Log.d("main.dart onWindowUserSessionDisconnect");
-  }
+  // 说明：这里原本还有两个 @override —— onWindowDeviceShutdown /
+  // onWindowUserSessionDisconnect，它们来自 KaringX 对 window_manager 的
+  // 私有 fork（本项目的依赖已全部换回 pub.dev 版本）。
+  // window_manager 0.5.0 的 WindowListener **没有这两个钩子**，
+  // 所以它们从来不会被调用（分析器报 override_on_non_overriding_member）。
+  // 保留"看似有实现"的假钩子比没有更糟 —— 会让人以为设备关机/会话断开时
+  // 已经做了优雅退出。已删除；正常退出路径走 onWindowClose（该钩子存在且已接）。
 
   void firstShowWindow(bool forceShow) {
     if (!PlatformUtils.isPC()) {
