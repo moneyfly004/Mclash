@@ -1,10 +1,9 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:mclash/app/clash/clash_config.dart';
-import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node.dart';
+import 'package:mclash/mf/mclash_node_sort.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
@@ -72,7 +71,12 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
 
   List<MclashNode> get _visible {
     final q = _query.trim().toLowerCase();
-    return MclashNodesStore.instance.nodes.where((n) {
+    final matched = MclashNodesStore.instance.nodes.where((n) {
+      // 内核内置的 GLOBAL / DIRECT / REJECT 这类伪目标不是「能选的节点」，
+      // 不该出现在选择列表里（用户明确要求：不要看到 global）。
+      if (isInternalProxyName(n.name)) {
+        return false;
+      }
       if (_country != null && (n.countryCode ?? "XX") != _country) {
         return false;
       }
@@ -81,6 +85,8 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
       }
       return true;
     }).toList();
+    // **永远**按延迟升序：延迟最低的排最前（用户要求，不再需要手动点排序）
+    return sortNodesByLatency(matched);
   }
 
   Future<void> _pick(MclashNode node) async {
@@ -111,9 +117,6 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
     final store = MclashNodesStore.instance;
     final latency = store.bestLatencyByCountry;
     final visible = _visible;
-    // 全局模式下写入的是内核 GLOBAL，提示一下用户，免得以为「没生效」
-    final globalMode =
-        ClashSettingManager.getConfigsMode() == ClashConfigsMode.global;
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.72,
@@ -140,24 +143,13 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (globalMode)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: ThemeDefine.kColorGrey, width: 0.6),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      "全局模式",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ThemeDefine.kColorGrey,
-                      ),
-                    ),
+                const Text(
+                  "按延迟排序",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ThemeDefine.kColorGrey,
                   ),
+                ),
                 const Spacer(),
                 if (_switching)
                   const Padding(

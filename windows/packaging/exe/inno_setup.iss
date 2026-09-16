@@ -79,11 +79,27 @@ Name: "{autodesktop}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}";
 ; The [Files] section automatically handles deletion of installed files
 Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\.sentry-native"
+; 运行期数据目录（App 的全部落点）：%APPDATA%\mclash\mclash
+; （path_provider 用 CompanyName/ProductName，两个都是 mclash）
+Type: filesandordirs; Name: "{userappdata}\mclash"
+Type: filesandordirs; Name: "{localappdata}\mclash"
+Type: filesandordirs; Name: "{localappdata}\Mclash"
 
 
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\unins000.dat"
 Type: filesandordirs; Name: "{app}\unins000.exe"
+
+[UninstallRun]
+; 卸载前先把运行中的 App 与内核停掉（否则文件被占用，删不干净），
+; 再清掉「开机自启」计划任务、防火墙规则和 HKCU 启动项 ——
+; 这些都不在安装目录里，不显式删就会永远留在系统里。
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM {{EXECUTABLE_NAME}} /T /F"; Flags: runhidden; RunOnceId: "KillApp"
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM mihomo.exe /T /F"; Flags: runhidden; RunOnceId: "KillKernel"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""{{DISPLAY_NAME}} Autorun"" /F"; Flags: runhidden; RunOnceId: "DelAutorun"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""mclash Autorun"" /F"; Flags: runhidden; RunOnceId: "DelAutorun2"
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-NetFirewallRule -DisplayName 'Mclash*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue"""; Flags: runhidden; RunOnceId: "DelFirewall"
+Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""{{DISPLAY_NAME}}"" /f"; Flags: runhidden; RunOnceId: "DelRunKey"
 
 [Run]
 Filename: "{app}\\{{EXECUTABLE_NAME}}"; Description: "{cm:LaunchProgram,{{DISPLAY_NAME}}}"; Flags: nowait postinstall skipifsilent
@@ -117,14 +133,16 @@ begin
       'english':
         begin
           MsgTitle := '{{DISPLAY_NAME}} - Uninstall';
-          MsgText := 'Do you want to preserve user data and settings?' + #13#10#13#10 + 
-                     LocalAppDataPath;
+          MsgText := 'Do you want to preserve user data and settings?' + #13#10#13#10 +
+                     LocalAppDataPath + #13#10#13#10 +
+                     'Choose No (default) to remove them, so a later install starts clean.';
         end;
       'chinesesimplified':
         begin
           MsgTitle := '{{DISPLAY_NAME}} - 卸载';
-          MsgText := '是否保留用户数据和设置?' + #13#10#13#10 + 
-                     LocalAppDataPath;
+          MsgText := '是否保留用户数据和设置（登录会话 / 订阅 / 设置 / 缓存）?' + #13#10#13#10 +
+                     LocalAppDataPath + #13#10#13#10 +
+                     '默认「否」= 一并删除；重装后需要重新登录，不会进回上次的账号。';
         end;
       'chinesetraditional':
         begin
@@ -182,8 +200,11 @@ begin
       end;
     end;
     
-    { Default is to preserve (IDYES button) }
-    PreserveUserData := MsgBox(MsgText, mbConfirmation, MB_YESNO or MB_DEFBUTTON1) = IDYES;
+    { Default is to **delete** user data (MB_DEFBUTTON2 = "No" preselected).
+      The upstream template defaulted to preserve, so a reinstall read back the
+      previous login session -- users reported "uninstall did not clean up".
+      Anyone who wants to keep their data can still pick Yes explicitly. }
+    PreserveUserData := MsgBox(MsgText, mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
   end else
   begin
     PreserveUserData := True;
@@ -233,6 +254,19 @@ begin
     if not PreserveUserData then
     begin
       LocalAppDataPath := GetLocalAppDataPath();
+      if DirExists(LocalAppDataPath) then
+      begin
+        DelTree(LocalAppDataPath, True, True, True);
+      end;
+      { App 实际的数据目录是 %APPDATA%\mclash\mclash（CompanyName/ProductName
+        都是 mclash），以及可能存在的 LocalAppData 同名目录 —— 都删一遍，
+        否则「卸载干净」只能靠用户自己去翻目录。 }
+      LocalAppDataPath := ExpandConstant('{userappdata}\mclash');
+      if DirExists(LocalAppDataPath) then
+      begin
+        DelTree(LocalAppDataPath, True, True, True);
+      end;
+      LocalAppDataPath := ExpandConstant('{localappdata}\mclash');
       if DirExists(LocalAppDataPath) then
       begin
         DelTree(LocalAppDataPath, True, True, True);

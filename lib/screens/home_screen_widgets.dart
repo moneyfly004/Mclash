@@ -54,6 +54,9 @@ class HomeScreenWidgetPart1 extends StatefulWidget {
 }
 
 class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
+  /// TUN 开关正在切换（切换会重连，期间禁用开关避免连点）。
+  bool _tunSwitching = false;
+
   static final String _kNoSpeed = "↑ 0 B/s   ↓ 0 B/s";
   static final String _kNoTrafficTotal = "↑ 0 B   ↓ 0 B";
 
@@ -312,6 +315,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
               ),
             ),
 
+            // TUN 开关（**只有桌面端有 TUN 模式**；安卓的 VpnService 不叫
+            // TUN 模式，也不用用户选择，所以那里整行都不显示）。
+            if (PlatformUtils.isPC()) ...[
+              const SizedBox(height: 10),
+              _tunSwitchRow(context, connected),
+            ],
+
             if (connected)
               AnimatedBuilder(
                 animation: MclashNodesStore.instance,
@@ -502,6 +512,112 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   Future<void> stop() async {
     await VPNService.stop();
+  }
+
+  /// 首页的 TUN 开关（仅桌面端）。
+  ///
+  /// 用户要求：
+  ///   * 「默认系统代理生效，要用 TUN 就在首页给个开关」；
+  ///   * 「只有桌面端有 TUN 模式」——所以安卓不显示这一行。
+  ///
+  /// 切换后如果已经连着，就重连一次让内核按新配置起来（TUN 是内核启动参数，
+  /// 不能在连接中静默改掉）。重连失败时把开关拨回去，避免界面和实际不一致。
+  Widget _tunSwitchRow(BuildContext context, bool connected) {
+    final on = SettingManager.getConfig().tunMode;
+    return InkWell(
+      key: const ValueKey("home-tun-switch"),
+      onTap: _tunSwitching ? null : () => _setTunMode(!on),
+      child: Row(
+        children: [
+          Icon(
+            Icons.lan_outlined,
+            size: 18,
+            color: on ? ThemeDefine.kColorBlue : ThemeDefine.kColorGrey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "TUN 模式",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: ThemeConfig.kFontWeightListItem,
+                  ),
+                ),
+                Text(
+                  on
+                      ? (connected ? "已启用 · 全局接管（含 UDP）" : "已启用 · 连接后生效")
+                      : "关闭：走系统代理（默认）",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: ThemeDefine.kColorGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_tunSwitching)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          Switch.adaptive(
+            value: on,
+            onChanged: _tunSwitching ? null : (v) => _setTunMode(v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setTunMode(bool value) async {
+    if (_tunSwitching) {
+      return;
+    }
+    final setting = SettingManager.getConfig();
+    if (setting.tunMode == value) {
+      return;
+    }
+    setState(() => _tunSwitching = true);
+    setting.tunMode = value;
+    SettingManager.save();
+
+    final connected = _state == FlutterVpnServiceState.connected;
+    if (connected) {
+      // TUN 是内核启动参数：重连一次让它按新配置起来
+      final err = await VPNService.restart(const Duration(seconds: 60));
+      if (err != null) {
+        setting.tunMode = !value;
+        SettingManager.save();
+        if (mounted) {
+          setState(() => _tunSwitching = false);
+          await DialogUtils.showAlertDialog(
+            context,
+            "切换 TUN 模式失败：${err.message}\n已恢复原来的设置。",
+          );
+        }
+        return;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _tunSwitching = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value
+              ? (connected ? "已开启 TUN 模式（已重连）" : "已开启 TUN 模式，连接后生效")
+              : "已关闭 TUN 模式，改用系统代理",
+        ),
+      ),
+    );
   }
 
   Future<bool> start(String from) async {
@@ -755,11 +871,21 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     try {
       final enabled = await VPNService.getSystemProxyEnable();
       final port = ClashSettingManager.getMixedPort();
-      final tunDriving = !VPNService.systemProxyFallbackActive;
+      // TUN 是否**真的**在接管：开关打开 + 内核没有回退到系统代理。
+      // 只看 systemProxyFallbackActive 是不够的 —— TUN 关掉时它同样是 false，
+      // 那样会把「系统代理」错报成「TUN 模式」（TUN 变成可开关之后的新坑）。
+      final tunWanted =
+          PlatformUtils.isPC() && SettingManager.getConfig().tunMode;
+      final tunDriving = tunWanted && !VPNService.systemProxyFallbackActive;
       if (tunDriving) {
         _proxyMode.value = enabled
             ? "TUN + 系统代理 127.0.0.1:$port · 均已生效"
             : "TUN 模式 · 内核接管全部流量（无需系统代理）";
+      } else if (tunWanted) {
+        // 想用 TUN 但没起来（桌面端需要管理员权限）→ 如实说明现在是系统代理
+        _proxyMode.value = enabled
+            ? "TUN 未生效（需管理员权限）· 已用系统代理 127.0.0.1:$port"
+            : "TUN 未生效（需管理员权限）· 系统代理未生效";
       } else {
         _proxyMode.value = enabled
             ? "系统代理 127.0.0.1:$port · 已生效"

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
+import 'package:mclash/mf/mclash_node_sort.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
@@ -37,7 +38,7 @@ class _MclashNodesListScreenState
 
   String _filter = "";
   String? _countryFilter;
-  bool _sortByLatency = false;
+  bool _sortByLatency = true;
   bool _searching = false;
   final TextEditingController _searchController = TextEditingController();
 
@@ -127,6 +128,10 @@ class _MclashNodesListScreenState
   List<MclashNode> _visibleNodes() {
     final kw = _filter.trim().toLowerCase();
     return _nodes.where((n) {
+      // 内核内置的伪目标（GLOBAL/DIRECT/REJECT…）不是节点，别摊给用户看
+      if (isInternalProxyName(n.name)) {
+        return false;
+      }
       if (_countryFilter != null && (n.countryCode ?? "XX") != _countryFilter) {
         return false;
       }
@@ -393,14 +398,10 @@ class _MclashNodesListScreenState
       map.putIfAbsent(n.countryCode ?? "XX", () => []).add(n);
     }
     final groups = map.entries.map((e) {
-      final list = e.value;
-      if (_sortByLatency) {
-        list.sort((a, b) {
-          final la = a.latencyUsable ? a.latencyMs : 1 << 30;
-          final lb = b.latencyUsable ? b.latencyMs : 1 << 30;
-          return la.compareTo(lb);
-        });
-      }
+      // 默认就按延迟升序（与主页弹层同一套排序：延迟低的在前，没测到的靠后）。
+      // 注意不能原地 `list.clear()..addAll(...)` —— list 就是 e.value 本身，
+      // 先清空再读它就得到空列表（之前就是这么把整组节点弄没的）。
+      final list = _sortByLatency ? sortNodesByLatency(e.value) : e.value;
       final best = list
           .where((n) => n.latencyUsable)
           .fold<int?>(null, (p, n) => p == null || n.latencyMs < p ? n.latencyMs : p);

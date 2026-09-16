@@ -35,6 +35,10 @@ class Biz {
     await ProfilePatchManager.init();
     await DiversionTemplateManager.init();
     await VPNService.init();
+    // 上次退出时如果是崩溃/被强杀，系统代理可能还指着本机内核端口 ——
+    // 那台电脑此时**完全上不了网**（代理指向一个没人监听的端口）。
+    // 启动时兜一次：只要系统代理是我们的、而内核又没在跑，就还原掉。
+    unawaited(_restoreSystemProxyIfStale());
 
     for (var callback in onEventInitFinish) {
       callback();
@@ -55,6 +59,28 @@ class Biz {
     await ProfileManager.uninit();
     await DiversionTemplateManager.uninit();
     await ClashSettingManager.uninit();
+  }
+
+  /// 启动清理：把「上次没还原干净的系统代理」恢复原状。
+  ///
+  /// 只清**指向本机内核端口**的那一项（[VPNService.getSystemProxyEnable] 就是
+  /// 按 host:port 比对），用户自己的代理设置不会被动。
+  static Future<void> _restoreSystemProxyIfStale() async {
+    try {
+      if (!VPNService.getSupportSystemProxy()) {
+        return;
+      }
+      if (await VPNService.getStarted()) {
+        return; // 内核还活着（例如被系统托盘重启过），代理是有效的
+      }
+      if (!await VPNService.getSystemProxyEnable()) {
+        return;
+      }
+      Log.w("Biz: 检测到残留的系统代理（内核未运行）→ 还原，避免整机断网");
+      await VPNService.restoreSystemProxy();
+    } catch (e) {
+      Log.w("Biz: 启动清理系统代理失败（忽略）$e");
+    }
   }
 
   static void clearCache() {}

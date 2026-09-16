@@ -97,7 +97,10 @@ void main() {
 
     await pumpSheet(tester, current: "🇭🇰 香港 01");
     expect(find.text("选择节点"), findsOneWidget);
-    expect(find.text("全局模式"), findsOneWidget, reason: '要提示用户写入的是内核 GLOBAL');
+    // 用户明确要求「不要看到 global」：界面里不该出现任何 global/GLOBAL 字样
+    expect(find.text("全局模式"), findsNothing);
+    expect(find.textContaining("GLOBAL"), findsNothing);
+    expect(find.text("按延迟排序"), findsOneWidget, reason: '让排序规则可见、可预期');
 
     await tester.tap(find.byKey(const ValueKey("picker-node-🇯🇵 日本 01")));
     await tester.pumpAndSettle();
@@ -105,6 +108,40 @@ void main() {
     expect(writes, ["GLOBAL->🇯🇵 日本 01"]);
     expect(find.text("选择节点"), findsNothing, reason: '切完就关掉，不占着屏幕');
     expect(find.textContaining("已切换到"), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('列表按延迟升序：最快的排最前，没测到的排最后', (tester) async {
+    await pumpSheet(tester);
+
+    final tys = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? "")
+        .where((t) => t.contains("香港 0") || t.contains("日本 01") || t.contains("美国 HY2"))
+        .toList();
+    expect(
+      tys,
+      ["🇭🇰 香港 02", "🇭🇰 香港 01", "🇯🇵 日本 01", "🇺🇸 美国 HY2"],
+      reason: '60ms → 120ms → 200ms → 未测速（香港 02 必须排在香港 01 前面）',
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('内核内置伪目标（GLOBAL/DIRECT）不出现在可选项里', (tester) async {
+    MclashNodesStore.instance.debugSetNodes([
+      ...sample,
+      MclashNode(name: "GLOBAL", type: "Selector", server: "", port: 0),
+      MclashNode(name: "DIRECT", type: "Direct", server: "", port: 0),
+    ], loading: false);
+    await pumpSheet(tester);
+
+    expect(find.byKey(const ValueKey("picker-node-GLOBAL")), findsNothing);
+    expect(find.byKey(const ValueKey("picker-node-DIRECT")), findsNothing);
+    expect(find.textContaining("GLOBAL"), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));

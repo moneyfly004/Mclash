@@ -72,6 +72,9 @@ abstract final class MclashSubscriptionNodes {
     if (proxies is! YamlList) {
       return [];
     }
+    // 防御：万一订阅把「策略组名字」也塞进了 proxies（有些面板会这么干），
+    // 那不是节点，用户点了也切不了 —— 直接不列出来。
+    final groupNames = _groupNames(doc);
     final out = <MclashNode>[];
     final allNames = <String>[];
     for (final p in proxies) {
@@ -80,6 +83,10 @@ abstract final class MclashSubscriptionNodes {
       }
       final name = p["name"]?.toString() ?? "";
       if (name.isEmpty) {
+        continue;
+      }
+      if (groupNames.contains(name)) {
+        Log.w("MclashSubscriptionNodes: [$name] 与策略组同名，按非节点跳过");
         continue;
       }
       // 所有名字都要留给「订阅是否被后端判为不可用」的解析用：
@@ -221,6 +228,23 @@ abstract final class MclashSubscriptionNodes {
       Log.w("MclashSubscriptionNodes: 读取配置档失败 $e");
       return null;
     }
+  }
+
+  /// 配置档里所有策略组的名字（用于区分「节点」和「组」）。
+  static Set<String> _groupNames(dynamic doc) {
+    final out = <String>{};
+    final groups = (doc is YamlMap) ? doc["proxy-groups"] : null;
+    if (groups is YamlList) {
+      for (final g in groups) {
+        if (g is YamlMap) {
+          final name = g["name"]?.toString() ?? "";
+          if (name.isNotEmpty) {
+            out.add(name);
+          }
+        }
+      }
+    }
+    return out;
   }
 
   static List<ClashProxiesNode> parse(String yamlText) {

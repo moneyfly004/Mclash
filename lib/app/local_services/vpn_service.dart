@@ -166,6 +166,9 @@ class VPNService {
     String installReferrer = await InstallReferrerUtils.getString();
 
     VpnServiceConfig config = VpnServiceConfig();
+    // 告诉内核侧本次是否用 TUN：退出前要先把 TUN 拆掉（撤销路由、卸载虚拟网卡），
+    // 否则 Windows 上强杀内核会在系统里留下 TUN 的路由，退出后直接断网。
+    config.tun_enabled = ClashSettingManager.tunEnabledByUser();
     config.control_port = controlPort;
     config.base_dir = await PathUtils.profileDir();
     // 内核工作目录必须可写（Windows 装到 Program Files 时不可写 → 连接直接失败）
@@ -394,7 +397,7 @@ class VPNService {
       }
     }
 
-    if (enable) {
+    if (enable && shouldApplySystemProxy()) {
       await setSystemProxy(true);
     }
     return null;
@@ -501,7 +504,7 @@ class VPNService {
         await _ensureMixedPortAvailable();
         port = await syncMixedPortFromKernel();
       }
-      if (port > 0) {
+      if (port > 0 && shouldApplySystemProxy()) {
         await setSystemProxy(true);
         final ok = await getSystemProxyEnable();
         Log.i("VPNService: 系统代理 -> 127.0.0.1:$port（读回校验: ${ok ? "已生效" : "未生效"}）");
@@ -614,6 +617,9 @@ class VPNService {
     _proxyWatchdog?.cancel();
     _proxyWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
       try {
+        if (!shouldApplySystemProxy()) {
+          return;
+        }
         final expect = ClashSettingManager.getMixedPort();
         if (expect <= 0) {
           return;
@@ -657,6 +663,40 @@ class VPNService {
     return PlatformUtils.isPC();
   }
 
+  /// 是否应该由我们**主动**去写系统代理。
+  ///
+  /// 用户要求：「默认系统代理生效；要用 TUN 就用首页的开关」。
+  /// TUN 打开时数据通路是虚拟网卡，再去改系统代理等于两套机制同时生效
+  /// （用户反馈的「系统代理和 tun 同时生效」），所以这里直接不写；
+  /// 万一 TUN 起不来（没有管理员权限），内核侧会自己把系统代理指过来兜底。
+  static bool shouldApplySystemProxy() {
+    if (!getSupportSystemProxy()) {
+      return false;
+    }
+    if (Platform.isAndroid) {
+      return false;
+    }
+    return !SettingManager.getConfig().tunMode;
+  }
+
+  /// 退出/清理时把系统代理恢复原状。
+  ///
+  /// 与 [setSystemProxy] 的区别：这里**不看**当前混合端口是否取得到 ——
+  /// 端口读不到（内核已停、设置被重置）恰恰是"退出后代理还留着"的常见场景。
+  static Future<void> restoreSystemProxy() async {
+    if (!getSupportSystemProxy()) {
+      return;
+    }
+    try {
+      if (await getSystemProxyEnable()) {
+        await FlutterVpnService.cleanSystemProxy();
+        Log.i("VPNService: 已还原系统代理（退出清理）");
+      }
+    } catch (err) {
+      Log.w("VPNService restoreSystemProxy exception:${err.toString()}");
+    }
+  }
+
   /// TUN 是否**没能**起来（此时数据通路是系统代理）。
   ///
   /// 首页用它判断并展示「当前到底怎么被代理的」：TUN 正常时不需要系统代理，
@@ -669,22 +709,24 @@ class VPNService {
   static String get systemProxyHost => localhost;
 
   static Future<void> setSystemProxy(bool enable) async {
-    if (getSupportSystemProxy()) {
-      try {
-        final options = await getSystemProxyOptions();
-        if (options.port == 0) {
-          return;
-        }
-        if (enable) {
-          await FlutterVpnService.setSystemProxy(await getSystemProxyOptions());
-        } else {
-          if (await getSystemProxyEnable()) {
-            await FlutterVpnService.cleanSystemProxy();
-          }
-        }
-      } catch (err) {
-        Log.w("VPNService setSystemProxy exception:${err.toString()}");
+    if (!getSupportSystemProxy()) {
+      return;
+    }
+    try {
+      if (!enable) {
+        // 关闭时**不**依赖混合端口：端口读不到（内核已停/设置被重置）时
+        // 旧实现直接 return，于是系统代理留在系统里 —— 用户退出软件后
+        // 浏览器全部打不开，就是这个。只要系统代理是我们的，就还原掉。
+        await restoreSystemProxy();
+        return;
       }
+      final options = await getSystemProxyOptions();
+      if (options.port == 0) {
+        return;
+      }
+      await FlutterVpnService.setSystemProxy(options);
+    } catch (err) {
+      Log.w("VPNService setSystemProxy exception:${err.toString()}");
     }
   }
 

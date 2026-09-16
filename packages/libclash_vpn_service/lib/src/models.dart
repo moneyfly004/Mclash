@@ -114,6 +114,12 @@ class VpnServiceConfig {
   /// （应用优先走 IPv6 时直连出去：既泄漏真实 IP，也可能连不上被墙的站点）。
   bool ipv6 = false;
 
+  /// 本次连接是否启用了 TUN（虚拟网卡）。
+  ///
+  /// 内核侧退出前要用它决定「要不要先通过控制接口把 TUN 拆掉」：
+  /// Windows 上是强杀进程，TUN 的路由/网卡会留在系统里（退出后无法上网）。
+  bool tun_enabled = false;
+
   int control_port = 0;
   String base_dir = "";
   String work_dir = "";
@@ -151,6 +157,10 @@ class VpnServiceConfig {
   VpnServiceConfig();
 
   void fromJson(Map<String, dynamic> map) {
+    // ipv6 / tun_enabled 之前漏在这两个方法外面：调用方设了值，序列化一圈
+    // 就丢了（内核侧要靠 tun_enabled 决定退出前要不要拆 TUN）。
+    ipv6 = map["ipv6"] == true;
+    tun_enabled = map["tun_enabled"] == true;
     control_port = (map["control_port"] as num?)?.toInt() ?? 0;
     base_dir = map["base_dir"]?.toString() ?? "";
     work_dir = map["work_dir"]?.toString() ?? "";
@@ -180,6 +190,8 @@ class VpnServiceConfig {
   }
 
   Map<String, dynamic> toJson() => {
+    "ipv6": ipv6,
+    "tun_enabled": tun_enabled,
     "control_port": control_port,
     "base_dir": base_dir,
     "work_dir": work_dir,

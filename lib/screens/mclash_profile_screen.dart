@@ -562,10 +562,16 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   /// 两步确认：第一次说明会删什么，第二次要求再次确认 —— 这是不可撤销操作。
   Future<void> _clearLocalData() async {
     final items = MclashDataCleaner.items.map((e) => "· $e").join("\n");
+    final dataDir = await MclashDataCleaner.dataDir();
+    if (!mounted) {
+      return;
+    }
     final first = await DialogUtils.showConfirmDialog(
       context,
       "将删除本机保存的以下数据（不可恢复）：\n\n$items\n\n"
-      "账号本身、已购买的套餐都在服务器上，不受影响；重新登录即可恢复订阅。",
+      "账号本身、已购买的套餐都在服务器上，不受影响；重新登录即可恢复订阅。\n\n"
+      "数据目录：$dataDir\n"
+      "（卸载 App 之前先点这里，重装后才会是干净的、需要重新登录的状态）",
     );
     if (first != true || !mounted) {
       return;
@@ -579,18 +585,30 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     }
 
     try {
+      // 顺序：先断开（顺带还原系统代理）、再关掉开机自启、最后清数据 ——
+      // 否则清完数据后 App 还会以「上次的连接/自启状态」留在系统里。
       await VPNService.stop();
+      await VPNService.restoreSystemProxy();
     } catch (e) {
       Log.w("清除数据前断开连接失败（忽略）$e");
     }
     try {
+      await VPNService.setLaunchAtStartup(false);
+    } catch (e) {
+      Log.w("清除数据前关闭开机自启失败（忽略）$e");
+    }
+    try {
       final removed = await MclashDataCleaner.clearAll();
+      final dir = await MclashDataCleaner.dataDir();
       if (!mounted) {
         return;
       }
       await DialogUtils.showAlertDialog(
         context,
-        "已清除 $removed 项本地数据。\n建议现在退出应用，然后删除 Mclash.app 完成卸载。",
+        "已清除 $removed 项本地数据（含登录会话，下次打开需要重新登录）。\n\n"
+        "现在可以删除 App 完成卸载：\n"
+        "· macOS：把 Mclash.app 拖进废纸篓（数据目录已清空：$dir）\n"
+        "· Windows：控制面板卸载 Mclash，卸载向导里的「是否保留用户数据」选「否」",
       );
     } catch (e) {
       if (!mounted) {

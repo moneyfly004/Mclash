@@ -87,6 +87,22 @@ proxy-groups:
       expect(MclashSubscriptionNodes.parseNodes("不是: [yaml"), isEmpty);
       expect(MclashSubscriptionNodes.parseNodes(""), isEmpty);
     });
+
+    test('与策略组同名的条目不算节点（点了也切不了）', () {
+      // 有些面板会把「组」也塞进 proxies；列出来用户点了没反应，
+      // 看起来就像软件坏了 —— 直接按非节点跳过。
+      const weird = '''
+proxies:
+  - {name: "🚀 节点选择", server: 1.1.1.1, port: 443, type: vless, uuid: x}
+  - {name: "🇯🇵 日本 01", server: 2.2.2.2, port: 443, type: vless, uuid: y}
+proxy-groups:
+  - name: "🚀 节点选择"
+    type: select
+    proxies: ["🇯🇵 日本 01"]
+''';
+      final nodes = MclashSubscriptionNodes.parseNodes(weird);
+      expect(nodes.map((n) => n.name).toList(), ["🇯🇵 日本 01"]);
+    });
   });
 
   group('测速口径', () {

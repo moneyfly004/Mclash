@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/mf/mclash_flat_nodes.dart';
+import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node_filter.dart';
 import 'package:mclash/mf/mclash_pseudo_nodes.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
@@ -50,8 +52,16 @@ class ProxyScreenProxiesNodeWidget extends StatefulWidget {
     required this.controller,
     this.kernelOffline = false,
     this.kernelAlive,
+    this.flatNodes = false,
   });
   final List<ClashProxiesNode> nodes;
+
+  /// **扁平节点模式**（全局模式用）：不展示策略组，直接列出真实节点让用户选。
+  ///
+  /// 用户要求：「全局模式我不要看到 global / 组名，只能看到国家节点可以选择」。
+  /// 全局模式下所有流量都由内核 GLOBAL 决定，策略组没有意义 —— 列出来只会
+  /// 让人以为「选了组里的节点就会生效」。
+  final bool flatNodes;
 
   final bool kernelOffline;
 
@@ -99,7 +109,11 @@ class _ProxyScreenProxiesNodeWidget
 
   List<ClashProxiesNode> _visibleNodes() {
     if (!_filtering) {
-      return _nodes;
+      if (!widget.flatNodes) {
+        return _nodes;
+      }
+      // 扁平模式：只要真实节点，按延迟升序（延迟最低的排最前）
+      return flatSelectableNodes(_nodes);
     }
     final out = MclashNodeFilter.select<ClashProxiesNode>(
       _nodes,
@@ -147,11 +161,18 @@ class _ProxyScreenProxiesNodeWidget
     for (var node in _visibleNodes()) {
       if (!_filtering) {
 
-        if (!ClashProtocolType.GroupToList().contains(node.type)) {
-          continue;
-        }
-        if (node.hidden) {
-          continue;
+        if (widget.flatNodes) {
+          // 扁平模式里只列真实节点（策略组不列）
+          if (ClashProtocolType.GroupToList().contains(node.type)) {
+            continue;
+          }
+        } else {
+          if (!ClashProtocolType.GroupToList().contains(node.type)) {
+            continue;
+          }
+          if (node.hidden) {
+            continue;
+          }
         }
       }
       String subtitle = "";
@@ -244,27 +265,48 @@ class _ProxyScreenProxiesNodeWidget
                     ),
                   ],
                 ),
-          trailing: SizedBox(
-            width: windowSize.width * 0.4,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: windowSize.width * 0.4 - iconSize,
+          trailing: widget.flatNodes
+              ? SizedBox(
+                  width: windowSize.width * 0.4,
                   child: Text(
-                    node.now,
+                    (node.delay != null && node.delay! > 0)
+                        ? "${node.delay} ms"
+                        : "—",
                     textAlign: TextAlign.right,
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: Platform.isWindows ? 'Emoji' : null,
+                      color: (node.delay != null && node.delay! > 0)
+                          ? (node.delay! < 800
+                                ? ThemeDefine.kColorGreenBright
+                                : ThemeDefine.kColorGrey)
+                          : ThemeDefine.kColorGrey,
                     ),
                   ),
+                )
+              : SizedBox(
+                  width: windowSize.width * 0.4,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: windowSize.width * 0.4 - iconSize,
+                        child: Text(
+                          node.now,
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: Platform.isWindows ? 'Emoji' : null,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.keyboard_arrow_right, size: iconSize),
+                    ],
+                  ),
                 ),
-                Icon(Icons.keyboard_arrow_right, size: iconSize),
-              ],
-            ),
-          ),
           minVerticalPadding: 10,
           onTap: () {
+            if (widget.flatNodes) {
+              _selectFlatNode(node);
+              return;
+            }
             showNodeSelect(node);
           },
         ),
@@ -287,6 +329,31 @@ class _ProxyScreenProxiesNodeWidget
         ),
       ),
     );
+  }
+
+  /// 扁平模式（全局模式）：直接切到该节点。
+  ///
+  /// 走 [MclashNodeSelector] 而不是写某个组 —— 全局模式下真正生效的是内核
+  /// GLOBAL，写策略组等于没切（这正是「切了全局、选了节点却没反应」的根因）。
+  Future<void> _selectFlatNode(ClashProxiesNode node) async {
+    final err = await MclashNodeSelector.select(node.name);
+    if (!mounted) {
+      return;
+    }
+    if (err != null) {
+      DialogUtils.showAlertDialog(context, err.message);
+      return;
+    }
+    setState(() {
+      for (final g in _nodes) {
+        if (ClashProtocolType.GroupToList().contains(g.type)) {
+          g.now = node.name;
+        }
+      }
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("已切换到 ${node.name}")));
   }
 
   void showNodeSelect(ClashProxiesNode selectNode) {

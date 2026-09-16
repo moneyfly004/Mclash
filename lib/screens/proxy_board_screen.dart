@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:after_layout/after_layout.dart';
+import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
+import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
@@ -369,16 +371,47 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
         ),
       );
     }
-    return ProxyScreenProxiesNodeWidget(
-
-      key: ValueKey("proxy-nodes-$_filter"),
-      nodes: _nodes,
-      filter: _filter,
-      controller: _controller,
-
-      kernelOffline: _offlineData,
-
-      kernelAlive: _kernelAlive,
+    // 全局模式：**只列国家节点**，不列策略组、不列内核内置的 GLOBAL。
+    // （用户要求：「选择全局模式，不要显示 global 的东西，只能看到国家节点可以选择」。）
+    final globalMode =
+        ClashSettingManager.getConfigsMode() == ClashConfigsMode.global;
+    return Column(
+      children: [
+        if (globalMode)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.public,
+                  size: 14,
+                  color: ThemeDefine.kColorGrey,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    "全局模式：所有流量都走你选的这个节点（按延迟排序）",
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: ThemeDefine.kColorGrey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: ProxyScreenProxiesNodeWidget(
+            key: ValueKey("proxy-nodes-$_filter"),
+            nodes: _nodes,
+            filter: _filter,
+            controller: _controller,
+            kernelOffline: _offlineData,
+            kernelAlive: _kernelAlive,
+            flatNodes: globalMode,
+          ),
+        ),
+      ],
     );
   }
 

@@ -342,6 +342,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   bool _systemProxyFallbackActive = false;
 
+  /// 退出前「请求内核关闭 TUN」成功的次数（诊断用；也是验证脚本的观测点）。
+  int tunTeardownRequests = 0;
+
   @override
   bool get systemProxyFallbackActive => _systemProxyFallbackActive;
 
@@ -528,6 +531,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       await cleanSystemProxy();
     }
     _systemProxyFallbackActive = false;
+    // 关掉内核之前先把 TUN 拆干净。
+    //
+    // 为什么必须做：Windows 上 Stopping 内核是 `taskkill /F`（强杀），进程没有
+    // 机会执行自己的清理 —— mihomo 用 `auto-route` 加的系统路由与 wintun 虚拟网卡
+    // 会留在系统里，用户看到的就是「退出软件之后电脑上不了网，得重启」。
+    // 先通过控制接口把 `tun.enable` 置 false，内核会正常关闭 TUN（撤路由、卸网卡），
+    // 这时候再强杀就没有副作用了。
+    await _disableTunBeforeStop();
     final proc = _proc;
     _proc = null;
     if (proc != null) {
@@ -547,6 +558,44 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
     }
     _setState(FlutterVpnServiceState.disconnected);
+  }
+
+  /// 退出前拆掉 TUN（幂等；失败只记日志，不影响退出流程）。
+  Future<void> _disableTunBeforeStop() async {
+    final cfg = _config;
+    if (cfg == null || cfg.control_port <= 0) {
+      return;
+    }
+    if (cfg.tun_enabled != true) {
+      return;
+    }
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    try {
+      final req = await client
+          .patchUrl(
+            Uri.parse(
+              "http://127.0.0.1:${cfg.control_port}/configs",
+            ),
+          )
+          .timeout(const Duration(seconds: 3));
+      if (cfg.secret.isNotEmpty) {
+        req.headers.set(HttpHeaders.authorizationHeader, "Bearer ${cfg.secret}");
+      }
+      req.headers.contentType = ContentType.json;
+      req.write('{"tun":{"enable":false}}');
+      final resp = await req.close().timeout(const Duration(seconds: 3));
+      await resp.drain<void>();
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        tunTeardownRequests++;
+      }
+      stderr.writeln(
+        "[mclash] 退出前已请求内核关闭 TUN（HTTP ${resp.statusCode}）",
+      );
+    } catch (e) {
+      stderr.writeln("[mclash] 退出前关闭 TUN 失败（继续退出）: $e");
+    } finally {
+      client.close(force: true);
+    }
   }
 
   Future<KernelConfigResult> _buildFinalConfig(VpnServiceConfig cfg) async {

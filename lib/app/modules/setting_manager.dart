@@ -171,6 +171,14 @@ class SettingConfig {
   /// 用户点过「稍后」的更新版本号：同一个版本不再反复弹提示。
   String dismissedUpdateVersion = "";
 
+  /// TUN 模式（虚拟网卡）开关，**默认关**。
+  ///
+  /// 用户要求：「默认系统代理生效，要用 TUN 就在主页给个开关」。
+  /// 之前桌面端 TUN 与系统代理是**一起生效**的（`defaultTun()` 里
+  /// `Enable: !Platform.isWindows`），两套数据通路同时改系统状态，退出时也难还原。
+  /// Android 侧不看这个值：那里的 VpnService 本身就是 TUN，关不掉。
+  bool tunMode = false;
+
   Map<String, dynamic> toJson() => {
     'language_tag': languageTag,
     'setup_done': setupDone,
@@ -199,6 +207,7 @@ class SettingConfig {
     'remember_account': rememberAccount,
     'last_account_email': lastAccountEmail,
     'dismissed_update_version': dismissedUpdateVersion,
+    'tun_mode': tunMode,
   };
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {
@@ -232,6 +241,7 @@ class SettingConfig {
     lastAccountEmail = map["last_account_email"]?.toString() ?? "";
     dismissedUpdateVersion =
         map["dismissed_update_version"]?.toString() ?? "";
+    tunMode = map["tun_mode"] ?? false;
 
     boardOnline = map["board_online"] ?? false;
     boardUrl = map["board_url"] ?? kDefaultBoardUrl;

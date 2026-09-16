@@ -183,6 +183,37 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  testWidgets('默认就按延迟排序：同一国家里最快的排最前（不用先点排序按钮）', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.byIcon(Icons.bolt_outlined));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // 展开「香港」（该国两个节点：香港快线 30ms / 香港 HY2 未测）
+    await tester.tap(find.byIcon(Icons.expand_more).first);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final hk = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? "")
+        .where((t) => t.contains("香港"))
+        .toList();
+    final fast = hk.indexWhere((t) => t.contains("香港快线"));
+    final slow = hk.indexWhere((t) => t.contains("香港 HY2"));
+    expect(fast, isNonNegative, reason: '展开后应看到香港的两个节点');
+    if (slow >= 0) {
+      expect(
+        fast < slow,
+        isTrue,
+        reason: '30ms 的节点必须排在没测速的节点前面（用户要求：延迟最低的放最前）',
+      );
+    }
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets('点节点行：内核不可用时要给出明确提示（不能点了没反应）', (tester) async {
     MclashNodesListScreen.debugPrimaryGroupOverride = () async => null; // 内核不可用
     await pump(tester);

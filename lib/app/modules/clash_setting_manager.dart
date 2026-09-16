@@ -10,6 +10,7 @@ import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/diversion_template_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
+import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/did.dart';
@@ -84,7 +85,7 @@ class ClashSettingManager {
 
     return RawTun.by(
       OverWrite: true,
-      Enable: !Platform.isWindows,
+      Enable: tunEnabledByUser(),
       Stack: ClashTunStack.gvisor.name,
       MTU: 1280,
       Inet4Address: [iNet4Address],
@@ -93,6 +94,23 @@ class ClashSettingManager {
       DNSHijack: [dnsHijack],
       DisableICMPForwarding: true,
     );
+  }
+
+  /// TUN 是否启用：**只**看用户开关（Android 上的 VpnService 本身就是 TUN，恒开）。
+  static bool tunEnabledByUser() {
+    if (Platform.isAndroid) {
+      return true;
+    }
+    return SettingManager.getConfig().tunMode;
+  }
+
+  /// 每一轮生成内核配置前，把 TUN 开关同步到设置里。
+  ///
+  /// 不这样做的话，老安装的 `service_core_setting` 里存着 `tun.enable: true`
+  /// （旧默认值），用户关掉开关也没用 —— 内核配置里还是 TUN。
+  static void syncTunSwitch() {
+    _setting.Tun ??= defaultTun();
+    _setting.Tun?.Enable = tunEnabledByUser();
   }
 
   static RawDNS defaultDNS() {
@@ -332,6 +350,7 @@ class ClashSettingManager {
     Map<String, ProfileSettingProxyGroup>? overwriteProxyGroups,
     List<String>? appendRules,
   ) async {
+    syncTunSwitch();
     if (Platform.isMacOS) {
       _setting.Tun?.Stack = ClashTunStack.gvisor.name;
     }

@@ -178,6 +178,14 @@ void main() {
       expect(formatCurrentProxyName(["  "]), "");
     });
 
+    test('链路上只剩内核内置组名时返回空串，**绝不**显示 GLOBAL', () {
+      // 全局模式下内核可能把链路报成只有 GLOBAL（还没选出节点时）——
+      // 直接显示 "GLOBAL" 正是用户反复反馈的「全局模式还有 global」。
+      expect(formatCurrentProxyName(["GLOBAL"]), "");
+      expect(formatCurrentProxyName(["global"]), "");
+      expect(formatCurrentProxyName(["GLOBAL", "PASS"]), "跟随规则");
+    });
+
     test('没有延迟数据时不编造 ms', () {
       expect(formatCurrentProxyName(["GLOBAL", "🇸🇬 新加坡"]), "🇸🇬 新加坡");
       expect(

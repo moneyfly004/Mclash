@@ -240,13 +240,18 @@ String formatCurrentProxyName(
   }
   if (real == null) {
     final last = names.isEmpty ? "" : names.last.toUpperCase();
-    if (last == "DIRECT") {
+    if (last == "DIRECT" || last == "DIRECT-URL") {
       return "直连（不走代理）";
     }
     if (last.startsWith("REJECT")) {
       return "已拦截";
     }
-    return names.isEmpty ? "" : names.last;
+    if (last == "PASS" || last == "COMPATIBLE") {
+      return "跟随规则";
+    }
+    // 只剩内核内置组名（GLOBAL 等）时**不要**把内部名字摊给用户
+    // （用户反复反馈：「全局模式不要显示 global 的东西」）。
+    return "";
   }
   return delayMs != null && delayMs > 0 ? "$real ($delayMs ms)" : real;
 }
