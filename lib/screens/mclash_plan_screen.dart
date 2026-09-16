@@ -437,6 +437,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           payWithBalance: true,
         );
         if (ok != true) {
+          await _cancelDraftOrder(orderNo);
           return;
         }
       } else {
@@ -456,7 +457,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         // 按通道决定交互：支付宝码弹二维码（手机可唤起 App）、
         // 码支付/收银台链接开浏览器（用户要求）。
         final channel = MclashPay.classify(payUrl, payType: payType);
-        await showMclashPaymentSheet(
+        final ok = await showMclashPaymentSheet(
           context,
           orderNo: orderNo,
           amount: amount,
@@ -465,6 +466,10 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           channel: channel,
           openInBrowser: MclashPay.shouldOpenInBrowser(channel),
         );
+        if (ok != true) {
+          await _cancelDraftOrder(orderNo);
+          return;
+        }
       }
 
       await _load();
@@ -473,6 +478,17 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         return;
       }
       await DialogUtils.showAlertDialog(context, "$e");
+    }
+  }
+
+  /// 用户没付成就把订单取消掉：否则订单列表里会堆一堆 pending 订单
+  /// （用户实测：支付失败几次之后，列表里多了 3 笔 200 元的未付款订单）。
+  Future<void> _cancelDraftOrder(String orderNo) async {
+    try {
+      await MclashApi.cancelOrder(orderNo);
+      Log.i("套餐页: 已取消未支付的订单 $orderNo");
+    } catch (e) {
+      Log.w("套餐页: 取消订单 $orderNo 失败 $e");
     }
   }
 

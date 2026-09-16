@@ -15,6 +15,24 @@ import 'package:mclash/mf/mclash_api.dart';
 abstract final class MclashDeviceUpgrade {
   static String? _draftOrderNo;
 
+  /// 正在支付中：这期间**不许**取消草稿单。
+  ///
+  /// 真实事故：设备管理里选好支付方式后，代码会先关掉算价面板，而面板关闭时
+  /// 挂着 `whenComplete(cancelDraft)` —— 于是刚建好的订单立刻被取消，紧接着
+  /// 支付/发起支付用的是**已取消**的订单，后端回「订单不存在或状态不正确」。
+  static bool _inPayment = false;
+
+  /// 进入支付流程（由设备管理页在关面板前调用）。
+  static void beginPayment() => _inPayment = true;
+
+  /// 支付流程结束（成功或用户放弃）。
+  static void endPayment({bool keepOrder = false}) {
+    _inPayment = false;
+    if (keepOrder) {
+      markPaid();
+    }
+  }
+
   /// 当前草稿订单号（没有则为空）。
   static String get draftOrderNo => _draftOrderNo ?? "";
 
@@ -78,6 +96,11 @@ abstract final class MclashDeviceUpgrade {
 
   /// 取消草稿订单（幂等；没有草稿时什么都不做）。
   static Future<void> cancelDraft() async {
+    if (_inPayment) {
+      // 支付流程正在用这笔订单，取消它等于把用户正在付的订单作废
+      Log.i("MclashDeviceUpgrade: 支付进行中，跳过取消草稿订单");
+      return;
+    }
     final orderNo = _draftOrderNo;
     if (orderNo == null || orderNo.isEmpty) {
       return;

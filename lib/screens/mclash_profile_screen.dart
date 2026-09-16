@@ -112,6 +112,11 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       }
       setState(() {
         _dash = dash;
+        // 账号接口失败时**不能**留一片空白：给出原因和「点右上角刷新重试」的提示
+        // （用户实测：支付失败之后回到「我的」页面一片空白，不知道发生了什么）。
+        _error = dash == null
+            ? "账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。"
+            : null;
         _loading = false;
       });
     } catch (e) {
@@ -708,13 +713,41 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     );
   }
 
+  /// 出错时给一条**带重试按钮**的提示，而不是只留一行红字（或一片空白）。
   Widget _buildError() => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-        child: Text(
-          _error ?? "",
-          style: const TextStyle(fontSize: 13, color: Colors.red),
+    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+    child: Card(
+      color: Colors.red.withValues(alpha: 0.06),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _error ?? "",
+                    style: const TextStyle(fontSize: 13, color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                key: const ValueKey("profile-retry"),
+                onPressed: _loading ? null : _load,
+                child: const Text("重试"),
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _cell(String value, String label) => Expanded(
     child: Column(

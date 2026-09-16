@@ -1,6 +1,7 @@
 
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -417,6 +418,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     if (!mounted) {
       return;
     }
+    // 关键：进入支付流程 → 草稿订单**上锁**。
+    // 紧接着下面就会关掉算价面板，而面板关闭时挂着 cancelDraft()
+    // （以前没上锁 → 刚建的订单被立刻取消 → 支付报「订单不存在或状态不正确」）。
+    MclashDeviceUpgrade.beginPayment();
     // 关掉支付方式面板：这里用的是面板自己的 context，
     // 所以要按**它**的 mounted 判断（外层 State 的 mounted 管不到它）。
     if (sheetContext.mounted) {
@@ -424,6 +429,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     }
 
     bool ok = false;
+    try {
     final payType = MclashPay.payTypeOf(method);
     if (MclashPay.isBalance(payType)) {
       ok =
@@ -474,11 +480,49 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
           true;
     }
 
+    } catch (e) {
+      // **不再静默失败**：以前发起支付/取消抛异常时这里没有 try/catch，
+      // 异常被 Flutter 吞掉，用户看到的就是「点了支付没反应」。
+      Log.w("设备管理: 支付流程失败 $e");
+      if (mounted) {
+        await DialogUtils.showAlertDialog(
+          context,
+          "支付发起失败：${_friendlyPayError(e)}",
+        );
+      }
+      return;
+    } finally {
+      // 无论成功失败都要解锁，否则后续的草稿单清理会被永久跳过
+      MclashDeviceUpgrade.endPayment(keepOrder: ok);
+    }
+
     if (ok) {
-      MclashDeviceUpgrade.markPaid();
       await MclashAccountService.instance.refresh();
       await _load();
+    } else {
+      // 用户放弃支付 → 把这笔草稿订单取消掉，别在他订单列表里留 pending
+      unawaited(MclashDeviceUpgrade.cancelDraft());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("已取消本次支付；草稿订单已清理")),
+        );
+      }
     }
+  }
+
+  /// 把技术错误翻译成用户能懂的一句话（CSRF/网络/过期各不同）。
+  static String _friendlyPayError(Object e) {
+    final text = e.toString();
+    if (text.contains("CSRF") || text.contains("40300")) {
+      return "登录凭证已过期（CSRF 校验失败）。\n请到「我的」下拉刷新或重新登录后重试。";
+    }
+    if (text.contains("订单不存在") || text.contains("状态不正确")) {
+      return "这笔订单已被取消或已支付。\n请点「重新算价」生成新订单再支付。";
+    }
+    if (text.contains("网络") || text.contains("Socket") || text.contains("超时")) {
+      return "网络不通：$text";
+    }
+    return text;
   }
 
   /// 让用户选择支付方式（余额 + 后端下发的通道）。

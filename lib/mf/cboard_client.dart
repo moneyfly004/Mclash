@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/secure_storage.dart';
 
 class CBoardResponse<T> {
@@ -207,7 +208,57 @@ class CBoardClient {
     return h;
   }
 
+  /// 写请求的串行闸门。
+  ///
+  /// 为什么必须串行：服务端的 CSRF 中间件**每次校验成功都会轮换 token**
+  /// （实测：先用 tokenA 成功 POST 一次，紧接着带 tokenA 再 POST → 40300
+  /// 「CSRF token 无效或已过期」）。App 里存在并发写请求（改数量时的
+  /// 「取消草稿单 + 重新算价」、支付与取消交叉），并发时总有一个拿着刚被
+  /// 作废的 token 失败 —— 用户侧就是支付点了没反应 / 取消订单没反应。
+  static Future<void> _writeLock = Future<void>.value();
+
   Future<CBoardResponse<dynamic>> request(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    bool auth = true,
+    bool retryAuth = true,
+    bool retryCsrf = true,
+  }) async {
+    final mutating = method != 'GET' && method != 'HEAD';
+    if (!mutating) {
+      return _requestInner(
+        method,
+        path,
+        body: body,
+        query: query,
+        auth: auth,
+        retryAuth: retryAuth,
+        retryCsrf: retryCsrf,
+      );
+    }
+    // 排队执行：保证「取 token → 发请求」之间不会插入另一个写请求
+    final prev = _writeLock;
+    final gate = Completer<void>();
+    _writeLock = gate.future;
+    await prev;
+    try {
+      return await _requestInner(
+        method,
+        path,
+        body: body,
+        query: query,
+        auth: auth,
+        retryAuth: retryAuth,
+        retryCsrf: retryCsrf,
+      );
+    } finally {
+      gate.complete();
+    }
+  }
+
+  Future<CBoardResponse<dynamic>> _requestInner(
     String method,
     String path, {
     Object? body,
@@ -278,7 +329,7 @@ class CBoardClient {
     if (r.isUnauthorized && auth && retryAuth && !isAuthPath) {
       final refreshed = await _refreshOnce();
       if (refreshed) {
-        return request(method, path,
+        return _requestInner(method, path,
             body: body,
             query: query,
             auth: auth,
@@ -288,8 +339,14 @@ class CBoardClient {
     }
 
     if (r.isCsrfFailure && mutating && retryCsrf) {
-      return request(method, path,
-          body: body, query: query, auth: auth, retryAuth: false, retryCsrf: false);
+      // token 作废了 → 立刻重新取一个再试一次（此时没有并发写请求在跑）
+      Log.w("CBoardClient: CSRF token 已过期，重新获取后重试一次 $method $path");
+      return _requestInner(method, path,
+          body: body,
+          query: query,
+          auth: auth,
+          retryAuth: false,
+          retryCsrf: false);
     }
 
     return r;

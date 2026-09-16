@@ -1,8 +1,13 @@
 
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/screens/dialog_utils.dart';
+import 'package:mclash/mf/mclash_payment.dart';
+import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -81,6 +86,149 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
     );
   }
 
+  /// 「继续支付」：**重新发起一次支付**，而不是拿空二维码糊弄用户。
+  ///
+  /// 旧实现的两个真问题（用户实测「点了没反应 / 没有二维码」）：
+  ///   1. `/orders/{no}/status` 只返回金额/套餐/状态，**没有** payment_method 与
+  ///      qr_code —— 于是这里 `payWithBalance` 永远 false、二维码永远是空字符串，
+  ///      面板打开就是一个空框；
+  ///   2. 整个流程没有 try/catch，CSRF 过期等异常被吞掉 → 点击毫无反应。
+  /// 现在：让用户选支付方式（余额 + 后端下发的通道），余额走余额支付，
+  /// 其它通道用 `POST /payment` 重新拿一次支付链接/二维码。
+  Future<void> _resumePayment(Map<String, dynamic> o, double amount) async {
+    final orderNo = o["order_no"]?.toString() ?? "";
+    final orderId = (o["id"] as num?)?.toInt() ?? 0;
+    if (orderNo.isEmpty || orderId <= 0) {
+      await DialogUtils.showAlertDialog(context, "订单信息不完整，请下拉刷新后重试");
+      return;
+    }
+    try {
+      final method = await _pickPayMethod(amount);
+      if (method == null || !mounted) {
+        return;
+      }
+      final payType = MclashPay.payTypeOf(method);
+      if (MclashPay.isBalance(payType)) {
+        final ok = await showMclashPaymentSheet(
+          context,
+          orderNo: orderNo,
+          amount: amount,
+          payWithBalance: true,
+          methodName: MclashPay.nameOf(method),
+        );
+        if (ok == true && mounted) {
+          await _load();
+        }
+        return;
+      }
+      final methodId = (method["id"] as num?)?.toInt() ?? 0;
+      if (methodId <= 0) {
+        await DialogUtils.showAlertDialog(context, "支付通道信息不完整，请稍后重试");
+        return;
+      }
+      final r = await MclashApi.createPayment(
+        orderId: orderId,
+        paymentMethodId: methodId,
+        isMobile: Platform.isAndroid,
+      );
+      final payload = MclashPay.payloadOf(r);
+      if (!mounted) {
+        return;
+      }
+      if (payload.isEmpty) {
+        await DialogUtils.showAlertDialog(
+          context,
+          "后端没有返回支付二维码/链接，请换一个支付方式或稍后再试",
+        );
+        return;
+      }
+      final channel = MclashPay.classify(payload, payType: payType);
+      final ok = await showMclashPaymentSheet(
+        context,
+        orderNo: orderNo,
+        amount: amount,
+        qrCode: payload,
+        methodName: MclashPay.nameOf(method),
+        channel: channel,
+        openInBrowser: MclashPay.shouldOpenInBrowser(channel),
+      );
+      if (ok == true && mounted) {
+        await _load();
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      await DialogUtils.showAlertDialog(context, "发起支付失败：$e");
+    }
+  }
+
+  /// 支付方式选择（与设备管理同一套：余额 + 后端下发通道）。
+  Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {
+    List<Map<String, dynamic>> methods = const [];
+    try {
+      methods = await MclashApi.paymentMethods();
+    } catch (e) {
+      Log.w("订单页: 读取支付方式失败 $e");
+    }
+    if (!mounted) {
+      return null;
+    }
+    final balanceEnabled = await MclashApi.paymentBalanceEnabled();
+    if (!mounted) {
+      return null;
+    }
+    final usable = <Map<String, dynamic>>[
+      if (balanceEnabled) {"id": -1, "key": "balance", "name": "余额支付"},
+      ...methods.where((m) => !MclashPay.isBalance(MclashPay.payTypeOf(m))),
+    ];
+    if (usable.isEmpty) {
+      await DialogUtils.showAlertDialog(context, "当前没有可用的支付方式，请稍后再试或联系客服");
+      return null;
+    }
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Text(
+                    "选择支付方式",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: ThemeConfig.kFontWeightTitle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final m in usable)
+              ListTile(
+                key: ValueKey("order-pay-method-${MclashPay.payTypeOf(m)}"),
+                title: Text(MclashPay.nameOf(m)),
+                subtitle: MclashPay.isBalance(MclashPay.payTypeOf(m))
+                    ? Text(
+                        "应付 ¥${amount.toStringAsFixed(2)}",
+                        style: const TextStyle(fontSize: 11),
+                      )
+                    : null,
+                onTap: () => Navigator.of(ctx).pop(m),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildOrder(Map<String, dynamic> o) {
     final status = o["status"]?.toString() ?? "";
     final paid = status == "paid" || status == "completed";
@@ -147,8 +295,25 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () async {
-                        await MclashApi.cancelOrder(orderNo);
-                        await _load();
+                        // 以前这里异常被吞掉 → 用户点「取消订单」毫无反应
+                        try {
+                          await MclashApi.cancelOrder(orderNo);
+                          await _load();
+                          if (!mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("订单已取消")),
+                          );
+                        } catch (e) {
+                          if (!mounted) {
+                            return;
+                          }
+                          await DialogUtils.showAlertDialog(
+                            context,
+                            "取消失败：$e\n（若订单已被支付/已取消，下拉刷新即可看到最新状态）",
+                          );
+                        }
                       },
                       child: const Text("取消订单", style: TextStyle(color: Colors.red)),
                     ),
@@ -156,27 +321,7 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () async {
-                        final r = await MclashApi.orderStatus(orderNo);
-                        // 这个 context 是 State 自己的 → 用 State 的 mounted
-                        if (!mounted) return;
-                        final method =
-                            (r?["payment_method"] ??
-                                    o["payment_method_name"] ??
-                                    "")
-                                .toString();
-                        await showMclashPaymentSheet(
-                          context,
-                          orderNo: orderNo,
-                          amount: amount,
-                          qrCode: r?["qr_code"]?.toString() ?? "",
-                          payWithBalance: method == "balance",
-                        );
-                        if (!mounted) {
-                          return;
-                        }
-                        await _load();
-                      },
+                      onPressed: () => _resumePayment(o, amount),
                       child: const Text("继续支付"),
                     ),
                   ),
