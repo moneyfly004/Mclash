@@ -11,6 +11,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_pseudo_nodes.dart';
+import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:path/path.dart' as path;
 import 'package:yaml/yaml.dart';
 
@@ -72,12 +73,19 @@ abstract final class MclashSubscriptionNodes {
       return [];
     }
     final out = <MclashNode>[];
+    final allNames = <String>[];
     for (final p in proxies) {
       if (p is! YamlMap) {
         continue;
       }
       final name = p["name"]?.toString() ?? "";
-      if (name.isEmpty || MclashPseudoNodes.isPseudo(name)) {
+      if (name.isEmpty) {
+        continue;
+      }
+      // 所有名字都要留给「订阅是否被后端判为不可用」的解析用：
+      // 后端在到期/禁用/设备超限时只会下发提示节点（没有真实节点）。
+      allNames.add(name);
+      if (MclashPseudoNodes.isPseudo(name)) {
         continue;
       }
       final raw = p["type"]?.toString().toLowerCase() ?? "";
@@ -94,7 +102,38 @@ abstract final class MclashSubscriptionNodes {
         ),
       );
     }
+    _lastNotice = MclashSubscriptionNotice.parse(allNames);
     return out;
+  }
+
+  /// 最近一次解析出的订阅状态（后端提示节点里的话）。
+  ///
+  /// 让「配置档本身就是一份失效订阅」这件事可以被上层立刻看到 —— 不必等
+  /// 账号接口 5 分钟一次的轮询，也不依赖账号接口是否连得上。
+  static MclashSubscriptionNotice _lastNotice =
+      MclashSubscriptionNotice.unknown;
+
+  static MclashSubscriptionNotice get lastNotice => _lastNotice;
+
+  /// 只解析订阅状态（给测试与门禁用）。
+  static MclashSubscriptionNotice parseNotice(String yamlText) {
+    dynamic doc;
+    try {
+      doc = loadYaml(yamlText);
+    } catch (_) {
+      return MclashSubscriptionNotice.unknown;
+    }
+    if (doc is! YamlMap) {
+      return MclashSubscriptionNotice.unknown;
+    }
+    final proxies = doc["proxies"];
+    if (proxies is! YamlList) {
+      return MclashSubscriptionNotice.unknown;
+    }
+    return MclashSubscriptionNotice.parse([
+      for (final p in proxies)
+        if (p is YamlMap) p["name"]?.toString() ?? "",
+    ]);
   }
 
   /// 解析缓存：键 = 文件路径，值 = (修改时间, 大小, 结果)。
@@ -105,6 +144,7 @@ abstract final class MclashSubscriptionNodes {
   static DateTime? _cacheMtime;
   static int? _cacheSize;
   static List<MclashNode>? _cacheNodes;
+  static MclashSubscriptionNotice? _cacheNotice;
 
   @visibleForTesting
   static void debugClearParseCache() {
@@ -112,6 +152,8 @@ abstract final class MclashSubscriptionNodes {
     _cacheMtime = null;
     _cacheSize = null;
     _cacheNodes = null;
+    _cacheNotice = null;
+    _lastNotice = MclashSubscriptionNotice.unknown;
   }
 
   static Future<List<MclashNode>> loadNodes() async {
@@ -132,8 +174,10 @@ abstract final class MclashSubscriptionNodes {
       final stat = await file.stat();
       if (_cachePath == path &&
           _cacheNodes != null &&
+          _cacheNotice != null &&
           _cacheMtime == stat.modified &&
           _cacheSize == stat.size) {
+        _lastNotice = _cacheNotice!;
         return _cacheNodes!;
       }
       final nodes = parseNodes(text);
@@ -141,6 +185,7 @@ abstract final class MclashSubscriptionNodes {
       _cacheMtime = stat.modified;
       _cacheSize = stat.size;
       _cacheNodes = nodes;
+      _cacheNotice = _lastNotice;
       return nodes;
     }
 

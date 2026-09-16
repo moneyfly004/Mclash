@@ -11,6 +11,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:path/path.dart' as path;
 
 enum MclashBlockKind {
@@ -27,6 +28,10 @@ enum MclashBlockKind {
   deviceFull,
 
   deviceKicked,
+
+  /// 服务端暂时不可用（后端如实返回「服务暂时不可用」时用它，
+  /// 与「套餐已被禁用」区分开 —— 后者会让付费客户以为自己的套餐出了问题）。
+  serverUnavailable,
 }
 
 class MclashAccountService extends ChangeNotifier {
@@ -41,6 +46,34 @@ class MclashAccountService extends ChangeNotifier {
 
   bool _kicked = false;
 
+  /// 订阅接口**这次实际下发**的内容里带的结论（到期/禁用/设备超限）。
+  ///
+  /// 为什么需要它：设备超限是「拉订阅的那一刻」由后端判定的，订阅行本身仍是
+  /// active —— 只靠账号接口（5 分钟一轮）会有窗口期；而且账号接口失败时，
+  /// 配置档里那份「只有提示节点」的订阅就是唯一可信的信号。
+  MclashSubscriptionNotice _payloadNotice = MclashSubscriptionNotice.unknown;
+  MclashSubscriptionNotice get payloadNotice => _payloadNotice;
+
+  /// 记下「这次下载到的订阅本身说了什么」。
+  ///
+  /// 状态发生变化时立刻触发一次「受限就断开」，不等账号接口的下一轮。
+  void markPayloadNotice(MclashSubscriptionNotice notice) {
+    if (notice.state == _payloadNotice.state &&
+        notice.reason == _payloadNotice.reason &&
+        notice.solution == _payloadNotice.solution) {
+      return;
+    }
+    _payloadNotice = notice;
+    Log.i(
+      "MclashAccountService: 订阅下发状态 -> ${notice.state.name}"
+      "${notice.reason.isEmpty ? "" : "（${notice.reason}）"}",
+    );
+    notifyListeners();
+    if (isBlocked) {
+      unawaited(disconnectIfBlocked());
+    }
+  }
+
   Map<String, dynamic>? get dashboard => _dash;
   Map<String, dynamic>? get subscription => _sub;
 
@@ -51,6 +84,11 @@ class MclashAccountService extends ChangeNotifier {
     _dash = dash;
     _sub = sub;
     notifyListeners();
+  }
+
+  @visibleForTesting
+  void debugClearPayloadNotice() {
+    _payloadNotice = MclashSubscriptionNotice.unknown;
   }
   bool get loading => _loading;
 
@@ -209,6 +247,23 @@ class MclashAccountService extends ChangeNotifier {
     if (_kicked) {
       return MclashBlockKind.deviceKicked;
     }
+    // 后端在这次订阅下发里已经明确说了「不可用」→ 直接采信（最权威，
+    // 且包含账号接口拿不到的设备超限判定）。
+    switch (_payloadNotice.state) {
+      case MclashNoticeState.expired:
+        return MclashBlockKind.expired;
+      case MclashNoticeState.inactive:
+        return MclashBlockKind.subscriptionDisabled;
+      case MclashNoticeState.deviceOverLimit:
+        return MclashBlockKind.deviceFull;
+      case MclashNoticeState.notFound:
+        return MclashBlockKind.noSubscription;
+      case MclashNoticeState.other:
+        return MclashBlockKind.serverUnavailable;
+      case MclashNoticeState.ok:
+      case MclashNoticeState.unknown:
+        break;
+    }
     final acc = info;
     if (!acc.hasData) {
       return MclashBlockKind.none;
@@ -260,12 +315,19 @@ class MclashAccountService extends ChangeNotifier {
         return "尚未开通套餐";
       case MclashBlockKind.deviceKicked:
         return "本设备已被移除";
+      case MclashBlockKind.serverUnavailable:
+        return "服务暂时不可用";
       case MclashBlockKind.none:
         return "";
     }
   }
 
   String get blockText {
+    final notice = _payloadNotice;
+    if (notice.blocked && notice.fullText.isNotEmpty) {
+      // 后端在提示节点里给的解决方式/客服/官网最贴合当前原因，优先展示。
+      return notice.fullText;
+    }
     switch (blockKind) {
       case MclashBlockKind.expired:
         return "您的套餐已到期，购买套餐后即可继续畅连全球节点。";
@@ -282,6 +344,8 @@ class MclashAccountService extends ChangeNotifier {
         return "您还没有开通套餐，开通后即可畅连全球节点。";
       case MclashBlockKind.deviceKicked:
         return "本设备已被移除并踢下线，请重新登录。";
+      case MclashBlockKind.serverUnavailable:
+        return "服务暂时不可用，请稍后重试；若持续出现请截图联系客服。";
       case MclashBlockKind.none:
         return "";
     }
@@ -300,6 +364,8 @@ class MclashAccountService extends ChangeNotifier {
         return "🛒";
       case MclashBlockKind.deviceKicked:
         return "⚠️";
+      case MclashBlockKind.serverUnavailable:
+        return "🛠";
       case MclashBlockKind.none:
         return "";
     }

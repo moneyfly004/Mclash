@@ -7,11 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_cache.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
+import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:libclash_vpn_service/state.dart';
 
 class MclashNodesStore extends ChangeNotifier {
@@ -253,6 +255,12 @@ class MclashNodesStore extends ChangeNotifier {
 
     try {
       final nodes = await MclashSubscriptionNodes.loadNodes();
+      // 后端在「到期 / 被禁用 / 设备超限」时只会下发提示节点 —— 这一步把
+      // 「配置档本身说了什么」交给账号门禁，于是：
+      //   · 节点列表归零（提示节点被过滤），自动选节点无候选；
+      //   · 任何连接入口都会被门禁拦住（含托盘/URL scheme/开机自动连接）；
+      //   · 已连接时由 MclashAccountService 断开。
+      _applySubscriptionNotice(MclashSubscriptionNodes.lastNotice);
       final hit = await MclashNodesCache.apply(nodes);
       if (generation != _loadGeneration) {
         // 已经有更新的一轮在跑（例如用户手动更新订阅），这轮的旧结果直接丢弃。
@@ -271,6 +279,19 @@ class MclashNodesStore extends ChangeNotifier {
       _loading = false;
       Log.w("MclashNodesStore.load 失败 $e");
       notifyListeners();
+    }
+  }
+
+  /// 把订阅下发状态交给账号门禁，并清掉「已经不可用」的旧选择。
+  static void _applySubscriptionNotice(MclashSubscriptionNotice notice) {
+    MclashAccountService.instance.markPayloadNotice(notice);
+    if (!notice.blocked) {
+      return;
+    }
+    // 记住的固定节点此刻已经不存在了；不清掉的话下次连上会去找一个死节点。
+    if (MclashNodeAutoPick.fixedNode().isNotEmpty) {
+      Log.w("MclashNodesStore: 订阅不可用（${notice.title}），清除已固定的节点");
+      unawaited(MclashNodeAutoPick.setFixedNode(""));
     }
   }
 

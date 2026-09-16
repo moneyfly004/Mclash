@@ -298,6 +298,7 @@ Future<void> showMclashAccountGateDialog(BuildContext context) async {
 
     case MclashBlockKind.accountDisabled:
     case MclashBlockKind.subscriptionDisabled:
+    case MclashBlockKind.serverUnavailable:
       await DialogUtils.showAlertDialog(
         context,
         "${acc.blockEmoji}\n${acc.blockTitle}\n\n${acc.blockText}",
