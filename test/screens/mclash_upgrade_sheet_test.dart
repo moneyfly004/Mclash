@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_device_upgrade.dart';
+import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 
@@ -201,6 +202,91 @@ void main() {
 
     expect(find.textContaining("支付失败：余额不足"), findsOneWidget);
     expect(find.text("重试"), findsOneWidget, reason: '失败要能重试');
+
+    await finish(tester);
+  });
+
+  testWidgets('码支付通道：面板会自动打开浏览器（用户要求）', (tester) async {
+    final launches = <String>[];
+    debugLaunchOverride = (target, external) async {
+      launches.add(target);
+      return true;
+    };
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => showMclashPaymentSheet(
+                    context,
+                    orderNo: "UPG-CASHIER-1",
+                    amount: 71.1,
+                    qrCode: "https://pay.example.com/cashier/abc",
+                    methodName: "码支付",
+                    channel: MclashPayChannel.cashierUrl,
+                    openInBrowser: true,
+                  ),
+                  child: const Text("pay"),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text("pay"));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      launches,
+      ["https://pay.example.com/cashier/abc"],
+      reason: '码支付应当是"打开浏览器支付"，不是让用户对着二维码发呆',
+    );
+    expect(find.textContaining("已在浏览器中打开支付页面"), findsOneWidget);
+
+    await finish(tester);
+  });
+
+  testWidgets('支付宝二维码：弹的是二维码，不自动跳浏览器', (tester) async {
+    final launches = <String>[];
+    debugLaunchOverride = (target, external) async {
+      launches.add(target);
+      return true;
+    };
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => showMclashPaymentSheet(
+                    context,
+                    orderNo: "UPG-ALIPAY-1",
+                    amount: 71.1,
+                    qrCode: "https://qr.alipay.com/bax0123abc",
+                    methodName: "支付宝",
+                  ),
+                  child: const Text("pay"),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text("pay"));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(launches, isEmpty, reason: '二维码通道不该自动跳走');
+    expect(find.textContaining("请使用支付宝 / 微信扫码"), findsOneWidget);
+    expect(find.text("支付宝"), findsOneWidget);
 
     await finish(tester);
   });

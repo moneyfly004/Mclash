@@ -2,29 +2,42 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/qrcode_utils.dart';
+import 'package:mclash/app/utils/url_launcher_utils.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-/// 测试缝：替换真实的余额支付（widget 测试没有网络）。
-/// 返回错误信息表示失败，返回 null 表示成功。
+/// 测试缝：替换真实的余额支付（widget 测试没有网络）。返回错误信息 = 失败。
 @visibleForTesting
 Future<String?> Function(String orderNo)? debugBalancePayOverride;
 
+/// 测试缝：替换「唤起支付 App / 打开浏览器」，返回是否成功。
+@visibleForTesting
+Future<bool> Function(String target, bool external)? debugLaunchOverride;
+
 /// 支付面板，返回 `true` 表示支付成功。
 ///
-/// 两种模式：
-///   * `payWithBalance: true` —— **真的发起余额扣款**。旧实现不管选什么支付方式
-///     都只显示一张二维码，选「余额支付」也是一直转圈，等于支付功能不可用。
-///   * 扫码支付 —— 显示二维码，并轮询订单状态，支付成功后自动关闭。
+/// 覆盖三种真实交互（用户要求）：
+///   * **余额支付** —— 面板里直接扣款（旧实现只显示二维码，选余额也在转圈）；
+///   * **扫码支付** —— 展示二维码（支付宝当面付 / 微信 NATIVE / USDT 地址码）；
+///     手机端额外给「打开支付宝」按钮，`qr.alipay.com` 会包成 `alipays://` 深链
+///     直接唤起支付宝 App（参考客户端同款做法）；
+///   * **码支付收银台** —— 后端返回的是 http(s) 收银台链接时**打开浏览器**支付。
 Future<bool?> showMclashPaymentSheet(
   BuildContext context, {
   required String orderNo,
   required double amount,
   String qrCode = "",
   bool payWithBalance = false,
+  String methodName = "",
+  MclashPayChannel? channel,
+  String launchTarget = "",
+  bool openInBrowser = false,
 }) {
   return showSheet<bool>(
     context: context,
@@ -33,6 +46,10 @@ Future<bool?> showMclashPaymentSheet(
       amount: amount,
       qrCode: qrCode,
       payWithBalance: payWithBalance,
+      methodName: methodName,
+      channel: channel ?? MclashPay.classify(qrCode),
+      launchTarget: launchTarget,
+      openInBrowser: openInBrowser,
     ),
   );
 }
@@ -43,38 +60,56 @@ class _PaymentSheetBody extends StatefulWidget {
     required this.amount,
     required this.qrCode,
     required this.payWithBalance,
+    required this.methodName,
+    required this.channel,
+    required this.launchTarget,
+    required this.openInBrowser,
   });
 
   final String orderNo;
   final double amount;
   final String qrCode;
   final bool payWithBalance;
+  final String methodName;
+  final MclashPayChannel channel;
+  final String launchTarget;
+  final bool openInBrowser;
 
   @override
   State<_PaymentSheetBody> createState() => _PaymentSheetBodyState();
 }
 
-class _PaymentSheetBodyState extends State<_PaymentSheetBody> {
+class _PaymentSheetBodyState extends State<_PaymentSheetBody>
+    with WidgetsBindingObserver {
   static const _interval = Duration(seconds: 3);
   static const _timeout = Duration(minutes: 15);
 
   Timer? _timer;
-
-  /// 15 分钟超时定时器也要持有引用并随面板销毁取消 —— 否则面板关掉之后
-  /// 定时器还会活 15 分钟（测试里会直接暴露成「Pending timers」）。
   Timer? _timeoutTimer;
   bool _paid = false;
   bool _timedOut = false;
   bool _paying = false;
+  bool _launching = false;
+  bool _autoOpened = false;
   String? _payError;
+
+  bool get _isMobile =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.payWithBalance) {
       _payWithBalance();
     } else {
       _timer = Timer.periodic(_interval, (_) => _poll());
+      _poll();
+      if (widget.openInBrowser) {
+        // 码支付收银台：进面板就把浏览器打开（用户要求：码支付弹到浏览器支付）
+        WidgetsBinding.instance.addPostFrameCallback((_) => _openExternal());
+      }
     }
     _timeoutTimer = Timer(_timeout, () {
       if (!mounted || _paid) {
@@ -87,12 +122,20 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _timeoutTimer?.cancel();
     super.dispose();
   }
 
-  /// 余额支付：真正调用支付接口，而不是让用户对着二维码发呆。
+  /// 从支付宝/浏览器切回 App 时立刻查一次（不必等下个轮询周期）。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !widget.payWithBalance) {
+      _poll();
+    }
+  }
+
   Future<void> _payWithBalance() async {
     if (_paying) {
       return;
@@ -158,6 +201,44 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody> {
     } catch (_) {}
   }
 
+  /// 唤起支付 App / 打开浏览器。
+  Future<void> _openExternal() async {
+    if (_launching) {
+      return;
+    }
+    final target = widget.launchTarget.isNotEmpty
+        ? widget.launchTarget
+        : MclashPay.appLaunchTarget(widget.qrCode, widget.channel);
+    if (target.isEmpty) {
+      return;
+    }
+    setState(() => _launching = true);
+    try {
+      final override = debugLaunchOverride;
+      final ok = override != null
+          ? await override(target, true)
+          : await _launch(target);
+      _autoOpened = true;
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("没能打开支付页面，请改用扫码支付")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _launching = false);
+      }
+    }
+  }
+
+  Future<bool> _launch(String target) async {
+    final err = await UrlLauncherUtils.loadUrl(
+      target,
+      mode: LaunchMode.externalApplication,
+    );
+    return err == null;
+  }
+
   Future<void> _cancel() async {
     try {
       await MclashApi.cancelOrder(widget.orderNo);
@@ -167,9 +248,24 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody> {
     }
   }
 
+  bool get _showLaunchButton =>
+      !widget.payWithBalance &&
+      MclashPay.canLaunchApp(widget.channel, isMobile: _isMobile);
+
+  String get _launchLabel {
+    if (widget.channel == MclashPayChannel.cashierUrl) {
+      return _autoOpened ? "重新打开支付页面" : "在浏览器中支付";
+    }
+    return "打开支付宝支付";
+  }
+
   @override
   Widget build(BuildContext context) {
-    final title = widget.payWithBalance ? "余额支付" : "扫码支付";
+    final title = widget.payWithBalance
+        ? "余额支付"
+        : (widget.methodName.isNotEmpty ? widget.methodName : "扫码支付");
+    final showQr = !widget.payWithBalance &&
+        widget.channel != MclashPayChannel.cashierUrl;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
@@ -181,11 +277,16 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody> {
           ),
           const SizedBox(height: 4),
           Text(
-            widget.payWithBalance ? "从账户余额扣款" : "请使用支付宝 / 微信扫码",
+            widget.payWithBalance
+                ? "从账户余额扣款"
+                : (widget.channel == MclashPayChannel.cashierUrl
+                      ? "已在浏览器中打开支付页面"
+                      : "请使用支付宝 / 微信扫码"),
             style: const TextStyle(fontSize: 12, color: Colors.grey),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 14),
-          if (!widget.payWithBalance)
+          if (showQr)
             Container(
               width: 196,
               height: 196,
@@ -245,6 +346,23 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody> {
                 ),
               ],
             ),
+          if (_showLaunchButton) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _launching ? null : _openExternal,
+                icon: _launching
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.open_in_new, size: 16),
+                label: Text(_launchLabel),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [

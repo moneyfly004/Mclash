@@ -1,9 +1,13 @@
 
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
+import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_device_upgrade.dart';
+import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
@@ -230,6 +234,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                   addDevices: addDevices,
                   addDays: addDays,
                 );
+                _lastQuoteOrderId = (d["id"] as num?)?.toInt() ?? 0;
                 if (!sheetContext.mounted) {
                   return;
                 }
@@ -388,6 +393,9 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   /// 用算价时那笔草稿订单去支付。
   ///
   /// 不再「重新下单」：后端算价就已经建单，重新下单会在订单列表里多出一笔。
+  /// 最近一次算价得到的订单 id（非余额支付时用它对后端发起支付）。
+  int _lastQuoteOrderId = 0;
+
   Future<void> _submitUpgrade(
     BuildContext sheetContext, {
     required String orderNo,
@@ -400,22 +408,9 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       await DialogUtils.showAlertDialog(context, "订单信息不完整，请点「重新算价」再试");
       return;
     }
-    final info = MclashAccountInfo(
-      MclashAccountService.instance.dashboard,
-      MclashAccountService.instance.subscription,
-    );
-    final balance = info.balance;
-    final payWithBalance = balance >= amount;
-
-    if (!payWithBalance) {
-      final go = await DialogUtils.showConfirmDialog(
-        context,
-        "余额不足（¥${balance.toStringAsFixed(2)}，需付 ¥${amount.toStringAsFixed(2)}）。\n"
-        "是否先去充值？",
-      );
-      if (go == true) {
-        MainTabController.instance?.setTab(2);
-      }
+    // 用户要求：**让客户自己选支付方式**（以前这里直接走余额）。
+    final method = await _pickPayMethod(amount);
+    if (method == null || !mounted) {
       return;
     }
 
@@ -424,17 +419,165 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     }
     final sheetNavigator = Navigator.of(sheetContext);
     sheetNavigator.pop();
-    final ok = await showMclashPaymentSheet(
-      context,
-      orderNo: orderNo,
-      amount: amount,
-      payWithBalance: true,
-    );
-    if (ok == true) {
+
+    bool ok = false;
+    final payType = MclashPay.payTypeOf(method);
+    if (MclashPay.isBalance(payType)) {
+      ok =
+          await showMclashPaymentSheet(
+            context,
+            orderNo: orderNo,
+            amount: amount,
+            payWithBalance: true,
+            methodName: MclashPay.nameOf(method),
+          ) ==
+          true;
+    } else {
+      // 非余额：向后端发起支付拿二维码/收银台链接，再按通道决定交互
+      final methodId = (method["id"] as num?)?.toInt() ?? 0;
+      final orderId = _lastQuoteOrderId;
+      if (methodId <= 0 || orderId <= 0) {
+        if (mounted) {
+          await DialogUtils.showAlertDialog(context, "订单或支付通道信息不完整，请重新算价后再试");
+        }
+        return;
+      }
+      final r = await MclashApi.createPayment(
+        orderId: orderId,
+        paymentMethodId: methodId,
+        isMobile: Platform.isAndroid || Platform.isIOS,
+      );
+      final payload = MclashPay.payloadOf(r);
+      if (payload.isEmpty) {
+        if (mounted) {
+          await DialogUtils.showAlertDialog(context, "后端没有返回支付二维码/链接，请换一个支付方式或稍后再试");
+        }
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      final channel = MclashPay.classify(payload, payType: payType);
+      ok =
+          await showMclashPaymentSheet(
+            context,
+            orderNo: orderNo,
+            amount: amount,
+            qrCode: payload,
+            methodName: MclashPay.nameOf(method),
+            channel: channel,
+            openInBrowser: MclashPay.shouldOpenInBrowser(channel),
+          ) ==
+          true;
+    }
+
+    if (ok) {
       MclashDeviceUpgrade.markPaid();
       await MclashAccountService.instance.refresh();
       await _load();
     }
+  }
+
+  /// 让用户选择支付方式（余额 + 后端下发的通道）。
+  Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {
+    final info = MclashAccountInfo(
+      MclashAccountService.instance.dashboard,
+      MclashAccountService.instance.subscription,
+    );
+    final balance = info.balance;
+    List<Map<String, dynamic>> methods = const [];
+    try {
+      methods = await MclashApi.paymentMethods();
+    } catch (e) {
+      Log.w("读取支付方式失败 $e");
+    }
+    if (!mounted) {
+      return null;
+    }
+
+    final balanceEnabled = await MclashApi.paymentBalanceEnabled();
+    if (!mounted) {
+      return null;
+    }
+    final usable = <Map<String, dynamic>>[
+      // 余额排在第一位（后端允许时才给），并标出余额是否够付
+      if (balanceEnabled) {"id": -1, "key": "balance", "name": "余额支付"},
+      ...methods.where((m) => !MclashPay.isBalance(MclashPay.payTypeOf(m))),
+    ];
+    if (usable.isEmpty) {
+      if (mounted) {
+        await DialogUtils.showAlertDialog(context, "当前没有可用的支付方式，请稍后再试或联系客服");
+      }
+      return null;
+    }
+    if (usable.length == 1 &&
+        MclashPay.isBalance(MclashPay.payTypeOf(usable.first)) &&
+        balance < amount) {
+      // 没有其它通道又余额不足：引导充值
+      final go = await DialogUtils.showConfirmDialog(
+        context,
+        "余额不足（¥${balance.toStringAsFixed(2)}，需付 ¥${amount.toStringAsFixed(2)}）。\n是否先去充值？",
+      );
+      if (go == true) {
+        MainTabController.instance?.setTab(2);
+      }
+      return null;
+    }
+
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "选择支付方式",
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: ThemeConfig.kFontWeightTitle,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 点一项即选定并关闭（支付方式的"选择"不需要二次确认）
+            for (final m in usable)
+              ListTile(
+                key: ValueKey("pay-method-${MclashPay.payTypeOf(m)}"),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  MclashPay.isBalance(MclashPay.payTypeOf(m))
+                      ? Icons.account_balance_wallet_outlined
+                      : Icons.qr_code_2,
+                  size: 20,
+                ),
+                title: Text(MclashPay.nameOf(m)),
+                subtitle: MclashPay.isBalance(MclashPay.payTypeOf(m))
+                    ? Text(
+                        balance >= amount
+                            ? "余额 ¥${balance.toStringAsFixed(2)}"
+                            : "余额 ¥${balance.toStringAsFixed(2)}（不足，请先充值）",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: balance >= amount
+                              ? ThemeDefine.kColorGrey
+                              : Colors.red,
+                        ),
+                      )
+                    : null,
+                trailing: const Icon(Icons.chevron_right, size: 20),
+                onTap: () => Navigator.of(ctx).pop(m),
+              ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDevice(Map<String, dynamic> d) {

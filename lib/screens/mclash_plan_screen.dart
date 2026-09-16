@@ -1,12 +1,15 @@
 
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -444,21 +447,23 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         final r = await MclashApi.createPayment(
           orderId: orderId,
           paymentMethodId: methodId,
+          isMobile: Platform.isAndroid || Platform.isIOS,
         );
-        payUrl = (r?["payment_url"] ??
-                r?["pay_url"] ??
-                r?["qr_code"] ??
-                r?["url"] ??
-                "")
-            .toString();
+        payUrl = MclashPay.payloadOf(r);
         if (!mounted) {
           return;
         }
+        // 按通道决定交互：支付宝码弹二维码（手机可唤起 App）、
+        // 码支付/收银台链接开浏览器（用户要求）。
+        final channel = MclashPay.classify(payUrl, payType: payType);
         await showMclashPaymentSheet(
           context,
           orderNo: orderNo,
           amount: amount,
           qrCode: payUrl,
+          methodName: (_selectedMethod?["name"] ?? "").toString(),
+          channel: channel,
+          openInBrowser: MclashPay.shouldOpenInBrowser(channel),
         );
       }
 
