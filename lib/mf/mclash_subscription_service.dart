@@ -33,7 +33,12 @@ class MclashSubSyncResult {
 
 abstract final class MclashSubscriptionService {
 
-  static const Duration kUpdateInterval = Duration(days: 1);
+  /// 订阅自动更新间隔的**默认值**：30 分钟。
+  ///
+  /// 为什么不是一天：套餐节点会被服务端轮换/下线，间隔太长会出现
+  /// 「节点列表是旧的、点了报节点不存在」。一次同步只有几百 KB，
+  /// 30 分钟的开销可以忽略；想省流量可以在「我的 → 应用设置」里改成 6 小时/一天/从不。
+  static const Duration kUpdateInterval = Duration(minutes: 30);
 
   static const String kProfileRemark = "账号订阅";
 

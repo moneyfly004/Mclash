@@ -21,8 +21,13 @@ void main() {
     };
     MclashConnectionDiagnostics.debugSystemProxyOverride =
         () async => "未指向本机内核端口（系统里是空的或别的值）";
-    MclashConnectionDiagnostics.debugNetInterfacesOverride = () async =>
-        ["Mclash", "Ethernet"];
+    // Windows 上 wintun 适配器叫 Mclash；macOS/Linux 上内核建的是 utunN，
+    // 所以两类都塞进来，断言按平台各取所需（自检必须两个平台都说真话）。
+    MclashConnectionDiagnostics.debugNetInterfacesOverride = () async => [
+      "Mclash",
+      "utun3: flags=8051<UP,POINTOPOINT,RUNNING,MULTICAST> mtu 1280",
+      "\tinet 172.19.0.1 --> 172.19.0.2 netmask 0xfffffffc",
+    ];
   });
 
   tearDown(() {
@@ -44,7 +49,13 @@ void main() {
     expect(text, contains("TUN 模式(tun_mode): off"));
     expect(text, contains("连接后自动设置系统代理(auto_set_system_proxy): true"));
     expect(text, contains("内核生效 tun.enable: false"));
-    expect(text, contains("虚拟网卡: Mclash"), reason: "要能一眼看出网卡建没建起来");
+    // 要能一眼看出网卡建没建起来（Windows 认名字 / macOS 认 utun + 隧道地址）
+    expect(text, contains("虚拟网卡: "));
+    expect(
+      text.contains("Mclash") || text.contains("utun3"),
+      isTrue,
+      reason: "自检必须能认出本平台的 TUN 接口（macOS 上是 utunN，不是 Mclash）",
+    );
     expect(text, contains("-- 系统代理 --"));
     // 即使平台通道/日志文件不可用，也不能整段失败（这项用的是真实现）
     expect(text, contains("-- 内核日志尾部 --"));

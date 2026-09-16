@@ -477,6 +477,22 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       );
       return;
     }
+    // 面板是内核数据的可视化界面（zashboard）：内核没跑时它只有空壳，
+    // 用户会以为「面板坏了」。先如实说清，再决定要不要继续。
+    if (!await VPNService.getStarted()) {
+      if (!mounted) {
+        return;
+      }
+      final go = await DialogUtils.showConfirmDialog(
+        context,
+        "面板显示的是内核的实时数据（连接、流量、规则命中）。\n\n"
+        "当前内核没有运行，面板会是一个空壳。\n"
+        "点「确定」仍然打开，点「取消」先去主页连接。",
+      );
+      if (go != true || !mounted) {
+        return;
+      }
+    }
     final result = await Zashboard.start();
     if (!mounted) {
       return;
@@ -496,6 +512,9 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       "board",
       title: tcontext.meta.board,
       inappWebViewOpenExternal: false,
+      // 桌面端以前是**丢给系统浏览器**（点了就像什么都没发生，还得自己切回来）。
+      // flutter_inappwebview 在 Windows/macOS 都支持 → 改成应用内窗口打开。
+      useInappWebViewForPC: true,
     );
     if (PlatformUtils.isMobile()) {
       await Zashboard.stop();

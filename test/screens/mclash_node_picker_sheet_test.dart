@@ -210,6 +210,35 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  testWidgets('主页「当前节点」行要有明显的「切换」提示（用户反馈不够明显）', (tester) async {
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: HomeScreenWidgetPart1()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(
+      find.byKey(const ValueKey("home-node-row")),
+      findsOneWidget,
+      reason: '整行要是可点区域（带边框与底色）',
+    );
+    expect(
+      find.byKey(const ValueKey("home-node-switch-button")),
+      findsOneWidget,
+    );
+    expect(find.text("切换"), findsOneWidget, reason: '必须有明确的「切换」字样');
+    expect(find.byIcon(Icons.swap_horiz), findsOneWidget);
+    expect(find.text("当前节点"), findsOneWidget, reason: '这一行要说明它是什么');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets('主页当前节点行 → 打开就地弹层，而不是跳到节点列表页', (tester) async {
     await tester.pumpWidget(
       TranslationProvider(

@@ -157,6 +157,11 @@ abstract final class MclashNodeSelector {
     return groupNameForMode(list);
   }
 
+  /// 上一次选择是否只是「记下来等连接后生效」（内核当时没跑）。
+  ///
+  /// 界面据此换一句提示（"已选择 X，连接后生效"），而不是谎报"已切换"。
+  static bool lastSelectDeferred = false;
+
   /// 用户最近一次**手动**选节点的时刻。
   ///
   /// 连接后 2 秒会自动选最优节点；如果用户在这之前/之后自己点了节点，
@@ -174,6 +179,19 @@ abstract final class MclashNodeSelector {
   @visibleForTesting
   static void debugResetManualPick() => lastManualPickAt = null;
 
+  /// 内核没跑时：只把选择**记下来**（固定节点 + 标记「连接后生效」）。
+  ///
+  /// 与 [select] 的区别：这里不会再向内核查一次「当前该写哪个组」—— 内核都没跑，
+  /// 那次查询只会白等一个超时（调用方也就一直看不到反馈）。
+  static Future<void> rememberSelection(String nodeName) async {
+    if (nodeName.trim().isEmpty) {
+      return;
+    }
+    lastSelectDeferred = true;
+    await MclashNodeAutoPick.setFixedNode(nodeName);
+    Log.i("MclashNodeSelector: 已记住节点 [$nodeName]，连接后生效");
+  }
+
   /// 统一切换节点入口：按当前模式挑选择器，再写内核。
   static Future<ReturnResultError?> select(
     String nodeName, {
@@ -184,8 +202,18 @@ abstract final class MclashNodeSelector {
     }
     final group = await currentGroupName();
     if (group == null) {
-      return ReturnResultError("内核未运行：请在主页打开连接开关后再切换节点");
+      // 内核没在跑 → 以前直接报「内核未运行」，用户点「切换」选完节点等于白点。
+      // 现在把选择**记住**（就是「固定节点」），下次连接时自动用它 —— 这才是
+      // 用户在没连接时选节点的本意。界面用 [lastSelectDeferred] 换成
+      // 「已选择 X（连接后生效）」的提示。
+      lastSelectDeferred = true;
+      if (manual) {
+        await MclashNodeAutoPick.setFixedNode(nodeName);
+      }
+      Log.i("MclashNodeSelector: 内核未运行，已记住节点 [$nodeName]，连接后生效");
+      return null;
     }
+    lastSelectDeferred = false;
     final override = debugSetNodeOverride;
     final err = override != null
         ? await override(group, nodeName)

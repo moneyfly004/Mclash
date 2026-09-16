@@ -126,11 +126,16 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
       ).showSnackBar(SnackBar(content: Text("切换失败：${err.message}")));
       return;
     }
+    final deferred = MclashNodeSelector.lastSelectDeferred;
     setState(() => _switchedTo = node.name);
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("已切换到 ${node.name}")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          deferred ? "已选择 ${node.name}（连接后生效）" : "已切换到 ${node.name}",
+        ),
+      ),
+    );
   }
 
   @override

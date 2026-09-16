@@ -54,14 +54,18 @@ void main() {
     );
   });
 
-  test('accountInterval 读的就是账号订阅档；没有档时给默认 24 小时', () {
+  test('accountInterval 读的就是账号订阅档；没有档时给默认 30 分钟', () {
     ProfileManager.debugSetProfiles([
       accountProfile(interval: const Duration(days: 3)),
     ]);
     expect(MclashSubscriptionService.accountInterval(), const Duration(days: 3));
 
     ProfileManager.debugClearProfiles();
-    expect(MclashSubscriptionService.accountInterval(), const Duration(days: 1));
+    expect(
+      MclashSubscriptionService.accountInterval(),
+      const Duration(minutes: 30),
+      reason: '默认 30 分钟：套餐节点会被服务端轮换，间隔太长会出现「点了报节点不存在」',
+    );
   });
 
   test('设置间隔会写进配置档（不是只改内存）', () async {

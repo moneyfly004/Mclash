@@ -3,6 +3,7 @@ import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
+import 'package:mclash/mf/mclash_node_autopick.dart';
 
 /// 「切到全局模式就上不了外网」的回归。
 ///
@@ -10,6 +11,8 @@ import 'package:mclash/mf/mclash_mode_selection.dart';
 /// 而全局模式下所有流量都由 GLOBAL 决定 —— 于是用户一切到全局就全部直连。
 /// 这里覆盖「什么时候该把 GLOBAL 接到真实节点」这个判断。
 void main() {
+  String remembered = '';
+
   group('全局模式 GLOBAL 选择器修正', () {
     test('GLOBAL 是 DIRECT（内核默认）→ 接到主选择组正在用的节点', () {
       expect(
@@ -135,18 +138,29 @@ void main() {
       MclashNodeSelector.debugSetNodeOverride = null;
     });
 
-    test('内核不可用时给出人话错误，而不是静默失败', () async {
+    test('内核没跑时：把选择记住（连接后生效），不再报错', () async {
+      // 以前这里直接返回「内核未运行」，用户点「切换」选完节点什么都留不下。
       MclashNodeSelector.debugProxiesOverride = () async => [];
       MclashNodeSelector.debugSetNodeOverride = (g, n) async =>
           ReturnResultError("should-not-be-called");
       ClashSettingManager.debugSetMode("rule");
+      MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
+        remembered = name;
+      };
+      remembered = "";
 
       final err = await MclashNodeSelector.select("🇭🇰 香港 01");
-      expect(err, isNotNull);
-      expect(err!.message.contains("内核未运行"), isTrue);
+      expect(err, isNull, reason: '不该再报错：选择要被记住');
+      expect(
+        MclashNodeSelector.lastSelectDeferred,
+        isTrue,
+        reason: '界面据此显示「连接后生效」',
+      );
+      expect(remembered, "🇭🇰 香港 01", reason: '要被记为固定节点');
 
       MclashNodeSelector.debugProxiesOverride = null;
       MclashNodeSelector.debugSetNodeOverride = null;
+      MclashNodeAutoPick.debugSetFixedNodeOverride = null;
     });
   });
 

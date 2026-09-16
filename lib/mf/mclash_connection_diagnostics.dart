@@ -103,18 +103,7 @@ abstract final class MclashConnectionDiagnostics {
       );
     }
     final interfaces = await _netInterfaces();
-    final tunLike = interfaces.where(
-      (i) =>
-          i.toLowerCase().contains("mclash") ||
-          i.toLowerCase().contains("wintun"),
-    );
-    line(
-      "虚拟网卡: ${tunLike.isEmpty
-          ? (PlatformUtils.isPC()
-                ? "未发现（没有建起来）"
-                : "该平台没有 TUN 虚拟网卡（仅桌面端有）")
-          : tunLike.join(" / ")}",
-    );
+    line("虚拟网卡: ${_describeTunInterface(interfaces)}");
     line("");
 
     // ── 系统代理 ──
@@ -208,17 +197,61 @@ abstract final class MclashConnectionDiagnostics {
     }
     try {
       if (Platform.isWindows) {
+        // Windows：wintun 适配器就叫 Mclash，netsh 能直接列出来
         final r = await Process.run("netsh", ["interface", "show", "interface"]);
         return const LineSplitter()
             .convert("${r.stdout}")
             .where((l) => l.trim().isNotEmpty)
             .toList();
       }
-      final r = await Process.run("ifconfig", ["-l"]);
-      return "${r.stdout}".split(RegExp(r"\s+")).where((s) => s.isNotEmpty).toList();
+      // macOS / Linux：内核建的是 utun*（不受配置里 device 影响），
+      // 所以要连**地址**一起看 —— 我们自己的 TUN 用 172.19.0.1/30。
+      final r = await Process.run("ifconfig", []);
+      return const LineSplitter()
+          .convert("${r.stdout}")
+          .where((l) => l.trim().isNotEmpty)
+          .toList();
     } catch (e) {
       return [];
     }
+  }
+
+  /// 把网卡列表翻译成一句「TUN 到底建没建起来」。
+  ///
+  /// 以前只找名字里带 mclash/wintun 的行，而 macOS 上内核的虚拟网卡叫 utunN，
+  /// 于是**TUN 明明在工作也一律报「未发现」**——自检就成了误导。
+  /// 现在按平台识别：Windows 认名字，macOS/Linux 认 utun + 我们自己的隧道地址。
+  static String _describeTunInterface(List<String> interfaces) {
+    if (!PlatformUtils.isPC()) {
+      return "该平台没有 TUN 虚拟网卡（仅桌面端有）";
+    }
+    if (Platform.isWindows) {
+      final hits = interfaces.where(
+        (i) =>
+            i.toLowerCase().contains("mclash") ||
+            i.toLowerCase().contains("wintun"),
+      );
+      return hits.isEmpty ? "未发现（没有建起来）" : hits.join(" / ");
+    }
+    // macOS / Linux：找 utun 段里带隧道地址（172.19.0.1）或 utun 本身的接口
+    final buffer = StringBuffer();
+    String? current;
+    for (final raw in interfaces) {
+      final lineText = raw.trimRight();
+      if (!lineText.startsWith(" ") && !lineText.startsWith("\t")) {
+        final name = lineText.split(":").first.trim();
+        current = name;
+        if (name.startsWith("utun") || name.toLowerCase().contains("mclash")) {
+          buffer.writeln(name);
+        }
+        continue;
+      }
+      if (current != null && lineText.contains("172.19.0.1")) {
+        buffer.writeln("$current（隧道地址 172.19.0.1）");
+      }
+    }
+    final text = buffer.toString().trim();
+    return text.isEmpty ? "未发现（没有建起来）" : text.replaceAll("\n", " / ");
   }
 
   /// 取路径时也可能失败（例如平台通道不可用）—— 自检本身不允许因此崩掉。

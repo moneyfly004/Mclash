@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_node.dart';
+import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
 import 'package:mclash/screens/mclash_nodes_list_screen.dart';
@@ -214,8 +215,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
-  testWidgets('点节点行：内核不可用时要给出明确提示（不能点了没反应）', (tester) async {
+  testWidgets('点节点行：内核不可用时要给出明确反馈（不能点了没反应）', (tester) async {
+    // 旧行为：弹一句「暂时无法切换节点：请先打开连接开关」然后什么都不留下。
+    // 现在：把选择**记住**（固定节点，连接时生效）并如实提示。
     MclashNodesListScreen.debugPrimaryGroupOverride = () async => null; // 内核不可用
+    final remembered = <String>[];
+    MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
+      remembered.add(name);
+    };
     await pump(tester);
     await expandAll(tester);
 
@@ -224,11 +231,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(
-      find.textContaining("切换节点"),
+      find.textContaining("连接后生效"),
       findsWidgets,
-      reason: '内核不可用时应弹窗说明而不是静默失败',
+      reason: '要明确告诉用户「已记住，连接后生效」',
     );
+    expect(remembered, ["日本 01"], reason: '选择必须被记住');
     MclashNodesListScreen.debugPrimaryGroupOverride = null;
+    MclashNodeAutoPick.debugSetFixedNodeOverride = null;
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));
   });

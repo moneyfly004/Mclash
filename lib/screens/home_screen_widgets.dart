@@ -275,44 +275,100 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             ),
             const SizedBox(height: 12),
 
+            // 节点切换入口。
+            //
+            // 用户反馈：「连接按钮下方的节点切换不够明显」。旧样子是一行灰字 +
+            // 一个灰色箭头，看着像静态文本，没人知道能点。现在做成**明确的按钮行**：
+            //   * 左侧「当前节点」小标题 + 节点名（可换行省略）；
+            //   * 右侧一个实心「切换」按钮（图标 + 文字），颜色与连接状态呼应；
+            //   * 整行可点，且带边框/底色，一眼看出是可操作控件。
             InkWell(
-              // 用户反馈：点这一行会跳到「节点列表」整页，很打断操作。
-              // 主页只需要「就地换节点」，所以改为弹层（完整列表仍有明确入口）。
+              key: const ValueKey("home-node-row"),
+              borderRadius: BorderRadius.circular(10),
               onTap: () => showMclashNodePickerSheet(
                 context,
                 current: _proxyNow.value,
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.dns_outlined,
-                    size: 18,
-                    color: ThemeDefine.kColorGrey,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+                decoration: BoxDecoration(
+                  color: ThemeDefine.kColorBlue.withValues(alpha: 0.06),
+                  border: Border.all(
+                    color: ThemeDefine.kColorBlue.withValues(alpha: 0.35),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ValueListenableBuilder<String>(
-                      valueListenable: _proxyNow,
-                      builder: (context, value, _) => Text(
-                        value.isEmpty ? "未选择节点" : value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: ThemeConfig.kFontWeightListItem,
-                        ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.dns_outlined,
+                      size: 18,
+                      color: connected
+                          ? ThemeDefine.kColorBlue
+                          : ThemeDefine.kColorGrey,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            "当前节点",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: ThemeDefine.kColorGrey,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          ValueListenableBuilder<String>(
+                            valueListenable: _proxyNow,
+                            builder: (context, value, _) => Text(
+                              value.isEmpty ? "未选择节点" : value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: ThemeConfig.kFontWeightListItem,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.keyboard_arrow_right,
-                    size: 18,
-                    color: ThemeDefine.kColorGrey,
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    // 明确的「切换」按钮：以前只有一个灰箭头，用户不知道能点
+                    Container(
+                      key: const ValueKey("home-node-switch-button"),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: ThemeDefine.kColorBlue,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swap_horiz, size: 14, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            "切换",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-
+            const SizedBox(height: 4),
 
             if (connected)
               AnimatedBuilder(

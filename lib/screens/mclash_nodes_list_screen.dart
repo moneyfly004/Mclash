@@ -148,12 +148,15 @@ class _MclashNodesListScreenState
 
     final group = await _primaryGroupName();
     if (group == null) {
+      // 内核没跑：记住这个节点（固定节点），连接时生效 ——
+      // 以前只弹一句「请先打开连接开关」，用户选了半天却什么都没留下。
+      // 注意这里用 rememberSelection（不查内核），否则会白等一次超时、界面没反馈。
+      await MclashNodeSelector.rememberSelection(node.name);
       if (!mounted) {
         return;
       }
-      await DialogUtils.showAlertDialog(
-        context,
-        "暂时无法切换节点：\n请在「主页」打开连接开关后再试。",
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("已选择 ${node.name}（连接后生效）")),
       );
       return;
     }

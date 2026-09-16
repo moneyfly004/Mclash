@@ -1,6 +1,8 @@
 
 library;
 
+import 'package:flutter/foundation.dart';
+
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
@@ -22,7 +24,16 @@ abstract final class MclashNodeAutoPick {
   static String fixedNode() => SettingManager.getConfig().fixedNode.trim();
 
   /// 记住/清除固定节点（手动选节点、点国家、点「自动最优」时调用）。
+  /// 测试缝：替换「记住固定节点」（真实实现要落盘）。
+  @visibleForTesting
+  static Future<void> Function(String name)? debugSetFixedNodeOverride;
+
   static Future<void> setFixedNode(String name) async {
+    final override = debugSetFixedNodeOverride;
+    if (override != null) {
+      await override(name);
+      return;
+    }
     final v = name.trim();
     final cfg = SettingManager.getConfig();
     if (cfg.fixedNode == v) {
