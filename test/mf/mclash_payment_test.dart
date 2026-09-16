@@ -86,6 +86,71 @@ void main() {
       expect(MclashPay.classify(""), MclashPayChannel.qr);
       expect(MclashPay.classify("   "), MclashPayChannel.qr);
     });
+
+    // 后端 `payment_mode` 比「链接长什么样」更可靠：收银台网页和二维码都是
+    // http(s) 链接，光看形态必然猜错（用户实测：支付宝被当成收银台弹了浏览器）。
+    test('payment_mode=qrcode：即使链接是 http 也按二维码在软件内出码', () {
+      final c = MclashPay.classify(
+        "https://pay.example.com/order/abc",
+        payType: "codepay_alipay",
+        mode: "qrcode",
+      );
+      expect(c, MclashPayChannel.qr);
+      expect(MclashPay.shouldOpenInBrowser(c), isFalse);
+    });
+
+    test('payment_mode=page/redirect：一律打开浏览器（码支付收银台）', () {
+      for (final mode in ["page", "redirect"]) {
+        final c = MclashPay.classify(
+          "https://pay.example.com/xpay/epay/submit.php?pid=1",
+          payType: "codepay_alipay",
+          mode: mode,
+        );
+        expect(c, MclashPayChannel.cashierUrl);
+        expect(MclashPay.shouldOpenInBrowser(c), isTrue);
+      }
+    });
+
+    test('支付宝当面付（qr.alipay.com）永远是在软件内出码，不受通道名影响', () {
+      final c = MclashPay.classify(
+        "https://qr.alipay.com/bax09419lbehyzjna5sz250e",
+        payType: "alipay",
+        mode: "qrcode",
+      );
+      expect(c, MclashPayChannel.alipayQr);
+      expect(MclashPay.shouldOpenInBrowser(c), isFalse);
+    });
+  });
+
+  group('支付失败原因翻译（用户看得懂）', () {
+    test('支付宝单笔限额 → 告诉用户限额金额与替代方案', () {
+      final msg = MclashPay.friendlyError(
+        Exception("支付宝直连创建失败: ACQ.BEYOND_PER_RECEIPT_SINGLE_RESTRICTION"),
+      );
+      expect(msg.contains("单笔限额"), isTrue);
+      expect(msg.contains("余额"), isTrue);
+    });
+
+    test('未签约/权限不足 → 引导换通道，而不是丢一个报错网页', () {
+      final msg = MclashPay.friendlyError(
+        Exception("insufficient-isv-permissions"),
+      );
+      expect(msg.contains("未签约"), isTrue);
+    });
+
+    test('订单失效 → 提示草稿订单有效期', () {
+      final msg = MclashPay.friendlyError(Exception("订单不存在或状态不正确"));
+      expect(msg.contains("重新算价"), isTrue);
+    });
+
+    test('CSRF 过期有单独提示', () {
+      final msg = MclashPay.friendlyError(Exception("CSRF 校验失败 40300"));
+      expect(msg.contains("登录凭证已过期"), isTrue);
+    });
+
+    test('其它错误原样返回，不吞掉技术细节', () {
+      expect(MclashPay.friendlyError(Exception("boom")).contains("boom"), isTrue);
+    });
   });
 
   group('后端字段适配（实测契约）', () {

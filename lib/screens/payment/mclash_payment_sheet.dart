@@ -216,10 +216,11 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
       final ok = override != null
           ? await override(target, true)
           : await _launch(target);
-      _autoOpened = true;
-      if (!ok && mounted) {
+      if (ok) {
+        _autoOpened = true;
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("没能打开支付页面，请改用扫码支付")),
+          const SnackBar(content: Text("没能打开支付页面，请点下方按钮重试，或改用扫码支付")),
         );
       }
     } finally {
@@ -246,9 +247,20 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
     }
   }
 
-  bool get _showLaunchButton =>
-      !widget.payWithBalance &&
-      MclashPay.canLaunchApp(widget.channel, isMobile: _isMobile);
+  /// 是否显示「在浏览器中打开 / 打开支付宝」按钮。
+  ///
+  /// 收银台网页（码支付/易支付）在**所有平台**都要有这个按钮：以前桌面端只有
+  /// 「进面板自动打开一次」，浏览器没起来（或被用户关掉）就再也没有入口了 ——
+  /// 用户看到的就是「点了支付没反应」。
+  bool get _showLaunchButton {
+    if (widget.payWithBalance) {
+      return false;
+    }
+    if (widget.channel == MclashPayChannel.cashierUrl) {
+      return true;
+    }
+    return MclashPay.canLaunchApp(widget.channel, isMobile: _isMobile);
+  }
 
   String get _launchLabel {
     if (widget.channel == MclashPayChannel.cashierUrl) {

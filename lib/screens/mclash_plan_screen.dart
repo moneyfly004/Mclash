@@ -454,9 +454,13 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         if (!mounted) {
           return;
         }
-        // 按通道决定交互：支付宝码弹二维码（手机可唤起 App）、
-        // 码支付/收银台链接开浏览器（用户要求）。
-        final channel = MclashPay.classify(payUrl, payType: payType);
+        // 按通道决定交互：支付宝二维码弹二维码（手机可唤起 App）、
+        // 码支付/收银台链接开浏览器（用户要求）。后端给了 payment_mode 时以它为准。
+        final channel = MclashPay.classify(
+          payUrl,
+          payType: payType,
+          mode: (r?["payment_mode"] ?? "").toString(),
+        );
         final ok = await showMclashPaymentSheet(
           context,
           orderNo: orderNo,
@@ -477,7 +481,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
       if (!mounted) {
         return;
       }
-      await DialogUtils.showAlertDialog(context, "$e");
+      await DialogUtils.showAlertDialog(context, MclashPay.friendlyError(e));
     }
   }
 

@@ -378,6 +378,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                                 sheetContext,
                                 orderNo: orderNo,
                                 amount: amount,
+                                addDevices: addDevices,
+                                addDays: addDays,
                               )
                             : null,
                         child: const Text("去支付"),
@@ -464,6 +466,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     BuildContext sheetContext, {
     required String orderNo,
     required double amount,
+    required int addDevices,
+    required int addDays,
   }) async {
     if (orderNo.isEmpty) {
       if (!mounted) {
@@ -476,6 +480,33 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     final method = await _pickPayMethod(amount);
     if (method == null || !mounted) {
       return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    // 支付前确认这笔草稿订单还能付（后端 30 分钟就过期；被取消/过期都会让它失效）。
+    // 以前没有这一步，用户挑通道挑久了点支付只会看到「订单不存在或状态不正确」。
+    var payOrderNo = orderNo;
+    var payAmount = amount;
+    final fresh = await MclashDeviceUpgrade.refreshIfUnpayable(
+      orderNo: orderNo,
+      addDevices: addDevices,
+      addDays: addDays,
+    );
+    if (fresh != null) {
+      final no = (fresh["order_no"] ?? fresh["trade_no"] ?? "").toString();
+      _lastQuoteOrderId = (fresh["id"] as num?)?.toInt() ?? 0;
+      if (no.isNotEmpty) {
+        payOrderNo = no;
+        payAmount = MclashDeviceUpgrade.amountOf(fresh);
+      }
+      Log.i("设备管理: 原草稿订单已失效，已按同样配置重新算价 -> $payOrderNo");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("原订单已失效，已按同样配置重新生成订单")),
+        );
+      }
     }
 
     if (!mounted) {
@@ -498,8 +529,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       ok =
           await showMclashPaymentSheet(
             context,
-            orderNo: orderNo,
-            amount: amount,
+            orderNo: payOrderNo,
+            amount: payAmount,
             payWithBalance: true,
             methodName: MclashPay.nameOf(method),
           ) ==
@@ -507,18 +538,44 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     } else {
       // 非余额：向后端发起支付拿二维码/收银台链接，再按通道决定交互
       final methodId = (method["id"] as num?)?.toInt() ?? 0;
-      final orderId = _lastQuoteOrderId;
+      var orderId = _lastQuoteOrderId;
       if (methodId <= 0 || orderId <= 0) {
         if (mounted) {
           await DialogUtils.showAlertDialog(context, "订单或支付通道信息不完整，请重新算价后再试");
         }
         return;
       }
-      final r = await MclashApi.createPayment(
-        orderId: orderId,
-        paymentMethodId: methodId,
-        isMobile: Platform.isAndroid,
-      );
+      Map<String, dynamic>? r;
+      try {
+        r = await MclashApi.createPayment(
+          orderId: orderId,
+          paymentMethodId: methodId,
+          isMobile: Platform.isAndroid,
+        );
+      } catch (e) {
+        // 兜底：订单在「确认」到「发起支付」之间失效（例如刚好过期），
+        // 自动按同样配置重新算一笔再发起一次，不让用户自己去猜要点「重新算价」。
+        if (!_looksLikeDeadOrder(e)) {
+          rethrow;
+        }
+        Log.w("设备管理: 发起支付遇已失效订单，重新算价后重试一次 $e");
+        final again = await MclashDeviceUpgrade.quote(
+          addDevices: addDevices,
+          addDays: addDays,
+        );
+        final no = (again["order_no"] ?? again["trade_no"] ?? "").toString();
+        orderId = (again["id"] as num?)?.toInt() ?? 0;
+        if (no.isEmpty || orderId <= 0) {
+          rethrow;
+        }
+        payOrderNo = no;
+        payAmount = MclashDeviceUpgrade.amountOf(again);
+        r = await MclashApi.createPayment(
+          orderId: orderId,
+          paymentMethodId: methodId,
+          isMobile: Platform.isAndroid,
+        );
+      }
       final payload = MclashPay.payloadOf(r);
       if (payload.isEmpty) {
         if (mounted) {
@@ -529,12 +586,16 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       if (!mounted) {
         return;
       }
-      final channel = MclashPay.classify(payload, payType: payType);
+      final channel = MclashPay.classify(
+        payload,
+        payType: payType,
+        mode: (r?["payment_mode"] ?? "").toString(),
+      );
       ok =
           await showMclashPaymentSheet(
             context,
-            orderNo: orderNo,
-            amount: amount,
+            orderNo: payOrderNo,
+            amount: payAmount,
             qrCode: payload,
             methodName: MclashPay.nameOf(method),
             channel: channel,
@@ -573,20 +634,16 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     }
   }
 
-  /// 把技术错误翻译成用户能懂的一句话（CSRF/网络/过期各不同）。
-  static String _friendlyPayError(Object e) {
+  /// 订单是否已经失效（后端 40400「订单不存在或状态不正确」）。
+  static bool _looksLikeDeadOrder(Object e) {
     final text = e.toString();
-    if (text.contains("CSRF") || text.contains("40300")) {
-      return "登录凭证已过期（CSRF 校验失败）。\n请到「我的」下拉刷新或重新登录后重试。";
-    }
-    if (text.contains("订单不存在") || text.contains("状态不正确")) {
-      return "这笔订单已被取消或已支付。\n请点「重新算价」生成新订单再支付。";
-    }
-    if (text.contains("网络") || text.contains("Socket") || text.contains("超时")) {
-      return "网络不通：$text";
-    }
-    return text;
+    return text.contains("订单不存在") ||
+        text.contains("状态不正确") ||
+        text.contains("40400");
   }
+
+  /// 把技术错误翻译成用户能懂的一句话（CSRF/网络/过期各不同）。
+  static String _friendlyPayError(Object e) => MclashPay.friendlyError(e);
 
   /// 让用户选择支付方式（余额 + 后端下发的通道）。
   Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {

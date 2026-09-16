@@ -142,7 +142,11 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
         );
         return;
       }
-      final channel = MclashPay.classify(payload, payType: payType);
+      final channel = MclashPay.classify(
+        payload,
+        payType: payType,
+        mode: (r?["payment_mode"] ?? "").toString(),
+      );
       final ok = await showMclashPaymentSheet(
         context,
         orderNo: orderNo,
@@ -159,7 +163,7 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
       if (!mounted) {
         return;
       }
-      await DialogUtils.showAlertDialog(context, "发起支付失败：$e");
+      await DialogUtils.showAlertDialog(context, "发起支付失败：${MclashPay.friendlyError(e)}");
     }
   }
 

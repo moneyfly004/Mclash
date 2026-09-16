@@ -36,20 +36,36 @@ enum MclashPayChannel {
 abstract final class MclashPay {
   static const String _alipaySaIdQr = "10000007";
 
-  /// 分类支付载荷。[payType] 是支付通道的 key（如 `balance`/`alipay`/`yipay_alipay`）。
-  static MclashPayChannel classify(String payload, {String payType = ""}) {
+  /// 分类支付载荷。
+  ///
+  /// * [payType] 是支付通道的 key（如 `balance`/`alipay`/`codepay_alipay`）；
+  /// * [mode] 是后端 `payment_mode`（实测码支付会返回）：`qrcode` = 给了二维码内容、
+  ///   `page`/`redirect` = 给的是收银台网页。**有 mode 时以 mode 为准** —— 光看链接
+  ///   形态猜不准：`https://pay.xxx/submit.php?...`（收银台）和
+  ///   `https://qr.alipay.com/xxx`（二维码）都是 http 链接，动作却完全相反。
+  static MclashPayChannel classify(
+    String payload, {
+    String payType = "",
+    String mode = "",
+  }) {
     final type = payType.trim().toLowerCase();
-    final s = payload.trim();
     if (type == "balance") {
       return MclashPayChannel.balance;
     }
-    // 后端实测通道：alipay（支付宝二维码）/ codepay_alipay（码支付）。
-    // 码支付是收银台网页，**一律打开浏览器**（用户明确要求），
-    // 即使它偶尔返回了 qr.alipay.com 链接也按码支付处理。
-    if (type.startsWith("codepay")) {
+    final m = mode.trim().toLowerCase();
+    if (m == "page" || m == "redirect") {
+      // 后端明确说这是收银台网页（码支付/易支付）→ 打开浏览器
       return MclashPayChannel.cashierUrl;
     }
-    final low = s.toLowerCase();
+    final qrOnly = m == "qrcode";
+    // 后端实测通道：alipay（支付宝当面付二维码）/ codepay_alipay（码支付）。
+    // 码支付是收银台网页，**一律打开浏览器**（用户明确要求），
+    // 即使它偶尔返回了 qr.alipay.com 链接也按码支付处理；除非后端明确给了
+    // `payment_mode=qrcode`（那时它真的给了二维码内容，要在软件内出码）。
+    if (!qrOnly && type.startsWith("codepay")) {
+      return MclashPayChannel.cashierUrl;
+    }
+    final low = payload.trim().toLowerCase();
     if (low.isEmpty) {
       return MclashPayChannel.qr;
     }
@@ -68,8 +84,9 @@ abstract final class MclashPay {
       return MclashPayChannel.alipayQr;
     }
     if (low.startsWith("http://") || low.startsWith("https://")) {
-      // 走到这里说明不是支付宝收款码，而是收银台/码支付网页 → 打开浏览器
-      return MclashPayChannel.cashierUrl;
+      // 后端说这是二维码内容（码支付的 mapi 常见形态就是一条支付链接）→ 出码；
+      // 否则是收银台/码支付网页 → 打开浏览器。
+      return qrOnly ? MclashPayChannel.qr : MclashPayChannel.cashierUrl;
     }
     return MclashPayChannel.qr;
   }
@@ -103,6 +120,36 @@ abstract final class MclashPay {
   /// 支付方式列表里，哪些是「余额」。
   static bool isBalance(String payType) =>
       payType.trim().toLowerCase() == "balance";
+
+  /// 把后端/网络抛出的技术错误翻译成用户能懂的一句话。
+  ///
+  /// 三个页面（套餐购买、订单续付、设备升级）共用，避免各写一份、口径还不同。
+  static String friendlyError(Object e) {
+    final text = e.toString();
+    if (text.contains("CSRF") || text.contains("40300")) {
+      return "登录凭证已过期（CSRF 校验失败）。\n请到「我的」下拉刷新或重新登录后重试。";
+    }
+    // 支付宝当面付有**单笔收款限额**（本商户实测 ¥1000）：超了支付宝直接拒绝，
+    // 不是网络问题，也不该把用户丢到一个必然报错的网页上。
+    if (text.contains("BEYOND_PER_RECEIPT") ||
+        text.contains("单笔收款") ||
+        text.contains("限额")) {
+      return "支付宝当面付单笔限额（本商户 ¥1000），本单金额超出。\n"
+          "请改用「余额支付」或「码支付」，或联系客服提高支付宝限额。";
+    }
+    if (text.contains("insufficient-isv-permissions") || text.contains("未签约")) {
+      return "支付宝应用未签约对应的支付产品，暂时无法用这个通道。\n"
+          "请改用「余额支付」或「码支付」，或联系客服开通。";
+    }
+    if (text.contains("订单不存在") || text.contains("状态不正确")) {
+      return "这笔订单已被取消或已过期（草稿订单 30 分钟有效期）。\n"
+          "请点「重新算价」生成新订单再支付。";
+    }
+    if (text.contains("网络") || text.contains("Socket") || text.contains("超时")) {
+      return "网络不通：$text";
+    }
+    return text;
+  }
 
   /// 从后端支付方式条目里取通道 key（实测字段是 `key`，兼容历史的 `pay_type`）。
   static String payTypeOf(Map<String, dynamic> method) =>
