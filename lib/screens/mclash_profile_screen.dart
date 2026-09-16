@@ -19,6 +19,7 @@ import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_data_cleaner.dart';
+import 'package:mclash/mf/mclash_heartbeat_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/dialog_utils.dart';
@@ -554,6 +555,8 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     try {
       await MclashApi.logout();
     } catch (_) {}
+    // 退出登录后停止在线心跳（面板会按 3 分钟无心跳判为离线）
+    MclashHeartbeatService.instance.stop();
     SettingManager.save();
     if (!mounted) {
       return;

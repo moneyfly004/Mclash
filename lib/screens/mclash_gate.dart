@@ -10,6 +10,7 @@ import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_heartbeat_service.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
@@ -115,6 +116,14 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       MclashSubscriptionService.syncIfStale(_resumeSyncMinGap);
+      // 回到前台：恢复心跳（面板才看得到本机在线）
+      if (_loggedIn == true) {
+        MclashHeartbeatService.instance.start();
+      }
+    } else if (state == AppLifecycleState.paused) {
+      // 退到后台就停：心跳是「在线状态」用的，后台没必要每 2 分钟唤醒一次
+      // （用户明确要求减少耗电；面板按 3 分钟无心跳判离线，符合预期）
+      MclashHeartbeatService.instance.stop();
     }
   }
 
@@ -131,6 +140,10 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
       return;
     }
     setState(() => _loggedIn = now);
+    if (!now) {
+      // 会话失效（token 过期/被踢）= 已离线，不用再上报
+      MclashHeartbeatService.instance.stop();
+    }
     if (now) {
       // 登录是明确动作（token 可能刚换）→ 强制同步一次订阅，
       // 并且**等配置真的拿到手**再进主界面（见 _prepareAfterLogin）
@@ -208,6 +221,9 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
     ProfileManager.migrateUserAgent();
     MclashAccountService.instance.start();
     MclashSubscriptionService.syncOnLaunch(force: forceSync);
+    // 在线心跳：登录/恢复会话后启动，让面板能把本机标为在线。
+    // 首次心跳需等订阅登记完成，服务端对未登记设备返回 registered=false。
+    MclashHeartbeatService.instance.start();
 
     MclashNodesStore.instance.init();
   }
