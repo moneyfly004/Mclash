@@ -14,12 +14,17 @@ import 'package:mclash/app/modules/setting_manager.dart';
 /// 这里钉住「默认关」「开关能落盘」「开关真的进了内核配置」三件事。
 void main() {
   setUp(() {
-    // 固定「桌面端」：CI 主机是 Linux，不固定的话断言会跟着宿主平台变。
+    // 固定「桌面端 + 连接后自动设置系统代理」：CI 主机是 Linux，不是产品平台，
+    // 静态默认配置里 autoSetSystemProxy=false —— 不固定的话断言会跟着宿主平台变
+    // （这个坑已经让安卓构建失败过一次）。
     VPNService.debugSupportSystemProxyOverride = true;
+    SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
+    SettingManager.getConfig().autoSetSystemProxy = true;
   });
 
   tearDown(() {
     VPNService.debugSupportSystemProxyOverride = null;
+    SettingManager.getConfig().autoSetSystemProxy = true;
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
   });
 
@@ -88,6 +93,7 @@ void main() {
     // 系统代理只有桌面端支持（Windows/macOS）。Linux 只是 CI 主机，
     // 在那里「不写系统代理」本身就是正确行为。
     final supported = VPNService.getSupportSystemProxy();
+    expect(supported, isTrue, reason: '本用例把平台固定为「支持系统代理」');
 
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
     expect(
