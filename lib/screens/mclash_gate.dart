@@ -119,6 +119,9 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
       // 回到前台：恢复心跳（面板才看得到本机在线）
       if (_loggedIn == true) {
         MclashHeartbeatService.instance.start();
+        // 用户常常是「去面板改了设备上限/到期时间，再切回 App」——
+        // 这里补一次账号刷新，回来后看到的就是改过的值，而不是旧缓存。
+        unawaited(MclashAccountService.instance.refreshIfStale());
       }
     } else if (state == AppLifecycleState.paused) {
       // 退到后台就停：心跳是「在线状态」用的，后台没必要每 2 分钟唤醒一次

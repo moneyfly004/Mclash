@@ -1,6 +1,7 @@
 
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -38,12 +39,23 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
   @override
   void initState() {
     super.initState();
+    // 套餐页要显示「当前套餐 / 到期时间 / 设备数」，这些来自账号服务：
+    // 打开页面补一次刷新，并在服务更新时重建（否则面板改完这里还是旧的）。
+    MclashAccountService.instance.addListener(_onAccountChanged);
+    unawaited(MclashAccountService.instance.refreshIfStale());
     _load();
   }
 
   @override
   void dispose() {
+    MclashAccountService.instance.removeListener(_onAccountChanged);
     super.dispose();
+  }
+
+  void _onAccountChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _load() async {

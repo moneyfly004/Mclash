@@ -194,6 +194,33 @@ class MclashAccountService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 缓存比 [maxAge] 旧才刷新；够新就什么都不做（不会重复打接口）。
+  ///
+  /// 为什么需要它：面板里改了「设备上限 / 到期时间」之后，客户端最多要等 5 分钟的
+  /// 定时刷新才看得到 —— 用户实测反馈「后台改了，软件没更新」。打开相关页面
+  /// （设备管理/套餐/我的）、从后台切回前台、以及每次心跳成功后都补一次，
+  /// 就能在用户真正看的那一刻拿到最新数据。
+  Future<void> refreshIfStale({
+    Duration maxAge = const Duration(seconds: 60),
+  }) async {
+    if (!isStale(_cachedAt, maxAge)) {
+      return;
+    }
+    await refresh();
+  }
+
+  /// 缓存是否已经过期到该重新拉取（纯函数，便于单测）。
+  ///
+  /// 没有缓存时间（从没成功拉过）算过期。
+  @visibleForTesting
+  static bool isStale(DateTime? cachedAt, Duration maxAge, {DateTime? now}) {
+    if (cachedAt == null) {
+      return true;
+    }
+    final at = now ?? DateTime.now();
+    return at.difference(cachedAt) >= maxAge;
+  }
+
   void markKicked() {
     _kicked = true;
     notifyListeners();

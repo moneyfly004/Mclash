@@ -8,6 +8,7 @@ import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/did.dart';
 import 'package:mclash/app/utils/hwid_utils.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 
@@ -185,6 +186,14 @@ class MclashHeartbeatService {
       return;
     }
     Log.d("MclashHeartbeat: ok（online=${data['online']}）");
+    // 面板改了「设备上限 / 到期时间」不会有任何推送，只能靠客户端定期取。
+    // 心跳本来就是「跟面板保持同步」的节拍，顺手把账号信息按需刷新一次
+    // （60 秒内的数据不重复取），用户就不必等到账号服务那个 5 分钟定时器。
+    unawaited(
+      MclashAccountService.instance.refreshIfStale(
+        maxAge: const Duration(seconds: 60),
+      ),
+    );
   }
 
   /// 设备未登记时主动拉一次订阅（服务端以那次请求完成设备登记）。

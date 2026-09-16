@@ -33,7 +33,33 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   @override
   void initState() {
     super.initState();
+    // 面板改了「设备上限 / 到期时间」后要立刻能看到：
+    //   * 打开本页补一次账号刷新（不必等 5 分钟定时器）；
+    //   * 并监听账号服务 —— 以前这里只读一次快照，账号更新了界面也不重建，
+    //     用户看到的就是「后台改了，软件没更新」。
+    MclashAccountService.instance.addListener(_onAccountChanged);
+    unawaited(MclashAccountService.instance.refreshIfStale());
     _load();
+  }
+
+  @override
+  void dispose() {
+    MclashAccountService.instance.removeListener(_onAccountChanged);
+    super.dispose();
+  }
+
+  void _onAccountChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  /// 右上角刷新：设备列表与账号信息（设备上限/到期时间）一起刷新。
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      _load(),
+      MclashAccountService.instance.refresh(),
+    ]);
   }
 
   Future<void> _load() async {
@@ -102,7 +128,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                             ),
                           )
                         : InkWell(
-                            onTap: _load,
+                            onTap: _refreshAll,
                             child: const Icon(Icons.refresh, size: 26),
                           ),
                   ),

@@ -372,6 +372,46 @@ void main() {
       await finish(tester);
     }
   });
+
+  testWidgets('面板改了设备上限/到期时间 → 账号服务一更新，「我的」页面跟着变', (tester) async {
+    await pump(tester);
+    expect(find.text("2028-06-25"), findsWidgets, reason: '先显示旧到期时间');
+    expect(find.text("10 / 500"), findsWidgets, reason: '先显示旧设备上限');
+
+    // 模拟「账号服务取到了面板的新值」（管理员在后台改了上限与到期时间）
+    MclashAccountService.instance.debugSetData({
+      "username": "454487210",
+      "balance": 100000.87,
+      "has_subscription": true,
+      "device_count": 3,
+      "subscription": {
+        "device_limit": 5,
+        "current_devices": 3,
+        "is_active": true,
+        "status": "active",
+        "expire_time": "2029-01-01T12:44:45Z",
+      },
+    }, {
+      "package_name": "test",
+      "days_remaining": 900,
+      "expire_at": "2029-01-01",
+      "device_limit": 5,
+      "current_devices": 3,
+      "is_active": true,
+      "status": "active",
+      "subscription_url": "https://example.invalid/sub",
+    });
+    await tester.pump();
+
+    expect(
+      find.text("2029-01-01"),
+      findsWidgets,
+      reason: '账号更新后必须重建页面，否则后台改了到期时间这里还是旧的',
+    );
+    expect(find.text("2028-06-25"), findsNothing);
+    expect(find.text("3 / 5"), findsWidgets);
+    await finish(tester);
+  });
 }
 
 /// 只记录 push 的路由观察者（测试用）。

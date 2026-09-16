@@ -1,6 +1,7 @@
 
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -75,13 +76,22 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 账号服务更新（面板改了设备上限/到期时间、余额变动…）时重建本页
+    MclashAccountService.instance.addListener(_onAccountChanged);
     _load();
   }
 
   @override
   void dispose() {
+    MclashAccountService.instance.removeListener(_onAccountChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onAccountChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -107,6 +117,9 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           Log.w("profile: dashboard failed $e");
           return null;
         }),
+        // 本页的订阅信息（到期时间/设备数）取的是账号服务里的快照，
+        // 只刷自己的 dashboard 会让它一直是旧的 —— 一起刷新，界面才不会「不更新」。
+        MclashAccountService.instance.refresh(),
       ]);
       if (!mounted) {
         return;
