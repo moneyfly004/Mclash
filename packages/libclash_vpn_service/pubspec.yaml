@@ -1,5 +1,5 @@
 name: libclash_vpn_service
-description: Mclash 的 VPN 服务插件 —— Android 走进程内 libmihomo.aar（VpnService + TUN fd 注入），Windows/macOS/Linux 走 mihomo 子进程 + 系统代理。原 Clash Mi 依赖外置的 libclash-vpn-service，此处为 Mclash 自有的等价实现。
+description: Mclash 的 VPN 服务插件 —— Android 走进程内 libmihomo.aar（VpnService + TUN fd 注入），Windows/macOS 走 mihomo 子进程 + 系统代理。原 Clash Mi 依赖外置的 libclash-vpn-service，此处为 Mclash 自有的等价实现。
 version: 1.0.0
 publish_to: none
 

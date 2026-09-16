@@ -312,7 +312,6 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'Descargando Geo RuleSet por proxy';
 	@override String get geoRulesetTips => 'Geosite/Geoip se convertirán en el RuleSet correspondiente';
-	@override String get asnNotSupportInIosTips => 'Debido a las limitaciones de memoria del sistema iOS, las reglas IP-ASN y SRC-IP-ASN se ignorarán en iOS.';
 	@override String get sniffer => 'Sniffer';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => 'Ejecutar al Inicio';
@@ -329,8 +328,6 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String get bypassSystemProxy => 'Nombres de dominio permitidos para omitir el proxy del sistema';
 	@override String get excludeFromRecent => 'Ocultar de [Tareas Recientes]';
 	@override String get wakeLock => 'Bloqueo de Despertar';
-	@override String get hideVpn => 'Ocultar Icono VPN';
-	@override String get hideVpnTips => 'Habilitar IPv6 causará que esta función falle';
 	@override String get hideDockIcon => 'Ocultar Icono del Dock';
 	@override String get showTrayTraffic => 'Mostrar información de tráfico en la bandeja';
 	@override String get website => 'Sitio Web';
@@ -431,7 +428,6 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => 'Habilitar canal de descarga de respaldo';
 	@override String get profileDownloadBackupChannelTips => 'Canal de descarga por proxy proporcionado por Mclash (no se almacena ninguna información)';
 	@override String get profileEditReloadAfterProfileUpdate => 'Recargar tras actualización del Perfil';
-	@override String get profileRulesAppendApplePush => 'Añadir reglas de notificaciones Push de Apple';
 	@override String get profileRulesAppendProxyTips => 'Las reglas se establecerán automáticamente en el primer proxy de tipo [url-test] o [select] en [proxy-groups] de la configuración original';
 	@override String get profileImport => 'Importar Archivo de Perfil';
 	@override String get profileAddUrlOrContent => 'Añadir Enlace de Perfil';
@@ -720,7 +716,6 @@ extension on TranslationsEs {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'Descargando Geo RuleSet por proxy',
 			'meta.geoRulesetTips' => 'Geosite/Geoip se convertirán en el RuleSet correspondiente',
-			'meta.asnNotSupportInIosTips' => 'Debido a las limitaciones de memoria del sistema iOS, las reglas IP-ASN y SRC-IP-ASN se ignorarán en iOS.',
 			'meta.sniffer' => 'Sniffer',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'Ejecutar al Inicio',
@@ -737,8 +732,6 @@ extension on TranslationsEs {
 			'meta.bypassSystemProxy' => 'Nombres de dominio permitidos para omitir el proxy del sistema',
 			'meta.excludeFromRecent' => 'Ocultar de [Tareas Recientes]',
 			'meta.wakeLock' => 'Bloqueo de Despertar',
-			'meta.hideVpn' => 'Ocultar Icono VPN',
-			'meta.hideVpnTips' => 'Habilitar IPv6 causará que esta función falle',
 			'meta.hideDockIcon' => 'Ocultar Icono del Dock',
 			'meta.showTrayTraffic' => 'Mostrar información de tráfico en la bandeja',
 			'meta.website' => 'Sitio Web',
@@ -839,7 +832,6 @@ extension on TranslationsEs {
 			'meta.profileDownloadBackupChannel' => 'Habilitar canal de descarga de respaldo',
 			'meta.profileDownloadBackupChannelTips' => 'Canal de descarga por proxy proporcionado por Mclash (no se almacena ninguna información)',
 			'meta.profileEditReloadAfterProfileUpdate' => 'Recargar tras actualización del Perfil',
-			'meta.profileRulesAppendApplePush' => 'Añadir reglas de notificaciones Push de Apple',
 			'meta.profileRulesAppendProxyTips' => 'Las reglas se establecerán automáticamente en el primer proxy de tipo [url-test] o [select] en [proxy-groups] de la configuración original',
 			'meta.profileImport' => 'Importar Archivo de Perfil',
 			'meta.profileAddUrlOrContent' => 'Añadir Enlace de Perfil',

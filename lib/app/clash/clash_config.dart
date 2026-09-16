@@ -298,7 +298,7 @@ enum ClashTunStack {
   const ClashTunStack({required this.name});
   final String name;
   static List<String> toList() {
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       return [ClashTunStack.gvisor.name];
     }
     return [

@@ -5,7 +5,7 @@ import 'package:mclash/app/utils/secure_storage.dart';
 
 /// 设备标识 / 安装时间这类小数据的读写。
 ///
-/// ⚠️ 桌面端（macOS/Windows/Linux）**绝不访问钥匙串**：
+/// ⚠️ 桌面端（macOS/Windows）**绝不访问钥匙串**：
 /// 早期版本把设备标识、access/refresh token 写进了 macOS 钥匙串
 /// （`flutter_secure_storage_service`），而每次重新构建的 App 都是新的 ad-hoc
 /// 签名 —— 系统把它当成"另一个 App"，于是每次读取都会弹「Mclash 想使用钥匙串中

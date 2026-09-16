@@ -109,7 +109,7 @@ class GroupHelper {
       final tcontext = Translations.of(context);
 
       List<GroupItemOptions> options = [
-        if (Platform.isIOS || Platform.isMacOS) ...[
+        if (Platform.isMacOS) ...[
           GroupItemOptions(
             pushOptions: GroupItemPushOptions(
               name: tcontext.meta.iCloud,
@@ -1349,7 +1349,7 @@ class GroupHelper {
       if (Platform.isAndroid) {
         gitems.add(GroupItem(options: options7));
       }
-      if (Platform.isIOS || Platform.isMacOS) {
+      if (Platform.isMacOS) {
         gitems.add(GroupItem(options: options8));
       }
       if (Platform.isMacOS) {
@@ -1544,21 +1544,19 @@ class GroupHelper {
             },
           ),
         ),
-        if (!Platform.isIOS) ...[
-          GroupItemOptions(
-            stringPickerOptions: GroupItemStringPickerOptions(
-              name: tcontext.meta.findProcessMode,
-              tips: "find-process-mode",
-              selected: findProcessModes.contains(setting.FindProcessMode)
-                  ? setting.FindProcessMode
-                  : findProcessModes.first,
-              strings: findProcessModes,
-              onPicker: (String? selected) async {
-                setting.FindProcessMode = selected;
-              },
-            ),
+        GroupItemOptions(
+          stringPickerOptions: GroupItemStringPickerOptions(
+            name: tcontext.meta.findProcessMode,
+            tips: "find-process-mode",
+            selected: findProcessModes.contains(setting.FindProcessMode)
+                ? setting.FindProcessMode
+                : findProcessModes.first,
+            strings: findProcessModes,
+            onPicker: (String? selected) async {
+              setting.FindProcessMode = selected;
+            },
           ),
-        ],
+        ),
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
             name: "IPv6",
@@ -1583,9 +1581,7 @@ class GroupHelper {
         GroupItemOptions(
           pushOptions: GroupItemPushOptions(
             name: "Geo RuleSet",
-            tips: Platform.isIOS
-                ? "${tcontext.meta.geoRulesetTips}\n${tcontext.meta.asnNotSupportInIosTips}"
-                : tcontext.meta.geoRulesetTips,
+            tips: tcontext.meta.geoRulesetTips,
             onPush: () async {
               showClashSettingsGEORuleset(context);
             },
@@ -1756,10 +1752,6 @@ class GroupHelper {
           onDone: (context) async {
             final profile = ProfileManager.getCurrent();
             final currentPatch = ProfilePatchManager.getCurrent();
-            List<String>? appendRules =
-                Platform.isIOS && profile?.appendApplePushRules == true
-                ? ProfilePatchManager.appendRulesApplePush()
-                : null;
             final result = await ClashSettingManager.getPatchContent(
               currentPatch.id,
               currentPatch.id.isEmpty ||
@@ -1772,7 +1764,8 @@ class GroupHelper {
               profile != null && profile.overwriteProxyGroups
                   ? profile.proxyGroups
                   : null,
-              appendRules,
+              // 见 VPNService._prepareConfig：appendRules 的 iOS 来源已删除。
+              null,
             );
             if (!context.mounted) {
               return false;
@@ -1973,7 +1966,7 @@ class GroupHelper {
                   },
           ),
         ),
-        if (Platform.isIOS || Platform.isMacOS) ...[
+        if (Platform.isMacOS) ...[
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: tcontext.tun.tunDefaultRoute,
@@ -2088,7 +2081,7 @@ class GroupHelper {
           ),
         ]);
       }
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (Platform.isAndroid) {
         options1.addAll([
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
@@ -2127,20 +2120,6 @@ class GroupHelper {
                         ),
                       );
                     },
-            ),
-          ),
-        ]);
-      }
-      if (Platform.isIOS) {
-        options1.addAll([
-          GroupItemOptions(
-            switchOptions: GroupItemSwitchOptions(
-              name: tcontext.meta.hideVpn,
-              tips: tcontext.meta.hideVpnTips,
-              switchValue: tun.RouteExcludeAddress?.contains("0.0.0.0/31"),
-              onSwitch: (bool value) async {
-                tun.RouteExcludeAddress = ["0.0.0.0/31", "::/127"];
-              },
             ),
           ),
         ]);

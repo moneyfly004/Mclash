@@ -312,7 +312,6 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => '프록시를 통해 Geo RuleSet 다운로드';
 	@override String get geoRulesetTips => 'Geosite/Geoip는 해당 RuleSet으로 변환됩니다';
-	@override String get asnNotSupportInIosTips => 'iOS 시스템 메모리 제한으로 인해 IP-ASN 및 SRC-IP-ASN 규칙은 iOS에서 무시됩니다.';
 	@override String get sniffer => '스니퍼';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => '시작 시 실행';
@@ -329,8 +328,6 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String get bypassSystemProxy => '시스템 프록시를 우회하도록 허용된 도메인 이름';
 	@override String get excludeFromRecent => '[최근 작업]에서 숨기기';
 	@override String get wakeLock => '절전 모드 방지';
-	@override String get hideVpn => 'VPN 아이콘 숨기기';
-	@override String get hideVpnTips => 'IPv6를 활성화하면 이 기능이 작동하지 않습니다';
 	@override String get hideDockIcon => 'Dock 아이콘 숨기기';
 	@override String get showTrayTraffic => '트레이에 트래픽 정보 표시';
 	@override String get website => '웹사이트';
@@ -431,7 +428,6 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => '백업 다운로드 채널 사용';
 	@override String get profileDownloadBackupChannelTips => 'Mclash에서 제공하는 프록시 다운로드 채널(어떤 정보도 저장하지 않음)';
 	@override String get profileEditReloadAfterProfileUpdate => '프로필 업데이트 후 다시 로드';
-	@override String get profileRulesAppendApplePush => 'Apple 푸시 알림 규칙 추가';
 	@override String get profileRulesAppendProxyTips => '규칙은 원본 설정의 [proxy-groups]에서 [url-test] 또는 [select] 유형의 첫 번째 프록시로 자동 설정됩니다';
 	@override String get profileImport => '프로필 파일 가져오기';
 	@override String get profileAddUrlOrContent => '프로필 링크 추가';
@@ -720,7 +716,6 @@ extension on TranslationsKo {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => '프록시를 통해 Geo RuleSet 다운로드',
 			'meta.geoRulesetTips' => 'Geosite/Geoip는 해당 RuleSet으로 변환됩니다',
-			'meta.asnNotSupportInIosTips' => 'iOS 시스템 메모리 제한으로 인해 IP-ASN 및 SRC-IP-ASN 규칙은 iOS에서 무시됩니다.',
 			'meta.sniffer' => '스니퍼',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => '시작 시 실행',
@@ -737,8 +732,6 @@ extension on TranslationsKo {
 			'meta.bypassSystemProxy' => '시스템 프록시를 우회하도록 허용된 도메인 이름',
 			'meta.excludeFromRecent' => '[최근 작업]에서 숨기기',
 			'meta.wakeLock' => '절전 모드 방지',
-			'meta.hideVpn' => 'VPN 아이콘 숨기기',
-			'meta.hideVpnTips' => 'IPv6를 활성화하면 이 기능이 작동하지 않습니다',
 			'meta.hideDockIcon' => 'Dock 아이콘 숨기기',
 			'meta.showTrayTraffic' => '트레이에 트래픽 정보 표시',
 			'meta.website' => '웹사이트',
@@ -839,7 +832,6 @@ extension on TranslationsKo {
 			'meta.profileDownloadBackupChannel' => '백업 다운로드 채널 사용',
 			'meta.profileDownloadBackupChannelTips' => 'Mclash에서 제공하는 프록시 다운로드 채널(어떤 정보도 저장하지 않음)',
 			'meta.profileEditReloadAfterProfileUpdate' => '프로필 업데이트 후 다시 로드',
-			'meta.profileRulesAppendApplePush' => 'Apple 푸시 알림 규칙 추가',
 			'meta.profileRulesAppendProxyTips' => '규칙은 원본 설정의 [proxy-groups]에서 [url-test] 또는 [select] 유형의 첫 번째 프록시로 자동 설정됩니다',
 			'meta.profileImport' => '프로필 파일 가져오기',
 			'meta.profileAddUrlOrContent' => '프로필 링크 추가',

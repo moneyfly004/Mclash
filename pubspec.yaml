@@ -41,7 +41,6 @@ dependencies:
   yaml_writer: 2.1.0
   scrollview_observer: 1.27.1
   after_layout: 1.2.0
-  flutter_install_referrer: 2.1.1
   flutter_single_instance: 1.7.0
   flutter_plugin_android_lifecycle: 2.0.35 #file_picker image_picker
   file_picker: 11.0.3 #12.2.0
@@ -95,12 +94,9 @@ dependency_overrides:
   #   2) 官方版本可复现、可审计，升级路径清晰；
   #   3) fork 里被用到的少数专有 API（见 inapp_webview_screen.dart）已在 Mclash 内实现。
   path_provider_foundation: 2.3.2
-  # Linux 上用 stub 顶掉真实实现，避免拖入 WebKit/WPE 构建依赖
-  flutter_inappwebview_linux:
-    path: third_party/flutter_inappwebview_linux_stub
 
   # Mclash 自有的 VPN 服务插件（Android: MethodChannel + libmihomo.aar；
-  # Windows/macOS/Linux: mihomo 子进程 + 系统代理）
+  # Windows/macOS: mihomo 子进程 + 系统代理）
   libclash_vpn_service:
     path: packages/libclash_vpn_service
   # Mclash 自有的后台客户端（对接 https://new.moneyfly.top，XBoard 兼容）
@@ -114,11 +110,8 @@ flutter:
     - assets/txts/
     - assets/fonts/
     - assets/images/
-    - path: assets/datas/geoip.zip
-    - path: assets/datas/geosite.zip
-      platforms: [windows, linux, macos, android, ios]
     - path: assets/datas/ASN.mmdb
-      platforms: [windows, linux, macos, android]
+      platforms: [windows, macos, android]
     # 离线分流数据（`tool/fetch_geodata.sh` 下载，CI 构建前拉取）。
     #
     # **必须随包内置，且必须声明在这里。** 内核（mihomo）以 `-d <work_dir>`
@@ -130,9 +123,9 @@ flutter:
     # 此前 `assets/rules/` 已被 `tool/fetch_geodata.sh` 下载到磁盘，但**没有
     # 在这里声明**，于是两个文件从未进入 flutter_assets，内核无论如何都找不到。
     - path: assets/rules/country.mmdb
-      platforms: [windows, linux, macos, android]
+      platforms: [windows, macos, android]
     - path: assets/rules/geosite.dat
-      platforms: [windows, linux, macos, android]
+      platforms: [windows, macos, android]
 
   fonts:
     - family: Emoji # from hiddify
@@ -143,12 +136,9 @@ flutter:
 #https://www.appicon.co/
 flutter_launcher_icons: #flutter pub run flutter_launcher_icons
   android: ic_launcher
-  ios: true
   image_path: logo-round.png 
   min_sdk_android: 21 
   image_path_android: logo-round.png
-  image_path_ios: logo.png
-  remove_alpha_ios: true
   windows:
     generate: false 
     image_path: logo-round.png

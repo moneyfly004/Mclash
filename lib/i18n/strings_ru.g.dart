@@ -312,7 +312,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'Загрузка гео-правил через прокси';
 	@override String get geoRulesetTips => 'Geosite/Geoip будет преобразован в соответствующий RuleSet';
-	@override String get asnNotSupportInIosTips => 'Из-за ограничений памяти системы iOS правила IP-ASN и SRC-IP-ASN будут игнорироваться в iOS.';
 	@override String get sniffer => 'Обнаружение доменов';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => 'Запуск при включении';
@@ -329,8 +328,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get bypassSystemProxy => 'Доменные имена, которым разрешено обходить системный прокси-сервер';
 	@override String get excludeFromRecent => 'Скрыть из недавних задач';
 	@override String get wakeLock => 'Блокировка пробуждения';
-	@override String get hideVpn => 'Скрыть значок VPN';
-	@override String get hideVpnTips => 'Включение IPv6 приведет к сбою этой функции.';
 	@override String get hideDockIcon => 'Скрыть значок дока';
 	@override String get showTrayTraffic => 'Показывать трафик в трее';
 	@override String get website => 'Веб-сайт';
@@ -431,7 +428,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => 'Включить резервный канал загрузки';
 	@override String get profileDownloadBackupChannelTips => 'Прокси-канал загрузки, предоставляемый Mclash (никакая информация не сохраняется)';
 	@override String get profileEditReloadAfterProfileUpdate => 'Перезагрузить после обновления профиля';
-	@override String get profileRulesAppendApplePush => 'Добавить правила Push-уведомлений Apple';
 	@override String get profileRulesAppendProxyTips => 'Правила будут автоматически установлены на первый прокси в [proxy-groups] исходной конфигурации с типом [url-test] или [select]';
 	@override String get profileImport => 'Импорт файла конфигурации';
 	@override String get profileAddUrlOrContent => 'Добавление подписки';
@@ -720,7 +716,6 @@ extension on TranslationsRu {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'Загрузка гео-правил через прокси',
 			'meta.geoRulesetTips' => 'Geosite/Geoip будет преобразован в соответствующий RuleSet',
-			'meta.asnNotSupportInIosTips' => 'Из-за ограничений памяти системы iOS правила IP-ASN и SRC-IP-ASN будут игнорироваться в iOS.',
 			'meta.sniffer' => 'Обнаружение доменов',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'Запуск при включении',
@@ -737,8 +732,6 @@ extension on TranslationsRu {
 			'meta.bypassSystemProxy' => 'Доменные имена, которым разрешено обходить системный прокси-сервер',
 			'meta.excludeFromRecent' => 'Скрыть из недавних задач',
 			'meta.wakeLock' => 'Блокировка пробуждения',
-			'meta.hideVpn' => 'Скрыть значок VPN',
-			'meta.hideVpnTips' => 'Включение IPv6 приведет к сбою этой функции.',
 			'meta.hideDockIcon' => 'Скрыть значок дока',
 			'meta.showTrayTraffic' => 'Показывать трафик в трее',
 			'meta.website' => 'Веб-сайт',
@@ -839,7 +832,6 @@ extension on TranslationsRu {
 			'meta.profileDownloadBackupChannel' => 'Включить резервный канал загрузки',
 			'meta.profileDownloadBackupChannelTips' => 'Прокси-канал загрузки, предоставляемый Mclash (никакая информация не сохраняется)',
 			'meta.profileEditReloadAfterProfileUpdate' => 'Перезагрузить после обновления профиля',
-			'meta.profileRulesAppendApplePush' => 'Добавить правила Push-уведомлений Apple',
 			'meta.profileRulesAppendProxyTips' => 'Правила будут автоматически установлены на первый прокси в [proxy-groups] исходной конфигурации с типом [url-test] или [select]',
 			'meta.profileImport' => 'Импорт файла конфигурации',
 			'meta.profileAddUrlOrContent' => 'Добавление подписки',

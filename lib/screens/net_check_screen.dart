@@ -92,15 +92,13 @@ class _NetCheckScreenState extends LasyRenderingState<NetCheckScreen> {
     setState(() {
       _proxyHttpResult = proxyResult;
     });
-    if (!Platform.isIOS) {
-      final routeTableResult = await SystemUtils.getRouteTable();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _routeTableResult = routeTableResult;
-      });
+    final routeTableResult = await SystemUtils.getRouteTable();
+    if (!mounted) {
+      return;
     }
+    setState(() {
+      _routeTableResult = routeTableResult;
+    });
     setState(() {
       _checking = false;
     });
@@ -264,10 +262,8 @@ class _NetCheckScreenState extends LasyRenderingState<NetCheckScreen> {
                                     _directHttpResult,
                                     '3. HTTP Via Proxy:',
                                     _proxyHttpResult,
-                                    if (!Platform.isIOS) ...[
-                                      '4. Route Table:',
-                                      _routeTableResult,
-                                    ],
+                                    '4. Route Table:',
+                                    _routeTableResult,
                                   ].join('\n\n'),
                                 ),
                               );
@@ -333,13 +329,11 @@ class _NetCheckScreenState extends LasyRenderingState<NetCheckScreen> {
                               ),
                               _proxyHttpResult,
                             ),
-                            if (!Platform.isIOS) ...[
-                              const SizedBox(height: 12),
-                              _buildSection(
-                                tcontext.NetCheckScreen.routeTableSection,
-                                _routeTableResult,
-                              ),
-                            ],
+                            const SizedBox(height: 12),
+                            _buildSection(
+                              tcontext.NetCheckScreen.routeTableSection,
+                              _routeTableResult,
+                            ),
                           ],
                         ),
                       ),

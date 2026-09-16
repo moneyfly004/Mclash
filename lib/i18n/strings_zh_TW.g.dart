@@ -312,7 +312,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => '使用代理下載Geo RuleSet';
 	@override String get geoRulesetTips => 'Geosite/Geoip 會被轉換成 對應的RuleSet';
-	@override String get asnNotSupportInIosTips => '由於iOS系統內存限制,IP-ASN及SRC-IP-ASN規則在iOS上將被忽略';
 	@override String get sniffer => '嗅探';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => '開機啟動';
@@ -329,8 +328,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get bypassSystemProxy => '允許繞過系統代理的域名';
 	@override String get excludeFromRecent => '從[最近任務]中隱藏';
 	@override String get wakeLock => '喚醒鎖';
-	@override String get hideVpn => '隱藏VPN圖標';
-	@override String get hideVpnTips => '開啟IPv6會導致此功能失效';
 	@override String get hideDockIcon => '隱藏Dock圖標';
 	@override String get showTrayTraffic => '托盤上顯示流量資訊';
 	@override String get website => '官網';
@@ -431,7 +428,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => '啟用備用下載通道';
 	@override String get profileDownloadBackupChannelTips => 'Mclash 提供的代理下載通道（不儲存任何資訊）';
 	@override String get profileEditReloadAfterProfileUpdate => '設定更新後重新載入';
-	@override String get profileRulesAppendApplePush => '附加 Apple 推送通知規則';
 	@override String get profileRulesAppendProxyTips => '規則將自動設為原始設定中 [proxy-groups] 內第一個類型為 [url-test] 或 [select] 的代理';
 	@override String get profileImport => '匯入設定檔';
 	@override String get profileAddUrlOrContent => '添加設定連結';
@@ -720,7 +716,6 @@ extension on TranslationsZhTw {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => '使用代理下載Geo RuleSet',
 			'meta.geoRulesetTips' => 'Geosite/Geoip 會被轉換成 對應的RuleSet',
-			'meta.asnNotSupportInIosTips' => '由於iOS系統內存限制,IP-ASN及SRC-IP-ASN規則在iOS上將被忽略',
 			'meta.sniffer' => '嗅探',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => '開機啟動',
@@ -737,8 +732,6 @@ extension on TranslationsZhTw {
 			'meta.bypassSystemProxy' => '允許繞過系統代理的域名',
 			'meta.excludeFromRecent' => '從[最近任務]中隱藏',
 			'meta.wakeLock' => '喚醒鎖',
-			'meta.hideVpn' => '隱藏VPN圖標',
-			'meta.hideVpnTips' => '開啟IPv6會導致此功能失效',
 			'meta.hideDockIcon' => '隱藏Dock圖標',
 			'meta.showTrayTraffic' => '托盤上顯示流量資訊',
 			'meta.website' => '官網',
@@ -839,7 +832,6 @@ extension on TranslationsZhTw {
 			'meta.profileDownloadBackupChannel' => '啟用備用下載通道',
 			'meta.profileDownloadBackupChannelTips' => 'Mclash 提供的代理下載通道（不儲存任何資訊）',
 			'meta.profileEditReloadAfterProfileUpdate' => '設定更新後重新載入',
-			'meta.profileRulesAppendApplePush' => '附加 Apple 推送通知規則',
 			'meta.profileRulesAppendProxyTips' => '規則將自動設為原始設定中 [proxy-groups] 內第一個類型為 [url-test] 或 [select] 的代理',
 			'meta.profileImport' => '匯入設定檔',
 			'meta.profileAddUrlOrContent' => '添加設定連結',

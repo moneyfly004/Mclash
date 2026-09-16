@@ -48,12 +48,9 @@ import 'package:flutter_single_instance/flutter_single_instance.dart';
 List<String> processArgs = [];
 StartFailedReason? startFailedReason;
 String? startFailedReasonDesc;
-bool linuxRotate180Fix = false;
 
 void main(List<String> args) async {
   processArgs = args;
-  linuxRotate180Fix =
-      Platform.isLinux && Platform.environment["CLASHMI_ROTATE_180"] == "1";
   WidgetsFlutterBinding.ensureInitialized();
   await LocaleSettings.useDeviceLocale();
   await VPNService.initABI();
@@ -62,7 +59,7 @@ void main(List<String> args) async {
   Log.setLevel(SettingManager.getConfig().logLevel);
   await BoardSessionPersistentManager.init();
   await BoardProviderManager.init();
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  if (Platform.isWindows || Platform.isMacOS) {
     await _ensureSingleInstanceOrExit();
   }
 
@@ -152,11 +149,7 @@ Future<void> run(List<String> args) async {
       const inProduction = bool.fromEnvironment("dart.vm.product");
       if (inProduction) {
 
-        if (Platform.isLinux) {
-          await windowManager.setMinimumSize(Size(400, 740));
-        } else {
-          await windowManager.setMinimumSize(Size(400, 700));
-        }
+        await windowManager.setMinimumSize(Size(400, 700));
       }
 
       await windowManager.center();
@@ -223,7 +216,7 @@ Future<void> _ensureSingleInstanceOrExit() async {
 
   final singleInstance = FlutterSingleInstance();
   final isFirst = await singleInstance.isFirstInstance(
-    maxRetries: Platform.isLinux ? 5 : 1,
+    maxRetries: 1,
     retryInterval: const Duration(milliseconds: 250),
   );
 
@@ -388,7 +381,7 @@ class MyAppState extends State<MyApp>
               home: PopScope(
                 canPop: false,
                 onPopInvokedWithResult: (didPop, result) {
-                  if (Platform.isAndroid || Platform.isIOS) {
+                  if (Platform.isAndroid) {
                     MoveToBackgroundUtils.moveToBackground();
                   }
                 },
@@ -415,11 +408,6 @@ class MyAppState extends State<MyApp>
               darkTheme: ThemeDataDark.theme(context),
             ),
           );
-
-          if (linuxRotate180Fix) {
-
-            app = RotatedBox(quarterTurns: 2, child: app);
-          }
 
           return app;
         },
@@ -527,7 +515,7 @@ class MyAppState extends State<MyApp>
 
   void _setTray(bool grey, bool destroy, bool quitIfFailed) {
     Future.delayed(const Duration(milliseconds: 300), () async {
-      if (destroy || Platform.isLinux) {
+      if (destroy) {
         await trayManager.destroy();
       }
 
@@ -552,11 +540,7 @@ class MyAppState extends State<MyApp>
           });
         }
       }
-      if (!Platform.isLinux) {
-        await trayManager.setToolTip(AppUtils.getName());
-      } else {
-        await _setTrayMenu(grey);
-      }
+      await trayManager.setToolTip(AppUtils.getName());
     });
   }
 
@@ -594,9 +578,7 @@ class MyAppState extends State<MyApp>
     ];
     _menu = Menu(items: items);
     await trayManager.setContextMenu(_menu!);
-    if (!Platform.isLinux) {
-      await trayManager.popUpContextMenu(bringAppToFront: true);
-    }
+    await trayManager.popUpContextMenu(bringAppToFront: true);
   }
 
   @override

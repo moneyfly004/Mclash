@@ -40,7 +40,7 @@ abstract final class AppUtils {
   }
 
   static String getBundleId(bool systemExtension) {
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       return "top.moneyfly.mclash";
     }
     return "";

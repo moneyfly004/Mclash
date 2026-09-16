@@ -312,7 +312,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'تنزيل Geo RuleSet باستخدام وكيل';
 	@override String get geoRulesetTips => 'سيتم تحويل Geosite/Geoip إلى مجموعة القواعد المقابلة';
-	@override String get asnNotSupportInIosTips => 'بسبب قيود ذاكرة نظام iOS، سيتم تجاهل قواعد IP-ASN وSRC-IP-ASN على نظام iOS.';
 	@override String get sniffer => 'شم';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => 'إطلاق عند بدء التشغيل';
@@ -329,8 +328,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get bypassSystemProxy => 'أسماء النطاقات المسموح لها بتجاوز وكيل النظام';
 	@override String get excludeFromRecent => 'إخفاء من المهام الأخيرة';
 	@override String get wakeLock => 'قفل الاستيقاظ';
-	@override String get hideVpn => 'إخفاء أيقونة VPN';
-	@override String get hideVpnTips => 'سيؤدي تمكين IPv6 إلى فشل هذه الوظيفة';
 	@override String get hideDockIcon => 'إخفاء أيقونة Dock';
 	@override String get showTrayTraffic => 'إظهار معلومات حركة المرور في شريط النظام';
 	@override String get website => 'موقع إلكتروني';
@@ -431,7 +428,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => 'تمكين قناة التنزيل الاحتياطية';
 	@override String get profileDownloadBackupChannelTips => 'قناة تنزيل عبر الوكيل توفرها Mclash (لا يتم تخزين أي معلومات)';
 	@override String get profileEditReloadAfterProfileUpdate => 'إعادة التحميل بعد تحديث الملف الشخصي';
-	@override String get profileRulesAppendApplePush => 'إضافة قواعد إشعارات Apple Push';
 	@override String get profileRulesAppendProxyTips => 'سيتم تعيين القواعد تلقائيًا إلى أول وكيل في [proxy-groups] من التكوين الأصلي يكون نوعه [url-test] أو [select]';
 	@override String get profileImport => 'استيراد ملف الملف الشخصي';
 	@override String get profileAddUrlOrContent => 'إضافة رابط ملف التعريف';
@@ -720,7 +716,6 @@ extension on TranslationsAr {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'تنزيل Geo RuleSet باستخدام وكيل',
 			'meta.geoRulesetTips' => 'سيتم تحويل Geosite/Geoip إلى مجموعة القواعد المقابلة',
-			'meta.asnNotSupportInIosTips' => 'بسبب قيود ذاكرة نظام iOS، سيتم تجاهل قواعد IP-ASN وSRC-IP-ASN على نظام iOS.',
 			'meta.sniffer' => 'شم',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'إطلاق عند بدء التشغيل',
@@ -737,8 +732,6 @@ extension on TranslationsAr {
 			'meta.bypassSystemProxy' => 'أسماء النطاقات المسموح لها بتجاوز وكيل النظام',
 			'meta.excludeFromRecent' => 'إخفاء من المهام الأخيرة',
 			'meta.wakeLock' => 'قفل الاستيقاظ',
-			'meta.hideVpn' => 'إخفاء أيقونة VPN',
-			'meta.hideVpnTips' => 'سيؤدي تمكين IPv6 إلى فشل هذه الوظيفة',
 			'meta.hideDockIcon' => 'إخفاء أيقونة Dock',
 			'meta.showTrayTraffic' => 'إظهار معلومات حركة المرور في شريط النظام',
 			'meta.website' => 'موقع إلكتروني',
@@ -839,7 +832,6 @@ extension on TranslationsAr {
 			'meta.profileDownloadBackupChannel' => 'تمكين قناة التنزيل الاحتياطية',
 			'meta.profileDownloadBackupChannelTips' => 'قناة تنزيل عبر الوكيل توفرها Mclash (لا يتم تخزين أي معلومات)',
 			'meta.profileEditReloadAfterProfileUpdate' => 'إعادة التحميل بعد تحديث الملف الشخصي',
-			'meta.profileRulesAppendApplePush' => 'إضافة قواعد إشعارات Apple Push',
 			'meta.profileRulesAppendProxyTips' => 'سيتم تعيين القواعد تلقائيًا إلى أول وكيل في [proxy-groups] من التكوين الأصلي يكون نوعه [url-test] أو [select]',
 			'meta.profileImport' => 'استيراد ملف الملف الشخصي',
 			'meta.profileAddUrlOrContent' => 'إضافة رابط ملف التعريف',

@@ -649,9 +649,6 @@ class Translations$meta$en {
 	/// en: 'Geosite/Geoip will be converted into the corresponding RuleSet'
 	String get geoRulesetTips => 'Geosite/Geoip will be converted into the corresponding RuleSet';
 
-	/// en: 'Due to iOS system memory limitations, IP-ASN and SRC-IP-ASN rules will be ignored on iOS.'
-	String get asnNotSupportInIosTips => 'Due to iOS system memory limitations, IP-ASN and SRC-IP-ASN rules will be ignored on iOS.';
-
 	/// en: 'Sniffer'
 	String get sniffer => 'Sniffer';
 
@@ -699,12 +696,6 @@ class Translations$meta$en {
 
 	/// en: 'Wake Lock'
 	String get wakeLock => 'Wake Lock';
-
-	/// en: 'Hide VPN Icon'
-	String get hideVpn => 'Hide VPN Icon';
-
-	/// en: 'Enabling IPv6 will cause this function to fail'
-	String get hideVpnTips => 'Enabling IPv6 will cause this function to fail';
 
 	/// en: 'Hide Dock Icon'
 	String get hideDockIcon => 'Hide Dock Icon';
@@ -1005,9 +996,6 @@ class Translations$meta$en {
 
 	/// en: 'Reload after Profile update'
 	String get profileEditReloadAfterProfileUpdate => 'Reload after Profile update';
-
-	/// en: 'Append Apple Push Notification rules'
-	String get profileRulesAppendApplePush => 'Append Apple Push Notification rules';
 
 	/// en: 'Rules will be automatically set to the first proxy in [proxy-groups] of the original config with type [url-test] or [select]'
 	String get profileRulesAppendProxyTips => 'Rules will be automatically set to the first proxy in [proxy-groups] of the original config with type [url-test] or [select]';
@@ -1400,7 +1388,6 @@ extension on Translations {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'Downloading Geo RuleSet by proxy',
 			'meta.geoRulesetTips' => 'Geosite/Geoip will be converted into the corresponding RuleSet',
-			'meta.asnNotSupportInIosTips' => 'Due to iOS system memory limitations, IP-ASN and SRC-IP-ASN rules will be ignored on iOS.',
 			'meta.sniffer' => 'Sniffer',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'Launch at Startup',
@@ -1417,8 +1404,6 @@ extension on Translations {
 			'meta.bypassSystemProxy' => 'Domain names that are allowed to bypass the system proxy',
 			'meta.excludeFromRecent' => 'Hide from [Recent Tasks]',
 			'meta.wakeLock' => 'Wake Lock',
-			'meta.hideVpn' => 'Hide VPN Icon',
-			'meta.hideVpnTips' => 'Enabling IPv6 will cause this function to fail',
 			'meta.hideDockIcon' => 'Hide Dock Icon',
 			'meta.showTrayTraffic' => 'Show traffic info in tray',
 			'meta.website' => 'Website',
@@ -1519,7 +1504,6 @@ extension on Translations {
 			'meta.profileDownloadBackupChannel' => 'Enable backup download channel',
 			'meta.profileDownloadBackupChannelTips' => 'Proxy download channel provided by Mclash (no information is stored)',
 			'meta.profileEditReloadAfterProfileUpdate' => 'Reload after Profile update',
-			'meta.profileRulesAppendApplePush' => 'Append Apple Push Notification rules',
 			'meta.profileRulesAppendProxyTips' => 'Rules will be automatically set to the first proxy in [proxy-groups] of the original config with type [url-test] or [select]',
 			'meta.profileImport' => 'Import Profile File',
 			'meta.profileAddUrlOrContent' => 'Add Profile Link',

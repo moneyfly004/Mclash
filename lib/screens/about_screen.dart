@@ -141,9 +141,7 @@ class AboutScreenState extends LasyRenderingState<AboutScreen> {
 
     groupOptions.add(GroupItem(options: options));
 
-    if (!Platform.isIOS &&
-        !Platform.isMacOS &&
-        remoteConfig.donate.isNotEmpty) {
+    if (!Platform.isMacOS && remoteConfig.donate.isNotEmpty) {
       List<GroupItemOptions> options1 = [
         GroupItemOptions(
           pushOptions: GroupItemPushOptions(

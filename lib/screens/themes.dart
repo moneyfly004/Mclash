@@ -84,20 +84,10 @@ class Themes with ChangeNotifier {
     return ThemeDataLight.theme(context);
   }
 
+  /// `statusBarBrightness` 是 iOS 专有语义（亮色=浅色状态栏内容），
+  /// Mclash 不再支持 iOS，这里恒定返回 null 交给系统；
+  /// Android 用 [getStatusBarIconBrightness] 显式设置。
   Brightness? getStatusBarBrightness(BuildContext context) {
-    if (Platform.isIOS) {
-      var brightness = MediaQuery.platformBrightnessOf(context);
-      switch (_theme) {
-        case ThemeDefine.kThemeSystem:
-          return brightness == Brightness.dark
-              ? Brightness.dark
-              : Brightness.light;
-        case ThemeDefine.kThemeLight:
-          return Brightness.light;
-        case ThemeDefine.kThemeDark:
-          return Brightness.dark;
-      }
-    }
     return null;
   }
 

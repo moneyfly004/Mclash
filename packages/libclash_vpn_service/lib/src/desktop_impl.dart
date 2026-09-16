@@ -306,10 +306,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   Future<void> _applyDataPathFallback(File logFile) async {
     _systemProxyFallbackActive = false;
-    if (Platform.isLinux) {
-
-      return;
-    }
     final tail = await _tail(logFile, 40);
     if (!logIndicatesTunUnavailable(tail)) {
       return;
@@ -516,7 +512,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   // 系统代理
   //   Windows：注册表 HKCU\...\Internet Settings
   //   macOS：networksetup 逐网络服务（HTTP 与 HTTPS 都要设）
-  //   Linux：不接管（走 TUN）→ 直接返回 true
   // ======================================================================
   @override
   Future<bool> setSystemProxy(ProxyOption option) async {
@@ -1057,7 +1052,6 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
   /// 改为返回应用支持目录，与 [getApplicationSupportDir] 保持一致：
   ///   macOS   ~/Library/Application Support/<bundleId>
   ///   Windows %APPDATA%\<appId>
-  ///   Linux   ~/.local/share/<appId>
   /// 内核副本、geo 数据、日志都落在这里，且该目录必然可写、无需额外权限。
   @override
   Future<Directory?> getAppGroupDirectory(String groupId) async =>
@@ -1129,7 +1123,7 @@ Get-CimInstance Win32_Process -Filter "Name='mihomo.exe'" | ForEach-Object {
           return;
         }
       } else {
-        // macOS / Linux：pgrep 找 mihomo，检查 ppid 是否为 1（被 init 收养 = 孤儿）
+        // macOS：pgrep 找 mihomo，检查 ppid 是否为 1（被 init 收养 = 孤儿）
         final r = await Process.run("pgrep", ["-x", "mihomo"]);
         if (r.exitCode != 0) {
           return;

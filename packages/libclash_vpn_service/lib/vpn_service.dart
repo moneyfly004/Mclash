@@ -140,5 +140,5 @@ class FlutterVpnService {
   static Future<String> clashiApiTraffic() => _p.clashiApiTraffic();
 
   static bool get supportSystemProxy =>
-      Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+      Platform.isWindows || Platform.isMacOS;
 }

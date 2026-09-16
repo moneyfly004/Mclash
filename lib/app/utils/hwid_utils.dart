@@ -14,12 +14,7 @@ class HwidUtils {
     final plugin = DeviceInfoPlugin();
     final hwid = await getHwid();
     headers["x-hwid"] = hwid.toLowerCase();
-    if (Platform.isIOS) {
-      final info = await plugin.iosInfo;
-      headers['x-device-os'] = "iOS";
-      headers['x-ver-os'] = info.systemVersion;
-      headers['x-device-model'] = info.modelName;
-    } else if (Platform.isMacOS) {
+    if (Platform.isMacOS) {
       final info = await plugin.macOsInfo;
       headers['x-device-os'] = "macOS";
       headers['x-ver-os'] = "${info.majorVersion}.${info.minorVersion}";
@@ -29,11 +24,6 @@ class HwidUtils {
       headers['x-device-os'] = "Windows";
       headers['x-ver-os'] = "${info.majorVersion}.${info.minorVersion}";
       headers['x-device-model'] = info.productName;
-    } else if (Platform.isLinux) {
-      final info = await plugin.linuxInfo;
-      headers['x-device-os'] = "Linux";
-      headers['x-ver-os'] = info.versionId ?? "";
-      headers['x-device-model'] = info.name;
     } else if (Platform.isAndroid) {
       final info = await plugin.androidInfo;
       headers['x-device-os'] = "Android";

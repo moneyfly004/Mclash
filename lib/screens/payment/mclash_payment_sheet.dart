@@ -93,9 +93,7 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
   bool _autoOpened = false;
   String? _payError;
 
-  bool get _isMobile =>
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS;
+  bool get _isMobile => defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {

@@ -10,7 +10,12 @@
 
 界面、排版、组件 **100% 沿用 [Clash Mi](https://github.com/KaringX/clashmi)**：
 Material 3 + 种子色 `#293CA0` + 方角 + 高密度列表 + 唯一分隔线
-`Divider(height:1, thickness:0.3)` + `SimpleDialog` 全家桶 + `platform: TargetPlatform.iOS` + 3 主题模式。
+`Divider(height:1, thickness:0.3)` + `SimpleDialog` 全家桶 + 3 主题模式。
+
+> **平台范围：Android / Windows / macOS。** Linux 与 iOS（含 Apple tvOS）的构建目录、
+> 插件依赖与分支代码已全部删除 —— `theme_data_*.dart` 里的 `platform: TargetPlatform.iOS`
+> 是 Flutter **控件渲染风格**的选择（保持与 Clash Mi 一致的排版密度），
+> 与是否支持 iOS 平台无关。
 
 导航层新增 **4 个底部 Tab**：**主页 · 节点列表 · 套餐购买 · 我的**（桌面 ≥840px 转左侧导航 88px）。
 

@@ -87,7 +87,6 @@ class ProfileSetting {
   Map<String, ProfileSettingProxyGroup> proxyGroups = {};
   Map<String, String> rules = {};
   Map<String, String> rulesForProxyGroups = {};
-  bool appendApplePushRules = false;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -111,7 +110,6 @@ class ProfileSetting {
     'proxy_groups': proxyGroups,
     'rules': rules,
     'rules_for_proxy_groups': rulesForProxyGroups,
-    'append_apple_push_rules': appendApplePushRules,
   };
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {
@@ -171,7 +169,6 @@ class ProfileSetting {
     rulesForProxyGroups.removeWhere((key, value) {
       return key.isEmpty || value.isEmpty;
     });
-    appendApplePushRules = map['append_apple_push_rules'] ?? false;
   }
 
   String getType() {
@@ -295,7 +292,6 @@ class ProfileSetting {
     rulesForProxyGroups.forEach((key, value) {
       ps.rulesForProxyGroups[key] = value;
     });
-    ps.appendApplePushRules = appendApplePushRules;
     return ps;
   }
 }

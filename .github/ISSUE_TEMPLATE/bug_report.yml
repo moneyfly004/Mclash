@@ -28,12 +28,9 @@ body:
       label: 操作系统/Operating System
       description:  操作系统类型/Operating system type
       options:
-        - iOS
-        - macOS
-        - Apple tvOS
         - Android
         - Windows
-        - Linux
+        - macOS
     validations:
       required: true
   - type: input

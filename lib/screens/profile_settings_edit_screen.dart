@@ -361,25 +361,8 @@ class _ProfilesSettingsEditScreenState
       ),
     ];
 
-    List<GroupItemOptions> options2 = [
-      GroupItemOptions(
-        switchOptions: GroupItemSwitchOptions(
-          name: tcontext.meta.profileRulesAppendApplePush,
-          tips: tcontext.meta.profileRulesAppendProxyTips,
-          switchValue: _profile.appendApplePushRules,
-          onSwitch: (bool value) async {
-            _profile.appendApplePushRules = value;
-            setState(() {});
-          },
-        ),
-      ),
-    ];
-
     groupOptions.add(GroupItem(options: options));
     groupOptions.add(GroupItem(options: options1));
-    if (Platform.isIOS) {
-      groupOptions.add(GroupItem(options: options2));
-    }
 
     return groupOptions;
   }

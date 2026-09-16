@@ -166,9 +166,6 @@ class VPNService {
         patch.id.isEmpty ||
         patch.id == kProfilePatchBuildinOverwrite ||
         patch.appendPatchBuildin == kProfilePatchBuildinOverwrite;
-    List<String>? appendRules = Platform.isIOS && profile.appendApplePushRules
-        ? ProfilePatchManager.appendRulesApplePush()
-        : null;
     await ClashSettingManager.saveCorePatchFinal(
       profile.id,
       overwriteFinal,
@@ -178,7 +175,10 @@ class VPNService {
                 : profile.rules)
           : null,
       profile.overwriteProxyGroups ? profile.proxyGroups : null,
-      appendRules,
+      // `appendRules`：此前只有 iOS 的 Apple 推送分流会往这里塞规则，
+      // 随 iOS 支持一起删除；参数保留是因为内核侧 `extension.append-rules`
+      // 是一项通用能力（见 ClashSettingManager.getPatchContent）。
+      null,
     );
 
     var excludePorts = [controlPort];
@@ -267,7 +267,7 @@ class VPNService {
     );
     File confFile = File(configFilePath);
     bool reinstall = false;
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       bool exists = await confFile.exists();
       if (exists) {
         try {
@@ -388,7 +388,7 @@ class VPNService {
 
       FlutterVpnService.firewallAddPorts(ports, PathUtils.serviceExeName());
     }
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       await FlutterVpnService.setAlwaysOn(false);
     }
     final enable = await getSystemProxyEnable();
@@ -412,7 +412,7 @@ class VPNService {
       await _stopInner();
       return ReturnResultError(content);
     }
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       if (setting.alwayOn) {
         await FlutterVpnService.setAlwaysOn(setting.alwayOn);
       }
@@ -433,7 +433,7 @@ class VPNService {
       return ReturnResultError("current profile is empty");
     }
     // 安卓：**必须先拿到系统 VPN 授权**（`VpnService.prepare` 弹窗）。
-    // 旧代码只在 Linux 分支里做过类似检查，安卓上从不请求授权 → Builder.establish()
+    // 旧代码从不请求授权 → Builder.establish()
     // 拿不到 fd → 内核起不来，而错误只说"未获得文件描述符"，用户完全不知道要授权。
     if (Platform.isAndroid) {
       var authorized = false;
@@ -502,21 +502,19 @@ class VPNService {
       await _stopInner();
       return ReturnResultError(content);
     }
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       if (setting.alwayOn) {
         await FlutterVpnService.setAlwaysOn(setting.alwayOn);
       }
     }
 
-    if (PlatformUtils.isPC() &&
-        !Platform.isLinux &&
-        !setting.autoSetSystemProxy) {
+    if (PlatformUtils.isPC() && !setting.autoSetSystemProxy) {
       // 用户明确关掉了「连接后自动设置系统代理」→ 尊重它，不再每次连接都覆盖
       // 系统代理（以前是无条件覆盖，用户会感觉「这设置改不动 / 我的代理总被改掉」）。
       // 但 TUN 需要管理员权限；真降级时仍由内核侧的兜底逻辑补上系统代理，
       // 保证「关掉开关」不会变成「连上了却完全没网」。
       Log.i("VPNService: 已关闭「连接后自动设置系统代理」，跳过自动设置（可在应用设置→系统代理手动设置）");
-    } else if (PlatformUtils.isPC() && !Platform.isLinux) {
+    } else if (PlatformUtils.isPC()) {
       // 顺序很关键：**先问内核它到底监听哪个端口**，再据此设系统代理。
       // 旧实现在 start() 里既不修端口也不问内核，直接拿设置里的值去设：
       // 配置里 mixed-port 为 0（或被别的软件占用、内核自动换端口）时，
@@ -665,7 +663,7 @@ class VPNService {
 
   static Future<void> _stopInner() async {
     _stopProxyWatchdog();
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       await FlutterVpnService.setAlwaysOn(false);
     }
     await setSystemProxy(false);

@@ -117,7 +117,7 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
   void showAgreement() async {
     String? agreement;
     try {
-      if (Platform.isIOS || Platform.isMacOS) {
+      if (Platform.isMacOS) {
         agreement = await LocalStorage.read(userAgreementAgreedIdKey);
       } else {
         agreement = "true";
@@ -128,7 +128,7 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
 
       return;
     }
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -179,7 +179,7 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     };
     VPNService.onEventStateChanged.add(_onStateChanged);
 
-    if (Platform.isWindows || Platform.isLinux) {
+    if (Platform.isWindows) {
       final clashRegisterErr = await SystemSchemeUtils.register(
         SystemSchemeUtils.getClashScheme(),
       );

@@ -21,17 +21,11 @@ class PathUtils {
       return _appAssetsDir;
     }
 
-    if (Platform.isIOS) {
-      _appAssetsDir = frameworkDir();
-      _appAssetsDir = path.join(_appAssetsDir, "App.framework");
-    } else if (Platform.isMacOS) {
+    if (Platform.isMacOS) {
       _appAssetsDir = frameworkDir();
       _appAssetsDir = path.join(_appAssetsDir, "App.framework", "Resources");
     } else if (Platform.isAndroid) {
       _appAssetsDir = "";
-    } else if (Platform.isLinux) {
-      _appAssetsDir = frameworkDir();
-      _appAssetsDir = path.join(_appAssetsDir, "data");
     } else if (Platform.isWindows) {
       _appAssetsDir = frameworkDir();
       _appAssetsDir = path.join(_appAssetsDir, "data");
@@ -196,15 +190,12 @@ class PathUtils {
 
   static String frameworkDir() {
     String filepath = PathUtils.exeDir();
-    if (Platform.isIOS) {
-      filepath = path.join(filepath, "Frameworks");
-    } else if (Platform.isMacOS) {
+    if (Platform.isMacOS) {
       filepath = path.dirname(filepath);
       filepath = path.join(filepath, "Frameworks");
     } else if (Platform.isWindows) {
     } else if (Platform.isAndroid) {
       return "";
-    } else if (Platform.isLinux) {
     } else {
       throw "unsupport platform";
     }
@@ -228,23 +219,18 @@ class PathUtils {
     if (Platform.isMacOS) {
       return "Mclash";
     }
-    if (Platform.isLinux) {
-      return "mclash";
-    }
     return "";
   }
 
   static String serviceExeName() {
-    if (Platform.isLinux) {
-      return "mclashService";
-    } else if (Platform.isWindows) {
+    if (Platform.isWindows) {
       return "mclashService.exe";
     }
     return "";
   }
 
   static String serviceExePath() {
-    if (Platform.isLinux || Platform.isWindows) {
+    if (Platform.isWindows) {
       String filePath = exeDir();
       return path.join(filePath, serviceExeName());
     }

@@ -49,8 +49,6 @@ class _AddProfileByScanQrcodeScanScreenState
     super.reassemble();
     if (Platform.isAndroid) {
       controller!.pauseCamera();
-    } else if (Platform.isIOS) {
-      controller!.resumeCamera();
     }
   }
 

@@ -15,9 +15,6 @@ class SystemSchemeUtils {
   }
 
   static Future<String?> register(String scheme) async {
-    if (Platform.isLinux) {
-      return await _registerLinuxScheme(scheme);
-    }
     try {
       await protocolHandler.register(scheme);
     } catch (err) {
@@ -52,74 +49,5 @@ class SystemSchemeUtils {
     }
     String file = value.data as String;
     return file.toLowerCase().indexOf(appPath) == 0;
-  }
-
-  static Future<String?> _registerLinuxScheme(String scheme) async {
-    const desktopCandidates = ["top.moneyfly.mclash.desktop", "mclash.desktop"];
-
-    final customDesktop = (Platform.environment["CLASHMI_DESKTOP_FILE"] ?? "")
-        .trim();
-    final candidates = [
-      if (customDesktop.isNotEmpty) customDesktop,
-      ...desktopCandidates,
-    ];
-
-    final handler = "x-scheme-handler/$scheme";
-    final before = await _queryLinuxDefaultHandler(handler);
-    if (before != null && candidates.contains(before)) {
-      return null;
-    }
-
-    String? lastError;
-    for (final candidate in candidates) {
-      final err = await _setLinuxDefaultHandler(handler, candidate);
-      if (err != null) {
-        lastError = err;
-        continue;
-      }
-      final after = await _queryLinuxDefaultHandler(handler);
-      if (after == candidate) {
-        return null;
-      }
-    }
-
-    return lastError ??
-        "linux scheme register failed: handler=$handler candidates=$candidates";
-  }
-
-  static Future<String?> _queryLinuxDefaultHandler(String handler) async {
-    try {
-      final result = await Process.run("xdg-mime", [
-        "query",
-        "default",
-        handler,
-      ]);
-      if (result.exitCode != 0) {
-        return null;
-      }
-      final desktopFile = (result.stdout ?? "").toString().trim();
-      return desktopFile.isEmpty ? null : desktopFile;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static Future<String?> _setLinuxDefaultHandler(
-    String handler,
-    String desktopFile,
-  ) async {
-    try {
-      final result = await Process.run("xdg-mime", [
-        "default",
-        desktopFile,
-        handler,
-      ]);
-      if (result.exitCode != 0) {
-        return "xdg-mime default failed($desktopFile, $handler): ${result.stderr}";
-      }
-      return null;
-    } catch (err) {
-      return "xdg-mime not available: $err";
-    }
   }
 }

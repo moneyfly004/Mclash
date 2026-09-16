@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:after_layout/after_layout.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
@@ -204,9 +203,7 @@ class _ProfilesBoardScreenState extends LasyRenderingState<ProfilesBoardScreen>
         ListTile(
           leading: const Icon(Icons.shopping_cart_outlined),
           title: Text(
-            Platform.isIOS
-                ? tcontext.meta.getProfile
-                : "${tcontext.meta.getProfile} / ${tcontext.meta.buyProfile}",
+            "${tcontext.meta.getProfile} / ${tcontext.meta.buyProfile}",
           ),
           onTap: () async {
             Navigator.of(context).pop();

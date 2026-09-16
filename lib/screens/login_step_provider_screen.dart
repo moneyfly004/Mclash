@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:mclash/app/modules/board_provider_manager.dart';
 import 'package:mclash/app/modules/remote_config_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
@@ -308,17 +306,6 @@ class _LoginStepProviderScreenState extends State<LoginStepProviderScreen> {
   }
 
   Future<void> _loginByWeb(BoardProviderConfig provider) async {
-    if (Platform.isLinux) {
-
-      DialogUtils.showAlertDialog(
-        context,
-        "Linux platforms do not currently support web-based login.",
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-      return;
-    }
     String url = await UrlLauncherUtils.reorganizationUrlWithAnchor(
       provider.loginUrl,
     );

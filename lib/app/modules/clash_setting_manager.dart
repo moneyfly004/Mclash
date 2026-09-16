@@ -44,9 +44,11 @@ class ClashSettingManager {
 
   static Future<void> initGeo() async {
     final homePath = await PathUtils.profileDir();
-    final fileNameList = Platform.isIOS
-        ? ["geosite.zip", "geoip.zip"]
-        : ["geosite.zip", "geoip.zip", "ASN.mmdb"];
+    // country.mmdb / geosite.dat 由 `assets/rules/` 直接提供（见 pubspec 里的说明），
+    // 内核还需要的 ASN 库在这里落一份到 profile 目录，供内核侧按目录查找时直接命中。
+    // （原实现还会落 geoip.zip / geosite.zip —— 那两个 zip 从来没有被解压过，
+    //  内核按固定文件名找 country.mmdb/geosite.dat，zip 纯属冗余，已删除。）
+    const fileNameList = ["ASN.mmdb"];
 
     try {
       for (final fileName in fileNameList) {
@@ -291,9 +293,7 @@ class ClashSettingManager {
       DisableKeepAlive: false,
       KeepAliveIdle: 30,
       KeepAliveInterval: 30,
-      FindProcessMode: Platform.isIOS
-          ? ClashFindProcessMode.off.name
-          : ClashFindProcessMode.always.name,
+      FindProcessMode: ClashFindProcessMode.always.name,
     );
   }
 
@@ -332,7 +332,7 @@ class ClashSettingManager {
     Map<String, ProfileSettingProxyGroup>? overwriteProxyGroups,
     List<String>? appendRules,
   ) async {
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isMacOS) {
       _setting.Tun?.Stack = ClashTunStack.gvisor.name;
     }
     _setting.DNS?.IPv6 = _setting.IPv6;
@@ -358,10 +358,6 @@ class ClashSettingManager {
     _setting.RuleProviders = null;
     _setting.ProxyGroups = null;
     _setting.Extension?.ProfileStoreSelectedPrefix = profileId;
-    if (Platform.isIOS) {
-      _setting.FindProcessMode = ClashFindProcessMode.off.name;
-    }
-
     if (overwriteRule != null && overwriteRule.isNotEmpty) {
       _setting.OverWriteRuleProviders = true;
       _setting.OverWriteRules = true;
@@ -536,9 +532,9 @@ class ClashSettingManager {
     _setting.ExternalUIURL = "";
     _setting.ExternalControllerCors = null;
     _setting.Tun?.Device = AppUtils.getName();
-    _setting.Tun?.AutoRedirect = Platform.isLinux;
+    _setting.Tun?.AutoRedirect = false;
     _setting.Tun?.AutoRoute = !Platform.isAndroid;
-    _setting.Tun?.AutoDetectInterface = Platform.isWindows || Platform.isLinux;
+    _setting.Tun?.AutoDetectInterface = Platform.isWindows;
     _setting.Profile = RawProfile.by(StoreSelected: true, StoreFakeIP: true);
     _setting.Extension?.RuntimeProfileSavePath =
         await PathUtils.serviceCoreRuntimeProfileFilePath();

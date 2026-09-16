@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:mclash/app/modules/biz.dart';
 import 'package:mclash/app/modules/remote_config_manager.dart';
@@ -125,14 +124,12 @@ class _LaunchFailedScreenState extends LasyRenderingState<LaunchFailedScreen> {
                     const SizedBox(height: 20),
                     SizedBox(
                       height: 45.0,
-                      child: !Platform.isIOS
-                          ? ElevatedButton(
-                              child: Text(tcontext.meta.quit),
-                              onPressed: () async {
-                                Biz.quit();
-                              },
-                            )
-                          : null,
+                      child: ElevatedButton(
+                        child: Text(tcontext.meta.quit),
+                        onPressed: () async {
+                          Biz.quit();
+                        },
+                      ),
                     ),
                   ],
                 ),

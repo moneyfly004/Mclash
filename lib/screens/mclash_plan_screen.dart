@@ -447,7 +447,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         final r = await MclashApi.createPayment(
           orderId: orderId,
           paymentMethodId: methodId,
-          isMobile: Platform.isAndroid || Platform.isIOS,
+          isMobile: Platform.isAndroid,
         );
         payUrl = MclashPay.payloadOf(r);
         if (!mounted) {

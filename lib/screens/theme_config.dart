@@ -16,7 +16,7 @@ class ThemeConfig {
   static const double kFontSizeListSubItem = 14;
   static const FontWeight kFontWeightListSubItem = FontWeight.w400;
 
-  static double kFontSizeGroupItem = (Platform.isAndroid || Platform.isIOS)
+  static double kFontSizeGroupItem = (Platform.isAndroid)
       ? 15
       : 14;
   static const FontWeight kFontWeightGroupItem = FontWeight.w400;

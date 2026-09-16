@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
-import 'package:mclash/app/modules/auto_update_manager.dart';
 import 'package:mclash/app/modules/biz.dart';
 import 'package:mclash/app/modules/board_provider_notice_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
@@ -15,7 +14,6 @@ import 'package:mclash/app/utils/app_lifecycle_state_notify.dart';
 import 'package:mclash/app/utils/app_scheme_actions.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/move_to_background_utils.dart';
-import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/app/utils/vpn_action_handler.dart';
 import 'package:mclash/i18n/strings.g.dart';
@@ -138,7 +136,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   void initQuickAction() async {
-    if (!Platform.isIOS && !Platform.isAndroid) {
+    if (!Platform.isAndroid) {
       return;
     }
     String connect = AppSchemeActions.connectAction();
@@ -543,43 +541,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       };
       await DialogUtils.showAlertDialog(context, msg, withVersion: true);
       return false;
-    }
-    if (Platform.isLinux) {
-      String? installer = await AutoUpdateManager.checkReplace();
-      if (installer != null) {
-        return true;
-      }
-      final servicePath = PathUtils.serviceExePath();
-      if (!await FlutterVpnService.isServiceAuthorized(servicePath)) {
-        if (!mounted) {
-          return false;
-        }
-        String? password = await DialogUtils.showPasswordInputDialog(context);
-        if (password == null || password.isEmpty) {
-          setState(() {});
-          return true;
-        }
-        final result = await FlutterVpnService.authorizeService(
-          servicePath,
-          password,
-        );
-        if (result != null) {
-          if (!mounted) {
-            return false;
-          }
-          bool? ok = await DialogUtils.showConfirmDialog(
-            context,
-            "${result.message}\n\n${t.meta.continueConnectConfirm}",
-          );
-          if (!mounted) {
-            return false;
-          }
-          setState(() {});
-          if (ok != true) {
-            return false;
-          }
-        }
-      }
     }
     var state = await VPNService.getState();
     if (state == FlutterVpnServiceState.connecting ||

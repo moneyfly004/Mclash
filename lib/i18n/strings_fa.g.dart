@@ -312,7 +312,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'دانلود Geo RuleSet با استفاده از یک پروکسی';
 	@override String get geoRulesetTips => 'Geosite/Geoip به RuleSet مربوطه تبدیل می شود';
-	@override String get asnNotSupportInIosTips => 'با توجه به محدودیت‌های حافظه سیستم iOS، قوانین IP-ASN و SRC-IP-ASN در iOS نادیده گرفته می‌شوند.';
 	@override String get sniffer => 'بو کشیدن';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => 'اجرا در راه‌اندازی';
@@ -331,8 +330,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get hideDockIcon => 'پنهان کردن آیکون داک';
 	@override String get showTrayTraffic => 'نمایش اطلاعات ترافیک در سینی سیستم';
 	@override String get wakeLock => 'قفل بیدارباش';
-	@override String get hideVpn => 'مخفی کردن آیکون VPN';
-	@override String get hideVpnTips => 'فعال کردن IPv6 باعث از کار افتادن این عملکرد خواهد شد.';
 	@override String get website => 'وبسایت';
 	@override String get homePage => 'صفحه اصلی';
 	@override String get rule => 'قانون';
@@ -431,7 +428,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => 'فعال‌سازی کانال دانلود پشتیبان';
 	@override String get profileDownloadBackupChannelTips => 'کانال دانلود پراکسی ارائه‌شده توسط Mclash (هیچ اطلاعاتی ذخیره نمی‌شود)';
 	@override String get profileEditReloadAfterProfileUpdate => 'بارگذاری مجدد پس‌از به‌روزرسانی پروفایل';
-	@override String get profileRulesAppendApplePush => 'افزودن قوانین اعلان‌های Push اپل';
 	@override String get profileRulesAppendProxyTips => 'قوانین به‌صورت خودکار روی نخستین پراکسی با نوع [url-test] یا [select] در [proxy-groups] پیکربندی اصلی تنظیم می‌شوند';
 	@override String get profileImport => 'وارد‌کردن فایل پروفایل';
 	@override String get profileAddUrlOrContent => 'افزودن لینک پروفایل';
@@ -720,7 +716,6 @@ extension on TranslationsFa {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'دانلود Geo RuleSet با استفاده از یک پروکسی',
 			'meta.geoRulesetTips' => 'Geosite/Geoip به RuleSet مربوطه تبدیل می شود',
-			'meta.asnNotSupportInIosTips' => 'با توجه به محدودیت‌های حافظه سیستم iOS، قوانین IP-ASN و SRC-IP-ASN در iOS نادیده گرفته می‌شوند.',
 			'meta.sniffer' => 'بو کشیدن',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'اجرا در راه‌اندازی',
@@ -739,8 +734,6 @@ extension on TranslationsFa {
 			'meta.hideDockIcon' => 'پنهان کردن آیکون داک',
 			'meta.showTrayTraffic' => 'نمایش اطلاعات ترافیک در سینی سیستم',
 			'meta.wakeLock' => 'قفل بیدارباش',
-			'meta.hideVpn' => 'مخفی کردن آیکون VPN',
-			'meta.hideVpnTips' => 'فعال کردن IPv6 باعث از کار افتادن این عملکرد خواهد شد.',
 			'meta.website' => 'وبسایت',
 			'meta.homePage' => 'صفحه اصلی',
 			'meta.rule' => 'قانون',
@@ -839,7 +832,6 @@ extension on TranslationsFa {
 			'meta.profileDownloadBackupChannel' => 'فعال‌سازی کانال دانلود پشتیبان',
 			'meta.profileDownloadBackupChannelTips' => 'کانال دانلود پراکسی ارائه‌شده توسط Mclash (هیچ اطلاعاتی ذخیره نمی‌شود)',
 			'meta.profileEditReloadAfterProfileUpdate' => 'بارگذاری مجدد پس‌از به‌روزرسانی پروفایل',
-			'meta.profileRulesAppendApplePush' => 'افزودن قوانین اعلان‌های Push اپل',
 			'meta.profileRulesAppendProxyTips' => 'قوانین به‌صورت خودکار روی نخستین پراکسی با نوع [url-test] یا [select] در [proxy-groups] پیکربندی اصلی تنظیم می‌شوند',
 			'meta.profileImport' => 'وارد‌کردن فایل پروفایل',
 			'meta.profileAddUrlOrContent' => 'افزودن لینک پروفایل',

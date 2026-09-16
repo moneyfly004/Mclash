@@ -44,14 +44,14 @@ class InAppWebViewScreen extends StatefulWidget {
     if (Platform.isWindows) {
       final availableVersion = await WebViewEnvironment.getAvailableVersion();
       _available = availableVersion != null;
-    } else if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    } else if (Platform.isAndroid || Platform.isMacOS) {
       _available = true;
     }
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isAndroid || Platform.isMacOS) {
       _defaultUserAgent = await InAppWebViewController.getDefaultUserAgent();
       if (Platform.isAndroid) {
         _defaultUserAgent = _defaultUserAgent!.replaceFirst("; wv)", ")");
-      } else if (Platform.isIOS || Platform.isMacOS) {
+      } else if (Platform.isMacOS) {
         _defaultUserAgent = "$_defaultUserAgent Safari/605.1.15";
       }
       _defaultUserAgentWithMclash =
@@ -82,8 +82,6 @@ class InAppWebViewScreen extends StatefulWidget {
           "Android version too Low, Minimum required: >= 8.0",
         );
       }
-    } else if (Platform.isLinux) {
-      return Tuple2(false, "Linux is not supported");
     }
     return Tuple2(true, "");
   }
@@ -141,7 +139,7 @@ class InAppWebViewScreen extends StatefulWidget {
         ),
       );
       return _webViewEnvironment != null;
-    } else if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    } else if (Platform.isAndroid || Platform.isMacOS) {
       return true;
     }
     return false;
@@ -276,23 +274,12 @@ class _InAppWebViewScreenState extends State<InAppWebViewScreen> {
     );
 
     _pullToRefreshController =
-        ![
-          TargetPlatform.iOS,
-          TargetPlatform.android,
-        ].contains(defaultTargetPlatform)
+        defaultTargetPlatform != TargetPlatform.android
         ? null
         : PullToRefreshController(
             settings: PullToRefreshSettings(color: ThemeDefine.kColorBlue),
             onRefresh: () async {
-              if (defaultTargetPlatform == TargetPlatform.android) {
-                _webViewController?.reload();
-              } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-                _webViewController?.loadUrl(
-                  urlRequest: URLRequest(
-                    url: await _webViewController?.getUrl(),
-                  ),
-                );
-              }
+              _webViewController?.reload();
             },
           );
     InAppWebViewScreen.addRef();

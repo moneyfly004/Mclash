@@ -16,7 +16,7 @@ class SecureStorage {
   static const String _desktopFileName = "session.secure";
 
   static bool get _useDesktopFile =>
-      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+      Platform.isMacOS || Platform.isWindows;
 
   static Future<File> _desktopFile() async {
     final dir = await PathUtils.profileDir();

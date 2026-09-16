@@ -30,8 +30,6 @@ class _QrcodeScanScreenState extends LasyRenderingState<QrcodeScanScreen> {
     super.reassemble();
     if (Platform.isAndroid) {
       controller?.pauseCamera();
-    } else if (Platform.isIOS) {
-      controller?.resumeCamera();
     }
   }
 

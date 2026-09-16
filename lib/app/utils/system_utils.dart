@@ -14,10 +14,6 @@ class SystemUtils {
         ]).timeout(const Duration(seconds: 10));
       } else if (Platform.isAndroid) {
         return _getRouteTableAndroid();
-      } else if (Platform.isLinux) {
-        result = await Process.run('ip', [
-          'route',
-        ]).timeout(const Duration(seconds: 10));
       } else {
 
         return '';

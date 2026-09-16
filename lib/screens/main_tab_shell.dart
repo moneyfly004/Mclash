@@ -308,4 +308,4 @@ class _NavItem extends StatelessWidget {
 }
 
 
-bool get isWideScreenPlatform => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+bool get isWideScreenPlatform => Platform.isWindows || Platform.isMacOS;

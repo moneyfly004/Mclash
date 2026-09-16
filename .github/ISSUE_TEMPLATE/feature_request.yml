@@ -37,11 +37,8 @@ body:
       label: 适用系统/Target OS
       description: 请选择该功能适用的操作系统/Please select the operating system(s) for this feature request
       options:
-        - label: iOS
-        - label: macOS
-        - label: Apple tvOS
         - label: Android
         - label: Windows
-        - label: Linux
+        - label: macOS
     validations:
       required: true

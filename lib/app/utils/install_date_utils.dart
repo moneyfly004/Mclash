@@ -38,9 +38,7 @@ abstract final class InstallDateUtils {
   }
 
   static String _getDeviceIdKey() {
-    if (Platform.isIOS) {
-      return 'ClashMiInstallDateIOS';
-    } else if (Platform.isMacOS) {
+    if (Platform.isMacOS) {
       return 'ClashMiInstallDateMacOS';
     }
 

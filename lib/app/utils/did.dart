@@ -42,9 +42,7 @@ abstract final class Did {
   }
 
   static String _getDeviceIdKey() {
-    if (Platform.isIOS) {
-      return 'ClashMiDevIdIOS';
-    } else if (Platform.isMacOS) {
+    if (Platform.isMacOS) {
       return 'ClashMiDevIdMacOS';
     }
 

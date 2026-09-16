@@ -33,7 +33,6 @@ migrate_working_dir/
 
 # ---------- Flutter / Dart ----------
 **/doc/api/
-**/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -94,27 +93,25 @@ android/key.properties
 *.pem
 *.mobileprovision
 
-# ---------- iOS ----------
-ios/Mclashlib.xcframework/
-ios/mclashWidget/VpnServiceHandler.swift
-ios/PacketTunnel/country.mmdb
-ios/PacketTunnel/geosite.dat
-ios/build/
-ios/Pods/
-ios/.symlinks/
-
 # ---------- macOS ----------
 macos/Pods/
 macos/Flutter/ephemeral/
 macos/build/
 macos/packaging/appdmg_make_config.json
 
-# ---------- Windows / Linux ----------
+# ---------- Windows ----------
 windows/flutter/ephemeral/
 windows/build/
 *.vcxproj.user
-linux/flutter/ephemeral/
-linux/build/
+
+# ---------- 不支持的平台：Linux / iOS ----------
+# 目标平台只有 Android / Windows / macOS。Linux 与 iOS 的工程目录、插件依赖与
+# 分支代码已全部删除；但 Flutter 工具链在 `pub get` / `analyze` / `build` 时
+# 仍会按插件的 endorsed 平台实现自动重建这两个目录的 ephemeral 脚手架
+# （ios/Flutter/Generated.xcconfig、linux/flutter/ephemeral/.plugin_symlinks/…），
+# 所以这里整体忽略 —— 它们既不是源码，也不该再被提交回仓库。
+/ios/
+/linux/
 
 # ---------- 打包与发布产物 ----------
 /dist
@@ -129,3 +126,9 @@ packages/*/pubspec.lock
 
 # ---------- 运行期产物 ----------
 /app.log
+# 应用从项目根启动时会在这里落运行时数据；这些是**本机状态**，不是源码。
+/setting.json
+/auto_update.json
+/remote_config.json
+/providers.json
+/board_sessions.json

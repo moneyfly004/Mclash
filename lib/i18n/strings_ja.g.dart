@@ -312,7 +312,6 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'プロキシ経由でGeo RuleSetをダウンロード';
 	@override String get geoRulesetTips => 'Geosite/Geoipは対応するRuleSetに変換されます';
-	@override String get asnNotSupportInIosTips => 'iOSシステムのメモリ制限により、IP-ASNおよびSRC-IP-ASNルールはiOSでは無視されます。';
 	@override String get sniffer => 'スニッファー';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => 'スタートアップ時に起動';
@@ -329,8 +328,6 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String get bypassSystemProxy => 'システムプロキシをバイパスすることを許可するドメイン名';
 	@override String get excludeFromRecent => '[最近のタスク]から隠す';
 	@override String get wakeLock => 'スリープ防止';
-	@override String get hideVpn => 'VPNアイコンを隠す';
-	@override String get hideVpnTips => 'IPv6を有効にすると、この機能は失敗します';
 	@override String get hideDockIcon => 'Dockアイコンを隠す';
 	@override String get showTrayTraffic => 'トレイに通信量情報を表示';
 	@override String get website => 'ウェブサイト';
@@ -431,7 +428,6 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String get profileDownloadBackupChannel => 'バックアップダウンロードチャネルを有効化';
 	@override String get profileDownloadBackupChannelTips => 'Mclash が提供するプロキシダウンロードチャネル（情報は一切保存されません）';
 	@override String get profileEditReloadAfterProfileUpdate => 'プロファイル更新後にリロード';
-	@override String get profileRulesAppendApplePush => 'Appleプッシュ通知ルールを追加';
 	@override String get profileRulesAppendProxyTips => 'ルールは元の設定の [proxy-groups] 内で、タイプが [url-test] または [select] の最初のプロキシに自動設定されます';
 	@override String get profileImport => 'プロファイルファイルをインポート';
 	@override String get profileAddUrlOrContent => 'プロファイルリンクを追加';
@@ -720,7 +716,6 @@ extension on TranslationsJa {
 			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'プロキシ経由でGeo RuleSetをダウンロード',
 			'meta.geoRulesetTips' => 'Geosite/Geoipは対応するRuleSetに変換されます',
-			'meta.asnNotSupportInIosTips' => 'iOSシステムのメモリ制限により、IP-ASNおよびSRC-IP-ASNルールはiOSでは無視されます。',
 			'meta.sniffer' => 'スニッファー',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'スタートアップ時に起動',
@@ -737,8 +732,6 @@ extension on TranslationsJa {
 			'meta.bypassSystemProxy' => 'システムプロキシをバイパスすることを許可するドメイン名',
 			'meta.excludeFromRecent' => '[最近のタスク]から隠す',
 			'meta.wakeLock' => 'スリープ防止',
-			'meta.hideVpn' => 'VPNアイコンを隠す',
-			'meta.hideVpnTips' => 'IPv6を有効にすると、この機能は失敗します',
 			'meta.hideDockIcon' => 'Dockアイコンを隠す',
 			'meta.showTrayTraffic' => 'トレイに通信量情報を表示',
 			'meta.website' => 'ウェブサイト',
@@ -839,7 +832,6 @@ extension on TranslationsJa {
 			'meta.profileDownloadBackupChannel' => 'バックアップダウンロードチャネルを有効化',
 			'meta.profileDownloadBackupChannelTips' => 'Mclash が提供するプロキシダウンロードチャネル（情報は一切保存されません）',
 			'meta.profileEditReloadAfterProfileUpdate' => 'プロファイル更新後にリロード',
-			'meta.profileRulesAppendApplePush' => 'Appleプッシュ通知ルールを追加',
 			'meta.profileRulesAppendProxyTips' => 'ルールは元の設定の [proxy-groups] 内で、タイプが [url-test] または [select] の最初のプロキシに自動設定されます',
 			'meta.profileImport' => 'プロファイルファイルをインポート',
 			'meta.profileAddUrlOrContent' => 'プロファイルリンクを追加',

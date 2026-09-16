@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:app_installer/app_installer.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
-import 'package:mclash/app/utils/install_referrer_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/dialog_utils.dart';
@@ -125,50 +124,6 @@ class _VersionUpdateScreenState
         await ServicesBinding.instance.exitApplication(AppExitType.required);
       } else if (Platform.isAndroid) {
         await AppInstaller.installApk(installer);
-      } else if (Platform.isLinux) {
-        if (!mounted) {
-          return;
-        }
-
-        String? password = await DialogUtils.showPasswordInputDialog(context);
-        if (password == null || password.isEmpty) {
-          _installing = false;
-          setState(() {});
-          return;
-        }
-        final shell = Platform.environment['SHELL'] ?? 'bash';
-        final arguments = ["-c"];
-        final channelName = InstallReferrerUtils.getBuildChannelName();
-        if (channelName.toLowerCase().contains("deb")) {
-          arguments.add('echo "$password" | sudo -S dpkg -i "$installer"');
-        } else if (channelName.toLowerCase().contains("rpm")) {
-          arguments.add('echo "$password" | sudo -S rpm -i "$installer"');
-        } else if (channelName.toLowerCase().contains("appimage")) {
-          _installing = false;
-          setState(() {});
-          return;
-        } else {
-          arguments.add('echo "$password" | sudo -S dpkg -i "$installer"');
-        }
-        final result = await Process.run(shell, arguments);
-        if (result.exitCode != 0) {
-          if (!mounted) {
-            _installing = false;
-            setState(() {});
-            return;
-          }
-          DialogUtils.showAlertDialog(
-            context,
-            "install $installer failed, exitCode: ${result.exitCode}",
-            showCopy: true,
-            showFAQ: true,
-            withVersion: true,
-          );
-          _installing = false;
-          setState(() {});
-          return;
-        }
-        await ServicesBinding.instance.exitApplication(AppExitType.required);
       }
     } catch (err, stacktrace) {
       Log.w("VersionUpdateScreen.checkReplace exception ${err.toString()}");

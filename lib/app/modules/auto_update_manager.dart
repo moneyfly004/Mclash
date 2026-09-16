@@ -57,21 +57,12 @@ class AutoUpdateCheckVersion {
     if (ext.isNotEmpty && ext.length <= ".AppImage".length) {
       return ext;
     }
-    final channelName = InstallReferrerUtils.getBuildChannelName();
     if (Platform.isAndroid) {
       ext = ".apk";
     } else if (Platform.isWindows) {
       ext = ".exe";
     } else if (Platform.isMacOS) {
       ext = ".pkg";
-    } else if (Platform.isLinux) {
-      if (channelName.toLowerCase().contains("deb")) {
-        ext = ".deb";
-      } else if (channelName.toLowerCase().contains("rpm")) {
-        ext = ".rpm";
-      } else if (channelName.toLowerCase().contains("appimage")) {
-        return "";
-      }
     }
     return ext;
   }
@@ -105,10 +96,7 @@ class AutoUpdateManager {
   static final AutoUpdateCheckVersion _versionCheck = AutoUpdateCheckVersion();
 
   static bool isSupport() {
-    return Platform.isWindows ||
-        Platform.isAndroid ||
-        Platform.isMacOS ||
-        Platform.isLinux;
+    return Platform.isWindows || Platform.isAndroid || Platform.isMacOS;
   }
 
   static List<String> updateChannels() {
