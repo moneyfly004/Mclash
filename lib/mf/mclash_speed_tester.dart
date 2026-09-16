@@ -146,7 +146,23 @@ class MclashSpeedTester {
       }
     } catch (_) {}
     try {
-      final r = await ClashHttpApi.getDelay(node.name, url: url, timeout: timeout);
+      var r = await ClashHttpApi.getDelay(node.name, url: url, timeout: timeout);
+      // 慢节点再测一次取较小值：这类订阅节点抖动极大（本机实测同一节点在不同
+      // 时刻 333ms ~ 4158ms），单次采样会把瞬时拥塞当成节点质量。只对「>=1.5s 的
+      // 慢结果」补一次，代价可忽略（快节点不会多测）。
+      final firstMs = r.data ?? -1;
+      if (r.error == null && firstMs >= 1500) {
+        final again = await ClashHttpApi.getDelay(
+          node.name,
+          url: url,
+          timeout: timeout,
+        );
+        if (again.error == null &&
+            (again.data ?? -1) > 0 &&
+            (again.data ?? -1) < firstMs) {
+          r = again;
+        }
+      }
       if (r.error != null) {
         final msg = r.error!.message;
         // 节点不在**当前运行的内核**里（配置档刚换过、内核还没重启）：

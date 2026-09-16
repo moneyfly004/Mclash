@@ -121,8 +121,14 @@ class SettingConfig {
 
   static const String kDefaultBoardUrl = "";
   static const int kDefaultBoardPort = 7066;
+  /// 默认测速地址：**明文 HTTP** 的 204 空响应。
+  ///
+  /// 为什么不用 https：内核的 `/proxies/{name}/delay` 量的是「经这个节点完整走完
+  /// 一次 HTTP 请求」的耗时，HTTPS 会额外加一次 TLS 握手（本机实测同一节点：
+  /// HTTP 333ms / HTTPS 2923ms）。用 HTTPS 会让所有节点数字虚高，用户以为
+  /// 「测速有问题」。要更严苛的测试可以在「应用设置 → 测速地址」自己改回 HTTPS。
   static const String kDefaultDelayTestUrl =
-      "https://www.gstatic.com/generate_204";
+      "http://www.gstatic.com/generate_204";
   String languageTag = "";
 
   bool setupDone = false;
@@ -178,7 +184,7 @@ class SettingConfig {
   /// 老版本在桌面端默认 false，用户从没动过它 —— 升级后这个 false 被当成
   /// 「用户要求不要设置系统代理」，于是连上了系统代理一直是空的
   /// （用户反馈：「无论规则还是全局，电脑的系统代理都没有配置」）。
-  static const int kSettingsVersion = 2;
+  static const int kSettingsVersion = 3;
 
   /// 本文件的设置版本（老文件没有这个键 → 0）。
   int settingsVersion = 0;
@@ -310,6 +316,15 @@ class SettingConfig {
   void _migrate() {
     if (settingsVersion >= kSettingsVersion) {
       return;
+    }
+    if (settingsVersion < 3) {
+      // v3：测速地址从 https://…generate_204 改成 http://…generate_204。
+      // 老安装里存的是 https（数字虚高），迁移一次；用户自己改过别的地址就不动。
+      const legacyHttps = "https://www.gstatic.com/generate_204";
+      if (delayTestUrl.trim() == legacyHttps) {
+        delayTestUrl = kDefaultDelayTestUrl;
+        Log.i("SettingConfig: 迁移测速地址 $legacyHttps → $kDefaultDelayTestUrl（去掉 TLS 握手，数字不再虚高）");
+      }
     }
     if (settingsVersion < 2) {
       // 桌面端：老默认值是 false，而用户从没在界面上关过它 —— 升级后

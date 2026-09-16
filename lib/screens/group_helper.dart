@@ -877,6 +877,11 @@ class GroupHelper {
         GroupItemOptions(
           textFormFieldOptions: GroupItemTextFieldOptions(
             name: tcontext.meta.delayTestUrl,
+            // 说清楚这个数字是什么：经该节点**完整走一次 HTTP 请求**的耗时
+            // （含 DNS/握手/请求），不是纯 ping；用 https 会再多一次 TLS 握手，
+            // 数字自然更大（本机实测同一节点 HTTP 333ms / HTTPS 2923ms）。
+            tips: "经该节点完整走一次 HTTP 请求的耗时（非 ping）\n"
+                "默认用明文 http 的 204 空响应；换成 https 会多一次 TLS 握手，数字更大",
             text: setting.delayTestUrl,
             textWidthPercent: 0.5,
             onChanged: (String value) {
