@@ -102,15 +102,19 @@ abstract final class MclashConnectionDiagnostics {
         "mode=${kernelConfig["mode"]}",
       );
     }
-    if (PlatformUtils.isPC()) {
-      final interfaces = await _netInterfaces();
-      final tunLike = interfaces.where(
-        (i) => i.toLowerCase().contains("mclash") || i.toLowerCase().contains("wintun"),
-      );
-      line(
-        "虚拟网卡: ${tunLike.isEmpty ? "未发现（没有建起来）" : tunLike.join(" / ")}",
-      );
-    }
+    final interfaces = await _netInterfaces();
+    final tunLike = interfaces.where(
+      (i) =>
+          i.toLowerCase().contains("mclash") ||
+          i.toLowerCase().contains("wintun"),
+    );
+    line(
+      "虚拟网卡: ${tunLike.isEmpty
+          ? (PlatformUtils.isPC()
+                ? "未发现（没有建起来）"
+                : "该平台没有 TUN 虚拟网卡（仅桌面端有）")
+          : tunLike.join(" / ")}",
+    );
     line("");
 
     // ── 系统代理 ──

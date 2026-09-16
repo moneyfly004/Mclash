@@ -11,7 +11,14 @@ import 'package:mclash/app/modules/setting_manager.dart';
 /// 「用户明确要求不要设置系统代理」，于是**无论规则还是全局**，连接后
 /// 系统代理一直是空的（用户原文：「电脑的系统代理都没有配置 127.0.0.1 和端口」）。
 void main() {
+  setUp(() {
+    // CI 主机是 Linux（不是产品平台），迁移逻辑在那种主机上不该生效 ——
+    // 用测试缝把「桌面平台」固定住，断言才能确定性地覆盖两种情况。
+    SettingConfig.debugIsDesktopOverride = () => true;
+  });
+
   tearDown(() {
+    SettingConfig.debugIsDesktopOverride = null;
     final c = SettingManager.getConfig();
     c.tunMode = SettingConfig.kTunModeOff;
     c.autoSetSystemProxy = true;
@@ -51,8 +58,17 @@ void main() {
   });
 
   test("非桌面端不被迁移（安卓没有系统代理这件事）", () {
-    // 测试机是 macOS（桌面）→ 只验证判定函数本身不会在非 PC 上被调用：
-    // `shouldApplySystemProxy()` 在非 PC 上恒为 false
+    SettingConfig.debugIsDesktopOverride = () => false;
+    final legacy = SettingConfig()
+      ..fromJson({'auto_set_system_proxy': false});
+    expect(
+      legacy.autoSetSystemProxy,
+      isFalse,
+      reason: '非桌面平台没有系统代理，不该被「纠正」成 true',
+    );
+
+    // 判定函数本身在非 PC 上恒为 false
+    SettingConfig.debugIsDesktopOverride = () => true;
     if (!VPNService.getSupportSystemProxy()) {
       expect(VPNService.shouldApplySystemProxy(), isFalse);
     }
@@ -85,7 +101,11 @@ void main() {
       isFalse,
       reason: '「强制」只走虚拟网卡，不再动系统代理',
     );
-    expect(VPNService.systemProxySkipReason(), contains("强制"));
+    expect(
+      VPNService.systemProxySkipReason(),
+      supported ? contains("强制") : contains("不支持"),
+      reason: '非桌面平台先报「不支持系统代理」',
+    );
 
     c.tunMode = SettingConfig.kTunModeOff;
     c.autoSetSystemProxy = false;

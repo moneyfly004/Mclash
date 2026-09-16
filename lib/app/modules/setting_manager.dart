@@ -2,9 +2,9 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mclash/app/private/app_url_utils_private.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/convert_utils.dart';
@@ -295,6 +295,17 @@ class SettingConfig {
     hideVpn = map["hide_vpn"] ?? false;
   }
 
+  /// 测试缝：桌面平台判定（真实实现 = PlatformUtils.isPC()）。
+  ///
+  /// 为什么要有它：CI 跑在 Linux 上，而 Linux 不是产品平台（isPC 只认
+  /// Windows/macOS），迁移逻辑在那种主机上「不该生效」—— 断言必须能确定性地
+  /// 覆盖两种平台，而不是跟着 CI 主机变。
+  @visibleForTesting
+  static bool Function()? debugIsDesktopOverride;
+
+  static bool get settingsIsDesktop =>
+      debugIsDesktopOverride?.call() ?? PlatformUtils.isPC();
+
   /// 老设置文件的一次性迁移（幂等：迁完把版本号写成当前值）。
   void _migrate() {
     if (settingsVersion >= kSettingsVersion) {
@@ -304,7 +315,7 @@ class SettingConfig {
       // 桌面端：老默认值是 false，而用户从没在界面上关过它 —— 升级后
       // 「连上了系统代理却一直是空的」。这里按平台默认重置一次（PC = 开）；
       // 用户自己关掉之后版本号已是最新，不会再被改回来。
-      if (PlatformUtils.isPC() && !autoSetSystemProxy) {
+      if (settingsIsDesktop && !autoSetSystemProxy) {
         autoSetSystemProxy = true;
         Log.i(
           "SettingConfig: 迁移 auto_set_system_proxy=false → true"
