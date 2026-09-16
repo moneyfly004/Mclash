@@ -55,6 +55,7 @@ class MclashVpnService : VpnService() {
         const val EXTRA_ERR = "err"
         const val EXTRA_CONFIG = "config_yaml"
         const val EXTRA_IPV6 = "ipv6"
+        const val EXTRA_WAKE_LOCK = "wake_lock"
         const val EXTRA_HOME = "home_dir"
         const val EXTRA_NEED_TUN = "need_tun"
         const val EXTRA_KEEP_ALIVE = "keep_alive"
@@ -284,6 +285,9 @@ class MclashVpnService : VpnService() {
             intent.putExtra(EXTRA_HOME, args["home_dir"] as? String ?: "")
             intent.putExtra(EXTRA_NEED_TUN, args["need_tun"] as? Boolean ?: true)
             intent.putExtra(EXTRA_IPV6, args["ipv6"] as? Boolean ?: false)
+            // 「唤醒锁」以前只在通道方法里可用，而 Dart 从未调用它 —— 用户开了这个
+            // 开关也没效果（息屏后被系统挂起，表现为"过一会儿就断了"）。这里随启动消费。
+            intent.putExtra(EXTRA_WAKE_LOCK, args["wake_lock"] as? Boolean ?: false)
             intent.putExtra("secret", args["secret"] as? String ?: "")
             intent.putExtra("mixed_port", (args["mixed_port"] as? Number)?.toInt() ?: 0)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -363,10 +367,11 @@ class MclashVpnService : VpnService() {
         val homeDir = intent.getStringExtra(EXTRA_HOME) ?: filesDir.absolutePath
         val needTun = intent.getBooleanExtra(EXTRA_NEED_TUN, true)
         val ipv6 = intent.getBooleanExtra(EXTRA_IPV6, false)
+        val wakeLockEnabled = intent.getBooleanExtra(EXTRA_WAKE_LOCK, false)
 
         coreExecutor.execute {
             try {
-                startBox(configYaml!!, homeDir, needTun, ipv6)
+                startBox(configYaml!!, homeDir, needTun, ipv6, wakeLockEnabled)
             } catch (e: Exception) {
                 Log.e(TAG, "startBox failed", e)
                 lastStartError = "内核启动失败：${e.message}"
@@ -392,7 +397,10 @@ class MclashVpnService : VpnService() {
             homeDir: String,
             needTun: Boolean,
             ipv6: Boolean,
+            wakeLockEnabled: Boolean,
     ) {
+        // 用户开了「唤醒锁」就持有，避免息屏后内核被系统挂起
+        setWakeLock(wakeLockEnabled)
         if (Mihomelib.running()) {
             try {
                 Mihomelib.stop()

@@ -81,6 +81,10 @@ class FlutterVpnService {
 
   static Future<String> getABIs() => _p.getABIs();
 
+  /// 请求通知权限（Android 13+ 前台服务通知）。
+  static Future<bool> requestNotificationPermission() =>
+      _p.requestNotificationPermission();
+
   static Future<bool> isRunAsAdmin() => _p.isRunAsAdmin();
 
   static bool get systemProxyFallbackActive => _p.systemProxyFallbackActive;

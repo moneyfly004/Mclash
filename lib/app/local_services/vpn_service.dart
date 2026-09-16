@@ -196,7 +196,9 @@ class VPNService {
     config.work_dir = await PathUtils.serviceWorkDir();
     // geo 数据必须落在内核工作目录里：缺了 mihomo 会去 GitHub 下载（国内不可达 →
     // 内核永不就绪）。桌面端资源在安装目录，安卓端资源在 APK 里 —— 后者必须先解出来。
-    await _ensureGeoDataOnDisk(config.work_dir);
+    final missingGeo = await _ensureGeoDataOnDisk(config.work_dir);
+    _lastWorkDir = config.work_dir;
+    _lastMissingGeo = missingGeo;
     // geo 数据（country.mmdb / geosite.dat / ASN）仍在**安装目录**里，把它注册为
     // 查找来源；否则换了工作目录后 geo 会"找不到"，内核转去 GitHub 下载（不可达 → 卡死）。
     DesktopVpnServiceImpl.cfg0AssetsDir = PathUtils.appAssetsDir();
@@ -315,6 +317,10 @@ class VPNService {
     return convertErr(err);
   }
 
+  /// 最近一次准备阶段的关键诊断信息（连接失败时一并打印）。
+  static String _lastWorkDir = "";
+  static List<String> _lastMissingGeo = const [];
+
   /// 连接操作的串行闸门。
   ///
   /// 为什么需要：`start` / `stop` / `restart` 之间存在真实竞态 ——
@@ -388,6 +394,7 @@ class VPNService {
     final enable = await getSystemProxyEnable();
     VpnServiceWaitResult result = await FlutterVpnService.restart(timeout);
     if (result.type == VpnServiceWaitType.timeout) {
+      _logConnectDiagnostics("内核 ${timeout.inSeconds}s 内未就绪");
       await _stopInner();
       return ReturnResultError("service restart timeout");
     }
@@ -439,6 +446,14 @@ class VPNService {
       if (!authorized) {
         return ReturnResultError("需要你的授权才能建立 VPN 连接：\n请在系统弹窗中点击「允许」，然后重新连接。");
       }
+      // 通知权限（Android 13+）：前台服务通知需要它，否则连上看不到状态通知
+      try {
+        final already =
+            await FlutterVpnService.requestNotificationPermission();
+        Log.i("VPNService.start: 通知权限=${already ? "已有" : "已向用户请求"}");
+      } catch (err) {
+        Log.w("VPNService.start: 请求通知权限失败 ${err.toString()}");
+      }
     }
     final prepareResult = await ProfileManager.prepare(profile);
     if (prepareResult != null) {
@@ -466,16 +481,18 @@ class VPNService {
     } catch (err) {
       // 兜底：内核启动过程中的任何异常都要变成用户看得见的错误，
       // 不能以「Unhandled Exception + 界面毫无反应」收场（Windows 上真实发生过）。
-      Log.w("VPNService.start exception ${err.toString()}");
+      _logConnectDiagnostics("start 抛出异常: $err");
       return ReturnResultError("启动失败：$err");
     }
     if (result.type == VpnServiceWaitType.timeout) {
+      _logConnectDiagnostics("内核 ${timeout.inSeconds}s 内未就绪");
       await _stopInner();
       return ReturnResultError("service start timeout");
     }
 
     if (result.err != null) {
       Log.w("VPNService.start err ${result.err!.message.toString()}");
+      _logConnectDiagnostics(result.err!.message.toString());
       await _stopInner();
       return convertErr(result.err);
     }
@@ -895,5 +912,24 @@ class VPNService {
       Log.i("VPNService: geo 数据齐全（country.mmdb / geosite.dat / GeoLite2-ASN.mmdb）");
     }
     return missing;
+  }
+
+  /// 连接失败时一次性列出关键诊断（用户要求：有问题日志能明确列出来）。
+  ///
+  /// 覆盖安卓/桌面最常见的几类失败：VPN 未授权、配置为空、geo 缺失、
+  /// 端口被占用、内核未就绪。逐条打印，避免"只知道失败、不知道为什么"。
+  static void _logConnectDiagnostics(String detail) {
+    Log.w("VPNService: 连接失败诊断 —— $detail");
+    Log.w("VPNService:   · 工作目录 = ${_lastWorkDir.isEmpty ? "(未知)" : _lastWorkDir}");
+    Log.w(
+      "VPNService:   · geo 数据 = "
+      "${_lastMissingGeo.isEmpty ? "齐全" : "缺失 ${_lastMissingGeo.join(", ")}"}",
+    );
+    final port = ClashSettingManager.getMixedPort();
+    Log.w("VPNService:   · 混合端口 = $port");
+    Log.w(
+      "VPNService:   · 提示：安卓请确认已在系统弹窗允许 VPN；"
+      "TUN 需要权限，起不来时会退化为系统代理",
+    );
   }
 }

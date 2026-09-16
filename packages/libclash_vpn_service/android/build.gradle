@@ -78,6 +78,8 @@ dependencies {
     // 这样「没内核」和「内核编译不过」两种状态不会互相掩盖。
     if (file('libs/libmihomo.aar').exists()) {
         implementation(name: 'libmihomo', ext: 'aar')
+        // 通知权限请求用到的 ActivityCompat/ContextCompat（插件模块不继承 app 的依赖）
+        implementation("androidx.core:core-ktx:1.13.1")
     } else {
         logger.warn(
                 "[Mclash] 未找到 packages/libclash_vpn_service/android/libs/libmihomo.aar —— " +

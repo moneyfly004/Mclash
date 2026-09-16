@@ -295,4 +295,16 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
   Future<String> clashiApiConnections(bool all) async => "";
   @override
   Future<String> clashiApiTraffic() async => "";
+
+  @override
+  Future<bool> requestNotificationPermission() async {
+    try {
+      final r = await _channel.invokeMethod<bool>(
+        "requestNotificationPermission",
+      );
+      return r ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
 }

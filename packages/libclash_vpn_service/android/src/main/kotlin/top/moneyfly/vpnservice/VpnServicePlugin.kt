@@ -10,7 +10,12 @@
 package top.moneyfly.vpnservice
 
 import android.app.Activity
+import android.util.Log
 import android.content.Intent
+import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
+import android.content.pm.PackageManager
+import android.Manifest
 import android.net.VpnService
 import android.os.Build
 import androidx.annotation.NonNull
@@ -37,7 +42,9 @@ class VpnServicePlugin :
 
     companion object {
         const val CHANNEL = "top.moneyfly/vpn_core"
+        private const val TAG = "VpnServicePlugin"
         private const val REQUEST_CODE_PREPARE = 0x4D43 // 'MC'
+        private const val REQUEST_CODE_NOTIFICATION = 0x4D44 // 'MD'
         private var instance: VpnServicePlugin? = null
 
         /** 原生侧主动把状态推给 Dart（内核启动完成 / 异常退出时调用） */
@@ -144,10 +151,44 @@ class VpnServicePlugin :
                 result.success(null)
             }
 
+            // 通知权限（Android 13+）：前台服务通知需要 POST_NOTIFICATIONS，
+            // 未授权时连接后看不到状态通知（用户会以为"没连上"），也无法从通知栏断开。
+            "requestNotificationPermission" -> {
+                result.success(requestNotificationPermission())
+            }
+
             else -> result.notImplemented()
         }
     }
 
     private fun requireContext() = MclashVpnService.appContext
             ?: throw IllegalStateException("application context is not ready")
+
+    /**
+     * 请求通知权限（仅 Android 13+ 需要）。返回 true 表示已经有权限或不需要，
+     * false 表示已向用户发起请求（结果不影响连接本身）。
+     */
+    private fun requestNotificationPermission(): Boolean {
+        val act = activity ?: return true
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true
+        }
+        val granted =
+                ContextCompat.checkSelfPermission(act, Manifest.permission.POST_NOTIFICATIONS) ==
+                        PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            return true
+        }
+        try {
+            ActivityCompat.requestPermissions(
+                    act,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_CODE_NOTIFICATION
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "requestNotificationPermission: ${e.message}")
+            return true
+        }
+        return false
+    }
 }

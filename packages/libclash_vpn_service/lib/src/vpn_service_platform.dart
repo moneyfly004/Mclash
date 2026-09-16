@@ -97,6 +97,9 @@ abstract class VpnServicePlatform {
 
   Future<String> getABIs();
 
+  /// 请求通知权限（Android 13+ 前台服务通知需要）。返回 true=已有权限或无需请求。
+  Future<bool> requestNotificationPermission() async => true;
+
   Future<String> clashiApiConnections(bool all);
 
   Future<String> clashiApiTraffic();
