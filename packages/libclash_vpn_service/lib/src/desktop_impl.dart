@@ -13,6 +13,8 @@ import 'geo_data.dart';
 import 'kernel_config.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
+import 'windows_job.dart';
+import 'windows_wininet.dart';
 
 class DesktopVpnServiceImpl extends VpnServicePlatform {
   DesktopVpnServiceImpl();
@@ -216,6 +218,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
       }
       _proc = proc;
+
+      if (Platform.isWindows) {
+        // 关键：把内核挂到「App 一死就被系统杀掉」的 Job 上。
+        // 否则任务管理器结束任务 / 崩溃 / 被强杀都会留下孤儿内核继续跑。
+        final joined = assignToKillOnCloseJob(proc.pid);
+        stderr.writeln(
+          "[mclash] 内核 PID=${proc.pid} 加入「退出即终止」作业对象: "
+          "${joined ? "成功" : "失败（退回退出时显式 taskkill）"}",
+        );
+      }
 
       proc.stdout.listen((d) => logSink.add(d), onDone: () {}, onError: (_) {});
       proc.stderr.listen((d) => logSink.add(d), onDone: () {}, onError: (_) {});
@@ -629,6 +641,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
         return false;
       }
+      // 写注册表只对**之后新建的连接**生效；已经跑着的程序与 Windows 自己的
+      // 「设置 → 代理 / Internet 选项」页面读的是缓存副本。必须再广播一次
+      // SETTINGS_CHANGED + REFRESH，Windows 才会刷新缓存并通知所有 WinINET 使用者
+      // —— 否则用户看到的就是「代理框还是空的，但能上网」。
+      final notified = notifySystemProxyChanged();
+      stderr.writeln(
+        "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
+      );
       // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
       if (!await _windowsProxyMatches(option)) {
         stderr.writeln(
@@ -666,6 +686,8 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
         "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
       ]);
       await Process.run("reg", ["delete", key, "/v", "ProxyServer", "/f"]);
+      // 同样要广播，否则「设置 → 代理」页面会一直显示上一次的值。
+      notifySystemProxyChanged();
       _systemProxyApplied = false;
       return true;
     } catch (_) {
@@ -1070,7 +1092,19 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
   @override
   Future<String> getABIs() async => "";
 
-  /// 经内核 Clash API 取连接列表（供首页/面板使用）
+  /// 清理**孤儿内核**：父进程已经不在了、但还在跑的 mihomo。
+  ///
+  /// 为什么会存在孤儿（已实测复现）：Windows 没有「父死子死」，直接结束
+  /// `mclash.exe`（任务管理器结束任务 / 崩溃 / 被安装程序强杀）时子进程
+  /// mihomo 会留下来继续跑、继续占着混合端口与控制端口、系统代理也还指着它，
+  /// 用户看到的就是「软件退了，内核还在，网还能上」。
+  ///
+  /// 现在有了 [assignToKillOnCloseJob]（Job Object）从根上防止新的孤儿产生，
+  /// 这里负责把**旧版本留下的**孤儿收掉；否则它们会和新实例抢端口，
+  /// 表现为「连不上 / 一直转圈」。
+  ///
+  /// 只处理**我们自己的那个内核可执行文件**（按路径精确匹配），不会误伤
+  /// 其它同样使用 mihomo.exe 的代理软件。
   @override
   Future<String> clashiApiConnections(bool all) async {
     final cfg = _config;
@@ -1093,10 +1127,13 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
     try {
       final req = await client.getUrl(
-                Uri.parse("http://127.0.0.1:${cfg.control_port}$path"),
+        Uri.parse("http://127.0.0.1:${cfg.control_port}$path"),
       );
       if (cfg.secret.isNotEmpty) {
-        req.headers.set(HttpHeaders.authorizationHeader, "Bearer ${cfg.secret}");
+        req.headers.set(
+          HttpHeaders.authorizationHeader,
+          "Bearer ${cfg.secret}",
+        );
       }
       final resp = await req.close();
       final body = await resp.transform(utf8.decoder).join();
@@ -1106,45 +1143,83 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     }
   }
 
-  static Future<void> killStaleKernels() async {
+  static Future<List<int>> killStaleKernels() async {
+    final killed = <int>[];
     try {
+      final kernel = await resolveKernelPath();
       if (Platform.isWindows) {
-        final r = await Process.run("powershell", [
-          "-NoProfile",
-          "-Command",
-          r"""
+        final script = r"""
+$mine = '__KERNEL__'
 Get-CimInstance Win32_Process -Filter "Name='mihomo.exe'" | ForEach-Object {
+  $exe = $_.ExecutablePath
+  if ($mine -ne '' -and $exe -and ($exe.ToLower() -ne $mine.ToLower())) { return }
   $parent = Get-CimInstance Win32_Process -Filter "ProcessId=$($_.ParentProcessId)" -ErrorAction SilentlyContinue
-  if (-not $parent) { Stop-Process -Id $_.ProcessId -Force }
-}
-""",
-        ]);
-        if (r.exitCode != 0) {
-          return;
-        }
-      } else {
-        // macOS：pgrep 找 mihomo，检查 ppid 是否为 1（被 init 收养 = 孤儿）
-        final r = await Process.run("pgrep", ["-x", "mihomo"]);
-        if (r.exitCode != 0) {
-          return;
-        }
-        for (final line in r.stdout.toString().split("\n")) {
-          final pid = int.tryParse(line.trim());
-          if (pid == null) {
-            continue;
-          }
-          try {
-            final ps = await Process.run("ps", ["-o", "ppid=", "-p", "$pid"]);
-            final ppid = int.tryParse(ps.stdout.toString().trim());
-            if (ppid == 1) {
-              Process.killPid(pid, ProcessSignal.sigkill);
-            }
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
+  if (-not $parent) {
+    try { Stop-Process -Id $_.ProcessId -Force; Write-Output $_.ProcessId } catch {}
   }
 }
+"""
+            .replaceFirst('__KERNEL__', (kernel ?? '').replaceAll("'", "''"));
+        final r = await Process.run("powershell", [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-Command",
+          script,
+        ]);
+        for (final line in r.stdout.toString().split("\n")) {
+          final pid = int.tryParse(line.trim());
+          if (pid != null) {
+            killed.add(pid);
+          }
+        }
+        return killed;
+      }
+
+      // macOS：pgrep 找 mihomo，ppid==1（被 init 收养）即孤儿。
+      // 必须能拿到我们自己的内核路径才动手 —— 用户机器上可能装着别的客户端，
+      // 路径对不上就一律不碰。
+      final want = kernel == null ? "" : File(kernel).absolute.path;
+      if (want.isEmpty) {
+        return killed;
+      }
+      final r = await Process.run("pgrep", ["-x", "mihomo"]);
+      if (r.exitCode != 0) {
+        return killed;
+      }
+      for (final line in r.stdout.toString().split("\n")) {
+        final pid = int.tryParse(line.trim());
+        if (pid == null) {
+          continue;
+        }
+        try {
+          final ps = await Process.run("ps", [
+            "-o",
+            "ppid=,command=",
+            "-p",
+            "$pid",
+          ]);
+          final out = ps.stdout.toString().trim();
+          final parts = out.split(RegExp(r"\s+"));
+          if (parts.length < 2 || int.tryParse(parts.first) != 1) {
+            continue;
+          }
+          if (File(parts[1]).absolute.path != want) {
+            continue;
+          }
+          Process.killPid(pid, ProcessSignal.sigkill);
+          killed.add(pid);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return killed;
+  }
+}
+
+/// 测试缝：把 [notifySystemProxyChanged] 暴露给 Windows 回归测试
+/// （它本身就在这个包里，测试要能在不启动内核的情况下单独验证广播这一步）。
+@visibleForTesting
+bool notifySystemProxyChangedForTest() => notifySystemProxyChanged();
 
 /// `reg` 命令的结果（退出码 + 原始输出），用于把「写入失败」和「写入没生效」区分开。
 class _RegResult {

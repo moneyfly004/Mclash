@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'src/desktop_impl.dart';
 import 'src/models.dart';
 import 'src/vpn_service_platform.dart';
 
@@ -141,4 +142,15 @@ class FlutterVpnService {
 
   static bool get supportSystemProxy =>
       Platform.isWindows || Platform.isMacOS;
+
+  /// 清理孤儿内核（父进程已消失但还在运行的 mihomo），返回被杀掉的 PID。
+  ///
+  /// 桌面端专用：Windows 没有「父死子死」，非正常退出会留下内核继续吃端口。
+  /// Android 的内核是同一个进程里的 libmihomo，不存在这种情况。
+  static Future<List<int>> killStaleKernels() async {
+    if (Platform.isAndroid) {
+      return const [];
+    }
+    return DesktopVpnServiceImpl.killStaleKernels();
+  }
 }

@@ -57,6 +57,20 @@ class VPNService {
 
   static Future<void> init() async {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    if (PlatformUtils.isPC()) {
+      // 收掉上一次**非正常退出**（任务管理器结束任务 / 崩溃 / 被强杀）留下的
+      // 孤儿内核：它会继续占着混合端口与控制端口，还会让系统代理继续指向它，
+      // 用户看到的就是「软件退了，内核还在跑，网还能上」，而且新实例连不上。
+      // 新版内核还会被挂到 Job 上（退出即终止），这里负责清理旧版本遗留的。
+      try {
+        final stale = await FlutterVpnService.killStaleKernels();
+        if (stale.isNotEmpty) {
+          Log.w("VPNService: 已清理上一次遗留的内核进程 ${stale.join("、")}");
+        }
+      } catch (err) {
+        Log.w("VPNService: 清理遗留内核失败 ${err.toString()}");
+      }
+    }
     if (Platform.isWindows) {
       _runAsAdmin = await FlutterVpnService.isRunAsAdmin();
       FlutterVpnService.firewallAddApp(

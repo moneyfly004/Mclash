@@ -102,6 +102,41 @@ void main() {
     );
   });
 
+  test('写完必须广播 InternetSetOption —— 系统缓存里的「默认连接」也要同步', () async {
+    // 这是用户报的「系统代理没变，但能上网」的直接修复点：
+    // 只写注册表只对**之后新建的连接**生效，Windows 自己的设置页 / Internet 选项
+    // 读的是缓存的 DefaultConnectionSettings。必须在写完后调用
+    // InternetSetOption(SETTINGS_CHANGED) + (REFRESH)，Windows 才会把注册表值
+    // 同步进缓存并通知所有 WinINET 使用者。
+    // 本机实测（Windows 11 26200）：不广播时缓存里还是上一次的值。
+    final notified = desktop_impl.notifySystemProxyChangedForTest();
+    expect(notified, isTrue, reason: 'Windows 上必须能调用到 wininet.dll 完成广播');
+
+    final ok = await FlutterVpnService.setSystemProxy(
+      ProxyOption(host, port, const []),
+    );
+    expect(ok, isTrue);
+
+    final r = await Process.run("reg", [
+      "query",
+      r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Connections",
+      "/v",
+      "DefaultConnectionSettings",
+    ]);
+    final dump = r.stdout.toString().replaceAll(" ", "").toUpperCase();
+    final hex = "127.0.0.1:$port"
+        .codeUnits
+        .map((c) => c.toRadixString(16).padLeft(2, "0").toUpperCase())
+        .join();
+    expect(
+      dump.contains(hex),
+      isTrue,
+      reason:
+          '广播之后系统缓存里的代理必须是 $host:$port（十六进制 $hex）；'
+          '缓存不同步时，Windows「设置 → 代理」页面会显示旧的/空白状态：$dump',
+    );
+  });
+
   test('清理后不留残留（下次连接不会被旧值干扰）', () async {
     await FlutterVpnService.setSystemProxy(
       ProxyOption(host, port, const []),
