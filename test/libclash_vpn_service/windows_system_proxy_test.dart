@@ -72,6 +72,15 @@ void main() {
       reason: '端口 0 会让 Windows 把流量发给不存在的代理（这正是「空白代理」的坏状态）',
     );
 
+    expect(
+      server.contains("Instance of"),
+      isFalse,
+      reason:
+          '绝不能把 Dart 对象描述写进注册表：插值写成成员访问（变量点 port）'
+          '时只会插入对象本身，注册表里会变成 127.0.0.1 加一段 Instance of 描述 —— '
+          'Windows 解析不出地址端口，设置页显示空白、用户也改不动（真实事故）',
+    );
+
     // 读回校验接口也必须认（App 用它判断「已生效」）
     final matched = await FlutterVpnService.getSystemProxyEnable(
       ProxyOption(host, port, const []),

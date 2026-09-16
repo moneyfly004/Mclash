@@ -703,7 +703,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       if (r.exitCode != 0) {
         return false;
       }
-      return r.stdout.toString().contains("${option.host}:$option.port");
+      return r.stdout.toString().contains("${option.host}:${option.port}");
     }
     if (Platform.isMacOS) {
       // 只比 host 是不够的：`Enabled: Yes` + host 相同、**端口却是 0（空白）**
@@ -772,7 +772,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       ]);
       final serverRes = await _reg([
         "add", key, "/v", "ProxyServer", "/t", "REG_SZ", "/d",
-        "${option.host}:$option.port", "/f",
+        "${option.host}:${option.port}", "/f",
       ]);
       await _reg([
         "add", key, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", bypass, "/f",
@@ -885,7 +885,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
         }
       }
       stderr.writeln(
-        "[mclash] 系统代理读回校验未通过（期望 ${option.host}:$option.port），"
+        "[mclash] 系统代理读回校验未通过（期望 ${option.host}:${option.port}），"
         "注册表实际内容：${lastServer.replaceAll("\n", " | ").trim()}",
       );
       return false;
