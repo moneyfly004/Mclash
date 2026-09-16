@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:mclash/app/clash/clash_config.dart';
@@ -24,10 +23,12 @@ import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
+import 'package:mclash/mf/clash_traffic_watcher.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
 import 'package:mclash/screens/mclash_node_picker_sheet.dart';
+import 'package:mclash/screens/mclash_system_proxy_sheet.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/segmented_elevated_button.dart';
 import 'package:flutter/material.dart';
@@ -72,6 +73,14 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _kNoTrafficTotal,
   );
   final ValueNotifier<String> _proxyNow = ValueNotifier<String>("");
+
+  /// 当前「怎么走的代理」：系统代理已生效 / 未生效 / TUN。
+  ///
+  /// 用户反馈「连上之后系统代理没变，也不知道 App 到底怎么代理的」。
+  /// 光靠日志解释不了，首页必须**直接显示**出来，并且点一下就能去修。
+  final ValueNotifier<String> _proxyMode = ValueNotifier<String>("");
+  Timer? _timerProxyMode;
+  int _trafficLogTick = 0;
   bool _proxyNowUpdating = false;
 
   @override
@@ -110,6 +119,8 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _timerStateChecker = null;
     _timerConnectToCore?.cancel();
     _timerConnectToCore = null;
+    _stopProxyModeTimer();
+    _proxyMode.dispose();
     _trafficSpeed.dispose();
     _trafficTotal.dispose();
     _proxyNow.dispose();
@@ -352,6 +363,46 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
               ValueListenableBuilder<String>(
                 valueListenable: _trafficTotal,
                 builder: (context, v, _) => _trafficLine("累计流量", v),
+              ),
+              const SizedBox(height: 6),
+              // 「到底怎么走的代理」——直接写在首页，别让用户猜
+              ValueListenableBuilder<String>(
+                valueListenable: _proxyMode,
+                builder: (context, v, _) => v.isEmpty
+                    ? const SizedBox.shrink()
+                    : InkWell(
+                        onTap: () =>
+                            showMclashSystemProxySheet(context).then((_) {
+                              if (mounted) {
+                                unawaited(_updateProxyMode());
+                              }
+                            }),
+                        child: Row(
+                          children: [
+                            Icon(
+                              v.contains("已生效")
+                                  ? Icons.verified_user_outlined
+                                  : Icons.info_outline,
+                              size: 14,
+                              color: v.contains("已生效")
+                                  ? ThemeDefine.kColorGreenBright
+                                  : ThemeDefine.kColorGrey,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                v,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: ThemeDefine.kColorGrey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
             const Divider(height: 22, thickness: 0.3),
@@ -710,33 +761,63 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
+  /// 刷新首页的「实时速度 / 累计流量」。
+  ///
+  /// 数据来源是 [ClashTrafficWatcher]（内核 `/traffic` 的 WebSocket 推送）。
+  /// 旧实现每秒发一次普通 GET 再 `jsonDecode` 整段响应 —— 而 `/traffic` 推的是
+  /// **多行 JSON 流**，解析必然抛异常并被吞掉，于是这两行永远停在 0
+  /// （用户反馈的「上传/下载、总流量没有任何变化」就是这个）。
   Future<void> _updateConnections() async {
-    String connections = await FlutterVpnService.clashiApiConnections(false);
-    String tranffic = await FlutterVpnService.clashiApiTraffic();
-
-    String trafficTotalNew = "";
-    String trafficSpeedNew = "";
-    try {
-      var obj = jsonDecode(connections);
-      ClashConnections body = ClashConnections();
-      body.fromJson(obj, false);
-
-      trafficTotalNew =
-          "↑ ${ClashHttpApi.convertTrafficToStringDouble(body.uploadTotal)}  ↓ ${ClashHttpApi.convertTrafficToStringDouble(body.downloadTotal)} ";
-    } catch (err) {}
-    try {
-      var obj = jsonDecode(tranffic);
-      ClashTraffic traffic = ClashTraffic();
-      traffic.fromJson(obj);
-      trafficSpeedNew =
-          "↑ ${ClashHttpApi.convertTrafficToStringDouble(traffic.upload)}/s  ↓ ${ClashHttpApi.convertTrafficToStringDouble(traffic.download)}/s";
-    } catch (err) {}
-    Biz.trafficChanged(trafficTotalNew, trafficSpeedNew);
+    final traffic = ClashTrafficWatcher.instance;
+    final speed =
+        "↑ ${ClashHttpApi.convertTrafficToStringDouble(traffic.upload.value)}/s"
+        "  ↓ ${ClashHttpApi.convertTrafficToStringDouble(traffic.download.value)}/s";
+    final total =
+        "↑ ${ClashHttpApi.convertTrafficToStringDouble(traffic.uploadTotal.value)}"
+        "  ↓ ${ClashHttpApi.convertTrafficToStringDouble(traffic.downloadTotal.value)}";
+    Biz.trafficChanged(total, speed);
     if (AppLifecycleStateNofity.isPaused()) {
       return;
     }
-    _trafficTotal.value = trafficTotalNew;
-    _trafficSpeed.value = trafficSpeedNew;
+    _trafficTotal.value = total;
+    _trafficSpeed.value = speed;
+
+    // 每 ~10 秒留一条流量日志：用户反馈「流量不动」时，日志里能直接看出
+    // 是「内核没推数据」还是「界面没刷新」，不用再靠猜。
+    _trafficLogTick++;
+    if (_trafficLogTick % 10 == 0) {
+      Log.i(
+        "流量: 速度 ${traffic.upload.value}/${traffic.download.value} B/s "
+        "累计 ${traffic.uploadTotal.value}/${traffic.downloadTotal.value} B "
+        "（流量流已连接=${traffic.connected}）",
+      );
+    }
+  }
+
+  /// 判断并显示当前数据通路：优先 TUN，其次系统代理。
+  Future<void> _updateProxyMode() async {
+    try {
+      final enabled = await VPNService.getSystemProxyEnable();
+      final port = ClashSettingManager.getMixedPort();
+      _proxyMode.value = enabled
+          ? "系统代理 127.0.0.1:$port · 已生效"
+          : "系统代理未生效 · 点此设置";
+    } catch (_) {
+      _proxyMode.value = "";
+    }
+  }
+
+  void _startProxyModeTimer() {
+    _timerProxyMode?.cancel();
+    _timerProxyMode = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _updateProxyMode(),
+    );
+  }
+
+  void _stopProxyModeTimer() {
+    _timerProxyMode?.cancel();
+    _timerProxyMode = null;
   }
 
   Future<void> _connectToCore() async {
@@ -747,6 +828,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     if (AppLifecycleStateNofity.isPaused()) {
       return;
     }
+    unawaited(_updateProxyMode());
+    _startProxyModeTimer();
+    // 起流量监听（内核控制端口 + 密钥）；幂等，重复调用只是刷新一次显示
+    ClashTrafficWatcher.instance.start(
+      port: ClashSettingManager.getControlPort(),
+      secret: ClashSettingManager.getConfig().Secret ?? "",
+    );
     await _updateConnections();
     const Duration duration = Duration(seconds: 1);
     _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
@@ -765,6 +853,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   Future<void> _disconnectToCore({bool resetUI = true}) async {
     _timerConnectToCore?.cancel();
     _timerConnectToCore = null;
+    _stopProxyModeTimer();
+    _proxyMode.value = "";
+    ClashTrafficWatcher.instance.stop();
     if (resetUI) {
       _trafficTotal.value = _kNoTrafficTotal;
       _trafficSpeed.value = _kNoSpeed;

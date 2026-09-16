@@ -7,7 +7,11 @@ import 'package:mclash/app/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 
 class SecureStorage {
-  static final FlutterSecureStorage _storage = _initStorage();
+  /// 惰性创建：桌面端永远不会走到它（桌面走文件），
+  /// 于是「安装即弹钥匙串」在桌面端从根上不可能发生。
+  static FlutterSecureStorage? _storageInstance;
+  static FlutterSecureStorage get _storage =>
+      _storageInstance ??= _initStorage();
 
   static const String _desktopFileName = "session.secure";
 

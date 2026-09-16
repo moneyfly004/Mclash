@@ -11,6 +11,7 @@ import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/convert_utils.dart';
 import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -238,8 +239,14 @@ class SettingConfig {
     return config;
   }
 
+  /// 桌面端默认 **开启**「连接后自动设置系统代理」。
+  ///
+  /// 用户反馈「Windows 连上之后系统代理没变，也不知道 App 到底怎么走的代理」。
+  /// 桌面 VPN 客户端的预期行为就是连接后把系统代理指到内核的混合端口
+  /// （TUN 需要管理员权限，很多机器上根本起不来，这时系统代理是唯一的通路）。
+  /// 默认关掉会让人以为「代理没生效」；要关的人可以在应用设置里关。
   static bool getAutoSetSystemProxyDefault() {
-    if (Platform.isWindows) {
+    if (PlatformUtils.isPC()) {
       return true;
     }
     return false;
