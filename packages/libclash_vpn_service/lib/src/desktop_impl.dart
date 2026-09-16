@@ -83,6 +83,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return null;
   }
 
+  /// App 资源根目录（安装目录下的 `data`）：由应用层注入，用于 geo 数据查找。
+  ///
+  /// 平台包不能依赖上层的 PathUtils，所以走这个注入点。
+  static String cfg0AssetsDir = "";
+
   @override
   Future<VpnServiceResultError?> prepareConfig(Map<String, dynamic> args) async {
     final cfg = VpnServiceConfig()..fromJson(Map<String, dynamic>.from(args["config"] as Map));
@@ -156,14 +161,31 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
       }
 
+      // 工作目录准备 + 写 config.yaml：**必须捕获异常**。
+      //
+      // 真实事故（Windows）：App 装在 Program Files 时工作目录不可写，
+      // 这里抛出的 PathAccessException 之前会一路冒到 UI 层变成
+      // "[ERROR] Unhandled Exception" —— 用户看到的是「点了连接没反应」，
+      // 既没有弹窗也没有日志结论。现在明确返回错误信息。
       final home = Directory(workDir);
-      if (!await home.exists()) {
-        await home.create(recursive: true);
-      }
-      await _ensureGeoData(workDir);
-
       final configFile = File(p.join(workDir, "config.yaml"));
-      await configFile.writeAsString(yamlText, flush: true);
+      try {
+        if (!await home.exists()) {
+          await home.create(recursive: true);
+        }
+        await _ensureGeoData(workDir);
+        await configFile.writeAsString(yamlText, flush: true);
+      } catch (e) {
+        _setState(FlutterVpnServiceState.disconnected);
+        return VpnServiceWaitResult(
+          type: VpnServiceWaitType.error,
+          err: VpnServiceResultError(
+            code: -6,
+            message: "无法写入内核工作目录（$workDir）：$e\n"
+                "请确认该目录可写，或把应用安装到用户可写的位置。",
+          ),
+        );
+      }
 
       final logFile = cfg.log_path.isNotEmpty
           ? File(cfg.log_path)
@@ -577,11 +599,25 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     } catch (_) {
       support = "";
     }
-    _missingGeo = await installGeoData(workDir, supportDir: support);
+    // ⚠️ 还要把**安装目录**（App 资源根）纳入来源。
+    //
+    // Windows 上工作目录已从安装目录（Program Files，只读）换到
+    // `%APPDATA%\mclash\mclash`，而 country.mmdb / geosite.dat / ASN.mmdb 仍然
+    // 只存在于安装目录的 `data\flutter_assets\assets\{rules,datas}` 下 ——
+    // 不纳入这一条，换完工作目录 geo 又会"找不到"，内核转而跑去 GitHub 下载
+    // （国内不可达 → 内核永不就绪）。
+    final extra = <String>[
+      if (cfg0AssetsDir.isNotEmpty) cfg0AssetsDir,
+    ];
+    _missingGeo = await installGeoData(
+      workDir,
+      supportDir: support,
+      extraSourceDirs: extra,
+    );
     if (_missingGeo.isNotEmpty) {
       stderr.writeln(
         "[mclash] geo data missing in -d dir: ${_missingGeo.join(", ")} "
-        "(searched: ${geoSourceDirs(workDir, support).join(" | ")})",
+        "(searched: ${geoSourceDirs(workDir, support, extraSourceDirs: extra).join(" | ")})",
       );
     }
   }

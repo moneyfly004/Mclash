@@ -22,6 +22,7 @@ import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:libclash_vpn_service/proxy_manager.dart';
+import 'package:libclash_vpn_service/src/desktop_impl.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:libclash_vpn_service/vpn_service.dart';
 import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
@@ -189,7 +190,11 @@ class VPNService {
     VpnServiceConfig config = VpnServiceConfig();
     config.control_port = controlPort;
     config.base_dir = await PathUtils.profileDir();
-    config.work_dir = PathUtils.appAssetsDir();
+    // 内核工作目录必须可写（Windows 装到 Program Files 时不可写 → 连接直接失败）
+    config.work_dir = await PathUtils.serviceWorkDir();
+    // geo 数据（country.mmdb / geosite.dat / ASN）仍在**安装目录**里，把它注册为
+    // 查找来源；否则换了工作目录后 geo 会"找不到"，内核转去 GitHub 下载（不可达 → 卡死）。
+    DesktopVpnServiceImpl.cfg0AssetsDir = PathUtils.appAssetsDir();
     config.cache_dir = await PathUtils.cacheDir();
     if (patch.type == ProfilePatchFileType.yaml) {
       config.core_path = corePath;
@@ -398,7 +403,15 @@ class VPNService {
 
       FlutterVpnService.firewallAddPorts(ports, PathUtils.serviceExeName());
     }
-    VpnServiceWaitResult result = await FlutterVpnService.start(timeout);
+    VpnServiceWaitResult result;
+    try {
+      result = await FlutterVpnService.start(timeout);
+    } catch (err) {
+      // 兜底：内核启动过程中的任何异常都要变成用户看得见的错误，
+      // 不能以「Unhandled Exception + 界面毫无反应」收场（Windows 上真实发生过）。
+      Log.w("VPNService.start exception ${err.toString()}");
+      return ReturnResultError("启动失败：$err");
+    }
     if (result.type == VpnServiceWaitType.timeout) {
       await stop();
       return ReturnResultError("service start timeout");

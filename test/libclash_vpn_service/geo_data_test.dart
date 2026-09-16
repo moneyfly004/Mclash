@@ -131,4 +131,41 @@ void main() {
       );
     });
   });
+
+  test('工作目录可写位置 + 资源在安装目录：依然能找到（Windows 真实布局）', () async {
+    // Windows 上 App 装在 Program Files（只读），内核工作目录被换到
+    // %APPDATA%\mclash\mclash；而 country.mmdb / geosite.dat / ASN.mmdb
+    // 仍只在安装目录的 data\flutter_assets\assets\{rules,datas} 下。
+    // 不把安装目录纳入查找来源，geo 就会"找不到" → 内核去 GitHub 下载 → 卡死。
+    final root = await Directory.systemTemp.createTemp("geo_win_install");
+    final work = await Directory.systemTemp.createTemp("geo_win_work");
+    final rules = Directory(
+      p.join(root.path, "data", "flutter_assets", "assets", "rules"),
+    );
+    final datas = Directory(
+      p.join(root.path, "data", "flutter_assets", "assets", "datas"),
+    );
+    await rules.create(recursive: true);
+    await datas.create(recursive: true);
+    await File(p.join(rules.path, "country.mmdb")).writeAsString("mmdb");
+    await File(p.join(rules.path, "geosite.dat")).writeAsString("dat");
+    // 注意：ASN 在另一个子目录（分包布局）
+    await File(p.join(datas.path, "ASN.mmdb")).writeAsString("asn");
+
+    final installRoot = p.join(root.path, "data");
+    final missing = await installGeoData(
+      work.path,
+      extraSourceDirs: [installRoot],
+    );
+
+    expect(missing, isEmpty, reason: '安装目录里的资源应当被找到并拷进工作目录');
+    for (final name in ["country.mmdb", "geosite.dat", "GeoLite2-ASN.mmdb"]) {
+      final f = File(p.join(work.path, name));
+      expect(await f.exists(), isTrue, reason: "$name 必须落到内核 -d 目录");
+      expect(await f.length(), greaterThan(0));
+    }
+
+    await root.delete(recursive: true);
+    await work.delete(recursive: true);
+  });
 }
