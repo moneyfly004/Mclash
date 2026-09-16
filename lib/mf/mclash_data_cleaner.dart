@@ -35,6 +35,43 @@ abstract final class MclashDataCleaner {
     "分流数据与临时文件",
   ];
 
+  /// 已删除功能留下的数据文件（老版本升上来的安装才会有）。
+  ///
+  /// 「第三方机场 provider」子系统整体删除后，`providers.json` 与
+  /// `board_sessions.json` 已经没有任何代码读写 —— 但老安装里还躺着
+  /// （后者甚至含第三方机场的登录 token）。留着既占地方，又会让用户
+  /// 以为功能还在，所以启动时顺手清掉。
+  static const List<String> legacyFileNames = [
+    "providers.json",
+    "board_sessions.json",
+  ];
+
+  /// 删掉 [legacyFileNames]，返回真正删掉的个数（不存在就跳过）。
+  static Future<int> removeLegacyFiles() async {
+    var removed = 0;
+    try {
+      final dir = await dataDir();
+      if (dir.isEmpty) {
+        return 0;
+      }
+      for (final name in legacyFileNames) {
+        final f = File(path.join(dir, name));
+        try {
+          if (await f.exists()) {
+            await f.delete();
+            removed++;
+            Log.i("MclashDataCleaner: 已清理遗留文件 $name（功能已移除）");
+          }
+        } catch (e) {
+          Log.w("MclashDataCleaner: 清理遗留文件 $name 失败 $e");
+        }
+      }
+    } catch (e) {
+      Log.w("MclashDataCleaner: removeLegacyFiles 失败 $e");
+    }
+    return removed;
+  }
+
   /// 清空数据目录，返回删除的条目数。
   ///
   /// 只删**这个 App 自己的**目录内容：先删子项再删目录本身，避免误伤

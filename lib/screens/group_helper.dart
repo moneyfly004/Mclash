@@ -143,7 +143,9 @@ class GroupHelper {
         ),
         GroupItemOptions(
           pushOptions: GroupItemPushOptions(
-            name: tcontext.meta.importAndExport,
+            // 菜单项以前叫「导入/导出」，现在只剩导出（导入已按产品要求移除），
+            // 文案必须跟着改 —— 否则用户点进去找不到「导入」会以为是 bug。
+            name: tcontext.meta.export,
             onPush: () async {
               onTapImportExport(context);
             },

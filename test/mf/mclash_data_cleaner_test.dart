@@ -60,6 +60,32 @@ void main() {
     }
   });
 
+  test('启动时清掉已删除功能的遗留文件（provider 子系统的两个 json）', () async {
+    // 「第三方机场 provider」整体删除后，这两个文件没有任何代码读写；
+    // 老安装里还躺着（board_sessions.json 甚至含第三方登录 token）。
+    await File(path.join(tmp.path, "providers.json")).writeAsString("[]");
+    await File(
+      path.join(tmp.path, "board_sessions.json"),
+    ).writeAsString('{"s":"t"}');
+    await File(path.join(tmp.path, "setting.json")).writeAsString("{}");
+
+    final removed = await MclashDataCleaner.removeLegacyFiles();
+    expect(removed, 2);
+
+    final left = await tmp.list().map((e) => path.basename(e.path)).toList();
+    expect(left.contains("providers.json"), isFalse);
+    expect(left.contains("board_sessions.json"), isFalse);
+    expect(
+      left.contains("setting.json"),
+      isTrue,
+      reason: '只删遗留文件，不能顺手动别人的数据',
+    );
+
+    // 幂等：再跑一次不该报错，也不该删到别的文件
+    expect(await MclashDataCleaner.removeLegacyFiles(), 0);
+    expect(await File(path.join(tmp.path, "setting.json")).exists(), isTrue);
+  });
+
   test('数据目录不存在时安全返回 0（不抛异常）', () async {
     await tmp.delete(recursive: true);
     expect(await MclashDataCleaner.clearAll(), 0);

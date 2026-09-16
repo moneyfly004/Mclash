@@ -1,7 +1,9 @@
+import 'dart:async';
 
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
+import 'package:mclash/mf/mclash_data_cleaner.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
 import 'package:mclash/app/modules/diversion_template_manager.dart';
@@ -24,6 +26,10 @@ class Biz {
   static void Function(String)? onEventSingletonInstance;
 
   static Future<void> init(bool launchAtStartup) async {
+    // 老版本升上来的安装里可能还躺着「第三方机场 provider」子系统的数据文件
+    // （providers.json / board_sessions.json）—— 那套功能已整体删除，
+    // 没有任何代码再读写它们，顺手清掉。
+    unawaited(MclashDataCleaner.removeLegacyFiles());
     await ClashSettingManager.init();
     await ProfileManager.init();
     await ProfilePatchManager.init();
