@@ -62,10 +62,16 @@ void main() {
     });
 
     test('后端没给在线字段时：3 分钟内的心跳算在线，超时算离线', () {
+      // 注意：夹具必须由**同一个本地时刻**推导，否则 CI（UTC 环境）与开发机
+      // （+08:00）会算出不同的相对时间，测试就会「本地通过、CI 挂」。
       final now = DateTime(2026, 9, 17, 0, 20);
+      String iso(DateTime t) => t.toUtc().toIso8601String();
       expect(
         MclashDeviceView.isOnline(
-          realDevice(isOnline: null, lastHeartbeat: "2026-09-17T00:18:00+08:00"),
+          realDevice(
+            isOnline: null,
+            lastHeartbeat: iso(now.subtract(const Duration(minutes: 1))),
+          ),
           now: now,
         ),
         isTrue,
@@ -73,7 +79,10 @@ void main() {
       );
       expect(
         MclashDeviceView.isOnline(
-          realDevice(isOnline: null, lastHeartbeat: "2026-09-17T00:05:00+08:00"),
+          realDevice(
+            isOnline: null,
+            lastHeartbeat: iso(now.subtract(const Duration(minutes: 10))),
+          ),
           now: now,
         ),
         isFalse,
@@ -95,27 +104,31 @@ void main() {
     });
 
     test('文案：刚刚 / n 分钟前 / 具体时间', () {
+      // 同样地：全部由本地时刻推导，保证在任意时区的 CI 上都成立
       final now = DateTime(2026, 9, 17, 8, 0);
+      String iso(DateTime t) => t.toUtc().toIso8601String();
+      String two(int v) => v < 10 ? "0$v" : "$v";
       expect(
         MclashDeviceView.lastActiveText(
-          {"last_heartbeat": "2026-09-17T07:59:30+08:00"},
+          {"last_heartbeat": iso(now.subtract(const Duration(seconds: 30)))},
           now: now,
         ),
         "刚刚",
       );
       expect(
         MclashDeviceView.lastActiveText(
-          {"last_heartbeat": "2026-09-17T07:45:00+08:00"},
+          {"last_heartbeat": iso(now.subtract(const Duration(minutes: 15)))},
           now: now,
         ),
         "15 分钟前",
       );
+      final older = now.subtract(const Duration(days: 2));
       expect(
         MclashDeviceView.lastActiveText(
-          {"last_heartbeat": "2026-09-16T10:05:00+08:00"},
+          {"last_heartbeat": iso(older)},
           now: now,
         ),
-        "09-16 10:05",
+        "${two(older.month)}-${two(older.day)} ${two(older.hour)}:${two(older.minute)}",
       );
     });
 
