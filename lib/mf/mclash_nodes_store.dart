@@ -12,6 +12,7 @@ import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_cache.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
+import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
 import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:libclash_vpn_service/state.dart';
@@ -372,6 +373,21 @@ class MclashNodesStore extends ChangeNotifier {
     notifyListeners();
     await MclashNodesCache.save(_nodes);
     Log.i("MclashNodesStore: 测速完成，已写缓存");
+
+    // 有一批节点「内核里还没有」= 内核还在用旧订阅跑（新订阅里新增的节点，
+    // 比如用户新出现的 SSR / light* 节点）。这时把它们显示成「超时」是误导，
+    // 正确做法是**自动重载内核**，并在界面上说清原因。
+    final missing = MclashSpeedTester.missingInKernel;
+    if (missing > 0) {
+      autoPickNote = "订阅里有 $missing 个新节点还没进内核，正在重载…";
+      notifyListeners();
+      Log.w(
+        "MclashNodesStore: 有 $missing 个节点不在当前内核里 → 触发内核重载（订阅内容已变化）",
+      );
+      await MclashSubscriptionService.applyToRunningKernel();
+      autoPickNote = "内核已按新订阅重载，请再点一次测速";
+      notifyListeners();
+    }
   }
 
   Future<void> testOne(MclashNode node) async {

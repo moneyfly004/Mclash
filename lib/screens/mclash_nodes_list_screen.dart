@@ -508,7 +508,11 @@ class _MclashNodesListScreenState
                   n.latencyUsable
                       // ≈ = 内核没在跑时的本机 TCP 粗估（不是真实代理延迟）
                       ? "${n.measuredByKernel ? "" : "≈"}${n.latencyMs}ms"
-                      : (n.online ? "—" : "超时"),
+                      // 「内核里还没有这个节点」要和「真的超时」分开说：
+                      // 前者是订阅更新后内核还没重载，等重载完再测就有结果。
+                      : (n.missingInKernel
+                            ? "未测到（待重载内核）"
+                            : (n.online ? "—" : "超时")),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

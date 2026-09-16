@@ -42,6 +42,9 @@ class MclashSpeedTester {
 
   static const int maxConcurrent = 12;
 
+  /// 上一轮测速中「内核里还没有」的节点数量（供上层决定要不要重载内核）。
+  static int missingInKernel = 0;
+
   @visibleForTesting
   static Future<int> Function(MclashNode node)? debugProbeOverride;
 
@@ -149,11 +152,15 @@ class MclashSpeedTester {
         // 节点不在**当前运行的内核**里（配置档刚换过、内核还没重启）：
         // 这不能判成「节点挂了」，只能算「这次没测到」。
         if (msg.contains("404") || msg.toLowerCase().contains("not found")) {
+          node.missingInKernel = true;
           Log.i("MclashSpeedTester: 内核里还没有节点 [${node.name}]，本次跳过");
         }
         return -1;
       }
       final ms = r.data ?? -1;
+      if (ms > 0) {
+        node.missingInKernel = false;
+      }
       return ms > 0 ? ms : -1;
     } catch (_) {
       return -1;
@@ -204,6 +211,8 @@ class MclashSpeedTester {
 
     final queue = List<int>.generate(nodes.length, (i) => i);
     var done = 0;
+    /// 本次测速里「内核还没有」的节点数量（>0 说明内核配置落后于订阅）。
+    missingInKernel = 0;
 
     Future<void> worker() async {
       while (queue.isNotEmpty) {
@@ -211,10 +220,16 @@ class MclashSpeedTester {
           break;
         }
         final n = nodes[queue.removeLast()];
+        n.missingInKernel = false;
         final ms = await testOne(n, kernelUp: kernelUp);
         n.latencyMs = ms;
         if (ms > 0) {
           n.online = true;
+        } else if (n.missingInKernel) {
+          // 内核里根本没这个节点（订阅刚换、内核还在跑旧配置）→
+          // **不是节点挂了**，别标成离线/超时，交给上层去重载内核。
+          n.online = true;
+          missingInKernel++;
         } else if (n.udpOnly && !kernelUp) {
           // 内核没跑 + 纯 UDP 协议：**测不了 ≠ 离线**，
           // 否则一堆其实能用的节点会被标成挂了。

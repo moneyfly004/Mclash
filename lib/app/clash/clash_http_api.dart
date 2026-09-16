@@ -1,5 +1,6 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -304,11 +305,20 @@ class ClashHttpApi {
     }
   }
 
+  /// 测试缝：替换真实的内核延迟请求（单测里没有内核）。
+  @visibleForTesting
+  static Future<ReturnResult<int>> Function(String node, String url, Duration timeout)?
+      debugDelayOverride;
+
   static Future<ReturnResult<int>> getDelay(
     String node, {
     String url = "https://www.gstatic.com",
     Duration timeout = const Duration(seconds: 5),
   }) async {
+    final delayOverride = debugDelayOverride;
+    if (delayOverride != null) {
+      return delayOverride(node, url, timeout);
+    }
     String secret = getSecret?.call() ?? "";
     Map<String, String> headers = getHeaders(secret);
 
