@@ -5,6 +5,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -717,6 +719,37 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return false;
   }
 
+  /// 执行 `reg` 并检查退出码。
+  ///
+  /// 之前这里**完全忽略退出码**：`reg add` 写失败（权限不足 / 被策略拦 / 参数被拒）
+  /// 时照样往下走，最后只在读回校验打印一句「可能被其它代理软件覆盖」——
+  /// 用户和我们都拿不到真实原因。现在失败即带上真实 stderr。
+  static Future<_RegResult> _reg(List<String> args) async {
+    try {
+      final r = await Process.run("reg", args);
+      return _RegResult(
+        exitCode: r.exitCode,
+        stdout: r.stdout.toString(),
+        stderr: r.stderr.toString(),
+      );
+    } catch (err) {
+      return _RegResult(exitCode: -1, stdout: "", stderr: "$err");
+    }
+  }
+
+  /// 读取系统代理注册表值的**原始**内容（诊断/断言用）。
+  static Future<String> readSystemProxyRaw({
+    String value = "ProxyServer",
+  }) async {
+    final r = await _reg([
+      "query",
+      r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+      "/v",
+      value,
+    ]);
+    return r.exitCode == 0 ? r.stdout : r.stderr;
+  }
+
   Future<bool> _setSystemProxyWindows(ProxyOption option) async {
     // 与 macOS 同一条硬规则：**绝不写无端口的系统代理**。
     // 端口 0 会让注册表里留下 "127.0.0.1:0"，Windows 流量会被发到一个不存在的
@@ -734,16 +767,24 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       final bypass = option.bypassDomains.isEmpty
           ? "<local>"
           : "<local>;${option.bypassDomains.join(';')}";
-      await Process.run("reg", [
+      final enableRes = await _reg([
         "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f",
       ]);
-      await Process.run("reg", [
+      final serverRes = await _reg([
         "add", key, "/v", "ProxyServer", "/t", "REG_SZ", "/d",
         "${option.host}:$option.port", "/f",
       ]);
-      await Process.run("reg", [
+      await _reg([
         "add", key, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", bypass, "/f",
       ]);
+      if (enableRes.exitCode != 0 || serverRes.exitCode != 0) {
+        stderr.writeln(
+          "[mclash] 写系统代理注册表失败："
+          "ProxyEnable=${enableRes.exitCode}(${enableRes.stderr.trim()}) "
+          "ProxyServer=${serverRes.exitCode}(${serverRes.stderr.trim()})",
+        );
+        return false;
+      }
       // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
       if (!await _windowsProxyMatches(option)) {
         stderr.writeln(
@@ -826,17 +867,60 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     try {
       const key =
           r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
-      final en = await Process.run("reg", ["query", key, "/v", "ProxyEnable"]);
-      if (en.exitCode != 0 ||
-          !en.stdout.toString().contains(RegExp(r"0x1\b"))) {
-        return false;
+      String lastServer = "";
+      for (var attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          // 注册表写入偶发不是立刻可见（CI 的 Windows runner 上遇到过「刚写完读不到」）
+          await Future<void>.delayed(const Duration(milliseconds: 120));
+        }
+        final en = await _reg(["query", key, "/v", "ProxyEnable"]);
+        if (en.exitCode != 0 || !en.stdout.contains(RegExp(r"0x1\b"))) {
+          continue;
+        }
+        final sv = await _reg(["query", key, "/v", "ProxyServer"]);
+        lastServer = sv.exitCode == 0 ? sv.stdout : sv.stderr;
+        if (sv.exitCode == 0 &&
+            proxyServerValueMatches(lastServer, option.host, option.port)) {
+          return true;
+        }
       }
-      final sv = await Process.run("reg", ["query", key, "/v", "ProxyServer"]);
-      return sv.exitCode == 0 &&
-          sv.stdout.toString().contains("${option.host}:${option.port}");
+      stderr.writeln(
+        "[mclash] 系统代理读回校验未通过（期望 ${option.host}:$option.port），"
+        "注册表实际内容：${lastServer.replaceAll("\n", " | ").trim()}",
+      );
+      return false;
     } catch (_) {
       return false;
     }
+  }
+
+  /// 判断 `reg query` 输出里的代理地址是否就是 [host]:[port]。
+  ///
+  /// `ProxyServer` 可能是 `127.0.0.1:7890`，也可能是
+  /// `http=127.0.0.1:7890;https=127.0.0.1:7890` 这类按协议写法；
+  /// 只做整串 contains 会漏判（漏判 → 明明设好了却报失败）。
+  /// 反向也要严格：**端口必须精确相等**，只比 host 会把「端口错了」判成已生效，
+  /// 那正是「显示已生效却上不了网」的来源。
+  @visibleForTesting
+  static bool proxyServerValueMatches(String raw, String host, int port) {
+    // 端口 0/负数永远不算「生效」：`127.0.0.1:0` 是历史坏值（流量会被发到
+    // 不存在的代理），把它判成有效正是「显示已生效却上不了网」的来源。
+    // 防御性放在这里，任何调用点都不可能绕过。
+    if (port <= 0) {
+      return false;
+    }
+    final wanted = "${host.toLowerCase()}:$port";
+    for (final entry in raw.split(RegExp(r"[\s;\r\n]+"))) {
+      if (entry.isEmpty) {
+        continue;
+      }
+      final eq = entry.indexOf("=");
+      final value = (eq >= 0 ? entry.substring(eq + 1) : entry).toLowerCase();
+      if (value == wanted) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<bool> _setSystemProxyMacos(ProxyOption option) async {
@@ -1217,4 +1301,17 @@ Get-CimInstance Win32_Process -Filter "Name='mihomo.exe'" | ForEach-Object {
       }
     } catch (_) {}
   }
+}
+
+/// `reg` 命令的结果（退出码 + 原始输出），用于把「写入失败」和「写入没生效」区分开。
+class _RegResult {
+  _RegResult({
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+  });
+
+  final int exitCode;
+  final String stdout;
+  final String stderr;
 }

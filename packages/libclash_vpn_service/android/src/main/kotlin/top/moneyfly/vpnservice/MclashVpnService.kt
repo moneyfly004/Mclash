@@ -366,7 +366,7 @@ class MclashVpnService : VpnService() {
 
         coreExecutor.execute {
             try {
-                startBox(configYaml!!, homeDir, needTun)
+                startBox(configYaml!!, homeDir, needTun, ipv6)
             } catch (e: Exception) {
                 Log.e(TAG, "startBox failed", e)
                 lastStartError = "内核启动失败：${e.message}"
@@ -387,7 +387,12 @@ class MclashVpnService : VpnService() {
      * 新连接轮询超时。语义 = 先停旧的再启新的（串行 executor 保证顺序）。
      */
     @Synchronized
-    private fun startBox(configYaml: String, homeDir: String, needTun: Boolean) {
+    private fun startBox(
+            configYaml: String,
+            homeDir: String,
+            needTun: Boolean,
+            ipv6: Boolean,
+    ) {
         if (Mihomelib.running()) {
             try {
                 Mihomelib.stop()

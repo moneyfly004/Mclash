@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/models.dart';
+import 'package:libclash_vpn_service/src/desktop_impl.dart' as desktop_impl;
 import 'package:libclash_vpn_service/vpn_service.dart';
 
 /// Windows 系统代理**真机**回归（只在 Windows 上跑，CI 的 Windows runner 会执行）。
@@ -20,6 +21,14 @@ void main() {
   const host = "127.0.0.1";
   const port = 17899;
 
+  Future<String> rawValue(String name) =>
+      desktop_impl.DesktopVpnServiceImpl.readSystemProxyRaw(value: name);
+
+  Future<String> fullKey() async {
+    final r = await Process.run("reg", ["query", key]);
+    return "${r.stdout}${r.stderr}";
+  }
+
   Future<String> query(String name) async {
     final r = await Process.run("reg", ["query", key, "/v", name]);
     return r.stdout.toString();
@@ -33,6 +42,15 @@ void main() {
     final ok = await FlutterVpnService.setSystemProxy(
       ProxyOption(host, port, const ["localhost"]),
     );
+    if (!ok) {
+      // 失败时把注册表真实内容打出来：CI 日志里直接可见，不用再猜
+      // ignore: avoid_print
+      print("DIAG ProxyEnable: ${await rawValue('ProxyEnable')}");
+      // ignore: avoid_print
+      print("DIAG ProxyServer: ${await rawValue('ProxyServer')}");
+      // ignore: avoid_print
+      print("DIAG 整键: ${await fullKey()}");
+    }
     expect(ok, isTrue, reason: '写入必须成功');
 
     final enable = await query("ProxyEnable");

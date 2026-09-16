@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:libclash_vpn_service/src/desktop_impl.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 
 /// 「内核实际监听端口 → 应用侧 → 系统代理」这条链的回归。
@@ -64,5 +65,56 @@ void main() {
       "127.0.0.1",
       reason: '写局域网 IP 时本机应用反而可能绕不过去，且会随网卡变化失效',
     );
+  });
+
+  group('Windows 注册表 ProxyServer 值解析（读回校验的正确性基础）', () {
+    test('单值写法必须精确匹配（含端口）', () {
+      const raw = "    ProxyServer    REG_SZ    127.0.0.1:7890";
+      expect(DesktopVpnServiceImpl.proxyServerValueMatches(raw, "127.0.0.1", 7890), isTrue);
+      expect(
+        DesktopVpnServiceImpl.proxyServerValueMatches(raw, "127.0.0.1", 7891),
+        isFalse,
+        reason: '端口不同就是没生效；只比 host 会误判成「已生效」→ 用户上不了网',
+      );
+    });
+
+    test('按协议写法（http=…;https=…）也要认得出来', () {
+      const raw =
+          "    ProxyServer    REG_SZ    http=127.0.0.1:2253;https=127.0.0.1:2253";
+      expect(DesktopVpnServiceImpl.proxyServerValueMatches(raw, "127.0.0.1", 2253), isTrue);
+      expect(DesktopVpnServiceImpl.proxyServerValueMatches(raw, "127.0.0.1", 2254), isFalse);
+    });
+
+    test('端口 0 / 空值绝不算生效（这正是「系统代理空白」那种坏状态）', () {
+      expect(
+        DesktopVpnServiceImpl.proxyServerValueMatches(
+          "ProxyServer    REG_SZ    127.0.0.1:0",
+          "127.0.0.1",
+          0,
+        ),
+        isFalse,
+        reason: '端口 0 是坏值，调用方本来就该拒绝，解析层也不该把它当有效',
+      );
+      expect(DesktopVpnServiceImpl.proxyServerValueMatches("", "127.0.0.1", 7890), isFalse);
+      expect(
+        DesktopVpnServiceImpl.proxyServerValueMatches(
+          "错误: 系统找不到指定的注册表项或值。",
+          "127.0.0.1",
+          7890,
+        ),
+        isFalse,
+      );
+    });
+
+    test('大小写与多余空白不影响判断', () {
+      expect(
+        DesktopVpnServiceImpl.proxyServerValueMatches(
+          "  PROXYSERVER   REG_SZ   127.0.0.1:7890  ",
+          "127.0.0.1",
+          7890,
+        ),
+        isTrue,
+      );
+    });
   });
 }
