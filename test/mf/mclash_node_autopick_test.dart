@@ -286,4 +286,38 @@ void main() {
       );
     });
   });
+
+  group('并发保护（竞态回归）', () {
+    test('同时触发两次自动选路，只真正跑一次（复用同一个 Future）', () async {
+      var groupDelayCalls = 0;
+      final proxies = [
+        ClashProxiesNode()
+          ..name = "🚀 节点选择"
+          ..type = "Selector"
+          ..all = ["香港 01", "日本 01"]
+          ..now = "香港 01",
+      ];
+      MclashNodeAutoPick.debugProxiesOverride = () async => proxies;
+      MclashNodeAutoPick.debugGroupDelayOverride = (group) async {
+        groupDelayCalls++;
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        return {"香港 01": 200, "日本 01": 50};
+      };
+      MclashNodeAutoPick.debugSwitchOverride = (g, n) async => true;
+
+      final a = MclashNodeAutoPick.selectBestOnConnect();
+      final b = MclashNodeAutoPick.selectBestOnConnect();
+      await Future.wait([a, b]);
+
+      expect(
+        groupDelayCalls,
+        1,
+        reason: '两次并发选路只该测一次组延迟（否则会各自切换、节点跳来跳去）',
+      );
+
+      MclashNodeAutoPick.debugProxiesOverride = null;
+      MclashNodeAutoPick.debugGroupDelayOverride = null;
+      MclashNodeAutoPick.debugSwitchOverride = null;
+    });
+  });
 }

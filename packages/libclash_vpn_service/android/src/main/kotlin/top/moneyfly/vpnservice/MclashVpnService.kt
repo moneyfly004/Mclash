@@ -407,6 +407,12 @@ class MclashVpnService : VpnService() {
 
         lastStartError = null
         setState("connecting")
+        // 关键步骤留痕：排查"内核起不来"时这几行决定成败
+        Log.i(
+                TAG,
+                "startBox: home=$homeDir needTun=$needTun ipv6=$ipv6 " +
+                        "yamlBytes=${configYaml.toByteArray(Charsets.UTF_8).size}"
+        )
 
         // 内核工作目录（config.yaml 与 country.mmdb/geosite.dat 所在处）
         val home = File(homeDir)
@@ -424,7 +430,13 @@ class MclashVpnService : VpnService() {
                 return
             }
             if (fd <= 0) {
-                lastStartError = "建立 TUN 失败（未获得文件描述符）"
+                // 绝大多数情况是**用户没允许 VPN 授权**（系统弹窗被拒绝/未弹出），
+                // 也可能已被其它 VPN 占用（安卓同一时间只允许一个 VPN）。
+                // 给出可操作的原因，而不是一句"未获得文件描述符"。
+                lastStartError =
+                        "建立 TUN 失败：未获得 VPN 授权或已被其它 VPN 占用。\n" +
+                                "请重新连接并在系统弹窗中点击「允许」；若已安装其它 VPN 应用，请先断开它。"
+                Log.w(TAG, "establishTun returned fd=$fd (no vpn permission or occupied)")
                 setState("disconnected")
                 return
             }
@@ -432,6 +444,7 @@ class MclashVpnService : VpnService() {
         tunFd = fd
 
         try {
+            Log.i(TAG, "starting kernel: fd=$fd home=${home.absolutePath}")
             Mihomelib.start(home.absolutePath, configYaml.toByteArray(Charsets.UTF_8), fd)
             running = true
             setState("connected")

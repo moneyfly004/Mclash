@@ -57,7 +57,24 @@ abstract final class MclashNodeAutoPick {
     return !candidates.map((e) => e.trim()).contains(name);
   }
 
+  /// 并发保护：自动选路可能被「连接成功」和「用户点自动最优」同时触发，
+  /// 两个同时跑会各自测速+切换，最后的结果取决于谁后写 —— 用户看到节点"跳来跳去"。
+  static Future<String?>? _pickInflight;
+
   static Future<String?> selectBestOnConnect({
+    void Function(String note)? onNote,
+  }) {
+    final running = _pickInflight;
+    if (running != null) {
+      Log.i("MclashNodeAutoPick: 已有一次选路在进行，复用本次结果");
+      return running;
+    }
+    final future = _selectBestOnConnectInner(onNote: onNote);
+    _pickInflight = future;
+    return future.whenComplete(() => _pickInflight = null);
+  }
+
+  static Future<String?> _selectBestOnConnectInner({
     void Function(String note)? onNote,
   }) async {
     List<ClashProxiesNode>? proxies;

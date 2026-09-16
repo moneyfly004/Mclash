@@ -25,8 +25,39 @@ abstract final class MclashDeviceUpgrade {
   /// 测试缝：替换真实取消。
   static Future<void> Function(String orderNo)? debugCancelOverride;
 
+  /// 并发保护：连点「重新算价」会并发走 cancelDraft + 建单，
+  /// 结果可能留下两笔草稿订单（用户没付款却在订单列表里看到两笔）。
+  static Future<Map<String, dynamic>>? _quoteInflight;
+  static int _quotePendingDevices = 0;
+  static int _quotePendingDays = 0;
+
   /// 算价：返回 `{order_no, amount, final_amount, ...}`。
   static Future<Map<String, dynamic>> quote({
+    required int addDevices,
+    required int addDays,
+  }) {
+    if (_quoteInflight != null) {
+      // 记住最后一次请求的参数：等当前这次结束后立刻按最新参数再算一次
+      _quotePendingDevices = addDevices;
+      _quotePendingDays = addDays;
+      Log.i("MclashDeviceUpgrade: 算价进行中，已排队最新参数 $addDevices/$addDays");
+      return _quoteInflight!;
+    }
+    final future = _quoteInner(addDevices: addDevices, addDays: addDays);
+    _quoteInflight = future;
+    return future.whenComplete(() async {
+      _quoteInflight = null;
+      if (_quotePendingDevices > 0 || _quotePendingDays > 0) {
+        final d = _quotePendingDevices;
+        final day = _quotePendingDays;
+        _quotePendingDevices = 0;
+        _quotePendingDays = 0;
+        await quote(addDevices: d, addDays: day);
+      }
+    });
+  }
+
+  static Future<Map<String, dynamic>> _quoteInner({
     required int addDevices,
     required int addDays,
   }) async {

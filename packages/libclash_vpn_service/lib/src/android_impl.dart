@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'kernel_config.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
 
@@ -55,12 +56,18 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     return null;
   }
 
+  /// 生成交给内核的**完整配置**。
+  ///
+  /// ⚠️ 这里曾经是「只要设置了 patch 就返回空字符串」，而 app 层连接时必然会设置
+  /// `core_path_patch_final` —— 于是内核收到的配置恒为空，Kotlin 侧按"空配置"
+  /// 走幽灵连接分支直接停服务，用户看到的就是「安卓点连接没反应 / 内核起不来」。
+  /// 现在与桌面端共用 [buildKernelConfig]（基础 YAML + 深合并 patch + 注入控制端口）。
   Future<String> _resolvedConfigYaml(VpnServiceConfig cfg) async {
-    if (cfg.core_path_patch.isNotEmpty || cfg.core_path_patch_final.isNotEmpty) {
-
-      return "";
+    final result = await buildKernelConfig(cfg);
+    for (final note in result.notes) {
+      stderr.writeln("[mclash] 内核配置(android): $note");
     }
-    return File(cfg.core_path).readAsString();
+    return result.yaml;
   }
 
   @override

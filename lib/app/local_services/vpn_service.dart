@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
@@ -192,6 +194,9 @@ class VPNService {
     config.base_dir = await PathUtils.profileDir();
     // 内核工作目录必须可写（Windows 装到 Program Files 时不可写 → 连接直接失败）
     config.work_dir = await PathUtils.serviceWorkDir();
+    // geo 数据必须落在内核工作目录里：缺了 mihomo 会去 GitHub 下载（国内不可达 →
+    // 内核永不就绪）。桌面端资源在安装目录，安卓端资源在 APK 里 —— 后者必须先解出来。
+    await _ensureGeoDataOnDisk(config.work_dir);
     // geo 数据（country.mmdb / geosite.dat / ASN）仍在**安装目录**里，把它注册为
     // 查找来源；否则换了工作目录后 geo 会"找不到"，内核转去 GitHub 下载（不可达 → 卡死）。
     DesktopVpnServiceImpl.cfg0AssetsDir = PathUtils.appAssetsDir();
@@ -310,7 +315,41 @@ class VPNService {
     return convertErr(err);
   }
 
-  static Future<ReturnResultError?> restart(Duration timeout) async {
+  /// 连接操作的串行闸门。
+  ///
+  /// 为什么需要：`start` / `stop` / `restart` 之间存在真实竞态 ——
+  ///   * 用户连点开关（或托盘菜单 + 界面同时触发）→ 两个 start 并发，
+  ///     桌面端会争抢同一个工作目录/端口，安卓端会把刚起的内核又停掉重启；
+  ///   * 切模式触发的 restart 与正在进行的连接交叉（切模式写 PATCH 的同时
+  ///     内核正在启动）；
+  ///   * 断开与连接交叉 → 出现「显示已连接但内核不在跑」的幽灵状态。
+  /// 这里让三者互斥执行，并在被串行化时留日志（便于排查"点了两下"这类现象）。
+  static Future<void> _opLock = Future<void>.value();
+  static String _opHolder = "";
+
+  static Future<T> _serialOp<T>(String name, Future<T> Function() action) {
+    final prev = _opLock;
+    final gate = Completer<void>();
+    _opLock = gate.future;
+    return prev.then((_) async {
+      final waited = _opHolder.isNotEmpty;
+      if (waited) {
+        Log.i("VPNService: $name 等待前一个操作(${_opHolder})完成");
+      }
+      _opHolder = name;
+      try {
+        return await action();
+      } finally {
+        _opHolder = "";
+        gate.complete();
+      }
+    });
+  }
+
+  static Future<ReturnResultError?> restart(Duration timeout) =>
+      _serialOp("restart", () => _restartInner(timeout));
+
+  static Future<ReturnResultError?> _restartInner(Duration timeout) async {
     final profile = ProfileManager.getCurrent();
     if (profile == null) {
       return ReturnResultError("current profile is empty");
@@ -349,7 +388,7 @@ class VPNService {
     final enable = await getSystemProxyEnable();
     VpnServiceWaitResult result = await FlutterVpnService.restart(timeout);
     if (result.type == VpnServiceWaitType.timeout) {
-      await stop();
+      await _stopInner();
       return ReturnResultError("service restart timeout");
     }
     if (result.type != VpnServiceWaitType.done) {
@@ -357,13 +396,13 @@ class VPNService {
         "VPNService.restart err ${result.type}:${result.err!.message.toString()}",
       );
 
-      await stop();
+      await _stopInner();
       return convertErr(result.err);
     }
     String errorPath = await PathUtils.serviceStdErrorFilePath();
     String? content = await FileUtils.readAndDelete(errorPath);
     if (content != null && content.isNotEmpty) {
-      await stop();
+      await _stopInner();
       return ReturnResultError(content);
     }
     if (Platform.isIOS || Platform.isMacOS) {
@@ -378,10 +417,28 @@ class VPNService {
     return null;
   }
 
-  static Future<ReturnResultError?> start(Duration timeout) async {
+  static Future<ReturnResultError?> start(Duration timeout) =>
+      _serialOp("start", () => _startInner(timeout));
+
+  static Future<ReturnResultError?> _startInner(Duration timeout) async {
     final profile = ProfileManager.getCurrent();
     if (profile == null) {
       return ReturnResultError("current profile is empty");
+    }
+    // 安卓：**必须先拿到系统 VPN 授权**（`VpnService.prepare` 弹窗）。
+    // 旧代码只在 Linux 分支里做过类似检查，安卓上从不请求授权 → Builder.establish()
+    // 拿不到 fd → 内核起不来，而错误只说"未获得文件描述符"，用户完全不知道要授权。
+    if (Platform.isAndroid) {
+      var authorized = false;
+      try {
+        authorized = await FlutterVpnService.isServiceAuthorized("");
+      } catch (err) {
+        Log.w("VPNService.start: 请求 VPN 授权失败 ${err.toString()}");
+      }
+      Log.i("VPNService.start: VPN 授权=${authorized ? "已允许" : "未允许"}");
+      if (!authorized) {
+        return ReturnResultError("需要你的授权才能建立 VPN 连接：\n请在系统弹窗中点击「允许」，然后重新连接。");
+      }
     }
     final prepareResult = await ProfileManager.prepare(profile);
     if (prepareResult != null) {
@@ -413,19 +470,19 @@ class VPNService {
       return ReturnResultError("启动失败：$err");
     }
     if (result.type == VpnServiceWaitType.timeout) {
-      await stop();
+      await _stopInner();
       return ReturnResultError("service start timeout");
     }
 
     if (result.err != null) {
       Log.w("VPNService.start err ${result.err!.message.toString()}");
-      await stop();
+      await _stopInner();
       return convertErr(result.err);
     }
     String errorPath = await PathUtils.serviceStdErrorFilePath();
     String? content = await FileUtils.readAndDelete(errorPath);
     if (content != null && content.isNotEmpty) {
-      await stop();
+      await _stopInner();
       return ReturnResultError(content);
     }
     if (Platform.isIOS || Platform.isMacOS) {
@@ -587,7 +644,9 @@ class VPNService {
     _proxyWatchdog = null;
   }
 
-  static Future<void> stop() async {
+  static Future<void> stop() => _serialOp("stop", _stopInner);
+
+  static Future<void> _stopInner() async {
     _stopProxyWatchdog();
     if (Platform.isIOS || Platform.isMacOS) {
       await FlutterVpnService.setAlwaysOn(false);
@@ -777,5 +836,64 @@ class VPNService {
     final mixedPort = ClashSettingManager.getMixedPort();
 
     return ProxyOption(localhost, mixedPort, bypassDomain);
+  }
+
+  /// 确保内核工作目录里存在 geo 数据（country.mmdb / geosite.dat / GeoLite2-ASN.mmdb）。
+  ///
+  /// 桌面端这些文件随安装包落在磁盘上（`assets/rules/`），Android 端它们**在 APK 里**，
+  /// 磁盘上只有 app 启动时写出的 zip（`ClashSettingManager.initGeo` 写的是 zip，
+  /// 而内核要的是解开的 `.dat/.mmdb`）。缺文件时 mihomo 会尝试从 GitHub 下载，
+  /// 国内不可达 → 卡住几十秒后失败，用户看到的就是「核心起不来 / 连不上」。
+  ///
+  /// 这里直接从 asset bundle 把内核需要的三个文件写到工作目录（幂等：已存在且非空就跳过），
+  /// 并把「拷了什么 / 缺了什么」写进日志，保证出问题时日志能明确列出来。
+  static Future<List<String>> _ensureGeoDataOnDisk(String workDir) async {
+    if (workDir.isEmpty) {
+      return const [];
+    }
+    // 顺序与 geo_data.dart 的候选名一致（ASN 允许两个文件名）
+    const files = <String, List<String>>{
+      "country.mmdb": ["assets/rules/country.mmdb"],
+      "geosite.dat": ["assets/rules/geosite.dat"],
+      "GeoLite2-ASN.mmdb": ["assets/rules/GeoLite2-ASN.mmdb", "assets/datas/ASN.mmdb"],
+    };
+    final missing = <String>[];
+    final copied = <String>[];
+    for (final entry in files.entries) {
+      final dst = File(path.join(workDir, entry.key));
+      try {
+        if (await dst.exists() && await dst.length() > 0) {
+          continue;
+        }
+      } catch (_) {}
+      var ok = false;
+      for (final asset in entry.value) {
+        try {
+          final data = await rootBundle.load(asset);
+          if (data.lengthInBytes <= 0) {
+            continue;
+          }
+          await dst.writeAsBytes(data.buffer.asUint8List(), flush: true);
+          copied.add("${entry.key}(${data.lengthInBytes}B)");
+          ok = true;
+          break;
+        } catch (_) {
+          // 换下一个候选资源名
+        }
+      }
+      if (!ok) {
+        missing.add(entry.key);
+      }
+    }
+    if (copied.isNotEmpty) {
+      Log.i("VPNService: geo 数据已就绪 ${copied.join(", ")} -> $workDir");
+    }
+    if (missing.isNotEmpty) {
+      // 明确列出来：这是「内核卡在下载 geo」的直接原因
+      Log.w("VPNService: geo 数据缺失 ${missing.join(", ")}（内核可能尝试联网下载而卡住）");
+    } else {
+      Log.i("VPNService: geo 数据齐全（country.mmdb / geosite.dat / GeoLite2-ASN.mmdb）");
+    }
+    return missing;
   }
 }

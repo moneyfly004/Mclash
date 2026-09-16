@@ -37,6 +37,13 @@ class ClashTrafficWatcher {
   Timer? _retry;
   bool _starting = false;
 
+  /// 代际号：`stop()` 之后，仍"在飞行中"的连接尝试必须作废。
+  ///
+  /// 竞态场景：用户断开时 `WebSocket.connect()` 还没返回，回来之后旧代码会把
+  /// socket 装回去 —— 面板已显示断开，却还挂着一个流量连接（既泄漏又会让
+  /// 断开后的速度显示乱跳）。
+  int _generation = 0;
+
   /// 测试缝：替换真实连接（返回 null 表示连不上）。
   @visibleForTesting
   static Future<WebSocket?> Function(String url, Map<String, dynamic> headers)?
@@ -61,6 +68,7 @@ class ClashTrafficWatcher {
   }
 
   Future<void> _connect(int port, String secret) async {
+    final gen = _generation;
     try {
       final headers = <String, dynamic>{
         if (secret.isNotEmpty) 'Authorization': 'Bearer $secret',
@@ -71,6 +79,13 @@ class ClashTrafficWatcher {
           : WebSocket.connect(url, headers: headers).timeout(
               const Duration(seconds: 3),
             ));
+      if (gen != _generation) {
+        // 期间已经 stop()：直接丢弃这次连接，不要复活
+        try {
+          ws?.close();
+        } catch (_) {}
+        return;
+      }
       if (ws == null) {
         _scheduleRetry(port, secret);
         return;
@@ -148,11 +163,12 @@ class ClashTrafficWatcher {
     if (_retry != null) {
       return;
     }
+    final gen = _generation;
     _failures++;
     final delay = Duration(seconds: _failures > 5 ? 10 : 2);
     _retry = Timer(delay, () {
       _retry = null;
-      if (_socket == null) {
+      if (_socket == null && gen == _generation) {
         _connect(port, secret);
       }
     });
@@ -160,6 +176,7 @@ class ClashTrafficWatcher {
 
   /// 停止监听并清零（断开连接时调用）。
   void stop({bool resetValues = true}) {
+    _generation++;
     _retry?.cancel();
     _retry = null;
     _sub?.cancel();

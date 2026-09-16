@@ -8,9 +8,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
 import 'geo_data.dart';
+import 'kernel_config.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
 
@@ -151,8 +151,8 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       final String workDir;
       try {
         final resolved = await _buildFinalConfig(cfg);
-        yamlText = resolved.$1;
-        workDir = resolved.$2;
+        yamlText = resolved.yaml;
+        workDir = resolved.workDir;
       } catch (e) {
         _setState(FlutterVpnServiceState.disconnected);
         return VpnServiceWaitResult(
@@ -381,212 +381,25 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     _setState(FlutterVpnServiceState.disconnected);
   }
 
-  Future<(String, String)> _buildFinalConfig(VpnServiceConfig cfg) async {
-    final coreFile = File(cfg.core_path);
-    if (!await coreFile.exists()) {
-      throw "profile file not found: ${cfg.core_path}";
+  Future<KernelConfigResult> _buildFinalConfig(VpnServiceConfig cfg) async {
+    // 共用实现（与 Android 同一套）：基础 YAML + 深合并 patch + 注入控制端口/密钥
+    // + 去掉重复入站端口 + 保证混合端口可用。
+    final result = await buildKernelConfig(cfg);
+    for (final note in result.notes) {
+      // 配置生成过程的每一步都留痕（排查「内核起不来」时最关键的一段）
+      stderr.writeln("[mclash] 内核配置: $note");
     }
-    final raw = await coreFile.readAsString();
-    dynamic doc;
-    try {
-      doc = loadYaml(raw);
-    } catch (e) {
-      throw "profile is not valid YAML: $e";
-    }
-    if (doc is! Map) {
-      throw "profile is not a YAML mapping";
-    }
-    final config = _deepCopyMap(doc);
-
-    for (final patchPath in [cfg.core_path_patch, cfg.core_path_patch_final]) {
-      if (patchPath.isEmpty) {
-        continue;
-      }
-      final f = File(patchPath);
-      if (!await f.exists()) {
-        continue;
-      }
-      final text = await f.readAsString();
-      if (text.trim().isEmpty) {
-        continue;
-      }
-      try {
-        final patch = jsonDecode(text);
-        if (patch is Map) {
-          _deepMerge(config, Map<String, dynamic>.from(patch));
-        }
-      } catch (_) {
-
-        try {
-          final patchYaml = loadYaml(text);
-          if (patchYaml is Map) {
-            _deepMerge(config, _deepCopyMap(patchYaml));
-          }
-        } catch (_) {}
-      }
-    }
-
-    if (cfg.control_port > 0) {
-      config["external-controller"] = "127.0.0.1:${cfg.control_port}";
-    }
-    if (cfg.secret.isNotEmpty) {
-      config["secret"] = cfg.secret;
-    }
-    final mixed = config["mixed-port"];
-    _mixedPort = mixed is num ? mixed.toInt() : 7890;
-
-    for (final k in ["port", "socks-port", "redir-port", "tproxy-port"]) {
-      config.remove(k);
-    }
-
-    if (!await _portFree(_mixedPort)) {
-      final picked = await _pickFreePort();
-      stderr.writeln(
-        "[mclash] 混合端口 $_mixedPort 被占用，已自动改用 $picked",
-      );
-      _mixedPort = picked;
-      config["mixed-port"] = _mixedPort;
-    }
-
-    return (_dumpYaml(config), cfg.work_dir);
+    _mixedPort = result.mixedPort;
+    return result;
   }
 
-  static Future<bool> _portFree(int port) async {
-    if (port <= 0) {
-      return false;
-    }
-    try {
-      final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-      await s.close();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
 
-  static Future<int> _pickFreePort() async {
-    for (final p in [17890, 27890, 38890]) {
-      if (await _portFree(p)) {
-        return p;
-      }
-    }
-    final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-    final port = s.port;
-    await s.close();
-    return port;
-  }
 
-  static Map<String, dynamic> _deepCopyMap(Map src) {
-    final out = <String, dynamic>{};
-    src.forEach((k, v) {
-      final key = k.toString();
-      if (v is Map) {
-        out[key] = _deepCopyMap(v);
-      } else if (v is List) {
-        out[key] = [
-          for (final e in v) e is Map ? _deepCopyMap(e) : e,
-        ];
-      } else {
-        out[key] = v;
-      }
-    });
-    return out;
-  }
 
-  static void _deepMerge(Map<String, dynamic> base, Map<String, dynamic> patch) {
-    patch.forEach((k, v) {
-      final key = k.toString();
-      if (v is Map && base[key] is Map) {
-        _deepMerge(base[key] as Map<String, dynamic>, Map<String, dynamic>.from(v));
-      } else if (v is Map) {
-        base[key] = _deepCopyMap(v);
-      } else {
-        base[key] = v;
-      }
-    });
-  }
 
-  static String _dumpYaml(dynamic node, [int indent = 0]) {
-    final sb = StringBuffer();
-    _writeNode(sb, node, indent);
-    return sb.toString();
-  }
 
-  static void _writeNode(StringBuffer sb, dynamic node, int indent) {
-    final pad = "  " * indent;
-    if (node is Map) {
-      node.forEach((k, v) {
-        final key = _yamlScalar(k.toString());
-        if (v is Map && v.isNotEmpty) {
-          sb.writeln("$pad$key:");
-          _writeNode(sb, v, indent + 1);
-        } else if (v is List && v.isNotEmpty) {
-          sb.writeln("$pad$key:");
-          _writeList(sb, v, indent + 1);
-        } else if (v is Map || v is List) {
-          sb.writeln("$pad$key: ${v is Map ? '{}' : '[]'}");
-        } else {
-          sb.writeln("$pad$key: ${_yamlScalar(v)}");
-        }
-      });
-    }
-  }
 
-  static void _writeList(StringBuffer sb, List list, int indent) {
-    final pad = "  " * indent;
-    for (final item in list) {
-      if (item is Map && item.isNotEmpty) {
-        var first = true;
-        item.forEach((k, v) {
-          final key = _yamlScalar(k.toString());
-          final prefix = first ? "$pad- " : "$pad  ";
-          first = false;
-          if (v is Map && v.isNotEmpty) {
-            sb.writeln("$prefix$key:");
-            _writeNode(sb, v, indent + 2);
-          } else if (v is List && v.isNotEmpty) {
-            sb.writeln("$prefix$key:");
-            _writeList(sb, v, indent + 2);
-          } else if (v is Map || v is List) {
-            sb.writeln("$prefix$key: ${v is Map ? '{}' : '[]'}");
-          } else {
-            sb.writeln("$prefix$key: ${_yamlScalar(v)}");
-          }
-        });
-      } else if (item is List) {
-        sb.writeln("$pad-");
-        _writeList(sb, item, indent + 1);
-      } else {
-        sb.writeln("$pad- ${_yamlScalar(item)}");
-      }
-    }
-  }
 
-  static String _yamlScalar(dynamic v) {
-    if (v == null) {
-      return "null";
-    }
-    if (v is num || v is bool) {
-      return v.toString();
-    }
-    final s = v.toString();
-    if (s.isEmpty) {
-      return "''";
-    }
-    final needsQuote = RegExp(r'''[:#\[\]{}&*!|>'"%@`,]''').hasMatch(s) ||
-        s.startsWith(" ") ||
-        s.endsWith(" ") ||
-        s.startsWith("-") ||
-        s.toLowerCase() == "true" ||
-        s.toLowerCase() == "false" ||
-        s.toLowerCase() == "null" ||
-        num.tryParse(s) != null ||
-        s.contains("\n");
-    if (!needsQuote) {
-      return s;
-    }
-    return '"${s.replaceAll(r'\', r'\\').replaceAll('"', r'\"').replaceAll('\n', r'\n')}"';
-  }
 
   /// geo 数据落盘：真正的逻辑在 [installGeoData]（可被单元测试直接覆盖）。
   ///
