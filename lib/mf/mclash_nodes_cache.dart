@@ -28,6 +28,8 @@ abstract final class MclashNodesCache {
               'port': n.port,
               'latencyMs': n.latencyMs,
               'online': n.online,
+              'measuredByKernel': n.measuredByKernel,
+              'testedByKernel': n.testedByKernel,
             },
           )
           .toList();
@@ -67,6 +69,8 @@ abstract final class MclashNodesCache {
         }
         n.latencyMs = (m['latencyMs'] as num?)?.toInt() ?? -1;
         n.online = m['online'] == true;
+        n.measuredByKernel = m['measuredByKernel'] == true;
+        n.testedByKernel = m['testedByKernel'] == true;
         hit++;
       }
       return hit;

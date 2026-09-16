@@ -149,10 +149,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
-  testWidgets('UDP 节点如实标注（无法 TCP 测速，不显示假延迟）', (tester) async {
+  testWidgets('UDP 节点如实标注（内核没跑时不编延迟，说明连上内核就能测）', (tester) async {
     await pumpSheet(tester);
 
-    expect(find.text("UDP 节点（无法 TCP 测速）"), findsOneWidget);
+    // 纯 UDP 协议（hysteria2/tuic/wireguard）在内核起来之前测不了，
+    // 但**连上内核后走内核 URLTest 就能测** —— 文案要如实说明，而不是暗示永远测不了。
+    expect(find.text("UDP 节点 · 连接内核后可测速"), findsOneWidget);
     expect(find.text("—"), findsWidgets, reason: '没测过就该显示占位符，而不是 0ms');
 
     await tester.pumpWidget(const SizedBox.shrink());

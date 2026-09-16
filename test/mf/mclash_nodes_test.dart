@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
@@ -97,7 +98,8 @@ proxy-groups:
       expect(MclashSpeedTesterLatency.usable(5000), isTrue);
     });
 
-    test('UDP-only 节点：不参与 TCP 探测，但保持「在线、延迟未知」', () async {
+    test('内核不可用时：UDP-only 节点不进入 TCP 探测，保持「在线、延迟未知」', () async {
+      MclashSpeedTester.debugKernelAvailableOverride = () async => false;
       MclashSpeedTester.debugProbeOverride = (n) async {
         throw StateError("UDP-only 节点不应进入 TCP 探测");
       };
@@ -110,10 +112,92 @@ proxy-groups:
       await MclashSpeedTester().testAll([hy2]);
       expect(hy2.latencyMs, -1);
       expect(hy2.online, isTrue, reason: '测不了 ≠ 离线，否则一堆能用的节点被标成挂了');
+      expect(hy2.measuredByKernel, isFalse);
+      expect(
+        hy2.testedByKernel,
+        isFalse,
+        reason: '内核没跑 + 纯 UDP 协议 → 这次确实没测（而不是测了不通）',
+      );
       MclashSpeedTester.debugProbeOverride = null;
+      MclashSpeedTester.debugKernelAvailableOverride = null;
+    });
+
+    test('内核可用时：纯 UDP 协议同样测出真实延迟（原来它们永远测不到）', () async {
+      MclashSpeedTester.debugKernelAvailableOverride = () async => true;
+      MclashSpeedTester.debugKernelDelayOverride = (n) async =>
+          n.type == "hysteria2" ? 123 : -1;
+      MclashSpeedTester.debugProbeOverride = (n) async {
+        throw StateError("内核可用时不允许退回 TCP 粗测（会给出假延迟/假在线）");
+      };
+      final nodes = [
+        MclashNode(name: "香港 HY2", type: "hysteria2", server: "5.6.7.8", port: 443),
+        MclashNode(name: "日本 TU5", type: "tuic", server: "1.2.3.4", port: 443),
+        MclashNode(name: "美国 WG", type: "wireguard", server: "2.3.4.5", port: 51820),
+      ];
+      await MclashSpeedTester().testAll(nodes);
+      expect(nodes[0].latencyMs, 123);
+      expect(nodes[0].online, isTrue);
+      expect(nodes[0].measuredByKernel, isTrue, reason: '必须是内核测出来的真实延迟');
+      expect(nodes[1].latencyMs, -1);
+      expect(nodes[1].online, isFalse, reason: '内核能测而它失败 = 这个节点确实不通');
+      expect(
+        nodes[1].testedByKernel,
+        isTrue,
+        reason: '**内核问过了**才算「不跳过」：-1 是"测了不通"，不是"没测"',
+      );
+      MclashSpeedTester.debugProbeOverride = null;
+      MclashSpeedTester.debugKernelDelayOverride = null;
+      MclashSpeedTester.debugKernelAvailableOverride = null;
+    });
+
+    test('每一种协议都要有测速路径（内核路径对协议无差别）', () async {
+      // 「节点全不全」的回归：凡是内核能承载的协议，都必须走同一条
+      // /proxies/{name}/delay 路径，不允许有协议被无声跳过。
+      MclashSpeedTester.debugKernelAvailableOverride = () async => true;
+      final asked = <String>[];
+      MclashSpeedTester.debugKernelDelayOverride = (n) async {
+        asked.add(n.type);
+        return 66;
+      };
+      MclashSpeedTester.debugProbeOverride = (n) async {
+        throw StateError("内核可用时不该走 TCP");
+      };
+      final nodes = [
+        for (final t in MclashNode.kSupportedTypes)
+          MclashNode(name: "n-$t", type: t, server: "1.1.1.1", port: 443),
+      ];
+      await MclashSpeedTester().testAll(nodes);
+      expect(
+        asked.toSet(),
+        MclashNode.kSupportedTypes,
+        reason: '每个受支持协议都必须被真的测过一遍',
+      );
+      expect(nodes.every((n) => n.latencyMs == 66), isTrue);
+      expect(nodes.every((n) => n.measuredByKernel), isTrue);
+      MclashSpeedTester.debugProbeOverride = null;
+      MclashSpeedTester.debugKernelDelayOverride = null;
+      MclashSpeedTester.debugKernelAvailableOverride = null;
+    });
+
+    test('节点列表的测速闸门不能把任何真实协议挡在外面', () {
+      // 节点列表用 canDelayTest(type) 决定"这一行能不能测"：
+      //   可测 = type 不在 ClashProtocolType.toList()（那些是组与内置出站），
+      //          或者恰好是 Direct。
+      // 所以**真实协议名绝不能被塞进那个枚举**，否则整类节点会静默失去测速入口。
+      final groupAndBuiltin = ClashProtocolType.toList()
+          .map((e) => e.toLowerCase())
+          .toSet();
+      for (final t in MclashNode.kSupportedTypes) {
+        expect(
+          groupAndBuiltin.contains(t),
+          isFalse,
+          reason: '$t 是真实节点协议，不能被当成"组/内置出站"而失去测速入口',
+        );
+      }
     });
 
     test('进度与逐节点回填（UI 要边测边刷）', () async {
+      MclashSpeedTester.debugKernelAvailableOverride = () async => false;
       MclashSpeedTester.debugProbeOverride = (n) async => n.name == "a" ? 80 : 300;
       final nodes = [
         MclashNode(name: "a", type: "ss", server: "1.1.1.1", port: 1),
@@ -136,6 +220,7 @@ proxy-groups:
       expect(seen.toSet(), {"a", "b", "c"});
       expect(MclashSpeedTester.selectBest(nodes)?.name, "a");
       MclashSpeedTester.debugProbeOverride = null;
+      MclashSpeedTester.debugKernelAvailableOverride = null;
     });
   });
 }

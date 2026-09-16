@@ -312,16 +312,23 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
         ),
       ),
       subtitle: node.udpOnly
-          ? const Text(
-              "UDP 节点（无法 TCP 测速）",
-              style: TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
+          ? Text(
+              // 纯 UDP 协议（hysteria2 / tuic / wireguard）在内核跑起来之前
+              // 没法测：TCP 粗测对它们无效。连上内核后走内核的 URLTest 就能测。
+              node.latencyUsable
+                  ? "UDP 节点 · 内核实测"
+                  : "UDP 节点 · 连接内核后可测速",
+              style: const TextStyle(
+                fontSize: 11,
+                color: ThemeDefine.kColorGrey,
+              ),
             )
           : null,
       trailing: current
           ? const Icon(Icons.check, size: 18, color: ThemeDefine.kColorBlue)
           : (node.latencyUsable
                 ? Text(
-                    "${node.latencyMs}ms",
+                    "${node.measuredByKernel ? "" : "≈"}${node.latencyMs}ms",
                     style: TextStyle(
                       fontSize: 12,
                       color: node.latencyMs < 800

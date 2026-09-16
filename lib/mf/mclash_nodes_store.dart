@@ -131,6 +131,9 @@ class MclashNodesStore extends ChangeNotifier {
     FlutterVpnServiceState state,
     Map<String, String> params,
   ) {
+    // 连接状态一变，内核可用性就变了 → 丢掉缓存，下一次测速重新判定
+    // （内核在跑 = 走 /proxies/{name}/delay，协议无关；没跑 = TCP 粗测兜底）。
+    MclashSpeedTester.instance.resetKernelCache();
     if (state == FlutterVpnServiceState.connected) {
       Log.i("MclashNodesStore: 连接成功，自动开始测速");
       unawaited(_onConnected());
@@ -300,7 +303,12 @@ class MclashNodesStore extends ChangeNotifier {
       return;
     }
     final src = subset ?? _nodes;
-    final targets = src.where((n) => !n.udpOnly).toList();
+    // **不再**按 udpOnly 过滤：内核在跑时（走 /proxies/{name}/delay）
+    // hysteria2 / tuic / wireguard 这些纯 UDP 协议同样能测出真实延迟；
+    // 内核没跑时由 MclashSpeedTester 自己判断能不能 TCP 兜底。
+    final targets = src
+        .where((n) => n.name.isNotEmpty && n.server.isNotEmpty && n.port > 0)
+        .toList();
     if (targets.isEmpty) {
       return;
     }
@@ -323,7 +331,7 @@ class MclashNodesStore extends ChangeNotifier {
   }
 
   Future<void> testOne(MclashNode node) async {
-    if (node.udpOnly) {
+    if (node.server.isEmpty || node.port <= 0) {
       return;
     }
     _testing = 1;

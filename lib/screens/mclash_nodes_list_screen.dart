@@ -469,7 +469,7 @@ class _MclashNodesListScreenState
   }
 
   Widget _nodeRow(MclashNode n) {
-    final testing = _testing > 0 && !n.udpOnly && !n.latencyUsable;
+    final testing = _testing > 0 && !n.latencyUsable;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
@@ -502,8 +502,9 @@ class _MclashNodesListScreenState
               Flexible(
                 child: Text(
                   n.latencyUsable
-                      ? "${n.latencyMs}ms"
-                      : (n.udpOnly ? "—" : (n.online ? "—" : "超时")),
+                      // ≈ = 内核没在跑时的本机 TCP 粗估（不是真实代理延迟）
+                      ? "${n.measuredByKernel ? "" : "≈"}${n.latencyMs}ms"
+                      : (n.online ? "—" : "超时"),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
