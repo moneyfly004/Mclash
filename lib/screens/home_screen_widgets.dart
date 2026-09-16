@@ -512,9 +512,12 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     if (!await mclashCheckAccountGate(context)) {
       return false;
     }
-    final currentProfile = ProfileManager.getCurrent();
-    if (currentProfile == null) {
-
+    if (ProfileManager.getCurrent() == null) {
+      // 还没有配置档（首次登录 / 刚安装 / 启动时还没加载完）→ 先同步再**继续连接**。
+      //
+      // 用户反馈的「我已经点了连接，它却让我再点一次」就是这里：旧实现在同步成功后
+      // 只弹一句「订阅已同步，请再次点击连接。」然后 return —— 用户点了一次开关却
+      // 什么都没发生，只能再点第二次。既然用户已经表达了「我要连」，同步完就接着连。
       if (!mounted) {
         return false;
       }
@@ -527,17 +530,30 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
         return false;
       }
       setState(() {});
-      final msg = switch (result?.status) {
-        MclashSubSyncStatus.ok => "订阅已同步，请再次点击连接。",
-        MclashSubSyncStatus.noSubscription => "该账号暂无可用套餐，请先购买套餐。",
-        MclashSubSyncStatus.notLoggedIn => "登录已失效，请重新登录。",
-        MclashSubSyncStatus.skipped => "正在同步订阅，请稍候再试。",
-        MclashSubSyncStatus.failed =>
-          "订阅同步失败：${result?.message ?? ""}\n请检查网络后重试。",
-        null => "订阅同步失败，请稍后重试。",
-      };
-      await DialogUtils.showAlertDialog(context, msg, withVersion: true);
-      return false;
+      // 同步期间列表可能还在加载：再等一小会儿，别把「刚好没加载完」当成失败
+      for (var i = 0;
+          i < 10 && result?.status == MclashSubSyncStatus.ok &&
+              ProfileManager.getCurrent() == null;
+          i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      if (!mounted) {
+        return false;
+      }
+      if (ProfileManager.getCurrent() == null) {
+        final msg = switch (result?.status) {
+          MclashSubSyncStatus.ok => "订阅已下载，但配置档还没就绪，请稍后再试。",
+          MclashSubSyncStatus.noSubscription => "该账号暂无可用套餐，请先购买套餐。",
+          MclashSubSyncStatus.notLoggedIn => "登录已失效，请重新登录。",
+          MclashSubSyncStatus.skipped => "正在同步订阅，请稍候再试。",
+          MclashSubSyncStatus.failed =>
+            "订阅同步失败：${result?.message ?? ""}\n请检查网络后重试。",
+          null => "订阅同步失败，请稍后重试。",
+        };
+        await DialogUtils.showAlertDialog(context, msg, withVersion: true);
+        return false;
+      }
+      Log.i("VPNService: 连接前已同步订阅并拿到配置档，直接继续连接（不需要用户再点一次）");
     }
     var state = await VPNService.getState();
     if (state == FlutterVpnServiceState.connecting ||
