@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_device_upgrade.dart';
+import 'package:mclash/mf/mclash_device_view.dart';
 import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
@@ -778,10 +779,13 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         ? d["device_name"].toString()
         : (d["os_name"]?.toString() ?? "未知设备");
     final model = "${d["os_name"] ?? ""} · ${d["device_model"] ?? ""}";
-    final online = d["online"] == true;
+    // 后端字段是 `is_online`（不是 `online`）—— 只读 `online` 会让**每台设备
+    // 都显示离线**，包括正在打心跳的本机（用户实测反馈）。判定口径见
+    // MclashDeviceView（纯函数，有测试钉住）。
+    final online = MclashDeviceView.isOnline(d);
     final ip = d["ip_address"]?.toString() ?? "";
-    final loc = d["location"]?.toString() ?? "";
-    final lastSeen = d["last_seen"]?.toString() ?? "";
+    final loc = MclashDeviceView.locationOf(d);
+    final lastSeen = MclashDeviceView.lastActiveText(d);
     final id = (d["id"] as num?)?.toInt() ?? 0;
 
     return Card(
@@ -824,7 +828,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
               ),
             if (lastSeen.isNotEmpty)
               Text(
-                "最近 $lastSeen",
+                "最近活跃 $lastSeen",
                 style: const TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
               ),
             const SizedBox(height: 10),
