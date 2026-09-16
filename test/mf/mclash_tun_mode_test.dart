@@ -13,7 +13,13 @@ import 'package:mclash/app/modules/setting_manager.dart';
 ///
 /// 这里钉住「默认关」「开关能落盘」「开关真的进了内核配置」三件事。
 void main() {
+  setUp(() {
+    // 固定「桌面端」：CI 主机是 Linux，不固定的话断言会跟着宿主平台变。
+    VPNService.debugSupportSystemProxyOverride = true;
+  });
+
   tearDown(() {
+    VPNService.debugSupportSystemProxyOverride = null;
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
   });
 

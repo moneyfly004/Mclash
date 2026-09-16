@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'package:mclash/app/clash/clash_http_api.dart';
@@ -666,7 +667,19 @@ class VPNService {
     }
   }
 
+  /// 测试缝：强制「支持系统代理」的判定。
+  ///
+  /// 为什么需要：CI 跑在 Linux 上，而 Linux 不是产品平台（isPC 只认
+  /// Windows/macOS）。如果断言跟着宿主平台走，测试就会「本地绿、CI 红」——
+  /// 这个坑已经让安卓构建失败过两次。给出替换口之后，两条路径都能确定性覆盖。
+  @visibleForTesting
+  static bool? debugSupportSystemProxyOverride;
+
   static bool getSupportSystemProxy() {
+    final override = debugSupportSystemProxyOverride;
+    if (override != null) {
+      return override;
+    }
     return PlatformUtils.isPC();
   }
 

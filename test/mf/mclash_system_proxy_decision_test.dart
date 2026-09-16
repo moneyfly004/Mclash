@@ -12,13 +12,15 @@ import 'package:mclash/app/modules/setting_manager.dart';
 /// 系统代理一直是空的（用户原文：「电脑的系统代理都没有配置 127.0.0.1 和端口」）。
 void main() {
   setUp(() {
-    // CI 主机是 Linux（不是产品平台），迁移逻辑在那种主机上不该生效 ——
-    // 用测试缝把「桌面平台」固定住，断言才能确定性地覆盖两种情况。
+    // CI 主机是 Linux（不是产品平台）：两个平台判定都用测试缝固定住，
+    // 断言才能确定性地覆盖「桌面端 / 非桌面端」两条路径（否则本地绿、CI 红）。
     SettingConfig.debugIsDesktopOverride = () => true;
+    VPNService.debugSupportSystemProxyOverride = true;
   });
 
   tearDown(() {
     SettingConfig.debugIsDesktopOverride = null;
+    VPNService.debugSupportSystemProxyOverride = null;
     final c = SettingManager.getConfig();
     c.tunMode = SettingConfig.kTunModeOff;
     c.autoSetSystemProxy = true;
@@ -59,6 +61,7 @@ void main() {
 
   test("非桌面端不被迁移（安卓没有系统代理这件事）", () {
     SettingConfig.debugIsDesktopOverride = () => false;
+    VPNService.debugSupportSystemProxyOverride = false;
     final legacy = SettingConfig()
       ..fromJson({'auto_set_system_proxy': false});
     expect(
@@ -68,20 +71,27 @@ void main() {
     );
 
     // 判定函数本身在非 PC 上恒为 false
-    SettingConfig.debugIsDesktopOverride = () => true;
-    if (!VPNService.getSupportSystemProxy()) {
-      expect(VPNService.shouldApplySystemProxy(), isFalse);
-    }
+    expect(VPNService.shouldApplySystemProxy(), isFalse);
+    expect(
+      VPNService.systemProxySkipReason(),
+      contains("不支持"),
+      reason: '非桌面平台要如实说明「不支持系统代理」',
+    );
   });
 
   test("判定矩阵：TUN × 自动设置系统代理 × 平台", () {
     final supported = VPNService.getSupportSystemProxy();
     final c = SettingManager.getConfig();
 
+    // 平台不支持系统代理时（Linux CI 主机 / 安卓），原因文案就是「不支持」；
+    // 支持时「关闭模式 + 自动设置系统代理」是毫无理由跳过的。
     c.tunMode = SettingConfig.kTunModeOff;
     c.autoSetSystemProxy = true;
     expect(VPNService.shouldApplySystemProxy(), supported);
-    expect(VPNService.systemProxySkipReason(), supported ? "" : isNotEmpty);
+    expect(
+      VPNService.systemProxySkipReason(),
+      supported ? isEmpty : contains("不支持"),
+    );
 
     // 自动 = TUN + 系统代理（双保险）
     c.tunMode = SettingConfig.kTunModeAuto;
@@ -114,6 +124,9 @@ void main() {
       isFalse,
       reason: '用户显式关掉了自动设置系统代理',
     );
-    expect(VPNService.systemProxySkipReason(), contains("自动设置系统代理"));
+    expect(
+      VPNService.systemProxySkipReason(),
+      supported ? contains("自动设置系统代理") : contains("不支持"),
+    );
   });
 }
