@@ -171,15 +171,43 @@ class SettingConfig {
   /// 用户点过「稍后」的更新版本号：同一个版本不再反复弹提示。
   String dismissedUpdateVersion = "";
 
-  /// TUN 模式（虚拟网卡）开关，**默认关**。
+  /// 设置结构版本号。
   ///
-  /// 用户要求：「默认系统代理生效，要用 TUN 就在主页给个开关」。
-  /// 之前桌面端 TUN 与系统代理是**一起生效**的（`defaultTun()` 里
-  /// `Enable: !Platform.isWindows`），两套数据通路同时改系统状态，退出时也难还原。
-  /// Android 侧不看这个值：那里的 VpnService 本身就是 TUN，关不掉。
-  bool tunMode = false;
+  /// 用途：旧版本写进文件的**默认值**看起来和「用户的选择」一模一样，
+  /// 只能靠版本号区分。当前处理的是 `auto_set_system_proxy`：
+  /// 老版本在桌面端默认 false，用户从没动过它 —— 升级后这个 false 被当成
+  /// 「用户要求不要设置系统代理」，于是连上了系统代理一直是空的
+  /// （用户反馈：「无论规则还是全局，电脑的系统代理都没有配置」）。
+  static const int kSettingsVersion = 2;
+
+  /// 本文件的设置版本（老文件没有这个键 → 0）。
+  int settingsVersion = 0;
+
+  /// TUN 模式（虚拟网卡）：**关闭 / 自动 / 强制**，默认关闭。
+  ///
+  /// 取值与我的参考实现（moneyfly 桌面版）完全一致，因为这套语义被验证过：
+  ///   * `off`   —— 仅系统代理（默认）：轻量、不改路由表，但只有遵守系统代理的
+  ///                程序走代理（UDP / 游戏 / 自带代理设置的程序不生效）；
+  ///   * `auto`  —— TUN + 系统代理（双保险）：TUN 起来就靠它，万一没起来还能上网；
+  ///   * `force` —— 仅 TUN：所有流量（含 UDP）都进虚拟网卡，不再改系统代理。
+  ///
+  /// 桌面端 TUN 需要管理员权限（Windows 建 wintun / macOS 建 utun）。
+  /// Android 侧忽略这个值：那里的 VpnService 本身就是 TUN，关不掉。
+  static const String kTunModeOff = "off";
+  static const String kTunModeAuto = "auto";
+  static const String kTunModeForce = "force";
+
+  String tunMode = kTunModeOff;
+
+  /// 是否需要 TUN（auto / force 都是）。
+  bool get tunEnabled =>
+      tunMode == kTunModeAuto || tunMode == kTunModeForce;
+
+  /// TUN 是否**独占**数据通路（force：不再改系统代理）。
+  bool get tunOnly => tunMode == kTunModeForce;
 
   Map<String, dynamic> toJson() => {
+    'settings_version': kSettingsVersion,
     'language_tag': languageTag,
     'setup_done': setupDone,
     'ui': ui,
@@ -241,7 +269,18 @@ class SettingConfig {
     lastAccountEmail = map["last_account_email"]?.toString() ?? "";
     dismissedUpdateVersion =
         map["dismissed_update_version"]?.toString() ?? "";
-    tunMode = map["tun_mode"] ?? false;
+    final rawTun = map["tun_mode"];
+    if (rawTun is bool) {
+      // 老版本是 bool：true → auto（TUN + 系统代理，保底能上网）
+      tunMode = rawTun ? kTunModeAuto : kTunModeOff;
+    } else {
+      final text = rawTun?.toString() ?? kTunModeOff;
+      tunMode = const [kTunModeAuto, kTunModeForce, kTunModeOff].contains(text)
+          ? text
+          : kTunModeOff;
+    }
+    settingsVersion = (map["settings_version"] as num?)?.toInt() ?? 0;
+    _migrate();
 
     boardOnline = map["board_online"] ?? false;
     boardUrl = map["board_url"] ?? kDefaultBoardUrl;
@@ -254,6 +293,26 @@ class SettingConfig {
     wakeLock = map["wake_lock"] ?? false;
     autoConnectAtBoot = map["auto_connect_at_boot"] ?? false;
     hideVpn = map["hide_vpn"] ?? false;
+  }
+
+  /// 老设置文件的一次性迁移（幂等：迁完把版本号写成当前值）。
+  void _migrate() {
+    if (settingsVersion >= kSettingsVersion) {
+      return;
+    }
+    if (settingsVersion < 2) {
+      // 桌面端：老默认值是 false，而用户从没在界面上关过它 —— 升级后
+      // 「连上了系统代理却一直是空的」。这里按平台默认重置一次（PC = 开）；
+      // 用户自己关掉之后版本号已是最新，不会再被改回来。
+      if (PlatformUtils.isPC() && !autoSetSystemProxy) {
+        autoSetSystemProxy = true;
+        Log.i(
+          "SettingConfig: 迁移 auto_set_system_proxy=false → true"
+          "（老版本的默认值，不是用户的选择）",
+        );
+      }
+    }
+    settingsVersion = kSettingsVersion;
   }
 
   static String defaultUserAgent() {

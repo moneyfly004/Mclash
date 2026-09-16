@@ -1,27 +1,45 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_sort.dart';
-import 'package:mclash/mf/mclash_node_country.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 
-/// 主页自带的**独立节点选择器**。
+/// 主页「就地换节点」的选择器。
 ///
-/// 用户反馈：主页点当前节点那一行（或点国家）会跳到「节点列表」整页，很打断
-/// 操作。主页需要的只是一个「就地换节点」的动作，所以这里给一个底部弹层：
-/// 搜索 + 国家筛选 + 节点列表，点一下即切换，切完留在主页。
-///
-/// 完整节点列表仍然可达（弹层底部有明确入口），但那是**用户主动选择**，
-/// 不再由「点国家/点节点」隐式跳转。
+/// 这里的设计按用户反馈重做过，现在的结论是：
+///   * **不做国家图标那一排**（用户：「上方的国家图标我不需要，都溢出弹窗了」）——
+///     主页本来就有「快速筛选国家」区块，弹层里再来一排既重复又挤；
+///   * **桌面端不用底部弹层**（用户：「弹窗出现的非常突兀，而且不美观」）——
+///     窗口最大化时一个贴着底边的全宽弹层很怪，改成**居中卡片式弹窗**：
+///     限宽 460、限高 560，看起来像一个正常对话框；
+///   * 手机端仍然是底部弹层（那才是移动端的习惯）；
+///   * 列表**永远按延迟升序**（延迟最低的排最前），搜索框常驻；
+///   * 完整节点列表仍有明确入口（底部一行），但不再隐式跳转。
 Future<void> showMclashNodePickerSheet(
   BuildContext context, {
   String current = "",
 }) {
+  if (PlatformUtils.isPC()) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460, maxHeight: 560),
+          child: MclashNodePickerSheet(current: current, inDialog: true),
+        ),
+      ),
+    );
+  }
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -34,10 +52,17 @@ Future<void> showMclashNodePickerSheet(
 }
 
 class MclashNodePickerSheet extends StatefulWidget {
-  const MclashNodePickerSheet({super.key, this.current = ""});
+  const MclashNodePickerSheet({
+    super.key,
+    this.current = "",
+    this.inDialog = false,
+  });
 
   /// 当前节点名（用于打勾标记）。
   final String current;
+
+  /// 是否渲染在居中弹窗里（决定高度策略与拖拽条）。
+  final bool inDialog;
 
   @override
   State<MclashNodePickerSheet> createState() => _MclashNodePickerSheetState();
@@ -46,7 +71,6 @@ class MclashNodePickerSheet extends StatefulWidget {
 class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
   final TextEditingController _search = TextEditingController();
   String _query = "";
-  String? _country;
   String _switchedTo = "";
   bool _switching = false;
 
@@ -77,15 +101,12 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
       if (isInternalProxyName(n.name)) {
         return false;
       }
-      if (_country != null && (n.countryCode ?? "XX") != _country) {
-        return false;
-      }
       if (q.isNotEmpty && !n.name.toLowerCase().contains(q)) {
         return false;
       }
       return true;
     }).toList();
-    // **永远**按延迟升序：延迟最低的排最前（用户要求，不再需要手动点排序）
+    // **永远**按延迟升序：延迟最低的排最前（用户要求，不必再手动点排序）
     return sortNodesByLatency(matched);
   }
 
@@ -115,9 +136,56 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
   @override
   Widget build(BuildContext context) {
     final store = MclashNodesStore.instance;
-    final latency = store.bestLatencyByCountry;
     final visible = _visible;
 
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _header(context),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: TextField(
+            controller: _search,
+            onChanged: (v) => setState(() => _query = v),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: "搜索节点",
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: "清空",
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () {
+                        _search.clear();
+                        setState(() => _query = "");
+                      },
+                    ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+        const Divider(height: 1, thickness: 0.3),
+        Flexible(
+          child: visible.isEmpty
+              ? _empty(store)
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: visible.length,
+                  itemBuilder: (_, i) => _nodeRow(visible[i]),
+                ),
+        ),
+        const Divider(height: 1, thickness: 0.3),
+        _footer(context),
+      ],
+    );
+
+    if (widget.inDialog) {
+      return body;
+    }
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.72,
       child: Column(
@@ -131,165 +199,111 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-            child: Row(
-              children: [
-                const Text(
-                  "选择节点",
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: ThemeConfig.kFontWeightTitle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  "按延迟排序",
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: ThemeDefine.kColorGrey,
-                  ),
-                ),
-                const Spacer(),
-                if (_switching)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                IconButton(
-                  tooltip: "关闭",
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
-              controller: _search,
-              onChanged: (v) => setState(() => _query = v),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: "搜索节点",
-                prefixIcon: const Icon(Icons.search, size: 18),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ),
-          if (store.countries.isNotEmpty)
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                children: [
-                  _countryChip("全部", null, null),
-                  for (final code in store.countries)
-                    _countryChip(
-                      code == "XX"
-                          ? "其他"
-                          : MclashNodeCountry.displayName(code),
-                      code,
-                      latency[code],
-                    ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: visible.isEmpty
-                ? Center(
-                    child: Text(
-                      store.nodes.isEmpty
-                          ? "还没有可用节点。\n请先在主页打开连接开关。"
-                          : "没有匹配的节点。",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: ThemeDefine.kColorGrey,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                    itemCount: visible.length,
-                    itemBuilder: (_, i) => _nodeRow(visible[i]),
-                  ),
-          ),
-          const Divider(height: 1, thickness: 0.3),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              MainTabController.instance?.setTab(1);
-            },
-            child: const Text("打开完整节点列表（搜索 / 测速 / 分组）"),
-          ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
+          const SizedBox(height: 6),
+          Expanded(child: body),
         ],
       ),
     );
   }
 
-  Widget _countryChip(String label, String? code, int? ms) {
-    final selected = _country == code;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        key: ValueKey("picker-country-${code ?? "all"}"),
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => setState(() => _country = code),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: selected
-                  ? ThemeDefine.kColorBlue
-                  : ThemeDefine.kColorGrey,
-              width: selected ? 1 : 0.6,
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: selected ? ThemeDefine.kColorBlue : null,
-                ),
-              ),
-              if (ms != null) ...[
-                const SizedBox(width: 4),
-                Text(
-                  "${ms}ms",
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: ThemeDefine.kColorGrey,
-                  ),
-                ),
-              ],
-            ],
+  Widget _header(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(20, widget.inDialog ? 16 : 6, 8, 8),
+    child: Row(
+      children: [
+        const Text(
+          "选择节点",
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: ThemeConfig.kFontWeightTitle,
           ),
         ),
+        const SizedBox(width: 8),
+        const Text(
+          "按延迟排序",
+          style: TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
+        ),
+        const Spacer(),
+        if (_switching)
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        IconButton(
+          tooltip: "关闭",
+          icon: const Icon(Icons.close, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    ),
+  );
+
+  Widget _empty(MclashNodesStore store) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          store.nodes.isEmpty ? Icons.cloud_off_outlined : Icons.search_off,
+          size: 30,
+          color: ThemeDefine.kColorGrey,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          store.nodes.isEmpty
+              ? "还没有可用节点。\n请先在主页打开连接开关。"
+              : "没有匹配的节点。",
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 13,
+            height: 1.5,
+            color: ThemeDefine.kColorGrey,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _footer(BuildContext context) => InkWell(
+    onTap: () {
+      Navigator.of(context).pop();
+      MainTabController.instance?.setTab(1);
+    },
+    child: const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.list_alt_outlined,
+            size: 16,
+            color: ThemeDefine.kColorBlue,
+          ),
+          SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              "打开完整节点列表（搜索 / 测速 / 分组）",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: ThemeDefine.kColorBlue),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 
   Widget _nodeRow(MclashNode node) {
-    final current = node.name == widget.current ||
+    final current =
+        node.name == widget.current ||
         (_switchedTo.isNotEmpty && node.name == _switchedTo);
     return ListTile(
       key: ValueKey("picker-node-${node.name}"),
       dense: true,
+      visualDensity: VisualDensity.compact,
       leading: Text(node.flag, style: const TextStyle(fontSize: 16)),
       title: Text(
         node.name,
@@ -303,38 +317,36 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
           color: current ? ThemeDefine.kColorBlue : null,
         ),
       ),
-      subtitle: node.udpOnly
-          ? Text(
-              // 纯 UDP 协议（hysteria2 / tuic / wireguard）在内核跑起来之前
-              // 没法测：TCP 粗测对它们无效。连上内核后走内核的 URLTest 就能测。
-              node.latencyUsable
-                  ? "UDP 节点 · 内核实测"
-                  : "UDP 节点 · 连接内核后可测速",
-              style: const TextStyle(
-                fontSize: 11,
-                color: ThemeDefine.kColorGrey,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (node.udpOnly && !node.latencyUsable)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Text(
+                "UDP",
+                style: TextStyle(fontSize: 10, color: ThemeDefine.kColorGrey),
+              ),
+            ),
+          if (current)
+            const Icon(Icons.check, size: 18, color: ThemeDefine.kColorBlue)
+          else if (node.latencyUsable)
+            Text(
+              "${node.measuredByKernel ? "" : "≈"}${node.latencyMs}ms",
+              style: TextStyle(
+                fontSize: 12,
+                color: node.latencyMs < 800
+                    ? ThemeDefine.kColorGreenBright
+                    : ThemeDefine.kColorGrey,
               ),
             )
-          : null,
-      trailing: current
-          ? const Icon(Icons.check, size: 18, color: ThemeDefine.kColorBlue)
-          : (node.latencyUsable
-                ? Text(
-                    "${node.measuredByKernel ? "" : "≈"}${node.latencyMs}ms",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: node.latencyMs < 800
-                          ? ThemeDefine.kColorGreenBright
-                          : ThemeDefine.kColorGrey,
-                    ),
-                  )
-                : const Text(
-                    "—",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ThemeDefine.kColorGrey,
-                    ),
-                  )),
+          else
+            const Text(
+              "—",
+              style: TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
+            ),
+        ],
+      ),
       onTap: () => _pick(node),
     );
   }

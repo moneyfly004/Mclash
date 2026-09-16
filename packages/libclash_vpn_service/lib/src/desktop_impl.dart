@@ -348,16 +348,142 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   @override
   bool get systemProxyFallbackActive => _systemProxyFallbackActive;
 
+  /// 真正的「TUN 没起来」标记（sing-tun 的启动失败出口）。
+  ///
+  /// 只认精确串：mihomo 有一批**正常告警**同样含 tun + error/failed
+  /// （`Auto detect interface ... failed`、`default interface changed`、
+  /// `error writing to TUN device`…），宽泛匹配会把正常连接判死。
+  static const List<String> kTunFatalMarkers = [
+    "start tun listening error",
+    "start tun interface timeout",
+    "configure tun interface",
+  ];
+
+  /// 已核实的正常 TUN 日志（出现这些行就说明 TUN 其实是好的）。
+  static const List<String> kTunBenignMarkers = [
+    "auto detect interface",
+    "default interface changed",
+    "default interface lost",
+    "tun name failed",
+    "unsupported tunname",
+    "tun adapter listening at",
+    "use tun name",
+    "error writing to tun device",
+    "failed to read packet from tun device",
+  ];
+
+  /// 权限类特征（Windows ERROR_ACCESS_DENIED / POSIX EPERM）。
+  static const List<String> kTunPrivilegeMarkers = [
+    "access is denied",
+    "access denied",
+    "permission denied",
+    "operation not permitted",
+    "requires elevation",
+    "administrator",
+    "run as root",
+  ];
+
+  /// 网卡冲突特征（同名适配器已存在）。
+  static const List<String> kTunBusyMarkers = [
+    "already exists",
+    "already in use",
+    "address already in use",
+    "file exists",
+    "device is in use",
+    "in use",
+  ];
+
+  /// 驱动 / 依赖加载失败特征。
+  static const List<String> kTunDriverMarkers = [
+    "wintun",
+    "unable to load library",
+    "load library",
+    "driver",
+    ".dll",
+    "not found",
+  ];
+
+  /// TUN 启动失败的原因（供客户端给出**可执行**的提示，而不是万能句）。
+  @override
+  TunStartFailureKind tunFailureKind = TunStartFailureKind.none;
+
+  static bool _hasAny(String line, List<String> markers) =>
+      markers.any(line.contains);
+
+  /// 单行是否命中「真致命」标记；已知正常日志直接排除。
+  static bool isFatalTunLine(String line) {
+    final s = line.toLowerCase();
+    if (_hasAny(s, kTunBenignMarkers)) {
+      return false;
+    }
+    return _hasAny(s, kTunFatalMarkers);
+  }
+
+  /// 判定 + 分类（纯函数，日志尾部 → 失败原因）。
+  static TunStartFailureKind classifyTunFailure(String logTail) {
+    final lines = [for (final l in logTail.split("\n")) l.toLowerCase()];
+    var lastFatal = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (isFatalTunLine(lines[i])) {
+        lastFatal = i;
+      }
+    }
+    if (lastFatal < 0) {
+      return TunStartFailureKind.none;
+    }
+    final window = lines.sublist(
+      lastFatal,
+      (lastFatal + 4).clamp(0, lines.length),
+    );
+    if (window.any((l) => _hasAny(l, kTunPrivilegeMarkers))) {
+      return TunStartFailureKind.privilege;
+    }
+    if (window.any((l) => _hasAny(l, kTunDriverMarkers))) {
+      return TunStartFailureKind.driver;
+    }
+    if (window.any((l) => _hasAny(l, kTunBusyMarkers))) {
+      return TunStartFailureKind.adapterBusy;
+    }
+    return TunStartFailureKind.unknown;
+  }
+
+  /// 兼容旧调用：是否「TUN 不可用」。
   static bool logIndicatesTunUnavailable(String kernelLogTail) =>
-      kernelLogTail.contains("configure tun interface") ||
-      kernelLogTail.contains("Start TUN listening error");
+      classifyTunFailure(kernelLogTail) != TunStartFailureKind.none;
+
+  /// 给用户看的可执行提示（不是一句万能的「请以管理员身份运行」）。
+  static String tunFailureHint(TunStartFailureKind kind) {
+    switch (kind) {
+      case TunStartFailureKind.none:
+        return "";
+      case TunStartFailureKind.privilege:
+        return Platform.isWindows
+            ? "TUN 需要管理员权限：右键 Mclash →「以管理员身份运行」；"
+                  "或在「我的 → TUN 虚拟网卡」里选「关闭」（仅系统代理）。"
+            : "TUN 需要管理员权限：请以 root 启动 Mclash；"
+                  "或在「我的 → TUN 虚拟网卡」里选「关闭」（仅系统代理）。";
+      case TunStartFailureKind.adapterBusy:
+        return "虚拟网卡已被占用（同名网卡残留）：重启电脑后再试，"
+            "或在「网络连接」里删除名为 Mclash 的虚拟网卡。";
+      case TunStartFailureKind.driver:
+        return "虚拟网卡驱动加载失败（多被安全软件拦截）："
+            "把 Mclash 与 mihomo 加入杀毒/安全软件白名单后重试。";
+      case TunStartFailureKind.unknown:
+        return "TUN 启动失败（原因未能归类）：请在「我的 → 连接自检」里复制日志给客服。";
+    }
+  }
 
   Future<void> _applyDataPathFallback(File logFile) async {
     _systemProxyFallbackActive = false;
     final tail = await _tail(logFile, 40);
-    if (!logIndicatesTunUnavailable(tail)) {
+    final kind = classifyTunFailure(tail);
+    tunFailureKind = kind;
+    if (kind == TunStartFailureKind.none) {
       return;
     }
+    stderr.writeln(
+      "[mclash] TUN 启动失败（${kind.name}）→ ${tunFailureHint(kind)}",
+    );
     final port = _mixedPort;
     if (port <= 0) {
       return;

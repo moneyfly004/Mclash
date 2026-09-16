@@ -96,12 +96,14 @@ class ClashSettingManager {
     );
   }
 
-  /// TUN 是否启用：**只**看用户开关（Android 上的 VpnService 本身就是 TUN，恒开）。
+  /// TUN 是否启用：**只**看用户选择（Android 上的 VpnService 本身就是 TUN，恒开）。
+  ///
+  /// 「关闭」= 不建虚拟网卡（只走系统代理）；「自动 / 强制」= 建虚拟网卡。
   static bool tunEnabledByUser() {
     if (Platform.isAndroid) {
       return true;
     }
-    return SettingManager.getConfig().tunMode;
+    return SettingManager.getConfig().tunEnabled;
   }
 
   /// 每一轮生成内核配置前，把 TUN 开关同步到设置里。

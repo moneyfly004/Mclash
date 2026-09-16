@@ -487,12 +487,17 @@ class VPNService {
       }
     }
 
-    if (PlatformUtils.isPC() && !setting.autoSetSystemProxy) {
-      // 用户明确关掉了「连接后自动设置系统代理」→ 尊重它，不再每次连接都覆盖
-      // 系统代理（以前是无条件覆盖，用户会感觉「这设置改不动 / 我的代理总被改掉」）。
-      // 但 TUN 需要管理员权限；真降级时仍由内核侧的兜底逻辑补上系统代理，
-      // 保证「关掉开关」不会变成「连上了却完全没网」。
-      Log.i("VPNService: 已关闭「连接后自动设置系统代理」，跳过自动设置（可在应用设置→系统代理手动设置）");
+    if (PlatformUtils.isPC() && !shouldApplySystemProxy()) {
+      // 跳过是**有理由的**，必须写清楚：用户看到的「连上了系统代理是空的」
+      // 十有八九就是这里的某一条（以前只记一条笼统日志，排查全靠猜）。
+      Log.w("VPNService: 未设置系统代理 —— ${systemProxySkipReason()}");
+      if (PlatformUtils.isPC() && SettingManager.getConfig().tunEnabled) {
+        // TUN 起不来时不能让用户「既没 TUN 又没代理」：内核侧兜底会写系统代理，
+        // 这里再补一道，并把结果如实记下来。
+        if (VPNService.systemProxyFallbackActive) {
+          Log.w("VPNService: TUN 未生效，已由兜底逻辑改用系统代理");
+        }
+      }
     } else if (PlatformUtils.isPC()) {
       // 顺序很关键：**先问内核它到底监听哪个端口**，再据此设系统代理。
       // 旧实现在 start() 里既不修端口也不问内核，直接拿设置里的值去设：
@@ -617,7 +622,9 @@ class VPNService {
     _proxyWatchdog?.cancel();
     _proxyWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
       try {
-        if (!shouldApplySystemProxy()) {
+        // TUN 打开但**没起来**（内核侧已回退到系统代理）时，代理必须继续维持住，
+        // 否则 TUN 死掉 + 代理被清理 = 用户彻底没网。
+        if (!shouldApplySystemProxy() && !systemProxyFallbackActive) {
           return;
         }
         final expect = ClashSettingManager.getMixedPort();
@@ -663,12 +670,17 @@ class VPNService {
     return PlatformUtils.isPC();
   }
 
-  /// 是否应该由我们**主动**去写系统代理。
+  /// 是否应该由我们**主动**去写系统代理（**唯一判定点**）。
   ///
-  /// 用户要求：「默认系统代理生效；要用 TUN 就用首页的开关」。
-  /// TUN 打开时数据通路是虚拟网卡，再去改系统代理等于两套机制同时生效
-  /// （用户反馈的「系统代理和 tun 同时生效」），所以这里直接不写；
-  /// 万一 TUN 起不来（没有管理员权限），内核侧会自己把系统代理指过来兜底。
+  /// 三件事必须一起看，缺一个就会出现用户报过的现象：
+  ///   * 平台：只有桌面端有「系统代理」这件事；
+  ///   * TUN 开关：打开时数据通路是虚拟网卡，再改系统代理等于两套机制同时生效
+  ///     （用户反馈的「系统代理和 tun 同时生效」）；
+  ///   * 应用设置里的「连接后自动设置系统代理」：用户显式关掉时要尊重
+  ///     —— **但**旧版本在桌面端默认 false、用户从没关过，于是升级后
+  ///     「连上了系统代理一直是空的」（用户反馈：「无论规则还是全局，
+  ///     电脑的系统代理都没有配置」）。老默认值现在由
+  ///     [SettingConfig._migrate] 一次性纠正，这里只管用户真正的选择。
   static bool shouldApplySystemProxy() {
     if (!getSupportSystemProxy()) {
       return false;
@@ -676,7 +688,28 @@ class VPNService {
     if (Platform.isAndroid) {
       return false;
     }
-    return !SettingManager.getConfig().tunMode;
+    final setting = SettingManager.getConfig();
+    // 「强制」= 只走 TUN，不再动系统代理；「关闭 / 自动」都保留系统代理
+    // （自动 = 双保险：TUN 万一没起来，系统代理还在，用户不会断网）。
+    if (setting.tunOnly) {
+      return false;
+    }
+    return setting.autoSetSystemProxy;
+  }
+
+  /// 为什么没有写系统代理（给界面/日志用，避免用户只看到「没生效」）。
+  static String systemProxySkipReason() {
+    if (!getSupportSystemProxy()) {
+      return "当前平台不支持系统代理（仅 Windows / macOS）";
+    }
+    final setting = SettingManager.getConfig();
+    if (setting.tunOnly) {
+      return "TUN 模式为「强制」：由虚拟网卡接管全部流量，不再改系统代理";
+    }
+    if (!setting.autoSetSystemProxy) {
+      return "已关闭「连接后自动设置系统代理」（应用设置 → 系统代理）";
+    }
+    return "";
   }
 
   /// 退出/清理时把系统代理恢复原状。
@@ -703,6 +736,13 @@ class VPNService {
   /// 系统里的代理设置保持原样是正常的。
   static bool get systemProxyFallbackActive =>
       FlutterVpnService.systemProxyFallbackActive;
+
+  /// TUN 启动失败的原因（none = 没失败）。
+  ///
+  /// 首页状态行/连接自检用它给出**具体**原因（权限 / 网卡残留 / 驱动被拦），
+  /// 而不是一句万能的「请以管理员身份运行」。
+  static TunStartFailureKind get tunFailureKind =>
+      FlutterVpnService.tunFailureKind;
 
   /// 系统代理固定写入的本机回环地址（Windows/macOS 都不用局域网 IP：
   /// 用局域 IP 时本机应用反而绕不过去，而且会随网卡变化而失效）。
@@ -750,6 +790,48 @@ class VPNService {
 
   static bool isRunAsAdmin() {
     return _runAsAdmin;
+  }
+
+  /// TUN 是否具备必要条件（Windows 需要管理员权限才能建 wintun 网卡）。
+  ///
+  /// 没有权限时不是「静默失败」：内核侧会把系统代理指过来兜底；
+  /// 这里给界面一个明确的判断，好把「以管理员身份重启」这条路摆出来。
+  static bool tunPrerequisitesMet() {
+    if (!PlatformUtils.isPC()) {
+      return false;
+    }
+    if (Platform.isWindows && !_runAsAdmin) {
+      return false;
+    }
+    return true;
+  }
+
+  /// 以管理员身份重新启动本应用（Windows 专用；会弹 UAC）。
+  ///
+  /// 为什么需要：mihomo 建 wintun 虚拟网卡必须有管理员权限 —— 没权限时
+  /// 用户「开了 TUN」只会看到什么都没发生（没有虚拟网卡），这正是用户反馈的
+  /// 「开启 tun 模式也没有建立虚拟网卡」。与其让他自己去找「以管理员身份运行」，
+  /// 不如在开关上直接给一条路。
+  static Future<ReturnResultError?> relaunchAsAdmin() async {
+    if (!Platform.isWindows) {
+      return ReturnResultError("只有 Windows 需要以管理员身份重启");
+    }
+    try {
+      final exe = Platform.resolvedExecutable;
+      final result = await Process.run("powershell", [
+        "-NoProfile",
+        "-Command",
+        "Start-Process -FilePath '${exe.replaceAll("'", "''")}' -Verb RunAs",
+      ]);
+      if (result.exitCode != 0) {
+        return ReturnResultError(
+          "以管理员身份启动失败（UAC 被拒绝？）：${result.stderr.toString().trim()}",
+        );
+      }
+      return null;
+    } catch (err) {
+      return ReturnResultError(err.toString());
+    }
   }
 
   static Future<FlutterVpnServiceState> getState() async {

@@ -106,6 +106,24 @@ class ProxyOption {
   };
 }
 
+/// TUN 启动失败的原因分类（与客户端 UI 的提示一一对应）。
+enum TunStartFailureKind {
+  /// 没有失败（含「只有正常告警」的情况）
+  none,
+
+  /// 权限不足：Windows 未以管理员运行 / macOS 未以 root 运行
+  privilege,
+
+  /// 虚拟网卡已存在或被占用（同名适配器残留）
+  adapterBusy,
+
+  /// 虚拟网卡驱动 / DLL 无法加载（多被安全软件拦截）
+  driver,
+
+  /// 起来了但原因无法归类
+  unknown,
+}
+
 class VpnServiceConfig {
   /// 是否把 IPv6 流量也纳入隧道。
   ///

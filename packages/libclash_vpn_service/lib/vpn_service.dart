@@ -90,6 +90,9 @@ class FlutterVpnService {
 
   static bool get systemProxyFallbackActive => _p.systemProxyFallbackActive;
 
+  /// TUN 启动失败的原因（none = 没失败）。
+  static TunStartFailureKind get tunFailureKind => _p.tunFailureKind;
+
   static Future<void> firewallAddApp(String path, String name) async {
     await _p.firewallAddApp(path, name);
   }

@@ -27,6 +27,8 @@ import 'package:mclash/screens/mclash_orders_screen.dart';
 import 'package:mclash/screens/profiles_board_screen.dart';
 import 'package:mclash/screens/mclash_change_password_screen.dart';
 import 'package:mclash/screens/mclash_update_prompt.dart';
+import 'package:mclash/screens/mclash_tun_setting.dart';
+import 'package:mclash/screens/mclash_diagnostics_screen.dart';
 import 'package:mclash/screens/about_screen.dart';
 import 'package:mclash/screens/file_view_screen.dart';
 import 'package:mclash/screens/richtext_viewer.screen.dart';
@@ -393,11 +395,33 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           () => GroupHelper.newVersionUpdate(context),
           iconColor: Colors.red,
         ),
+      // TUN 虚拟网卡：桌面端的网络模式选择（关闭 / 自动 / 强制）。
+      // 参考实现把它放在「设置 → 代理与分流」里；我们放在「我的 → 应用设置」。
+      // 安卓不显示：那里的 VpnService 本身就是隧道，不是用户可选项
+      // （显示了就是个点了没用的假开关）。
+      if (PlatformUtils.isPC())
+        _settingRow(
+          "TUN 虚拟网卡",
+          Icons.lan_outlined,
+          () => MclashTunSetting.show(context),
+          trailingText: MclashTunSetting.label(
+            SettingManager.getConfig().tunMode,
+          ),
+          subtitle: MclashTunSetting.description(
+            SettingManager.getConfig().tunMode,
+          ),
+        ),
       // 常驻的「检查更新」：手动查一次，有新版本就提示并给下载/安装入口
       _settingRow(
         "检查更新",
         Icons.system_update_alt_outlined,
         () => MclashUpdatePrompt.checkManually(context),
+      ),
+      // 连接自检：把「走的哪条通路 / 为什么没生效」摊开，可一键复制
+      _settingRow(
+        "连接自检",
+        Icons.medical_information_outlined,
+        () => showMclashDiagnostics(context),
       ),
       _settingRow(
         t.meta.about,
@@ -712,14 +736,38 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     IconData icon,
     VoidCallback onTap, {
     Color? iconColor,
-  }) =>
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(icon, size: 20, color: iconColor),
-        title: Text(title, style: const TextStyle(fontSize: 15)),
-        trailing: const Icon(Icons.chevron_right, size: 20),
-        onTap: onTap,
-      );
+    String? trailingText,
+    String? subtitle,
+  }) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    leading: Icon(icon, size: 20, color: iconColor),
+    title: Text(title, style: const TextStyle(fontSize: 15)),
+    subtitle: subtitle == null
+        ? null
+        : Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.3,
+              color: ThemeDefine.kColorGrey,
+            ),
+          ),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (trailingText != null && trailingText.isNotEmpty)
+          Text(
+            trailingText,
+            style: const TextStyle(
+              fontSize: 13,
+              color: ThemeDefine.kColorGrey,
+            ),
+          ),
+        const Icon(Icons.chevron_right, size: 20),
+      ],
+    ),
+    onTap: onTap,
+  );
 
   void _push(Widget page) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));

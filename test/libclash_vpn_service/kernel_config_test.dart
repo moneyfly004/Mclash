@@ -57,6 +57,35 @@ rules:
       ..secret = "test-secret";
   }
 
+  test('TUN 开关真的传到内核配置（关=不建卡，开=建卡）', () async {
+    // App 层把「首页 TUN 开关」写进 patch 的 tun.enable；这里钉住「patch 里的
+    // tun 段会原样合并进最终配置」—— 用户反馈的「开了 TUN 没有虚拟网卡」，
+    // 只要这一步断了就必然发生（内核配置里根本没开 TUN）。
+    const patchOn = '{"tun":{"overwrite":true,"enable":true,"device":"Mclash",'
+        '"stack":"gvisor","auto-route":true,"auto-detect-interface":true,'
+        '"mtu":1280,"inet4-address":["172.19.0.1/30"],'
+        '"dns-hijack":["0.0.0.0:53"]}}';
+    const patchOff = '{"tun":{"overwrite":true,"enable":false,"device":"Mclash"}}';
+
+    final on = await buildKernelConfig(
+      await makeConfig(patchJson: patchOn),
+      checkPort: false,
+    );
+    final onDoc = loadYaml(on.yaml) as YamlMap;
+    final onTun = onDoc["tun"] as YamlMap;
+    expect(onTun["enable"], isTrue, reason: '开关打开时内核必须建虚拟网卡');
+    expect(onTun["device"], "Mclash", reason: 'Windows 上虚拟网卡名就是 Mclash');
+    expect(onTun["auto-route"], isTrue, reason: 'auto-route 才会「所有流量走网卡」');
+    expect(onTun["auto-detect-interface"], isTrue);
+
+    final off = await buildKernelConfig(
+      await makeConfig(patchJson: patchOff),
+      checkPort: false,
+    );
+    final offDoc = loadYaml(off.yaml) as YamlMap;
+    expect((offDoc["tun"] as YamlMap)["enable"], isFalse);
+  });
+
   test('基本配置：包含 external-controller / secret / mixed-port', () async {
     final cfg = await makeConfig();
     final r = await buildKernelConfig(cfg);

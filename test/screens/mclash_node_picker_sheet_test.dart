@@ -164,7 +164,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
-  testWidgets('弹层内搜索与按国家筛选都能用（不必跳页找节点）', (tester) async {
+  testWidgets('弹层内按名字搜索（不必跳页找节点）', (tester) async {
     await pumpSheet(tester);
 
     expect(find.byKey(const ValueKey("picker-node-🇯🇵 日本 01")), findsOneWidget);
@@ -175,23 +175,35 @@ void main() {
     expect(find.byKey(const ValueKey("picker-node-🇯🇵 日本 01")), findsOneWidget);
     expect(find.byKey(const ValueKey("picker-node-🇺🇸 美国 HY2")), findsNothing);
 
-    await tester.enterText(find.byType(TextField), "");
+    await tester.enterText(find.byType(TextField), "没有这个节点");
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey("picker-country-US")));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey("picker-node-🇺🇸 美国 HY2")), findsOneWidget);
-    expect(find.byKey(const ValueKey("picker-node-🇯🇵 日本 01")), findsNothing);
+    expect(find.textContaining("没有匹配的节点"), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));
   });
 
-  testWidgets('UDP 节点如实标注（内核没跑时不编延迟，说明连上内核就能测）', (tester) async {
+  testWidgets('不再有国家图标那一排（用户要求：不需要、还会溢出弹窗）', (tester) async {
     await pumpSheet(tester);
 
-    // 纯 UDP 协议（hysteria2/tuic/wireguard）在内核起来之前测不了，
-    // 但**连上内核后走内核 URLTest 就能测** —— 文案要如实说明，而不是暗示永远测不了。
-    expect(find.text("UDP 节点 · 连接内核后可测速"), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey("picker-country-all")),
+      findsNothing,
+      reason: '国家图标一排已按用户要求移除：主页本来就有「快速筛选国家」',
+    );
+    expect(find.byKey(const ValueKey("picker-country-US")), findsNothing);
+    expect(find.byKey(const ValueKey("picker-country-HK")), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('UDP 节点如实标注（不编延迟，用紧凑标签不占一行）', (tester) async {
+    await pumpSheet(tester);
+
+    // 纯 UDP 协议（hysteria2/tuic/wireguard）在内核起来之前测不了。
+    // 现在的呈现是**右侧一个小标签**（原来的两行副标题太占地方、弹层更挤）。
+    expect(find.text("UDP"), findsWidgets);
     expect(find.text("—"), findsWidgets, reason: '没测过就该显示占位符，而不是 0ms');
 
     await tester.pumpWidget(const SizedBox.shrink());

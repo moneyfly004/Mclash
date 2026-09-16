@@ -4,39 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
-import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
+import 'package:mclash/screens/mclash_tun_setting.dart';
 
-/// 主页 TUN 开关的回归。
-///
-/// 用户要求：
-///   * 「他默认是系统代理和 TUN 同时生效。我希望的是默认系统代理生效，
-///      如果要使用 TUN 模式，需要在这个首页设置一个 TUN 的开关」；
-///   * 「只有桌面端有 TUN 模式，安卓软件没有 TUN 模式」。
-///
-/// 所以这里钉三件事：
-///   1. 桌面端主页**有**这一行，且文案说清当前走哪条通路；
-///   2. 点一下真的改设置（并且落盘到 SettingConfig）；
-///   3. 安卓端**不显示** TUN 相关 UI（测试机不是安卓，所以用代码路径断言）。
-/// Linux 只是 CI 主机，不是产品平台（`PlatformUtils.isPC()` 仅 Windows/macOS）：
-/// TUN 相关的界面用例只在真正的桌面平台上跑，否则会误报失败。
-final bool kDesktopHost = PlatformUtils.isPC();
-/// `skip` 只认 bool（或 dynamic 的中文说明）；这里统一用 bool +
-/// reason 说明为什么在非桌面平台上跳过。
-final bool kSkipOnNonDesktop = !kDesktopHost;
-
+/// TUN 模式的位置与语义（用户两轮反馈之后定下来的）：
+///   * 用户：「只有桌面端有 TUN 模式，安卓没有」→ 安卓不显示；
+///   * 用户：「把 tun 的开关放到我的里面该放的位置，不要出现在首页」
+///     → 首页**不再有** TUN 开关，入口在「我的 → TUN 虚拟网卡」，
+///       高级参数在「我的 → 核心设置 → TUN」；
+///   * 语义与参考实现一致：关闭 / 自动（TUN + 系统代理）/ 强制（仅 TUN）。
 void main() {
   setUp(() {
-    SettingManager.getConfig().tunMode = false;
+    SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
     MclashNodesStore.instance.debugSetNodes([], loading: false);
     ClashHttpApi.getControlPort = () => 9090;
     ClashHttpApi.getSecret = () => "test";
   });
 
   tearDown(() {
-    SettingManager.getConfig().tunMode = false;
+    SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
     ClashHttpApi.getControlPort = null;
     ClashHttpApi.getSecret = null;
   });
@@ -60,65 +48,51 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   }
 
-  testWidgets('桌面端主页有 TUN 开关，默认关闭（提示走系统代理）', (tester) async {
-    expect(kDesktopHost, isTrue, reason: '测试机是桌面平台');
+  testWidgets('首页不再有 TUN 开关（按用户要求移到「我的」）', (tester) async {
     await pumpHome(tester);
-
-    expect(find.text("TUN 模式"), findsOneWidget);
-    expect(
-      find.textContaining("走系统代理"),
-      findsOneWidget,
-      reason: '默认状态下要告诉用户当前是系统代理在生效',
-    );
-    expect(SettingManager.getConfig().tunMode, isFalse);
-
+    expect(find.text("TUN 模式"), findsNothing);
+    expect(find.byKey(const ValueKey("home-tun-switch")), findsNothing);
     await finish(tester);
-  }, skip: kSkipOnNonDesktop);
+  });
 
-  testWidgets('点 TUN 开关：设置真的被改掉（未连接时不重连、只提示连接后生效）', (tester) async {
-    await pumpHome(tester);
+  test('三态语义：关闭 / 自动 / 强制（与参考实现一致）', () {
+    expect(MclashTunSetting.label(SettingConfig.kTunModeOff), "关闭");
+    expect(MclashTunSetting.label(SettingConfig.kTunModeAuto), "自动");
+    expect(MclashTunSetting.label(SettingConfig.kTunModeForce), "强制");
 
-    await tester.tap(find.byKey(const ValueKey("home-tun-switch")));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
+    // 关闭 = 仅系统代理（说明里要提到 UDP/游戏不生效，避免误解）
     expect(
-      SettingManager.getConfig().tunMode,
-      isTrue,
-      reason: '开关必须落到设置里（内核配置按它决定要不要建虚拟网卡）',
+      MclashTunSetting.description(SettingConfig.kTunModeOff),
+      contains("系统代理"),
     );
     expect(
-      find.textContaining("连接后生效"),
-      findsWidgets,
-      reason: '状态行 + 提示都要说明「连接后才生效」',
+      MclashTunSetting.optionDesc(SettingConfig.kTunModeOff),
+      contains("UDP"),
     );
+    // 自动 = TUN + 系统代理兜底
+    expect(
+      MclashTunSetting.optionDesc(SettingConfig.kTunModeAuto),
+      contains("兜底"),
+    );
+    // 强制 = 不再改系统代理
+    expect(
+      MclashTunSetting.optionDesc(SettingConfig.kTunModeForce),
+      contains("不再改系统代理"),
+    );
+  });
 
-    // 再点一下关回去
-    await tester.tap(find.byKey(const ValueKey("home-tun-switch")));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(SettingManager.getConfig().tunMode, isFalse);
-
-    await finish(tester);
-  }, skip: kSkipOnNonDesktop);
-
-  // 注意：这里用普通 test（不是 testWidgets）—— widget 测试的假时钟下
-  // 真实文件 I/O 的 future 永远不会完成，会直接卡住整轮测试。
-  test('安卓端不出现 TUN 开关（安卓没有 TUN 模式这个概念）', () async {
-    // 通过源码路径断言：TUN 那一行被包在 PlatformUtils.isPC() 里
-    final src = await File(
-      "lib/screens/home_screen_widgets.dart",
-    ).readAsString();
-    final idx = src.indexOf("_tunSwitchRow(context, connected)");
+  test('安卓端不出现 TUN 入口（安卓没有 TUN 模式这个概念）', () {
+    // 入口只在桌面端渲染：源码路径断言（测试机不是安卓，没法直接跑那条分支）
+    final profile = File(
+      "lib/screens/mclash_profile_screen.dart",
+    ).readAsStringSync();
+    final idx = profile.indexOf("MclashTunSetting.show(context)");
     expect(idx, greaterThan(0));
-    final guard = src.substring(
-      idx - 400 < 0 ? 0 : idx - 400,
-      idx,
-    );
+    final guard = profile.substring(idx - 600 < 0 ? 0 : idx - 600, idx);
     expect(
       guard.contains("PlatformUtils.isPC()"),
       isTrue,
-      reason: '开关必须只在桌面端渲染（安卓的 VpnService 不是用户可选的 TUN 模式）',
+      reason: '「我的」里的 TUN 行必须只在桌面端出现',
     );
   });
 }

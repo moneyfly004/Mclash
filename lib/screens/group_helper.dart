@@ -46,6 +46,7 @@ import 'package:mclash/screens/qrcode_scan_screen.dart';
 import 'package:mclash/screens/rule_providers_screen.dart';
 import 'package:mclash/screens/rule_templates_screen.dart';
 import 'package:mclash/screens/proxygroup_templates_screen.dart';
+import 'package:mclash/screens/mclash_tun_setting.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/themes.dart';
@@ -1674,25 +1675,52 @@ class GroupHelper {
       var extensions = setting.Extension!;
       final tunStacks = ClashTunStack.toList();
       List<GroupItemOptions> options = [
+        // TUN 模式（关闭 / 自动 / 强制）——这一页是 TUN 的**归属页**，
+        // 所以三态选择放在最上面（参考实现也是把 TUN 放在核心设置里）。
+        GroupItemOptions(
+          stringPickerOptions: GroupItemStringPickerOptions(
+            name: "TUN 模式",
+            tips: "off=仅系统代理 / auto=TUN+系统代理 / force=仅 TUN\n"
+                "桌面端 TUN 需要管理员权限（Windows 建 wintun / macOS 建 utun）",
+            selected: MclashTunSetting.label(SettingManager.getConfig().tunMode),
+            strings: const ["关闭", "自动", "强制"],
+            onPicker: (String? selected) async {
+              final mode = switch (selected) {
+                "自动" => SettingConfig.kTunModeAuto,
+                "强制" => SettingConfig.kTunModeForce,
+                _ => SettingConfig.kTunModeOff,
+              };
+              SettingManager.getConfig().tunMode = mode;
+              SettingManager.save();
+              // 内核侧每次生成配置都会按这个模式重写 tun.enable，这里同步一下，
+              // 免得界面上的「覆写/参数」看起来还停留在旧状态。
+              ClashSettingManager.syncTunSwitch();
+              Log.i("核心设置: TUN 模式 → $mode");
+              setstate?.call();
+            },
+          ),
+        ),
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
             name: tcontext.meta.overwrite,
+            tips: "overwrite\n"
+                "开 = 用这里的 TUN 设置覆盖订阅里的 tun 段\n"
+                "关 = 让订阅自己的 tun 配置生效（App 不插手）",
             switchValue: tun.OverWrite,
             onSwitch: (bool value) async {
               tun.OverWrite = value;
             },
           ),
         ),
+        // 注：「启用」不再单独给开关 —— 它由上面的 TUN 模式决定
+        //（关闭=不建卡；自动/强制=建卡）。两个开关同时存在必然打架：
+        // 内核侧每次生成配置都会按模式重写 enable，用户在这里改的值会被悄悄覆盖。
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
-            name: tcontext.meta.enable,
-            tips: "enable",
-            switchValue: tun.Enable,
-            onSwitch: tun.OverWrite != true
-                ? null
-                : (bool value) async {
-                    tun.Enable = value;
-                  },
+            name: "${tcontext.meta.enable}（由 TUN 模式决定）",
+            tips: "tun.enable",
+            switchValue: SettingManager.getConfig().tunEnabled,
+            onSwitch: null,
           ),
         ),
         GroupItemOptions(
