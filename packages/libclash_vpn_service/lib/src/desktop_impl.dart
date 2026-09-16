@@ -312,6 +312,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           message = "缺少内置分流数据（${_missingGeo.join("、")}），"
               "内核已尝试联网补拉并卡住。请检查网络后重试；"
               "若反复出现，说明安装包不完整，请重新下载完整安装包。";
+        } else if (kernelTail.contains("External controller listen error") ||
+            kernelTail.contains("controller listen error")) {
+          // 控制端口（Clash API）被占用 —— 与「混合端口被占用」是两回事：
+          // 前者是别的代理软件的内核占着 9090，后者是我们的入站端口冲突。
+          // 上层每次连接前都会自动挑空闲控制端口，所以走到这里说明是运行中被抢占。
+          message =
+              "控制端口 ${cfg.control_port} 被占用（另一个代理软件的内核可能在用 9090）。"
+              "已自动改用其它端口，请再点一次连接。";
         } else if (kernelTail.contains("address already in use")) {
           message = "本地代理端口被占用（多为另一个代理程序或残留内核仍在运行）。"
               "请退出其它代理软件后重试，或在「核心设置」中更换本地端口。";
@@ -1407,8 +1415,8 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
   /// 错误的方向（重装多少次都一样）。
   ///
   /// 改为返回应用支持目录，与 [getApplicationSupportDir] 保持一致：
-  ///   macOS   ~/Library/Application Support/<bundleId>
-  ///   Windows %APPDATA%\<appId>
+  ///   macOS   `~/Library/Application Support/<bundleId>`
+  ///   Windows `%APPDATA%\<appId>`
   /// 内核副本、geo 数据、日志都落在这里，且该目录必然可写、无需额外权限。
   @override
   Future<Directory?> getAppGroupDirectory(String groupId) async =>

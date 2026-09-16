@@ -27,6 +27,17 @@ import 'package:path/path.dart' as p;
 
 void main() {
   test('真实内核：被强杀后自动恢复（不再"默默断开"）', () async {
+    // 无论成功失败，都要把本脚本拉起来的内核清掉（否则会和后续验证抢端口）
+    addTearDown(() async {
+      for (final d in Directory.systemTemp.listSync()) {
+        final name = d.path.split(Platform.pathSeparator).last;
+        if (name.startsWith("autorecover_e2e") ||
+            name.startsWith("port_conflict") ||
+            name.startsWith("tun_switch_")) {
+          await killWorkspaceKernels(d.path);
+        }
+      }
+    });
     final mihomo =
         Platform.environment['MCLASH_MIHOMO'] ??
         '/Applications/Mclash.app/Contents/MacOS/mihomo';
@@ -124,6 +135,7 @@ void main() {
     final cfgResp = await cfgReq.close();
     final cfgBody = await cfgResp.transform(const SystemEncoding().decoder).join();
     cfgClient.close(force: true);
+    print("内核 /configs 片段: ${cfgBody.length > 300 ? cfgBody.substring(0, 300) : cfgBody}");
     final m = RegExp(r'"mixed-port"\s*:\s*(\d+)').firstMatch(cfgBody);
     final mixedPort = int.tryParse(m?.group(1) ?? "") ?? 0;
     expect(mixedPort, greaterThan(0), reason: '内核应报出 mixed-port');
@@ -150,4 +162,27 @@ Future<List<int>> _mihomoPids(String workDir) async {
     for (final line in r.stdout.toString().split("\n"))
       if (int.tryParse(line.trim()) != null) int.parse(line.trim()),
   ];
+}
+
+/// 清掉本脚本自己拉起来的内核（按 `-d <本脚本的临时工作目录>` 精确匹配）：
+/// 这些残留会继续占着控制端口与混合端口，让后续验证互相干扰。
+Future<void> killWorkspaceKernels(String workDir) async {
+  try {
+    final r = await Process.run("pgrep", ["-f", "mihomo"]);
+    if (r.exitCode != 0) {
+      return;
+    }
+    for (final line in r.stdout.toString().split("\n")) {
+      final pid = int.tryParse(line.trim());
+      if (pid == null) {
+        continue;
+      }
+      final cmd = await Process.run("ps", ["-p", "$pid", "-o", "command="]);
+      if (!cmd.stdout.toString().contains(workDir)) {
+        continue;
+      }
+      Process.killPid(pid, ProcessSignal.sigkill);
+      print("清理本脚本的内核 pid=$pid");
+    }
+  } catch (_) {}
 }

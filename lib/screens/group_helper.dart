@@ -995,7 +995,7 @@ class GroupHelper {
           ),
         ),
         // 「连接后自动设置系统代理」「绕过域名」「系统代理状态」都是 PC 专属能力：
-        // Android/iOS 没有可供 App 修改的系统代理（Android 走 VpnService 的 TUN），
+        // Android 没有可供 App 修改的系统代理（它走 VpnService 的 TUN），
         // 以前这些开关在手机上也照常显示，点了毫无作用 —— 用户看到的就是
         // 「这个设置改不动」。所以在移动端直接不显示。
         if (VPNService.getSupportSystemProxy()) ...[
@@ -1811,7 +1811,7 @@ class GroupHelper {
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: "includeAllNetworks",
-              tips: "iOS 14.0+;macOS 10.15+",
+              tips: "macOS 10.15+",
               switchValue: extensions.Tun.includeAllNetworks,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1823,7 +1823,7 @@ class GroupHelper {
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: "excludeLocalNetworks",
-              tips: "iOS 14.2+;macOS 10.15+",
+              tips: "macOS 10.15+",
               switchValue: extensions.Tun.excludeLocalNetworks,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1835,7 +1835,7 @@ class GroupHelper {
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: "excludeCellularServices",
-              tips: "iOS 16.4+;macOS 13.3+",
+              tips: "macOS 13.3+",
               switchValue: extensions.Tun.excludeCellularServices,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1847,7 +1847,7 @@ class GroupHelper {
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: "excludeAPNs",
-              tips: "iOS 16.4+;macOS 13.3+",
+              tips: "macOS 13.3+",
               switchValue: extensions.Tun.excludeApns,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1859,7 +1859,7 @@ class GroupHelper {
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: "excludeDeviceCommunication",
-              tips: "iOS 17.4+;macOS 14.4+",
+              tips: "macOS 14.4+",
               switchValue: extensions.Tun.excludeDeviceCommunication,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1871,7 +1871,7 @@ class GroupHelper {
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
               name: "enforceRoutes",
-              tips: "iOS 14.2+;macOS 11.0+",
+              tips: "macOS 11.0+",
               switchValue: extensions.Tun.enforceRoutes,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null

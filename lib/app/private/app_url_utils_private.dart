@@ -2,7 +2,7 @@
 library;
 
 
-const List<String> ProxyBypassDoaminsDefault = [
+const List<String> proxyBypassDomainsDefault = [
   "<local>",
   "localhost",
   "127.*",

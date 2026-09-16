@@ -637,6 +637,9 @@ class MyAppState extends State<MyApp>
     ];
     _menu = Menu(items: items);
     await trayManager.setContextMenu(_menu!);
+    // bringAppToFront 在 Windows 上是「弹托盘菜单时把窗口提到最前」，
+    // 正是我们要的行为；官方弃用是因为它只在 Windows 生效，尚无替代项。
+    // ignore: deprecated_member_use
     await trayManager.popUpContextMenu(bringAppToFront: true);
   }
 

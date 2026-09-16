@@ -80,9 +80,14 @@ class SecureStorage {
   }
 
   static FlutterSecureStorage _initStorage() {
-    AndroidOptions getAndroidOptions() =>
-
-        const AndroidOptions(encryptedSharedPreferences: true);
+    // Android 上必须显式开启 EncryptedSharedPreferences —— 这是
+    // flutter_secure_storage 提供的「加密存储」开关，关掉会退回明文。
+    // 插件标记它弃用是因为 Google 弃用了 Jetpack Security 库，但插件尚无
+    // 等价的替代参数，所以在有替代方案之前保留（迁移时插件会自动迁移数据）。
+    AndroidOptions getAndroidOptions() => const AndroidOptions(
+      // ignore: deprecated_member_use
+      encryptedSharedPreferences: true,
+    );
 
     return FlutterSecureStorage(
       aOptions: getAndroidOptions(),

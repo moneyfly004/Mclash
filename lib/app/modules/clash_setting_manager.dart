@@ -272,7 +272,7 @@ class ClashSettingManager {
   }
 
   static RawExtension defaultExtension() {
-    const bypassDomainLocal = ProxyBypassDoaminsDefault;
+    const bypassDomainLocal = proxyBypassDomainsDefault;
     List<String> bypassDomainCN = Platform.isAndroid
         ? [
             "*zhihu.com",

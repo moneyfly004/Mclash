@@ -4,9 +4,11 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:protocol_handler/protocol_handler.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
@@ -74,12 +76,38 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
 
   static const Duration _resumeSyncMinGap = Duration(minutes: 30);
 
+  /// 冷启动时从系统拿到的深链接（Android 的 protocol_handler 插件）。
+  ///
+  /// 为什么需要它：`mclash://connect` 这种链接**拉起 App**（冷启动）时，Dart 侧
+  /// 只能通过 `getInitialUrl()` 拿到 —— 以前只读了桌面端的启动参数，于是：
+  ///   * 安卓磁贴点「连接」→ App 打开了但**不会连**；
+  ///   * 通知栏/桌面快捷方式/浏览器里的 mclash 链接同理。
+  String _initialUrl = "";
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     CBoardClient.sessionChanges.addListener(_onSessionChanged);
     _restore();
+    unawaited(_loadInitialDeepLink());
+  }
+
+  /// 读取「拉起 App 的那条深链接」并把它交给主界面处理（主界面会走连接流程）。
+  Future<void> _loadInitialDeepLink() async {
+    if (!PlatformUtils.isMobile()) {
+      return;
+    }
+    try {
+      final url = await protocolHandler.getInitialUrl();
+      if (!mounted || url == null || url.isEmpty) {
+        return;
+      }
+      Log.i("MclashGate: 冷启动深链接 $url");
+      setState(() => _initialUrl = url);
+    } catch (e) {
+      Log.w("MclashGate: 读取冷启动深链接失败（忽略）$e");
+    }
   }
 
   @override
@@ -198,7 +226,12 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
       case MclashGateStage.prepareFailed:
         return _buildPrepareFailed(context);
       case MclashGateStage.main:
-        return MainTabShell(launchUrl: widget.launchUrl);
+        // 启动参数（桌面端）与冷启动深链接（安卓）二者取其一
+        return MainTabShell(
+          launchUrl: widget.launchUrl.isNotEmpty
+              ? widget.launchUrl
+              : _initialUrl,
+        );
       case MclashGateStage.loading:
         return _buildLoading(context);
     }

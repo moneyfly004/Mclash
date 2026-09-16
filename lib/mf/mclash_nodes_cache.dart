@@ -79,4 +79,22 @@ abstract final class MclashNodesCache {
       return 0;
     }
   }
+
+  /// 延迟缓存的年龄（文件修改时间到现在）。文件不存在返回 null。
+  ///
+  /// 用途：判断「这批延迟还新不新鲜」，从而决定连接后要不要重新全量测速
+  /// （省电、省流量 —— 手机用户对这点很敏感）。
+  static Future<Duration?> age() async {
+    try {
+      final f = await _file();
+      if (!await f.exists()) {
+        return null;
+      }
+      final stat = await f.stat();
+      return DateTime.now().difference(stat.modified);
+    } catch (e) {
+      Log.w("MclashNodesCache.age 失败 $e");
+      return null;
+    }
+  }
 }

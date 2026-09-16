@@ -8,6 +8,10 @@ environment:
   flutter: ">=3.44.0"
 
 dependencies:
+  async: 2.13.0
+  win32: 5.15.0 # windows_version_helper 直接用（原来是传递依赖）
+  convert: 3.1.2
+  image: 4.5.4
   flutter:
     sdk: flutter
   flutter_localizations:

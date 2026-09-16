@@ -55,7 +55,7 @@ secret: $secret
     final m = RegExp(r"^proxies:\s*\n(\s*)-", multiLine: true).firstMatch(raw);
     final indent = m?.group(1) ?? "    ";
     final extra =
-        "${indent}- {name: \"MCLASH-E2E-HY2\", type: hysteria2, "
+        "$indent- {name: \"MCLASH-E2E-HY2\", type: hysteria2, "
         "server: 127.0.0.1, port: 1, password: x, skip-cert-verify: true}\n";
     // 订阅配置档自带 mode / log-level / external-controller 等键，
     // 直接在前面再接一份会「mapping key already defined」→ 先删掉它们。

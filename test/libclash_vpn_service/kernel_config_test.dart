@@ -88,13 +88,42 @@ rules:
 
   test('基本配置：包含 external-controller / secret / mixed-port', () async {
     final cfg = await makeConfig();
-    final r = await buildKernelConfig(cfg);
+    // checkPort:false：这里验的是「配置合并结果」，不是宿主机的端口占用情况。
+    // 开着检测的话，宿主机上恰好有人占着 7890（比如本机正在跑的另一个客户端）
+    // 就会自动换端口 —— 那是正确行为，但会让这个断言变得依赖运行环境。
+    final r = await buildKernelConfig(cfg, checkPort: false);
     expect(r.yaml.trim().isNotEmpty, isTrue, reason: '绝不能是空配置（安卓真实事故）');
     final doc = loadYaml(r.yaml) as YamlMap;
     expect(doc["external-controller"], "127.0.0.1:19099");
     expect(doc["secret"], "test-secret");
     expect(doc["mixed-port"], 7890);
     expect(doc["proxies"], isNotNull, reason: '订阅节点必须还在配置里');
+  });
+
+  test('端口被占用时自动换端口（不许生成「没人监听」的配置）', () async {
+    // 真实事故：内核入站绑的是 *:port，而检测只看了回环地址 → 误判为空闲 →
+    // 内核起来后 Mixed server bind 失败，用户看到「连上了却没有入站监听」。
+    final squatter = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    final busy = squatter.port;
+    try {
+      final cfg = await makeConfig();
+      cfg.core_path_patch_final = "";
+      final profile = File(p.join(tmp.path, "profile.yaml"));
+      final text = await profile.readAsString();
+      await profile.writeAsString(
+        text.replaceFirst("mixed-port: 7890", "mixed-port: $busy"),
+      );
+      final r = await buildKernelConfig(cfg);
+      expect(
+        r.mixedPort,
+        isNot(busy),
+        reason: '端口被通配地址占着就必须换一个',
+      );
+      final doc = loadYaml(r.yaml) as YamlMap;
+      expect(doc["mixed-port"], r.mixedPort);
+    } finally {
+      await squatter.close();
+    }
   });
 
   test('设置了 patch（安卓连接时必然发生）也仍然产出完整配置', () async {

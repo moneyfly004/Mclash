@@ -88,6 +88,20 @@ class AutoUpdateCheckVersion {
 
 class AutoUpdateManager {
   static final List<void Function()> onEventCheck = [];
+
+  /// 注册「检查更新有结果」回调。**必须成对移除**（[removeCheckListener]）：
+  /// 以前的写法是直接 `onEventCheck.add(...)` 且从不移除，于是每次重建主界面
+  /// 都会多挂一个回调 —— 回调里 `setState` 打在已经销毁的 State 上会抛异常，
+  /// 列表本身也会一直变长（用户要求：排查竞态、减少内存占用）。
+  static void addCheckListener(void Function() cb) {
+    if (!onEventCheck.contains(cb)) {
+      onEventCheck.add(cb);
+    }
+  }
+
+  static void removeCheckListener(void Function() cb) {
+    onEventCheck.remove(cb);
+  }
   static Timer? _timerChecker;
   static bool _checking = false;
   static final FileSaver _fileSaver = FileSaver();

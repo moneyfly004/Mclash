@@ -156,8 +156,51 @@ class MclashNodesStore extends ChangeNotifier {
       Log.w("MclashNodesStore: 自动选最优节点失败 $e");
     }
 
-    await testAll();
+    // **不再无条件全量测速。**
+    //
+    // 旧行为：每次连接成功都把所有节点（订阅动辄 316 个）重新测一遍 ——
+    // 12 路并发 × 每个节点探测 3 次，连接后要连发近千次连接请求。手机上是实打实的
+    // 耗电与流量（用户要求「减少耗电」），而绝大多数节点的延迟刚刚测过、没有变化。
+    // 现在只测「没有可用延迟 / 缓存太旧」的那些；全都新鲜就跳过（自动选最优用的是
+    // 缓存值，行为不变）。
+    final stale = staleNodes();
+    if (stale.isEmpty) {
+      Log.i(
+        "MclashNodesStore: 连接成功，${_nodes.length} 个节点的延迟缓存都还新鲜（"
+        "${latencyCacheFresh.inHours}h 内），跳过全量测速",
+      );
+      return;
+    }
+    Log.i("MclashNodesStore: 连接成功，只测 ${stale.length}/${_nodes.length} 个需要更新的节点");
+    await testAll(subset: stale);
   }
+
+  /// 延迟缓存的新鲜期：在这之内不重复测速（省电、省流量）。
+  static const Duration latencyCacheFresh = Duration(hours: 6);
+
+  /// 需要重新测速的节点：没有可用延迟的，或缓存时间过期的。
+  ///
+  /// 节点没有单独的测速时间戳（缓存文件只存延迟本身），所以用**缓存文件的
+  /// 修改时间**作为整批延迟的时间基准：文件是刚刚写入的就说明这批延迟是新的。
+  List<MclashNode> staleNodes() {
+    final missing = _nodes
+        .where((n) => !n.latencyUsable || n.latencyMs <= 0)
+        .toList();
+    if (missing.isNotEmpty) {
+      return missing;
+    }
+    if (_latencyCacheAge != null &&
+        _latencyCacheAge! < latencyCacheFresh) {
+      return const [];
+    }
+    return List.of(_nodes);
+  }
+
+  /// 最近一次延迟缓存的「年龄」（载入时记录；未知时为 null）。
+  Duration? _latencyCacheAge;
+
+  @visibleForTesting
+  void debugSetLatencyCacheAge(Duration? age) => _latencyCacheAge = age;
 
   String autoPickNote = "";
 
@@ -265,6 +308,7 @@ class MclashNodesStore extends ChangeNotifier {
       //   · 已连接时由 MclashAccountService 断开。
       _applySubscriptionNotice(MclashSubscriptionNodes.lastNotice);
       final hit = await MclashNodesCache.apply(nodes);
+      _latencyCacheAge = await MclashNodesCache.age();
       if (generation != _loadGeneration) {
         // 已经有更新的一轮在跑（例如用户手动更新订阅），这轮的旧结果直接丢弃。
         Log.i("MclashNodesStore: 丢弃过期结果（第 $generation 轮）");

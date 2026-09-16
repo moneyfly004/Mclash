@@ -417,8 +417,11 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     if (!mounted) {
       return;
     }
-    final sheetNavigator = Navigator.of(sheetContext);
-    sheetNavigator.pop();
+    // 关掉支付方式面板：这里用的是面板自己的 context，
+    // 所以要按**它**的 mounted 判断（外层 State 的 mounted 管不到它）。
+    if (sheetContext.mounted) {
+      Navigator.of(sheetContext).pop();
+    }
 
     bool ok = false;
     final payType = MclashPay.payTypeOf(method);

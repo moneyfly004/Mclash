@@ -26,9 +26,7 @@ import 'package:mclash/mf/mclash_subscription_revision.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:libclash_vpn_service/proxy_manager.dart';
-import 'package:libclash_vpn_service/src/desktop_impl.dart';
 import 'package:libclash_vpn_service/state.dart';
-import 'package:libclash_vpn_service/vpn_service.dart';
 import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
@@ -196,7 +194,7 @@ class VPNService {
     _lastMissingGeo = missingGeo;
     // geo 数据（country.mmdb / geosite.dat / ASN）仍在**安装目录**里，把它注册为
     // 查找来源；否则换了工作目录后 geo 会"找不到"，内核转去 GitHub 下载（不可达 → 卡死）。
-    DesktopVpnServiceImpl.cfg0AssetsDir = PathUtils.appAssetsDir();
+    FlutterVpnService.setAssetsDir(PathUtils.appAssetsDir());
     config.cache_dir = await PathUtils.cacheDir();
     if (patch.type == ProfilePatchFileType.yaml) {
       config.core_path = corePath;
@@ -335,7 +333,7 @@ class VPNService {
     return prev.then((_) async {
       final waited = _opHolder.isNotEmpty;
       if (waited) {
-        Log.i("VPNService: $name 等待前一个操作(${_opHolder})完成");
+        Log.i("VPNService: $name 等待前一个操作($_opHolder)完成");
       }
       _opHolder = name;
       try {
@@ -639,17 +637,29 @@ class VPNService {
     await ClashSettingManager.setMixedPort(picked);
   }
 
+  /// 端口是否可用。
+  ///
+  /// **必须连通配地址一起测**：内核的入站监听绑的是 `*:port`，只测回环会出现
+  /// 「回环绑得上、实际端口已被别人占用」的误判（真实事故，见 kernel_config.dart）。
   static Future<bool> _portFree(int port) async {
     if (port <= 0) {
       return false;
     }
-    try {
-      final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-      await s.close();
-      return true;
-    } catch (_) {
-      return false;
+    for (final addr in [
+      InternetAddress.anyIPv4,
+      InternetAddress.anyIPv6,
+      InternetAddress.loopbackIPv4,
+    ]) {
+      ServerSocket? s;
+      try {
+        s = await ServerSocket.bind(addr, port);
+      } catch (_) {
+        return false;
+      } finally {
+        await s?.close();
+      }
     }
+    return true;
   }
 
   static Future<int> _pickFreePort() async {

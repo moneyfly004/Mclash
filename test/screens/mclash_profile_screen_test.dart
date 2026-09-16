@@ -81,9 +81,21 @@ void main() {
     ClashHttpApi.getSecret = null;
   });
 
+  /// 路由观察者：数「有没有发生跳转」必须看 push 事件 ——
+  /// push 之后旧路由会被从树里移除，`find.byType(Scaffold)` 的个数并不可靠。
+  final pushed = <String>[];
+
   Future<void> pump(WidgetTester tester) async {
+    pushed.clear();
     await tester.pumpWidget(
-      TranslationProvider(child: const MaterialApp(home: MclashProfileScreen())),
+      TranslationProvider(
+        child: MaterialApp(
+          home: const MclashProfileScreen(),
+          navigatorObservers: [
+            _RecordingObserver((name) => pushed.add(name)),
+          ],
+        ),
+      ),
     );
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -312,4 +324,65 @@ void main() {
 
     await finish(tester);
   });
+
+  /// 「我的」里**每一个可点行都要有点反应**（打开页面 / 弹提示 / 弹面板）。
+  ///
+  /// 用户要求：「检查我里边所有的按钮，所有的选项，它的作用，有些有问题的，
+  /// 帮我解决」。这里不是断言「有没有这一行」，而是逐个点下去看结果 ——
+  /// 点不动、点了没反应、或者直接把异常文本弹出来，都算问题。
+  testWidgets('逐行点一遍：每行都要有事发生（不能点了没反应）', (tester) async {
+    // 测试环境的界面语言是英文，而这些文案走 i18n（部分是我们后加的硬编码中文），
+    // 所以每行都用「中英任选其一」来定位。
+    final rows = <String, List<String>>{
+      "我的订单": ["我的订单", "My Orders"],
+      "设备管理": ["设备管理", "Devices"],
+      "修改密码": ["修改密码", "Change Password"],
+      "连接自检": ["连接自检"],
+      "检查更新": ["检查更新"],
+      "控制面板": ["面板", "Board"],
+      "网络检测": ["网络检测", "Network Check"],
+      "核心日志": ["核心日志", "Core Log"],
+      "运行时配置": ["运行时配置", "Runtime Profile"],
+      "应用设置": ["应用设置", "App Settings"],
+      "核心设置": ["核心设置", "Core Settings"],
+      "备份与同步": ["备份与同步", "Backup and Sync"],
+      "关于": ["关于", "About"],
+    };
+    for (final entry in rows.entries) {
+      await pump(tester);
+      final finder = textAnyOf(entry.value);
+      await scrollTo(tester, finder);
+      await tester.tap(finder);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(seconds: 1));
+
+      // 「有事发生」= 发生了一次路由 push，或出现了弹窗/底部面板
+      final hasRoute = pushed.isNotEmpty;
+      final hasDialog =
+          find.byType(SimpleDialog).evaluate().isNotEmpty ||
+          find.byType(AlertDialog).evaluate().isNotEmpty ||
+          find.byType(Dialog).evaluate().isNotEmpty;
+      final hasSheet = find.byType(BottomSheet).evaluate().isNotEmpty;
+      expect(
+        hasRoute || hasDialog || hasSheet,
+        isTrue,
+        reason: '「${entry.key}」点下去没有任何反应（页面/弹窗都没出现）',
+      );
+      await finish(tester);
+    }
+  });
+}
+
+/// 只记录 push 的路由观察者（测试用）。
+class _RecordingObserver extends NavigatorObserver {
+  _RecordingObserver(this.onPush);
+
+  final void Function(String name) onPush;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    onPush(route.settings.name ?? route.runtimeType.toString());
+  }
 }

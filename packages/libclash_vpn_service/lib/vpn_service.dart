@@ -18,6 +18,13 @@ class FlutterVpnService {
 
   static VpnServicePlatform get _p => VpnServicePlatform.instance;
 
+  /// 注入 App 资源根目录（安装目录下的 `data`）：内核找 geo 数据时用。
+  ///
+  /// 平台包不能依赖上层的 PathUtils，所以由应用层在启动时注入 —— 以前 app 层直接
+  /// import `src/desktop_impl.dart` 去设 `cfg0AssetsDir`（跨包 import src 是不被
+  /// 推荐的写法），这里给一个公开入口。
+  static void setAssetsDir(String dir) => DesktopVpnServiceImpl.cfg0AssetsDir = dir;
+
   static Future<FlutterVpnServiceState> get currentState async {
 
     return _p.state;

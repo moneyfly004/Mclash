@@ -257,17 +257,32 @@ String yamlScalar(dynamic v) {
   return '"${s.replaceAll(r'\', r'\\').replaceAll('"', r'\"').replaceAll('\n', r'\n')}"';
 }
 
+/// 端口是否可用（**必须同时检测通配地址**）。
+///
+/// 真实事故：mihomo 监听入站时绑的是 `*:7890`（所有网卡 + IPv6），而以前的检测
+/// 只 bind 了 `127.0.0.1:7890` —— 别的实例已经占着 `*:7890` 时，回环地址仍然绑得上，
+/// 于是我们判定「端口空闲」，内核起来后 `Start Mixed(http+socks) server error:
+/// listen tcp :7890: bind: address already in use`，界面表现就是「连上了但没有入站
+/// 监听 / 系统代理指向一个没人听的端口」。
 Future<bool> portFree(int port) async {
   if (port <= 0) {
     return false;
   }
-  try {
-    final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
-    await s.close();
-    return true;
-  } catch (_) {
-    return false;
+  for (final addr in [
+    InternetAddress.anyIPv4,
+    InternetAddress.anyIPv6,
+    InternetAddress.loopbackIPv4,
+  ]) {
+    ServerSocket? s;
+    try {
+      s = await ServerSocket.bind(addr, port);
+    } catch (_) {
+      return false;
+    } finally {
+      await s?.close();
+    }
   }
+  return true;
 }
 
 Future<int> pickFreePort() async {

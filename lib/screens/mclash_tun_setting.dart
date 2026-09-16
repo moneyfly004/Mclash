@@ -23,6 +23,9 @@ import 'package:mclash/screens/theme_define.dart';
 /// 在选中的那一刻就告诉用户，并直接给「以管理员身份重启」的入口，
 /// 而不是等他发现「开了没反应」。
 abstract final class MclashTunSetting {
+  /// 正在应用切换（会重连）；连点两次不该触发两次重连。
+  static bool _applying = false;
+
   /// 界面上的名字。
   static String label(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto => "自动",
@@ -72,6 +75,18 @@ abstract final class MclashTunSetting {
 
   /// 应用选择：落盘 → 需要时重连 → 提示。
   static Future<void> _apply(BuildContext context, String mode) async {
+    if (!context.mounted || _applying) {
+      return;
+    }
+    _applying = true;
+    try {
+      await _applyInner(context, mode);
+    } finally {
+      _applying = false;
+    }
+  }
+
+  static Future<void> _applyInner(BuildContext context, String mode) async {
     if (!context.mounted) {
       return;
     }

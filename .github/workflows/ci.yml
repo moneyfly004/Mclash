@@ -66,7 +66,7 @@ jobs:
             fi
           done
           # 必需源码不能被 gitignore 误伤（历史上踩过：/lib/app/private 被忽略）
-          for f in lib/app/private/app_url_utils_private.dart lib/generated/build_time.dart; do
+          for f in lib/app/private/app_url_utils_private.dart lib/i18n/strings.g.dart; do
             if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
               echo "::error::必需源码未被跟踪（可能被 .gitignore 误伤）: $f"
               fail=1

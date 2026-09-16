@@ -143,7 +143,7 @@ class SettingConfig {
   /// 「自动最优」时才改变（参考客户端 MoneyFly 的 lastSelectedTag 行为）。
   String fixedNode = "";
   bool autoSetSystemProxy = getAutoSetSystemProxyDefault();
-  List<String> systemProxyBypassDomain = ProxyBypassDoaminsDefault.toList();
+  List<String> systemProxyBypassDomain = proxyBypassDomainsDefault.toList();
   String _userAgent = "";
   bool boardOnline = false;
   String boardUrl = kDefaultBoardUrl;
@@ -260,7 +260,7 @@ class SettingConfig {
     systemProxyBypassDomain = ConvertUtils.getListStringFromDynamic(
       map["system_proxy_bypass_domain"],
       true,
-      ProxyBypassDoaminsDefault.toList(),
+      proxyBypassDomainsDefault.toList(),
     )!;
 
     _userAgent = map["user_agent"] ?? "";

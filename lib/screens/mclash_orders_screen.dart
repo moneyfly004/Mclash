@@ -158,7 +158,8 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                     child: ElevatedButton(
                       onPressed: () async {
                         final r = await MclashApi.orderStatus(orderNo);
-                        if (!context.mounted) return;
+                        // 这个 context 是 State 自己的 → 用 State 的 mounted
+                        if (!mounted) return;
                         final method =
                             (r?["payment_method"] ??
                                     o["payment_method_name"] ??

@@ -8,7 +8,6 @@ import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
 import 'package:mclash/app/modules/biz.dart';
 import 'package:mclash/app/modules/remote_config_manager.dart';
-import 'package:mclash/app/utils/app_lifecycle_state_notify.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/error_reporter_utils.dart';
 import 'package:mclash/app/utils/local_storage.dart';
@@ -164,12 +163,21 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     });
   }
 
+  /// 检查更新回调（dispose 时必须移除，否则每次重建主界面都会多挂一个）。
+  void _onUpdateChecked() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    // 有新版本时提示一次（同一版本用户点过「稍后」就不再打扰）
+    MclashUpdatePrompt.maybePromptOnLaunch(context);
+  }
+
   Future<void> _onInitAllFinish() async {
-    AutoUpdateManager.onEventCheck.add(() {
-      setState(() {});
-      // 有新版本时提示一次（同一版本用户点过「稍后」就不再打扰）
-      MclashUpdatePrompt.maybePromptOnLaunch(context);
-    });
+    if (!mounted) {
+      return;
+    }
+    AutoUpdateManager.addCheckListener(_onUpdateChecked);
     DialogUtils.faqCallback = (BuildContext context, String text) async {
       final tcontext = Translations.of(context);
       var remoteConfig = RemoteConfigManager.getConfig();
@@ -214,17 +222,17 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     FlutterVpnServiceState state,
     Map<String, String> params,
   ) async {
-    if (state == FlutterVpnServiceState.disconnected) {
-      Biz.vpnStateChanged(false);
-    } else if (state == FlutterVpnServiceState.connecting) {
-    } else if (state == FlutterVpnServiceState.connected) {
-      if (!AppLifecycleStateNofity.isPaused()) {}
-
+    if (!mounted) {
+      return;
+    }
+    // 只有「连上 / 断开」需要通知外部（托盘图标、桌面小组件）；
+    // 中间态（connecting / reasserting / disconnecting）界面自己会画转圈，
+    // 以前那些空 else-if 分支只是噪音。
+    if (state == FlutterVpnServiceState.connected) {
       Biz.vpnStateChanged(true);
-    } else if (state == FlutterVpnServiceState.reasserting) {
-    } else if (state == FlutterVpnServiceState.disconnecting) {
-    } else {}
-
+    } else if (state == FlutterVpnServiceState.disconnected) {
+      Biz.vpnStateChanged(false);
+    }
     setState(() {});
   }
 
@@ -243,6 +251,8 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
 
   @override
   void dispose() {
+    AutoUpdateManager.removeCheckListener(_onUpdateChecked);
+    VPNService.onEventStateChanged.remove(_onStateChanged);
     protocolHandler.removeListener(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

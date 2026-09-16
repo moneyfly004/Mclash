@@ -110,7 +110,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   @override
   void dispose() {
-    // 这两个定时器必须在这里取消：周期性状态检查（1s）会一直跑下去并持有
+    // 这两个定时器必须在这里取消：周期性状态检查（2s）会一直跑下去并持有
     // 已销毁的 State（测试里直接暴露成 "Pending timers"）。
     _timerStateChecker?.cancel();
     _timerStateChecker = null;
@@ -710,7 +710,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   void _startStateCheckTimer() {
-    const Duration duration = Duration(seconds: 1);
+    // 2 秒一次：连接/断开状态的主通道是**内核与原生侧推过来的事件**
+    // （VPNService.onEventStateChanged / 原生 notifyState），这个定时器只是
+    // 兜底对账。1 秒一次纯属多余唤醒（手机上是实打实的耗电），2 秒足够。
+    const Duration duration = Duration(seconds: 2);
     _timerStateChecker ??= Timer.periodic(duration, (timer) async {
       if (!Platform.isMacOS) {
         if (AppLifecycleStateNofity.isPaused()) {
@@ -768,7 +771,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   ///     Windows 的「设置 → 代理」保持原样是正常的（用户反馈的
   ///     「系统代理没改却可以上网」就是这种情况）；
   ///   * **系统代理**：TUN 起不来（Windows/macOS 需要管理员权限）时退而设置
-  ///     系统代理，此时必须能在系统里看到 127.0.0.1:<port>。
+  ///     系统代理，此时必须能在系统里看到 `127.0.0.1:<port>`。
   Future<void> _updateProxyMode() async {
     try {
       final enabled = await VPNService.getSystemProxyEnable();
@@ -835,7 +838,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       secret: ClashSettingManager.getConfig().Secret ?? "",
     );
     await _updateConnections();
-    const Duration duration = Duration(seconds: 1);
+    // 2 秒刷新一次界面：流量数字本身是 ClashTrafficWatcher 每 3 秒从内核推来的，
+    // 以前 1 秒刷一次只是把同一份数据重复渲染一遍（多出来的唤醒没有收益）。
+    const Duration duration = Duration(seconds: 2);
     _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
       if (AppLifecycleStateNofity.isPaused()) {
         return;

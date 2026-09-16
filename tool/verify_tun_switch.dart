@@ -34,6 +34,17 @@ void main() {
   final profilePath = Platform.environment['MCLASH_PROFILE'] ?? '';
 
   test('真实内核：TUN 开关（关=只用系统代理，开=建虚拟网卡）', () async {
+    // 无论成功失败，都要把本脚本拉起来的内核清掉（否则会和后续验证抢端口）
+    addTearDown(() async {
+      for (final d in Directory.systemTemp.listSync()) {
+        final name = d.path.split(Platform.pathSeparator).last;
+        if (name.startsWith("autorecover_e2e") ||
+            name.startsWith("port_conflict") ||
+            name.startsWith("tun_switch_")) {
+          await killWorkspaceKernels(d.path);
+        }
+      }
+    });
     if (!File(mihomo).existsSync() || !File(profilePath).existsSync()) {
       print("跳过：缺少内核或订阅配置档（mihomo=$mihomo profile=$profilePath）");
       return;
@@ -210,4 +221,27 @@ void _copyGeo(String workDir) {
   if (asn.existsSync()) {
     asn.copySync(p.join(workDir, 'GeoLite2-ASN.mmdb'));
   }
+}
+
+/// 清掉本脚本自己拉起来的内核（按 `-d <本脚本的临时工作目录>` 精确匹配）：
+/// 这些残留会继续占着控制端口与混合端口，让后续验证互相干扰。
+Future<void> killWorkspaceKernels(String workDir) async {
+  try {
+    final r = await Process.run("pgrep", ["-f", "mihomo"]);
+    if (r.exitCode != 0) {
+      return;
+    }
+    for (final line in r.stdout.toString().split("\n")) {
+      final pid = int.tryParse(line.trim());
+      if (pid == null) {
+        continue;
+      }
+      final cmd = await Process.run("ps", ["-p", "$pid", "-o", "command="]);
+      if (!cmd.stdout.toString().contains(workDir)) {
+        continue;
+      }
+      Process.killPid(pid, ProcessSignal.sigkill);
+      print("清理本脚本的内核 pid=$pid");
+    }
+  } catch (_) {}
 }
