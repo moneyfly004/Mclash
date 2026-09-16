@@ -244,7 +244,13 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                 if (!sheetContext.mounted) {
                   return;
                 }
-                setSheetState(() => quoteError = "$e");
+                setSheetState(() {
+                  quoteError = _friendlyQuoteError(
+                    e,
+                    addDevices: addDevices,
+                    addDays: addDays,
+                  );
+                });
               } finally {
                 if (sheetContext.mounted) {
                   setSheetState(() => quoting = false);
@@ -263,6 +269,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
             final amount = MclashDeviceUpgrade.amountOf(quote);
             final orderNo = (quote["order_no"] ?? "").toString();
             final canPay = !quoting && quoteError == null && amount > 0;
+            // 「升级后」的结果必须显示出来：以前只显示金额，用户看不到设备数/到期
+            // 时间有没有变 —— 「增加天数」被后端忽略的问题就是因为看不见才没被发现。
+            final newLimit = MclashDeviceUpgrade.newDeviceLimitOf(quote);
+            final newExpire = MclashDeviceUpgrade.newExpireTimeOf(quote);
 
             return Padding(
               padding: EdgeInsets.fromLTRB(
@@ -318,10 +328,16 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                   Wrap(
                     spacing: 8,
                     children: [
+                      // 面板按下单口径是「月」，这里按天展示但换算成月发送
+                      // （30→1、90→3、180→6、365→12），文案里把月数写出来。
                       for (final n in [0, 30, 90, 180, 365])
                         ChoiceChip(
                           key: ValueKey("upgrade-days-$n"),
-                          label: Text(n == 0 ? "不延长" : "+$n 天"),
+                          label: Text(
+                            n == 0
+                                ? "不延长"
+                                : "+$n 天（${(n + 29) ~/ 30} 个月）",
+                          ),
                           selected: addDays == n,
                           onSelected: (_) {
                             setSheetState(() => addDays = n);
@@ -368,6 +384,32 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                       ),
                     ],
                   ),
+                  if (newLimit != null || newExpire.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          size: 13,
+                          color: ThemeDefine.kColorGrey,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            "升级后："
+                            "${newLimit == null ? "" : "设备上限 $newLimit 台"}"
+                            "${newLimit != null && newExpire.isNotEmpty ? " · " : ""}"
+                            "${newExpire.isEmpty ? "" : "到期 $newExpire"}",
+                            key: const ValueKey("upgrade-effect"),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: ThemeDefine.kColorGrey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (quoteError != null) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -389,6 +431,27 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         );
       },
     ).whenComplete(MclashDeviceUpgrade.cancelDraft);
+  }
+
+  /// 算价失败的原因翻译成人话（`参数错误` 这种原文对用户毫无帮助）。
+  static String _friendlyQuoteError(
+    Object e, {
+    required int addDevices,
+    required int addDays,
+  }) {
+    final text = e.toString();
+    if (text.contains("参数错误") || text.contains("40000")) {
+      if (addDevices <= 0 && addDays > 0) {
+        // 面板旧版本要求 add_devices ≥ 1，因此「只延长时间」会被拒
+        return "面板暂不支持「只延长时间」：请把「增加台数」选成 1 台及以上再试"
+            "（或联系客服开通）。";
+      }
+      return "参数不被接受：请重新选择台数与天数。";
+    }
+    if (text.contains("订阅已到期")) {
+      return "订阅已到期，无法升级：请先续费或重新购买套餐。";
+    }
+    return text;
   }
 
   /// 用算价时那笔草稿订单去支付。

@@ -1,5 +1,7 @@
 library;
 
+import 'dart:convert';
+
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_api.dart';
 
@@ -122,6 +124,46 @@ abstract final class MclashDeviceUpgrade {
   /// 支付成功后调用：草稿已经变成正式订单，不能再当作草稿取消。
   static void markPaid() {
     _draftOrderNo = null;
+  }
+
+  /// 升级后的设备上限与到期时间。
+  ///
+  /// 两个端点的返回位置不一样（实测）：
+  ///   * `POST /orders/upgrade`（客户端现在用的，会建单）：设备数与到期时间在
+  ///     **`extra_data` 这个 JSON 字符串里**（`new_device_limit` / `new_expire_time`）；
+  ///   * `POST /orders/upgrade/calc`（纯算价）：直接顶层返回。
+  /// 界面以前只读顶层，于是「升级后」的效果一直显示不出来 —— 顺手把两种都认了。
+  static int? newDeviceLimitOf(Map<String, dynamic> data) {
+    final top = (data["new_device_limit"] as num?)?.toInt();
+    if (top != null) {
+      return top;
+    }
+    final extra = _extraOf(data);
+    return (extra["new_device_limit"] as num?)?.toInt();
+  }
+
+  static String newExpireTimeOf(Map<String, dynamic> data) {
+    final top = (data["new_expire_time"] ?? "").toString();
+    if (top.isNotEmpty) {
+      return top;
+    }
+    return (_extraOf(data)["new_expire_time"] ?? "").toString();
+  }
+
+  static Map<String, dynamic> _extraOf(Map<String, dynamic> data) {
+    final raw = data["extra_data"];
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          return Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+    }
+    return const {};
   }
 
   /// 从算价响应里取应付金额。

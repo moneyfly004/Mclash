@@ -118,7 +118,7 @@ void main() {
   Map<String, dynamic> bodyOf(_FakeRequest r) =>
       jsonDecode(utf8.decode(r.body)) as Map<String, dynamic>;
 
-  test('算价打的是 /orders/upgrade，参数是 add_devices / add_days（不是 additional_*）',
+  test('算价打的是 /orders/upgrade，续期必须发 extend_months（后端只认这个）',
       () async {
     await client.previewDeviceUpgrade(addDevices: 2, addDays: 90);
 
@@ -133,10 +133,24 @@ void main() {
 
     final body = bodyOf(req);
     expect(body['add_devices'], 2);
-    expect(body['add_days'], 90);
+    // 关键回归：后端只认 extend_months，add_days 会被**静默忽略**
+    // （用户实测：选了「增加天数」金额和到期时间都不变，等于白花钱）。
+    expect(body['extend_months'], 3, reason: '90 天 = 3 个月');
+    expect(body['add_days'], 90, reason: '保留 add_days 供旧后端兼容/排查');
     expect(body.containsKey('additional_devices'), isFalse);
     expect(body.containsKey('additional_days'), isFalse);
-    expect(body['preview_only'], isTrue);
+  });
+
+  test('按天续期都会被换算成月（30→1、90→3、180→6、365→13）', () async {
+    for (final pair in {30: 1, 90: 3, 180: 6, 365: 13}.entries) {
+      await client.previewDeviceUpgrade(addDevices: 1, addDays: pair.key);
+      final body = bodyOf(http.writes.last);
+      expect(
+        body['extend_months'],
+        pair.value,
+        reason: '${pair.key} 天应为 ${pair.value} 个月',
+      );
+    }
   });
 
   test('下单同样打 /orders/upgrade，并带上支付方式', () async {

@@ -537,6 +537,11 @@ class CBoardClient {
   /// 见 `MclashDeviceUpgrade`（改数量前先取消上一笔，退出时也取消）。
   static const String kUpgradeOrderPath = '/orders/upgrade';
 
+  /// 算价（后端会建一笔 pending 草稿订单，所以调用方要负责取消旧的）。
+  ///
+  /// 字段口径（实测后端）：续期用 **`extend_months`**；`add_days` 后端**不认**
+  /// —— 以前客户端只发 add_days，于是「增加天数」金额不变、到期时间也不变，
+  /// 用户花了钱没续上。现在按天换算成月（30 天 = 1 个月，向上取整）再发。
   Future<Map<String, dynamic>> previewDeviceUpgrade({
     required int addDevices,
     int addDays = 0,
@@ -545,8 +550,8 @@ class CBoardClient {
       kUpgradeOrderPath,
       body: {
         'add_devices': addDevices,
+        if (addDays > 0) 'extend_months': (addDays + 29) ~/ 30,
         'add_days': addDays,
-        'preview_only': true,
       },
     );
     return d is Map ? Map<String, dynamic>.from(d) : <String, dynamic>{};
@@ -562,6 +567,8 @@ class CBoardClient {
       kUpgradeOrderPath,
       body: {
         'add_devices': addDevices,
+        // 与算价一致：后端续期字段是 extend_months（add_days 会被忽略）
+        if (addDays > 0) 'extend_months': (addDays + 29) ~/ 30,
         'add_days': addDays,
         'payment_method': method.isEmpty ? null : method,
       },
