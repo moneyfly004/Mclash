@@ -3,8 +3,10 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
+import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_subscription_revision.dart';
 
 enum MclashSubSyncStatus {
 
@@ -190,6 +192,7 @@ abstract final class MclashSubscriptionService {
               profileId: existing.id, message: err.message);
         }
         Log.i("MclashSubscriptionService: 已刷新账号订阅 (${_safe(url)})");
+        await applyToRunningKernel();
         return MclashSubSyncResult(MclashSubSyncStatus.ok,
             profileId: existing.id);
       }
@@ -215,10 +218,42 @@ abstract final class MclashSubscriptionService {
         ProfileManager.setCurrent(id);
       }
       Log.i("MclashSubscriptionService: 已添加账号订阅 (${_safe(url)})");
+      await applyToRunningKernel();
       return MclashSubSyncResult(MclashSubSyncStatus.ok, profileId: id);
     } catch (e) {
       Log.w("MclashSubscriptionService: 同步异常 $e");
       return MclashSubSyncResult(MclashSubSyncStatus.failed, message: "$e");
+    }
+  }
+
+  /// 订阅内容变了而内核还在用旧配置跑 → 重连一次。
+  ///
+  /// 内核只在启动时读一次 `config.yaml`，之后磁盘上的配置档被覆盖它**不会**
+  /// 自动重载。不处理的话用户会遇到：
+  ///   * 节点列表已经是新的，内核里还是旧的 → 点新节点报「节点不存在」；
+  ///   * 机场换了落地/密码 → 显示已连接但**没有流量**；
+  ///   * 已下线的节点还在内核里 → 自动选优选到死节点。
+  ///
+  /// 只在「内容真的变了」且「当前连着」时才重连（内容没变就什么都不做），
+  /// 免得每次定时同步都把用户断一次 —— 那反而成了「自动断开」。
+  static Future<void> applyToRunningKernel() async {
+    try {
+      if (!await VPNService.getStarted()) {
+        return;
+      }
+      if (!await MclashSubscriptionRevision.kernelIsStale()) {
+        Log.i("MclashSubscriptionService: 订阅内容未变化，内核无需重载");
+        return;
+      }
+      Log.w("MclashSubscriptionService: 订阅内容已更新，重连一次让内核用上新配置");
+      final err = await VPNService.restart(const Duration(seconds: 60));
+      if (err != null) {
+        Log.w("MclashSubscriptionService: 应用订阅后重连失败 ${err.message}");
+      } else {
+        Log.i("MclashSubscriptionService: 已按新订阅重连完成");
+      }
+    } catch (e) {
+      Log.w("MclashSubscriptionService: 应用订阅到内核失败 $e");
     }
   }
 

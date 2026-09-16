@@ -104,9 +104,11 @@ Future<KernelConfigResult> buildKernelConfig(
   if (cfg.secret.isNotEmpty) {
     config["secret"] = cfg.secret;
   }
-  var mixedPort = config["mixed-port"] is num
-      ? (config["mixed-port"] as num).toInt()
-      : 7890;
+  final hadMixedPort = config["mixed-port"] is num;
+  var mixedPort = hadMixedPort ? (config["mixed-port"] as num).toInt() : 7890;
+  if (!hadMixedPort) {
+    notes.add("配置里没有 mixed-port（订阅没写、patch 也没给）→ 补上 $mixedPort");
+  }
 
   // 订阅自带的入站端口必须去掉：与 App 的 mixed-port 同时存在会抢同一个端口，
   // 结果是内核只监听了其中一个（历史事故：IPv6-only 绑定 + 局域网 IP 代理）。
@@ -118,8 +120,19 @@ Future<KernelConfigResult> buildKernelConfig(
     final picked = await pickFreePort();
     notes.add("混合端口 $mixedPort 被占用，改用 $picked");
     mixedPort = picked;
-    config["mixed-port"] = mixedPort;
   }
+
+  // **必须无条件写回 mixed-port。**
+  //
+  // 真实事故（本机实测）：配置里没有 mixed-port 时内核**照常启动**、
+  // 控制 API 也通，但**一个入站监听都不开** ——
+  //   * 实测日志只有 `RESTful API listening at ...`，没有
+  //     `Mixed(http+socks) proxy listening at ...`，7890 上没有任何监听；
+  //   * 上层 `_waitReady()` 要求「控制 API + 混合端口都能连」→ 60 秒超时 →
+  //     用户看到的是「内核启动超时（可能被安全软件拦截）」——**完全误导**。
+  // 旧实现只在「端口被占用」时才写这个键，等于把「有没有入站监听」寄托在
+  // 订阅或 patch 恰好写了 mixed-port 上，非常脆弱（patch 缺失/被清掉就会中招）。
+  config["mixed-port"] = mixedPort;
 
   final yaml = dumpYaml(config);
   notes.add("yaml=${yaml.length}B mixed-port=$mixedPort");

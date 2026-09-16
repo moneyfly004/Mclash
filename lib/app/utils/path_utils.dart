@@ -354,11 +354,6 @@ class PathUtils {
     return path.join(filePath, autoUpdateFileName());
   }
 
-  static Future<String> providerNoticeFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, providerNoticeFileName());
-  }
-
   static String providerNoticeFileName() {
     return "provider_notice.json";
   }

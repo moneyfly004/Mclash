@@ -1,10 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/mf/mclash_subscription_notice.dart';
 
 /// 准入闸门判定：**判错就完全连不上**，所以用真实账号响应钉死。
 void main() {
   final acc = MclashAccountService.instance;
-  tearDown(() => acc.debugSetData(null, null));
+  tearDown(() {
+    acc.debugSetData(null, null);
+    acc.debugClearPayloadNotice();
+  });
 
   Map<String, dynamic> dash({bool active = true, int limit = 500, int used = 10}) => {
     "username": "454487210",
@@ -36,6 +40,39 @@ void main() {
     "status": active ? "active" : "disabled",
     "subscription_url": "https://example.invalid/sub",
   };
+
+  test('启动时回填的旧缓存不允许拦截（否则续费后反而连不上）', () {
+    // 真实事故场景：用户套餐过期 → 缓存住了 expired；随后在官网续费成功，
+    // 但客户端启动时先把旧缓存读进来 —— 若用旧缓存判定，用户会被
+    // 「套餐已到期」拦在门外，直到下一次刷新成功为止（离线时永远连不上）。
+    acc.debugSetData(
+      dash(),
+      sub(active: false, remaining: 0),
+      fresh: false,
+    );
+    expect(
+      acc.isBlocked,
+      isFalse,
+      reason: '陈旧缓存只能用于展示，不能用于拦截',
+    );
+    expect(acc.blockKind, MclashBlockKind.none);
+
+    // 同一份数据只要是**本次**拿到的，就必须拦截
+    acc.debugSetData(dash(), sub(active: false, remaining: 0));
+    expect(acc.blockKind, MclashBlockKind.subscriptionDisabled);
+  });
+
+  test('解锁订阅下发的受限结论仍然优先（它本来就是最新一次下载的结果）', () {
+    acc.debugSetData(dash(), sub(), fresh: false);
+    acc.markPayloadNotice(
+      MclashSubscriptionNotice.parse(["❌ 原因: 设备数量超限"]),
+    );
+    expect(
+      acc.blockKind,
+      MclashBlockKind.deviceFull,
+      reason: '订阅提示来自刚下载下来的配置档，不属于"陈旧缓存"',
+    );
+  });
 
   test('正常账号：不拦截（否则用户根本连不上）', () {
     acc.debugSetData(dash(), sub());

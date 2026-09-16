@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
@@ -315,6 +316,17 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
   final acc = MclashAccountService.instance;
   if (!acc.isBlocked) {
     return true;
+  }
+  // 判定可能来自启动时回填的旧缓存 —— 直接用它会出真实事故：
+  // 用户在官网续费/删设备之后，客户端还按旧数据把人拦住，连都连不上。
+  // 所以真拦之前先复核一次（拿到最新数据后仍受限才拦）。
+  final kind = await acc.verifyBeforeConnect();
+  if (kind == MclashBlockKind.none) {
+    Log.i("mclashCheckAccountGate: 复核后账号已恢复正常，放行连接");
+    return true;
+  }
+  if (!context.mounted) {
+    return false;
   }
   await showMclashAccountGateDialog(context);
   return false;

@@ -18,10 +18,6 @@ typedef DecodeCallback = String Function(String);
 
 abstract final class HttpUtils {
   static const String kStatusError = "http statusCode:";
-  static bool isStatusError(ReturnResultError error) {
-    return error.message.contains(kStatusError);
-  }
-
   static Future<String> getUserAgent() async {
     return SettingManager.getConfig().userAgent();
   }

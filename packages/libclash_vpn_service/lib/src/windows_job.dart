@@ -177,6 +177,3 @@ bool assignToKillOnCloseJob(int pid) {
     _closeHandle?.call(h);
   }
 }
-
-/// 供诊断：Job 是否已经建好。
-bool get killOnCloseJobReady => _jobHandle != 0;

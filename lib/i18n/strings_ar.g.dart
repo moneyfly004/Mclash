@@ -53,18 +53,11 @@ class TranslationsAr with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _Translations$dns$ar dns = _Translations$dns$ar._(_root);
 	@override late final _Translations$sniffer$ar sniffer = _Translations$sniffer$ar._(_root);
 	@override late final _Translations$profilePatchMode$ar profilePatchMode = _Translations$profilePatchMode$ar._(_root);
-	@override String get protocolSniff => 'الكشف عن البروتوكول';
-	@override String get protocolSniffOverrideDestination => 'يغطي اسم المجال المكتشف عنوان هدف الاتصال';
 	@override String sendOrReceiveNotMatch({required Object p}) => 'الرجاء استخدام [${p}]';
 	@override String targetConnectFailed({required Object p}) => 'فشل الاتصال بـ [${p}]، يرجى التأكد من وجود الجهاز في نفس الشبكة المحلية (LAN)';
 	@override String get edgeRuntimeNotInstalled => 'لم يتم تثبيت وقت تشغيل Edge WebView2 على الجهاز الحالي ولا يمكن عرض الصفحة، يرجى تنزيل وتثبيت وقت تشغيل Edge WebView2 (x64)، وإعادة تشغيل التطبيق والمحاولة مرة أخرى.';
 	@override Map<String, String> get locales => {
 		'en': 'English',
-		'zh-CN': '简体中文',
-		'zh-TW': '繁體中文',
-		'ja': '日本語',
-		'ko': '한국어',
-		'ar': 'عربي',
 		'ru': 'Русский',
 		'fa': 'فارسی',
 		'es': 'Español',
@@ -168,20 +161,9 @@ class _Translations$loginScreen$ar implements Translations$loginScreen$en {
 	@override String get forgotPassword => 'هل نسيت كلمة المرور';
 	@override String get provider => 'مزود الخدمة';
 	@override String get providerName => 'رمز/اسم مستعار/URL لـ ${_root.loginScreen.provider}';
-	@override String get providerNameRequired => 'يرجى إدخال الرمز/الاسم المستعار/URL لـ ${_root.loginScreen.provider}';
 	@override String get account => 'حساب';
-	@override String get accountRequired => 'يرجى إدخال الحساب';
 	@override String get email => 'البريد الإلكتروني';
-	@override String get emailRequired => 'يرجى إدخال عنوان بريدك الإلكتروني';
 	@override String get password => 'كلمة المرور';
-	@override String get passwordRequired => 'يرجى إدخال كلمة المرور';
-	@override String get validEmailRequired => 'يرجى إدخال عنوان بريد إلكتروني صحيح';
-	@override String passwordMinLength({required Object minLength}) => 'يجب أن تكون كلمة المرور ${minLength} أحرف على الأقل';
-	@override String get unsupportedProvider => '${_root.loginScreen.provider} غير مدعوم';
-	@override String get unsupportedProviderType => 'نوع ${_root.loginScreen.provider} غير مدعوم';
-	@override String get unActivedProvider => 'ميزة تسجيل الدخول غير مفعلة';
-	@override String providerLoginSupportRequired({required Object p}) => 'يرجى طلب رمز/اسم مستعار المزوّد من ${_root.loginScreen.provider}.\nللاطلاع على تكامل ${_root.loginScreen.provider}، راجع: ${p}';
-	@override String get providerDisclaimer => 'إخلاء المسؤولية: ${_root.loginScreen.provider} هي خدمة تابعة لطرف ثالث ولا علاقة لها بهذا التطبيق';
 }
 
 // Path: main
@@ -207,15 +189,12 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get close => 'إنهاء';
 	@override String get quit => 'يترك';
 	@override String get add => 'اضف إليه';
-	@override String get addSuccess => 'اضيف بنجاح';
-	@override String addFailed({required Object p}) => 'إضافة فشل:${p}';
 	@override String get remove => 'يمسح';
 	@override String get removeConfirm => 'هل انت متأكد من الحذف؟';
 	@override String get edit => 'يحرر';
 	@override String get view => 'يفحص';
 	@override String get remark => 'ملاحظة';
 	@override String get byDefault => 'تقصير';
-	@override String get editRemark => 'ملاحظات التعديل';
 	@override String get more => 'أكثر';
 	@override String get tips => 'معلومات';
 	@override String get selectAll => 'تحديد الكل';
@@ -235,10 +214,8 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get minutes => 'دقائق';
 	@override String get seconds => 'ثانية';
 	@override String get milliseconds => 'ميلي ثانية';
-	@override String get protocol => 'بروتوكول';
 	@override String get search => 'يبحث';
 	@override String get searchNodeHint => 'تصفية العُقد (الاسم أو البروتوكول)';
-	@override String get custom => 'مخصص';
 	@override String get connect => 'يتصل';
 	@override String get disconnect => 'قطع الاتصال';
 	@override String get connected => 'متصل';
@@ -246,8 +223,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get connecting => 'توصيل';
 	@override String get connectTimeout => 'ربط مهلة';
 	@override String get timeout => 'نفذ الوقت';
-	@override String get timeoutDuration => 'مدة مهلة الانتظار';
-	@override String get latency => 'تأخير';
 	@override String get latencyTest => 'كشف التأخير';
 	@override String get networkCheck => 'فحص الشبكة';
 	@override String get language => 'لغة';
@@ -255,7 +230,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get done => 'منتهي';
 	@override String get apply => 'يتقدم';
 	@override String get refresh => 'ينعش';
-	@override String get retry => 'إعادة المحاولة?';
 	@override String get update => 'تجديد';
 	@override String get updateInterval => 'الفاصل الزمني للتحديث';
 	@override String get updateInterval5mTips => 'الحد الأدنى: 5 م';
@@ -264,30 +238,23 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get none => 'لا أحد';
 	@override String get reset => 'إعادة ضبط';
 	@override String get authentication => 'التفويض';
-	@override String get submit => 'يُقدِّم';
 	@override String get user => 'مستخدم';
 	@override String get account => 'حساب';
 	@override String get password => 'كلمة المرور';
 	@override String get decryptPassword => 'فك تشفير كلمة المرور';
 	@override String get required => 'مطلوب';
 	@override String get go => 'متابعة';
-	@override String get sudoPassword => 'كلمة مرور sudo (مطلوبة لوضع TUN)';
 	@override String get other => 'آخر';
 	@override String get dns => 'DNS';
 	@override String get url => 'URL';
 	@override String get urlInvalid => 'URL غير صالح';
-	@override String get urlCannotEmpty => 'لا يمكن أن يكون الرابط فارغًا';
-	@override String get urlTooLong => 'عنوان URL طويل جدًا (>8182)';
 	@override String get copyUrl => 'نسخ الرابط';
 	@override String get openUrl => 'فتح الرابط';
-	@override String get shareUrl => 'شارك الرابط';
 	@override String get coreSettingTips => 'ملاحظة: بعد تعديل التكوين، تحتاج إلى إعادة الاتصال حتى يسري مفعوله';
 	@override String get overwrite => 'تجاوز';
-	@override String get overwriteCustom => 'تجاوزات مخصصة';
 	@override String get overwriteAppend => 'تجاوز إضافي';
 	@override String get overwriteTips => 'التكوين الأصلي <- تجاوز مخصص <- تجاوز التطبيق';
 	@override String get noOverwrite => 'لا تكتب فوق';
-	@override String get overwriteSettings => 'تجاوز الإعدادات';
 	@override String get diversionTemplates => 'نموذج الفرز';
 	@override String get ruleProviders => 'موفر القواعد';
 	@override String get ruleTemplates => 'نموذج القاعدة';
@@ -309,7 +276,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get tun => 'TUN';
 	@override String get ntp => 'NTP';
 	@override String get tls => 'TLS';
-	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'تنزيل Geo RuleSet باستخدام وكيل';
 	@override String get geoRulesetTips => 'سيتم تحويل Geosite/Geoip إلى مجموعة القواعد المقابلة';
 	@override String get sniffer => 'شم';
@@ -319,7 +285,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get tunModeRunAsAdmin => 'يتطلب وضع TUN أذونات مسؤول النظام ، يرجى إعادة تشغيل التطبيق كمسؤول';
 	@override String get portableMode => 'الوضع المحمول';
 	@override String get portableModeDisableTips => 'إذا كنت بحاجة إلى الخروج من الوضع المحمول، فيرجى الخروج من [mclash] وحذف المجلد [portable] يدويًا في نفس الدليل مثل [mclash.exe]';
-	@override String get systemProxy => 'وكيل النظام';
 	@override String get autoConnectAfterLaunch => 'اتصال السيارات بعد الإطلاق';
 	@override String get autoConnectAtBoot => 'الاتصال التلقائي بعد بدء تشغيل النظام';
 	@override String get autoConnectAtBootTips => 'يجب دعم النظام؛ وقد تتطلب بعض الأنظمة أيضًا تمكين [البدء التلقائي].';
@@ -331,34 +296,18 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get hideDockIcon => 'إخفاء أيقونة Dock';
 	@override String get showTrayTraffic => 'إظهار معلومات حركة المرور في شريط النظام';
 	@override String get website => 'موقع إلكتروني';
-	@override String get homePage => 'الصفحة الرئيسية';
 	@override String get rule => 'قاعدة';
 	@override String get global => 'عالمي';
 	@override String get direct => 'مباشر';
-	@override String get block => 'حاجز';
 	@override String get qrcode => 'رمز الاستجابة السريعة';
 	@override String get qrcodeTooLong => 'النص طويل جدًا لعرضه';
 	@override String get qrcodeShare => 'شارك رمز الاستجابة السريعة';
-	@override String get textToQrcode => 'رسالة نصية إلى رمز الاستجابة السريعة';
 	@override String get qrcodeScan => 'مسح رمز الاستجابة السريعة';
 	@override String get qrcodeScanResult => 'نتيجة المسح';
-	@override String get qrcodeScanFromImage => 'مسح من الصورة';
-	@override String get qrcodeScanResultFailed => 'فشل في تحليل الصورة ، يرجى التأكد من أن لقطة الشاشة هي رمز QR صالح';
-	@override String get qrcodeScanResultEmpty => 'نتيجة الفحص فارغة';
-	@override String get screenshot => 'لقطة شاشة';
 	@override String get backupAndSync => 'النسخ الاحتياطي والمزامنة';
-	@override String get importSuccess => 'استيراد نجاح ';
-	@override String get rewriteConfirm => 'سيقوم هذا الملف بكتابة التكوين المحلي الحالي.هل تريد الاستمرار؟';
-	@override String get importAndExport => 'استيراد وتصدير';
-	@override String get import => 'يستورد';
-	@override String get importFromUrl => 'الاستيراد من عنوان URL';
 	@override String get export => 'يصدّر';
 	@override String get send => 'يرسل';
-	@override String get receive => 'تولي';
 	@override String get sendConfirm => 'تأكيد الإرسال؟';
-	@override String get continueConnectConfirm => 'هل تريد متابعة الاتصال؟';
-	@override String get termOfUse => 'شرط الخدمة';
-	@override String get privacyPolicy => 'سياسة الخصوصية';
 	@override String get log => 'سجل';
 	@override String get coreLog => 'سجل النواة';
 	@override String get core => 'جوهر';
@@ -375,7 +324,6 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get reconnectTakesEffect => 'سيتم تطبيقه بعد إعادة الاتصال.';
 	@override String get runtimeProfile => 'تكوين وقت التشغيل';
 	@override String get willCompleteAfterRebootInstall => 'يرجى إعادة تشغيل جهازك لإكمال تثبيت توسيع النظام';
-	@override String get willCompleteAfterRebootUninstall => 'يرجى إعادة تشغيل جهازك لإكمال إلغاء تثبيت ملحق النظام';
 	@override String get requestNeedsUserApproval => '١. يُرجى السماح لـ Mclash بتثبيت ملحقات النظام من [إعدادات النظام] - [الخصوصية والأمان]. ٢. : [إعدادات النظام] - [عام] - [عناصر تسجيل الدخول والملحقات - ملحقات الشبكة] فعّل [mclashServiceSE]. أعد الاتصال بعد الانتهاء.';
 	@override String get FullDiskAccessPermissionRequired => 'يرجى تمكين إذن mclashServiceSE في [إعدادات النظام]-[الخصوصية والأمان]-[الوصول الكامل للقرص] وإعادة الاتصال.';
 	@override String get proxy => 'التمثيل';
@@ -383,18 +331,13 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get tvMode => 'وضع التلفزيون';
 	@override String get autoUpdate => 'التحديثات التلقائية';
 	@override String get updateChannel => 'تحديث القنوات تلقائيا';
-	@override String get onlineCustomerService => 'خدمة العملاء عبر الإنترنت';
-	@override String get subscriptionChannel => 'قناة الاشتراك';
 	@override String hasNewVersion({required Object p}) => 'تحديث الإصدار ${p}';
 	@override String get autoDownloadPkg => 'تنزيل حزم التحديث تلقائيًا';
 	@override String get devOptions => 'خيارات للمطور';
 	@override String get about => 'عن';
 	@override String get name => 'اسم';
 	@override String get version => 'إصدار';
-	@override String get notice => 'يلاحظ';
 	@override String get sort => 'إعادة ترتيب';
-	@override String get recommended => 'يوصي';
-	@override String innerError({required Object p}) => 'خطأ داخلي: ${p}';
 	@override String get share => 'يشارك';
 	@override String get importFromClipboard => 'استيراد من الحافظة';
 	@override String get exportToClipboard => 'تصدير إلى الحافظة';
@@ -414,26 +357,12 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get hideAppIcon => 'إخفاء أيقونة التطبيق';
 	@override String get openDir => 'فتح دليل الملف';
 	@override String get type => 'النوع';
-	@override String get fileChoose => 'حدد الملف';
-	@override String get filePathCannotEmpty => 'لا يمكن أن يكون مسار الملف فارغًا';
 	@override String fileNotExist({required Object p}) => 'الملف غير موجود: ${p}';
-	@override String fileTypeInvalid({required Object p}) => 'نوع الملف غير صالح:${p}';
-	@override String get uwpExemption => 'إعفاء عزل شبكة UWP';
-	@override String get getProfile => 'احصل على التكوين';
 	@override String get buyProfile => 'شراء ملف تعريف';
-	@override String get addProfile => 'إضافة ملف تعريف';
 	@override String get myProfiles => 'مظهر';
 	@override String get profileEdit => 'تحرير الملف الشخصي';
 	@override String get profileNeedActive => 'يرجى أولاً تعيين هذا الملف كملف التعريف الحالي، ثم بدء الاتصال/إعادة الاتصال';
-	@override String get profileDownloadBackupChannel => 'تمكين قناة التنزيل الاحتياطية';
-	@override String get profileDownloadBackupChannelTips => 'قناة تنزيل عبر الوكيل توفرها Mclash (لا يتم تخزين أي معلومات)';
-	@override String get profileEditReloadAfterProfileUpdate => 'إعادة التحميل بعد تحديث الملف الشخصي';
-	@override String get profileRulesAppendProxyTips => 'سيتم تعيين القواعد تلقائيًا إلى أول وكيل في [proxy-groups] من التكوين الأصلي يكون نوعه [url-test] أو [select]';
-	@override String get profileImport => 'استيراد ملف الملف الشخصي';
-	@override String get profileAddUrlOrContent => 'إضافة رابط ملف التعريف';
 	@override String profileUrlOrContent({required Object p}) => 'رابط إعداد ${p}';
-	@override String profileUrlOrContentHit({required Object p}) => '[مطلوب]، ملاحظة: إذا لم يكن رابطك ${_root.meta.profileUrlOrContent(p: p)} (مثل V2Ray أو Sing-box)، فاستخدم أداة التحويل عبر الإنترنت لـ Clash لتحويله إلى ${_root.meta.profileUrlOrContent(p: p)}';
-	@override String get profileUrlOrContentCannotEmpty => 'لا يمكن أن يكون رابط الملف الشخصي فارغًا';
 	@override String get tabHome => 'الرئيسية';
 	@override String get tabNodes => 'العُقد';
 	@override String get tabPlans => 'الخطط';
@@ -461,7 +390,6 @@ class _Translations$tls$ar implements Translations$tls$en {
 	final TranslationsAr _root; // ignore: unused_field
 
 	// Translations
-	@override String get insecure => 'تخطي التحقق من الشهادة';
 	@override String get certificate => 'شهادة';
 	@override String get privateKey => 'المفتاح الخاص';
 	@override String get customTrustCert => 'شهادات مخصصة';
@@ -476,7 +404,6 @@ class _Translations$tun$ar implements Translations$tun$en {
 	// Translations
 	@override String get stack => 'مكدس الشبكة';
 	@override String get inet4Address => 'نطاق عناوين IPv4';
-	@override String get inet6Address => 'نطاق عناوين IPv6';
 	@override String get dnsHijack => 'اختطاف DNS';
 	@override String get strictRoute => 'التوجيه الصارم';
 	@override String get tunDefaultRoute => 'المسار الافتراضي';
@@ -589,20 +516,9 @@ extension on TranslationsAr {
 			'loginScreen.forgotPassword' => 'هل نسيت كلمة المرور',
 			'loginScreen.provider' => 'مزود الخدمة',
 			'loginScreen.providerName' => 'رمز/اسم مستعار/URL لـ ${_root.loginScreen.provider}',
-			'loginScreen.providerNameRequired' => 'يرجى إدخال الرمز/الاسم المستعار/URL لـ ${_root.loginScreen.provider}',
 			'loginScreen.account' => 'حساب',
-			'loginScreen.accountRequired' => 'يرجى إدخال الحساب',
 			'loginScreen.email' => 'البريد الإلكتروني',
-			'loginScreen.emailRequired' => 'يرجى إدخال عنوان بريدك الإلكتروني',
 			'loginScreen.password' => 'كلمة المرور',
-			'loginScreen.passwordRequired' => 'يرجى إدخال كلمة المرور',
-			'loginScreen.validEmailRequired' => 'يرجى إدخال عنوان بريد إلكتروني صحيح',
-			'loginScreen.passwordMinLength' => ({required Object minLength}) => 'يجب أن تكون كلمة المرور ${minLength} أحرف على الأقل',
-			'loginScreen.unsupportedProvider' => '${_root.loginScreen.provider} غير مدعوم',
-			'loginScreen.unsupportedProviderType' => 'نوع ${_root.loginScreen.provider} غير مدعوم',
-			'loginScreen.unActivedProvider' => 'ميزة تسجيل الدخول غير مفعلة',
-			'loginScreen.providerLoginSupportRequired' => ({required Object p}) => 'يرجى طلب رمز/اسم مستعار المزوّد من ${_root.loginScreen.provider}.\nللاطلاع على تكامل ${_root.loginScreen.provider}، راجع: ${p}',
-			'loginScreen.providerDisclaimer' => 'إخلاء المسؤولية: ${_root.loginScreen.provider} هي خدمة تابعة لطرف ثالث ولا علاقة لها بهذا التطبيق',
 			'main.tray.menuOpen' => 'يفتح',
 			'main.tray.menuExit' => 'مخرج',
 			'meta.enable' => 'يُمكَِن',
@@ -611,15 +527,12 @@ extension on TranslationsAr {
 			'meta.close' => 'إنهاء',
 			'meta.quit' => 'يترك',
 			'meta.add' => 'اضف إليه',
-			'meta.addSuccess' => 'اضيف بنجاح',
-			'meta.addFailed' => ({required Object p}) => 'إضافة فشل:${p}',
 			'meta.remove' => 'يمسح',
 			'meta.removeConfirm' => 'هل انت متأكد من الحذف؟',
 			'meta.edit' => 'يحرر',
 			'meta.view' => 'يفحص',
 			'meta.remark' => 'ملاحظة',
 			'meta.byDefault' => 'تقصير',
-			'meta.editRemark' => 'ملاحظات التعديل',
 			'meta.more' => 'أكثر',
 			'meta.tips' => 'معلومات',
 			'meta.selectAll' => 'تحديد الكل',
@@ -639,10 +552,8 @@ extension on TranslationsAr {
 			'meta.minutes' => 'دقائق',
 			'meta.seconds' => 'ثانية',
 			'meta.milliseconds' => 'ميلي ثانية',
-			'meta.protocol' => 'بروتوكول',
 			'meta.search' => 'يبحث',
 			'meta.searchNodeHint' => 'تصفية العُقد (الاسم أو البروتوكول)',
-			'meta.custom' => 'مخصص',
 			'meta.connect' => 'يتصل',
 			'meta.disconnect' => 'قطع الاتصال',
 			'meta.connected' => 'متصل',
@@ -650,8 +561,6 @@ extension on TranslationsAr {
 			'meta.connecting' => 'توصيل',
 			'meta.connectTimeout' => 'ربط مهلة',
 			'meta.timeout' => 'نفذ الوقت',
-			'meta.timeoutDuration' => 'مدة مهلة الانتظار',
-			'meta.latency' => 'تأخير',
 			'meta.latencyTest' => 'كشف التأخير',
 			'meta.networkCheck' => 'فحص الشبكة',
 			'meta.language' => 'لغة',
@@ -659,7 +568,6 @@ extension on TranslationsAr {
 			'meta.done' => 'منتهي',
 			'meta.apply' => 'يتقدم',
 			'meta.refresh' => 'ينعش',
-			'meta.retry' => 'إعادة المحاولة?',
 			'meta.update' => 'تجديد',
 			'meta.updateInterval' => 'الفاصل الزمني للتحديث',
 			'meta.updateInterval5mTips' => 'الحد الأدنى: 5 م',
@@ -668,30 +576,23 @@ extension on TranslationsAr {
 			'meta.none' => 'لا أحد',
 			'meta.reset' => 'إعادة ضبط',
 			'meta.authentication' => 'التفويض',
-			'meta.submit' => 'يُقدِّم',
 			'meta.user' => 'مستخدم',
 			'meta.account' => 'حساب',
 			'meta.password' => 'كلمة المرور',
 			'meta.decryptPassword' => 'فك تشفير كلمة المرور',
 			'meta.required' => 'مطلوب',
 			'meta.go' => 'متابعة',
-			'meta.sudoPassword' => 'كلمة مرور sudo (مطلوبة لوضع TUN)',
 			'meta.other' => 'آخر',
 			'meta.dns' => 'DNS',
 			'meta.url' => 'URL',
 			'meta.urlInvalid' => 'URL غير صالح',
-			'meta.urlCannotEmpty' => 'لا يمكن أن يكون الرابط فارغًا',
-			'meta.urlTooLong' => 'عنوان URL طويل جدًا (>8182)',
 			'meta.copyUrl' => 'نسخ الرابط',
 			'meta.openUrl' => 'فتح الرابط',
-			'meta.shareUrl' => 'شارك الرابط',
 			'meta.coreSettingTips' => 'ملاحظة: بعد تعديل التكوين، تحتاج إلى إعادة الاتصال حتى يسري مفعوله',
 			'meta.overwrite' => 'تجاوز',
-			'meta.overwriteCustom' => 'تجاوزات مخصصة',
 			'meta.overwriteAppend' => 'تجاوز إضافي',
 			'meta.overwriteTips' => 'التكوين الأصلي <- تجاوز مخصص <- تجاوز التطبيق',
 			'meta.noOverwrite' => 'لا تكتب فوق',
-			'meta.overwriteSettings' => 'تجاوز الإعدادات',
 			'meta.diversionTemplates' => 'نموذج الفرز',
 			'meta.ruleProviders' => 'موفر القواعد',
 			'meta.ruleTemplates' => 'نموذج القاعدة',
@@ -713,7 +614,6 @@ extension on TranslationsAr {
 			'meta.tun' => 'TUN',
 			'meta.ntp' => 'NTP',
 			'meta.tls' => 'TLS',
-			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'تنزيل Geo RuleSet باستخدام وكيل',
 			'meta.geoRulesetTips' => 'سيتم تحويل Geosite/Geoip إلى مجموعة القواعد المقابلة',
 			'meta.sniffer' => 'شم',
@@ -723,7 +623,6 @@ extension on TranslationsAr {
 			'meta.tunModeRunAsAdmin' => 'يتطلب وضع TUN أذونات مسؤول النظام ، يرجى إعادة تشغيل التطبيق كمسؤول',
 			'meta.portableMode' => 'الوضع المحمول',
 			'meta.portableModeDisableTips' => 'إذا كنت بحاجة إلى الخروج من الوضع المحمول، فيرجى الخروج من [mclash] وحذف المجلد [portable] يدويًا في نفس الدليل مثل [mclash.exe]',
-			'meta.systemProxy' => 'وكيل النظام',
 			'meta.autoConnectAfterLaunch' => 'اتصال السيارات بعد الإطلاق',
 			'meta.autoConnectAtBoot' => 'الاتصال التلقائي بعد بدء تشغيل النظام',
 			'meta.autoConnectAtBootTips' => 'يجب دعم النظام؛ وقد تتطلب بعض الأنظمة أيضًا تمكين [البدء التلقائي].',
@@ -735,34 +634,18 @@ extension on TranslationsAr {
 			'meta.hideDockIcon' => 'إخفاء أيقونة Dock',
 			'meta.showTrayTraffic' => 'إظهار معلومات حركة المرور في شريط النظام',
 			'meta.website' => 'موقع إلكتروني',
-			'meta.homePage' => 'الصفحة الرئيسية',
 			'meta.rule' => 'قاعدة',
 			'meta.global' => 'عالمي',
 			'meta.direct' => 'مباشر',
-			'meta.block' => 'حاجز',
 			'meta.qrcode' => 'رمز الاستجابة السريعة',
 			'meta.qrcodeTooLong' => 'النص طويل جدًا لعرضه',
 			'meta.qrcodeShare' => 'شارك رمز الاستجابة السريعة',
-			'meta.textToQrcode' => 'رسالة نصية إلى رمز الاستجابة السريعة',
 			'meta.qrcodeScan' => 'مسح رمز الاستجابة السريعة',
 			'meta.qrcodeScanResult' => 'نتيجة المسح',
-			'meta.qrcodeScanFromImage' => 'مسح من الصورة',
-			'meta.qrcodeScanResultFailed' => 'فشل في تحليل الصورة ، يرجى التأكد من أن لقطة الشاشة هي رمز QR صالح',
-			'meta.qrcodeScanResultEmpty' => 'نتيجة الفحص فارغة',
-			'meta.screenshot' => 'لقطة شاشة',
 			'meta.backupAndSync' => 'النسخ الاحتياطي والمزامنة',
-			'meta.importSuccess' => 'استيراد نجاح ',
-			'meta.rewriteConfirm' => 'سيقوم هذا الملف بكتابة التكوين المحلي الحالي.هل تريد الاستمرار؟',
-			'meta.importAndExport' => 'استيراد وتصدير',
-			'meta.import' => 'يستورد',
-			'meta.importFromUrl' => 'الاستيراد من عنوان URL',
 			'meta.export' => 'يصدّر',
 			'meta.send' => 'يرسل',
-			'meta.receive' => 'تولي',
 			'meta.sendConfirm' => 'تأكيد الإرسال؟',
-			'meta.continueConnectConfirm' => 'هل تريد متابعة الاتصال؟',
-			'meta.termOfUse' => 'شرط الخدمة',
-			'meta.privacyPolicy' => 'سياسة الخصوصية',
 			'meta.log' => 'سجل',
 			'meta.coreLog' => 'سجل النواة',
 			'meta.core' => 'جوهر',
@@ -779,7 +662,6 @@ extension on TranslationsAr {
 			'meta.reconnectTakesEffect' => 'سيتم تطبيقه بعد إعادة الاتصال.',
 			'meta.runtimeProfile' => 'تكوين وقت التشغيل',
 			'meta.willCompleteAfterRebootInstall' => 'يرجى إعادة تشغيل جهازك لإكمال تثبيت توسيع النظام',
-			'meta.willCompleteAfterRebootUninstall' => 'يرجى إعادة تشغيل جهازك لإكمال إلغاء تثبيت ملحق النظام',
 			'meta.requestNeedsUserApproval' => '١. يُرجى السماح لـ Mclash بتثبيت ملحقات النظام من [إعدادات النظام] - [الخصوصية والأمان]. ٢. : [إعدادات النظام] - [عام] - [عناصر تسجيل الدخول والملحقات - ملحقات الشبكة] فعّل [mclashServiceSE]. أعد الاتصال بعد الانتهاء.',
 			'meta.FullDiskAccessPermissionRequired' => 'يرجى تمكين إذن mclashServiceSE في [إعدادات النظام]-[الخصوصية والأمان]-[الوصول الكامل للقرص] وإعادة الاتصال.',
 			'meta.proxy' => 'التمثيل',
@@ -787,18 +669,13 @@ extension on TranslationsAr {
 			'meta.tvMode' => 'وضع التلفزيون',
 			'meta.autoUpdate' => 'التحديثات التلقائية',
 			'meta.updateChannel' => 'تحديث القنوات تلقائيا',
-			'meta.onlineCustomerService' => 'خدمة العملاء عبر الإنترنت',
-			'meta.subscriptionChannel' => 'قناة الاشتراك',
 			'meta.hasNewVersion' => ({required Object p}) => 'تحديث الإصدار ${p}',
 			'meta.autoDownloadPkg' => 'تنزيل حزم التحديث تلقائيًا',
 			'meta.devOptions' => 'خيارات للمطور',
 			'meta.about' => 'عن',
 			'meta.name' => 'اسم',
 			'meta.version' => 'إصدار',
-			'meta.notice' => 'يلاحظ',
 			'meta.sort' => 'إعادة ترتيب',
-			'meta.recommended' => 'يوصي',
-			'meta.innerError' => ({required Object p}) => 'خطأ داخلي: ${p}',
 			'meta.share' => 'يشارك',
 			'meta.importFromClipboard' => 'استيراد من الحافظة',
 			'meta.exportToClipboard' => 'تصدير إلى الحافظة',
@@ -818,26 +695,12 @@ extension on TranslationsAr {
 			'meta.hideAppIcon' => 'إخفاء أيقونة التطبيق',
 			'meta.openDir' => 'فتح دليل الملف',
 			'meta.type' => 'النوع',
-			'meta.fileChoose' => 'حدد الملف',
-			'meta.filePathCannotEmpty' => 'لا يمكن أن يكون مسار الملف فارغًا',
 			'meta.fileNotExist' => ({required Object p}) => 'الملف غير موجود: ${p}',
-			'meta.fileTypeInvalid' => ({required Object p}) => 'نوع الملف غير صالح:${p}',
-			'meta.uwpExemption' => 'إعفاء عزل شبكة UWP',
-			'meta.getProfile' => 'احصل على التكوين',
 			'meta.buyProfile' => 'شراء ملف تعريف',
-			'meta.addProfile' => 'إضافة ملف تعريف',
 			'meta.myProfiles' => 'مظهر',
 			'meta.profileEdit' => 'تحرير الملف الشخصي',
 			'meta.profileNeedActive' => 'يرجى أولاً تعيين هذا الملف كملف التعريف الحالي، ثم بدء الاتصال/إعادة الاتصال',
-			'meta.profileDownloadBackupChannel' => 'تمكين قناة التنزيل الاحتياطية',
-			'meta.profileDownloadBackupChannelTips' => 'قناة تنزيل عبر الوكيل توفرها Mclash (لا يتم تخزين أي معلومات)',
-			'meta.profileEditReloadAfterProfileUpdate' => 'إعادة التحميل بعد تحديث الملف الشخصي',
-			'meta.profileRulesAppendProxyTips' => 'سيتم تعيين القواعد تلقائيًا إلى أول وكيل في [proxy-groups] من التكوين الأصلي يكون نوعه [url-test] أو [select]',
-			'meta.profileImport' => 'استيراد ملف الملف الشخصي',
-			'meta.profileAddUrlOrContent' => 'إضافة رابط ملف التعريف',
 			'meta.profileUrlOrContent' => ({required Object p}) => 'رابط إعداد ${p}',
-			'meta.profileUrlOrContentHit' => ({required Object p}) => '[مطلوب]، ملاحظة: إذا لم يكن رابطك ${_root.meta.profileUrlOrContent(p: p)} (مثل V2Ray أو Sing-box)، فاستخدم أداة التحويل عبر الإنترنت لـ Clash لتحويله إلى ${_root.meta.profileUrlOrContent(p: p)}',
-			'meta.profileUrlOrContentCannotEmpty' => 'لا يمكن أن يكون رابط الملف الشخصي فارغًا',
 			'meta.tabHome' => 'الرئيسية',
 			'meta.tabNodes' => 'العُقد',
 			'meta.tabPlans' => 'الخطط',
@@ -847,13 +710,11 @@ extension on TranslationsAr {
 			'permission.appQuery' => 'الحصول على قائمة التطبيقات',
 			'permission.request' => ({required Object p}) => 'تمكين أذونات [${p}]',
 			'permission.requestNeed' => ({required Object p}) => 'الرجاء تفعيل إذن [${p}]',
-			'tls.insecure' => 'تخطي التحقق من الشهادة',
 			'tls.certificate' => 'شهادة',
 			'tls.privateKey' => 'المفتاح الخاص',
 			'tls.customTrustCert' => 'شهادات مخصصة',
 			'tun.stack' => 'مكدس الشبكة',
 			'tun.inet4Address' => 'نطاق عناوين IPv4',
-			'tun.inet6Address' => 'نطاق عناوين IPv6',
 			'tun.dnsHijack' => 'اختطاف DNS',
 			'tun.strictRoute' => 'التوجيه الصارم',
 			'tun.tunDefaultRoute' => 'المسار الافتراضي',
@@ -882,17 +743,10 @@ extension on TranslationsAr {
 			'profilePatchMode.currentSelected' => 'المحدد الحالي',
 			'profilePatchMode.overwrite' => 'التجاوز المدمج',
 			'profilePatchMode.noOverwrite' => 'مُدمج - غير قابل للكتابة فوقه',
-			'protocolSniff' => 'الكشف عن البروتوكول',
-			'protocolSniffOverrideDestination' => 'يغطي اسم المجال المكتشف عنوان هدف الاتصال',
 			'sendOrReceiveNotMatch' => ({required Object p}) => 'الرجاء استخدام [${p}]',
 			'targetConnectFailed' => ({required Object p}) => 'فشل الاتصال بـ [${p}]، يرجى التأكد من وجود الجهاز في نفس الشبكة المحلية (LAN)',
 			'edgeRuntimeNotInstalled' => 'لم يتم تثبيت وقت تشغيل Edge WebView2 على الجهاز الحالي ولا يمكن عرض الصفحة، يرجى تنزيل وتثبيت وقت تشغيل Edge WebView2 (x64)، وإعادة تشغيل التطبيق والمحاولة مرة أخرى.',
 			'locales.en' => 'English',
-			'locales.zh-CN' => '简体中文',
-			'locales.zh-TW' => '繁體中文',
-			'locales.ja' => '日本語',
-			'locales.ko' => '한국어',
-			'locales.ar' => 'عربي',
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',

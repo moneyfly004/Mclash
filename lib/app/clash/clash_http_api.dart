@@ -102,20 +102,6 @@ class ClashConfigs {
   }
 }
 
-class ClashTraffic {
-  int upload = 0;
-  int download = 0;
-  Map<String, dynamic> toJson() => {'up': upload, 'down': download};
-  void fromJson(Map<String, dynamic>? map) {
-    if (map == null) {
-      return;
-    }
-
-    upload = map['up'] ?? 0;
-    download = map['down'] ?? 0;
-  }
-}
-
 class ClashConnectionsTrack {
   String start = "";
   List<String> chains = [];
@@ -142,50 +128,6 @@ class ClashConnectionsTrack {
     'rule': rule,
     'rulePayload': rulePayload,
   };
-}
-
-class ClashConnections {
-  num uploadTotal = 0;
-  num downloadTotal = 0;
-  num memory = 0;
-  List<ClashConnectionsTrack> connections = [];
-  Map<String, dynamic> toJson() => {
-    'uploadTotal': uploadTotal,
-    'downloadTotal': downloadTotal,
-    'memory': memory,
-    'connections': connections.map((c) => c.toJson()).toList(),
-  };
-  void fromJson(Map<String, dynamic>? map, bool withConnectionsList) {
-    if (map == null) {
-      return;
-    }
-
-    uploadTotal = map['uploadTotal'] ?? 0;
-    downloadTotal = map['downloadTotal'] ?? 0;
-    memory = map['memory'] ?? 0;
-    if (withConnectionsList) {
-      var connectionsList = map['connections'];
-      if (connectionsList is List) {
-        connections = connectionsList
-            .map((item) => ClashConnectionsTrack()..fromJson(item))
-            .toList();
-      }
-    }
-  }
-}
-
-class ClashLog {
-  String type = "";
-  String payload = "";
-  Map<String, dynamic> toJson() => {'type': type, 'payload': payload};
-  void fromJson(Map<String, dynamic>? map) {
-    if (map == null) {
-      return;
-    }
-
-    type = map['type'] ?? '';
-    payload = map['payload'] ?? '';
-  }
 }
 
 class ClashProxiesNode {

@@ -27,6 +27,22 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   Future<void>? _stopInFlight;
   bool _intentionalStop = false;
 
+  /// 用户**期望**处于连接状态（start 成功后为 true，用户主动 stop 才置 false）。
+  ///
+  /// 用来区分「内核崩了但用户还想连着」和「用户自己断开的」——
+  /// 只有前者才需要自愈，否则会把用户主动断开当成故障反复重连。
+  bool _wantConnected = false;
+
+  /// 自愈次数（连续失败达到上限就不再重试，避免崩溃循环刷屏/刷 CPU）。
+  int _autoRecoveries = 0;
+  static const int kMaxAutoRecover = 3;
+
+  /// 内核存活看门狗：进程没退但控制 API 卡死（假活）也要能发现并恢复。
+  Timer? _kernelWatchdog;
+  int _watchdogMisses = 0;
+  static const Duration kWatchdogInterval = Duration(seconds: 20);
+  static const int kWatchdogMaxMisses = 3;
+
   int _mixedPort = 0;
 
   bool _systemProxyApplied = false;
@@ -254,9 +270,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
             flush: true,
           );
         } catch (_) {}
+        if (await _tryAutoRecover("内核进程意外退出 (code=$code)")) {
+          return;
+        }
         if (_systemProxyApplied) {
           await cleanSystemProxy();
         }
+        _wantConnected = false;
         _setState(
           FlutterVpnServiceState.disconnected,
           {"code": "$code", "reason": "kernel exited"},
@@ -276,8 +296,18 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         await stop();
 
         final String message;
+        // 「控制 API 通了但没有入站监听」要和「内核根本没起来」分开报 ——
+        // 这两种情况的排查方向完全不同（前者是配置里缺 mixed-port，
+        // 后者才是被拦截 / 端口被占）。旧实现一律报"启动超时/可能被安全软件
+        // 拦截"，把用户和我们一起带偏。
+        final apiUp = await _controlApiAlive(cfg);
         if (errText.isNotEmpty) {
           message = errText;
+        } else if (apiUp && _mixedPort > 0) {
+          message =
+              "内核已就绪，但没有监听混合端口 $_mixedPort（配置里缺少入站监听）。\n"
+              "这通常是订阅/覆写补丁里没有 mixed-port 导致的，请重新连接一次；"
+              "若持续出现请反馈（已自动补写 mixed-port）。";
         } else if (_missingGeo.isNotEmpty) {
           message = "缺少内置分流数据（${_missingGeo.join("、")}），"
               "内核已尝试联网补拉并卡住。请检查网络后重试；"
@@ -300,7 +330,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
 
       await _applyDataPathFallback(logFile);
+      _wantConnected = true;
+      _autoRecoveries = 0;
       _setState(FlutterVpnServiceState.connected);
+      _startKernelWatchdog();
       return VpnServiceWaitResult(type: VpnServiceWaitType.done);
     } finally {
       _starting = false;
@@ -360,8 +393,135 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
+  /// 内核「意外退出」时的自愈：用户还期望连着 → 用原配置重启一次。
+  ///
+  /// 为什么要做：内核因为一次瞬时故障（配置热重载、端口被短暂占用、内存压力）
+  /// 退出时，旧实现只是**默默断开并把系统代理撤掉** —— 用户侧看到的是
+  /// 「突然断网/自动断开」，只能手动再连一次。现在先自愈，连续失败才如实报错。
+  ///
+  /// 返回 true 表示已经重新拉起来了（调用方不要再往 disconnected 上写状态）。
+  Future<bool> _tryAutoRecover(String why) async {
+    if (!_wantConnected || _intentionalStop) {
+      return false;
+    }
+    final cfg = _config;
+    if (cfg == null) {
+      return false;
+    }
+    if (_autoRecoveries >= kMaxAutoRecover) {
+      stderr.writeln(
+        "[mclash] $why —— 已连续自愈 $_autoRecoveries 次仍失败，停止重试并如实断开。",
+      );
+      return false;
+    }
+    _autoRecoveries++;
+    final backoff = Duration(seconds: 2 * _autoRecoveries);
+    stderr.writeln(
+      "[mclash] $why —— 第 $_autoRecoveries 次自愈：${backoff.inSeconds}s 后重启内核…",
+    );
+    _setState(FlutterVpnServiceState.reasserting);
+    await Future<void>.delayed(backoff);
+    if (!_wantConnected || _intentionalStop) {
+      return false;
+    }
+    try {
+      final result = await start(const Duration(seconds: 30));
+      if (result.type == VpnServiceWaitType.done) {
+        stderr.writeln("[mclash] 自愈成功：内核已恢复（第 $_autoRecoveries 次）");
+        return true;
+      }
+      stderr.writeln(
+        "[mclash] 自愈失败：${result.err?.message ?? "未知原因"}",
+      );
+    } catch (e) {
+      stderr.writeln("[mclash] 自愈异常: $e");
+    }
+    return false;
+  }
+
+  /// 内核「进程还在但已经不理人」的检测（假活）。
+  ///
+  /// 只看进程是否退出是不够的：内核可能因为死锁/内存压力卡住 ——
+  /// 这时进程在、系统代理指向它，但**所有流量都出不去**，
+  /// 用户看到的同样是「连不上 / 用着用着就断了」。
+  void _startKernelWatchdog() {
+    _stopKernelWatchdog();
+    _watchdogMisses = 0;
+    _kernelWatchdog = Timer.periodic(kWatchdogInterval, (_) async {
+      if (!_wantConnected || _intentionalStop || _proc == null) {
+        return;
+      }
+      final cfg = _config;
+      if (cfg == null || cfg.control_port <= 0) {
+        return;
+      }
+      final ok = await _controlApiAlive(cfg);
+      if (ok) {
+        _watchdogMisses = 0;
+        return;
+      }
+      _watchdogMisses++;
+      stderr.writeln(
+        "[mclash] 存活探测失败 $_watchdogMisses/$kWatchdogMaxMisses"
+        "（控制端口 ${cfg.control_port}）",
+      );
+      if (_watchdogMisses < kWatchdogMaxMisses) {
+        return;
+      }
+      _watchdogMisses = 0;
+      // 卡死同样算「核心异常」→ 杀掉再自愈，避免留一个假活的进程占着端口
+      final proc = _proc;
+      _proc = null;
+      if (proc != null) {
+        try {
+          await Process.run("taskkill", [
+            "/PID",
+            "${proc.pid}",
+            "/T",
+            "/F",
+          ]);
+        } catch (_) {
+          try {
+            proc.kill(ProcessSignal.sigkill);
+          } catch (_) {}
+        }
+      }
+      await _tryAutoRecover("内核控制接口连续 $kWatchdogMaxMisses 次无响应（假活）");
+    });
+  }
+
+  void _stopKernelWatchdog() {
+    _kernelWatchdog?.cancel();
+    _kernelWatchdog = null;
+    _watchdogMisses = 0;
+  }
+
+  Future<bool> _controlApiAlive(VpnServiceConfig cfg) async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    try {
+      final req = await client
+          .getUrl(
+            Uri.parse("http://127.0.0.1:${cfg.control_port}/version"),
+          )
+          .timeout(const Duration(seconds: 3));
+      if (cfg.secret.isNotEmpty) {
+        req.headers.set(HttpHeaders.authorizationHeader, "Bearer ${cfg.secret}");
+      }
+      final resp = await req.close().timeout(const Duration(seconds: 3));
+      await resp.drain<void>();
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   Future<void> _stopInternal() async {
     _intentionalStop = true;
+    _wantConnected = false;
+    _autoRecoveries = 0;
+    _stopKernelWatchdog();
     _setState(FlutterVpnServiceState.disconnecting);
 
     if (_systemProxyApplied) {

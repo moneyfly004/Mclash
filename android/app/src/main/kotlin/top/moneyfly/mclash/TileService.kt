@@ -77,7 +77,6 @@ class TileService : TileService() {
             )
             intent.putExtra("exitProcess", true)
             startService(intent)
-            // stopService(intent)
             updateTile(false)
             return
         }

@@ -53,18 +53,11 @@ class TranslationsZhTw with BaseTranslations<AppLocale, Translations> implements
 	@override late final Translations$dns$zh_TW dns = Translations$dns$zh_TW.internal(_root);
 	@override late final Translations$sniffer$zh_TW sniffer = Translations$sniffer$zh_TW.internal(_root);
 	@override late final Translations$profilePatchMode$zh_TW profilePatchMode = Translations$profilePatchMode$zh_TW.internal(_root);
-	@override String get protocolSniff => '協議探測';
-	@override String get protocolSniffOverrideDestination => '探測的域名覆蓋連接目標地址';
 	@override String sendOrReceiveNotMatch({required Object p}) => '請使用 [${p}]';
 	@override String targetConnectFailed({required Object p}) => '連線 [${p}] 失敗, 請確保設備在同一個區域網路內';
 	@override String get edgeRuntimeNotInstalled => '當前設備尚未安裝Edge WebView2運行時,無法展示頁面,請下載安裝Edge WebView2運行時(x64)後,重啟App再試';
 	@override Map<String, String> get locales => {
 		'en': 'English',
-		'zh-CN': '简体中文',
-		'zh-TW': '繁體中文',
-		'ja': '日本語',
-		'ko': '한국어',
-		'ar': 'عربي',
 		'ru': 'Русский',
 		'fa': 'فارسی',
 		'es': 'Español',
@@ -168,20 +161,9 @@ class Translations$loginScreen$zh_TW implements Translations$loginScreen$en {
 	@override String get forgotPassword => '忘記密碼';
 	@override String get provider => '服務商';
 	@override String get providerName => '${_root.loginScreen.provider}編碼/別名/URL';
-	@override String get providerNameRequired => '請輸入${_root.loginScreen.provider}編碼/別名/URL';
 	@override String get account => '賬號';
-	@override String get accountRequired => '請輸入賬號';
 	@override String get email => '郵箱';
-	@override String get emailRequired => '請輸入郵箱地址';
 	@override String get password => '密碼';
-	@override String get passwordRequired => '請輸入密碼';
-	@override String get validEmailRequired => '請輸入有效的郵箱地址';
-	@override String passwordMinLength({required Object minLength}) => '密碼長度至少${minLength}位';
-	@override String get unsupportedProvider => '不支持的${_root.loginScreen.provider}';
-	@override String get unsupportedProviderType => '不支持的${_root.loginScreen.provider}類型';
-	@override String get unActivedProvider => '登入功能未啟用';
-	@override String providerLoginSupportRequired({required Object p}) => '編碼/別名請向${_root.loginScreen.provider}索取\n${_root.loginScreen.provider}接入請參考:${p}';
-	@override String get providerDisclaimer => '免責聲明:${_root.loginScreen.provider}為第三方服務,與本App無關';
 }
 
 // Path: main
@@ -207,15 +189,12 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get close => '關閉';
 	@override String get quit => '退出';
 	@override String get add => '添加';
-	@override String get addSuccess => '添加成功';
-	@override String addFailed({required Object p}) => '添加失敗:${p}';
 	@override String get remove => '刪除';
 	@override String get removeConfirm => '確認刪除?';
 	@override String get edit => '編輯';
 	@override String get view => '查看';
 	@override String get remark => '備註';
 	@override String get byDefault => '預設';
-	@override String get editRemark => '修改備註';
 	@override String get more => '更多';
 	@override String get tips => '提示';
 	@override String get selectAll => '全選';
@@ -235,10 +214,8 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get minutes => '分';
 	@override String get seconds => '秒';
 	@override String get milliseconds => '毫秒';
-	@override String get protocol => '協議';
 	@override String get search => '搜索';
 	@override String get searchNodeHint => '篩選節點（名稱或協定）';
-	@override String get custom => '自定義';
 	@override String get connect => '連接';
 	@override String get disconnect => '斷開';
 	@override String get connected => '已連接';
@@ -246,8 +223,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get connecting => '連接中';
 	@override String get connectTimeout => '連接超時';
 	@override String get timeout => '超時';
-	@override String get timeoutDuration => '超時時長';
-	@override String get latency => '延遲';
 	@override String get latencyTest => '延遲檢測';
 	@override String get networkCheck => '網路檢測';
 	@override String get language => '語言';
@@ -255,7 +230,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get done => '完成';
 	@override String get apply => '應用';
 	@override String get refresh => '刷新';
-	@override String get retry => '是否重試?';
 	@override String get update => '更新';
 	@override String get updateInterval => '更新時間間隔';
 	@override String get updateInterval5mTips => '最小:5m';
@@ -264,30 +238,23 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get none => '無';
 	@override String get reset => '重置';
 	@override String get authentication => '授權';
-	@override String get submit => '提交';
 	@override String get user => '用戶';
 	@override String get account => '賬號';
 	@override String get password => '密碼';
 	@override String get decryptPassword => '解密密碼';
 	@override String get required => '必填';
 	@override String get go => '繼續';
-	@override String get sudoPassword => 'sudo 密碼(TUN模式需要)';
 	@override String get other => '其他';
 	@override String get dns => 'DNS';
 	@override String get url => 'URL';
 	@override String get urlInvalid => 'URL無效';
-	@override String get urlCannotEmpty => 'URL不能為空';
-	@override String get urlTooLong => 'URL過長(>8182)';
 	@override String get copyUrl => '複製連結';
 	@override String get openUrl => '打開連結';
-	@override String get shareUrl => '分享連結';
 	@override String get coreSettingTips => '注意:修改配置後,需要重新連接才會生效';
 	@override String get overwrite => '覆寫';
-	@override String get overwriteCustom => '自定義覆寫';
 	@override String get overwriteAppend => '追加覆寫';
 	@override String get overwriteTips => '原始配置<-自定義覆寫<-App覆寫';
 	@override String get noOverwrite => '不覆寫';
-	@override String get overwriteSettings => '覆寫設置';
 	@override String get diversionTemplates => '分流模板';
 	@override String get ruleProviders => '規則提供者';
 	@override String get ruleTemplates => '規則模板';
@@ -309,7 +276,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get tun => 'TUN';
 	@override String get ntp => 'NTP';
 	@override String get tls => 'TLS';
-	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => '使用代理下載Geo RuleSet';
 	@override String get geoRulesetTips => 'Geosite/Geoip 會被轉換成 對應的RuleSet';
 	@override String get sniffer => '嗅探';
@@ -319,7 +285,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get tunModeRunAsAdmin => 'TUN模式需要系統管理員權限,請以管理員身份重新啟動應用';
 	@override String get portableMode => '便攜模式';
 	@override String get portableModeDisableTips => '如需退出便攜模式,請退出[mclash]後,手動刪除[mclash.exe]同目錄下的[portable]文件夾即可';
-	@override String get systemProxy => '系統代理';
 	@override String get autoConnectAfterLaunch => '啟動後自動連接';
 	@override String get autoConnectAtBoot => '系統啟動後自動連接';
 	@override String get autoConnectAtBootTips => '需要系統支持,部分系統可能還需要開啟[自啟動]';
@@ -331,34 +296,18 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get hideDockIcon => '隱藏Dock圖標';
 	@override String get showTrayTraffic => '托盤上顯示流量資訊';
 	@override String get website => '官網';
-	@override String get homePage => '主頁';
 	@override String get rule => '規則';
 	@override String get global => '全局';
 	@override String get direct => '直連';
-	@override String get block => '攔截';
 	@override String get qrcode => '二維碼';
 	@override String get qrcodeTooLong => '文本過長,無法展示';
 	@override String get qrcodeShare => '分享二維碼';
-	@override String get textToQrcode => '文本轉二維碼';
 	@override String get qrcodeScan => '掃描二維碼';
 	@override String get qrcodeScanResult => '掃描結果';
-	@override String get qrcodeScanFromImage => '打開二維碼圖片';
-	@override String get qrcodeScanResultFailed => '解析圖片失敗,請確保截圖為有效的二維碼';
-	@override String get qrcodeScanResultEmpty => '掃描結果為空';
-	@override String get screenshot => '截圖';
 	@override String get backupAndSync => '備份與同步';
-	@override String get importSuccess => '匯入成功';
-	@override String get rewriteConfirm => '該文件將覆蓋本地已有配置,是否繼續?';
-	@override String get importAndExport => '匯入/匯出';
-	@override String get import => '匯入';
-	@override String get importFromUrl => '從URL匯入';
 	@override String get export => '匯出';
 	@override String get send => '發送';
-	@override String get receive => '接收';
 	@override String get sendConfirm => '確認發送?';
-	@override String get continueConnectConfirm => '是否繼續連接?';
-	@override String get termOfUse => '使用條款';
-	@override String get privacyPolicy => '隱私政策';
 	@override String get log => '日誌';
 	@override String get coreLog => '核心日誌';
 	@override String get core => '核心';
@@ -375,7 +324,6 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get reconnectTakesEffect => '重新連接後生效';
 	@override String get runtimeProfile => '運行時配置';
 	@override String get willCompleteAfterRebootInstall => '請重啟設備,以便完成系統擴展安裝';
-	@override String get willCompleteAfterRebootUninstall => '請重啟設備,以便完成系統擴展卸載';
 	@override String get requestNeedsUserApproval => '1. 請在[系統設置]-[隱私與安全性]裏[允許] Mclash安裝系統擴展\n2. :[系統設置]-[通用]-[登錄項與擴展-網絡擴展]啟用[mclashServiceSE]\n完成後重新連接';
 	@override String get FullDiskAccessPermissionRequired => '請在[系統設置]-[隱私與安全性]-[完全磁盤訪問權限]裏開啟mclashServiceSE權限後,重新連接';
 	@override String get proxy => '代理';
@@ -383,18 +331,13 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get tvMode => 'TV模式';
 	@override String get autoUpdate => '自動更新';
 	@override String get updateChannel => '自動更新通道';
-	@override String get onlineCustomerService => '線上客服';
-	@override String get subscriptionChannel => '訂閱頻道';
 	@override String hasNewVersion({required Object p}) => '更新版本 ${p}';
 	@override String get autoDownloadPkg => '自動下載更新包';
 	@override String get devOptions => '開發者選項';
 	@override String get about => '關於';
 	@override String get name => '名稱';
 	@override String get version => '版本';
-	@override String get notice => '通知';
 	@override String get sort => '排序';
-	@override String get recommended => '推薦';
-	@override String innerError({required Object p}) => '內部錯誤:${p}';
 	@override String get share => '分享';
 	@override String get importFromClipboard => '從剪貼簿導入';
 	@override String get exportToClipboard => '匯出到剪貼簿';
@@ -414,26 +357,12 @@ class Translations$meta$zh_TW implements Translations$meta$en {
 	@override String get hideAppIcon => '隱藏應用圖標';
 	@override String get openDir => '打開文件目錄';
 	@override String get type => '類型';
-	@override String get fileChoose => '選擇文件';
-	@override String get filePathCannotEmpty => '文件路徑不能為空';
 	@override String fileNotExist({required Object p}) => '文件不存在:${p}';
-	@override String fileTypeInvalid({required Object p}) => '無效的文件類型:${p}';
-	@override String get uwpExemption => 'UWP網絡隔離豁免';
-	@override String get getProfile => '獲取設定';
 	@override String get buyProfile => '購買設定';
-	@override String get addProfile => '添加設定';
 	@override String get myProfiles => '我的設定';
 	@override String get profileEdit => '編輯設定';
 	@override String get profileNeedActive => '請先將本設定設為目前設定，並開啟連線/重新連線';
-	@override String get profileDownloadBackupChannel => '啟用備用下載通道';
-	@override String get profileDownloadBackupChannelTips => 'Mclash 提供的代理下載通道（不儲存任何資訊）';
-	@override String get profileEditReloadAfterProfileUpdate => '設定更新後重新載入';
-	@override String get profileRulesAppendProxyTips => '規則將自動設為原始設定中 [proxy-groups] 內第一個類型為 [url-test] 或 [select] 的代理';
-	@override String get profileImport => '匯入設定檔';
-	@override String get profileAddUrlOrContent => '添加設定連結';
 	@override String profileUrlOrContent({required Object p}) => '${p}設定連結';
-	@override String profileUrlOrContentHit({required Object p}) => '[必填]，注意: 如果你的連結不是 ${_root.meta.profileUrlOrContent(p: p)}（例如 V2Ray 或 Sing-box），請先使用 Clash 線上轉換工具將其轉換為 ${_root.meta.profileUrlOrContent(p: p)}';
-	@override String get profileUrlOrContentCannotEmpty => '設定連結不能為空';
 	@override String get tabHome => '首頁';
 	@override String get tabNodes => '節點列表';
 	@override String get tabPlans => '套餐購買';
@@ -461,7 +390,6 @@ class Translations$tls$zh_TW implements Translations$tls$en {
 	final TranslationsZhTw _root; // ignore: unused_field
 
 	// Translations
-	@override String get insecure => '跳過證書驗證';
 	@override String get certificate => '證書';
 	@override String get privateKey => '私鑰';
 	@override String get customTrustCert => '自定義證書';
@@ -476,7 +404,6 @@ class Translations$tun$zh_TW implements Translations$tun$en {
 	// Translations
 	@override String get stack => '網絡棧';
 	@override String get inet4Address => 'IPv4位址段';
-	@override String get inet6Address => 'IPv6位址段';
 	@override String get dnsHijack => 'DNS劫持';
 	@override String get strictRoute => '嚴格路由';
 	@override String get tunDefaultRoute => '預設路由';
@@ -589,20 +516,9 @@ extension on TranslationsZhTw {
 			'loginScreen.forgotPassword' => '忘記密碼',
 			'loginScreen.provider' => '服務商',
 			'loginScreen.providerName' => '${_root.loginScreen.provider}編碼/別名/URL',
-			'loginScreen.providerNameRequired' => '請輸入${_root.loginScreen.provider}編碼/別名/URL',
 			'loginScreen.account' => '賬號',
-			'loginScreen.accountRequired' => '請輸入賬號',
 			'loginScreen.email' => '郵箱',
-			'loginScreen.emailRequired' => '請輸入郵箱地址',
 			'loginScreen.password' => '密碼',
-			'loginScreen.passwordRequired' => '請輸入密碼',
-			'loginScreen.validEmailRequired' => '請輸入有效的郵箱地址',
-			'loginScreen.passwordMinLength' => ({required Object minLength}) => '密碼長度至少${minLength}位',
-			'loginScreen.unsupportedProvider' => '不支持的${_root.loginScreen.provider}',
-			'loginScreen.unsupportedProviderType' => '不支持的${_root.loginScreen.provider}類型',
-			'loginScreen.unActivedProvider' => '登入功能未啟用',
-			'loginScreen.providerLoginSupportRequired' => ({required Object p}) => '編碼/別名請向${_root.loginScreen.provider}索取\n${_root.loginScreen.provider}接入請參考:${p}',
-			'loginScreen.providerDisclaimer' => '免責聲明:${_root.loginScreen.provider}為第三方服務,與本App無關',
 			'main.tray.menuOpen' => '打開',
 			'main.tray.menuExit' => '退出',
 			'meta.enable' => '啟用',
@@ -611,15 +527,12 @@ extension on TranslationsZhTw {
 			'meta.close' => '關閉',
 			'meta.quit' => '退出',
 			'meta.add' => '添加',
-			'meta.addSuccess' => '添加成功',
-			'meta.addFailed' => ({required Object p}) => '添加失敗:${p}',
 			'meta.remove' => '刪除',
 			'meta.removeConfirm' => '確認刪除?',
 			'meta.edit' => '編輯',
 			'meta.view' => '查看',
 			'meta.remark' => '備註',
 			'meta.byDefault' => '預設',
-			'meta.editRemark' => '修改備註',
 			'meta.more' => '更多',
 			'meta.tips' => '提示',
 			'meta.selectAll' => '全選',
@@ -639,10 +552,8 @@ extension on TranslationsZhTw {
 			'meta.minutes' => '分',
 			'meta.seconds' => '秒',
 			'meta.milliseconds' => '毫秒',
-			'meta.protocol' => '協議',
 			'meta.search' => '搜索',
 			'meta.searchNodeHint' => '篩選節點（名稱或協定）',
-			'meta.custom' => '自定義',
 			'meta.connect' => '連接',
 			'meta.disconnect' => '斷開',
 			'meta.connected' => '已連接',
@@ -650,8 +561,6 @@ extension on TranslationsZhTw {
 			'meta.connecting' => '連接中',
 			'meta.connectTimeout' => '連接超時',
 			'meta.timeout' => '超時',
-			'meta.timeoutDuration' => '超時時長',
-			'meta.latency' => '延遲',
 			'meta.latencyTest' => '延遲檢測',
 			'meta.networkCheck' => '網路檢測',
 			'meta.language' => '語言',
@@ -659,7 +568,6 @@ extension on TranslationsZhTw {
 			'meta.done' => '完成',
 			'meta.apply' => '應用',
 			'meta.refresh' => '刷新',
-			'meta.retry' => '是否重試?',
 			'meta.update' => '更新',
 			'meta.updateInterval' => '更新時間間隔',
 			'meta.updateInterval5mTips' => '最小:5m',
@@ -668,30 +576,23 @@ extension on TranslationsZhTw {
 			'meta.none' => '無',
 			'meta.reset' => '重置',
 			'meta.authentication' => '授權',
-			'meta.submit' => '提交',
 			'meta.user' => '用戶',
 			'meta.account' => '賬號',
 			'meta.password' => '密碼',
 			'meta.decryptPassword' => '解密密碼',
 			'meta.required' => '必填',
 			'meta.go' => '繼續',
-			'meta.sudoPassword' => 'sudo 密碼(TUN模式需要)',
 			'meta.other' => '其他',
 			'meta.dns' => 'DNS',
 			'meta.url' => 'URL',
 			'meta.urlInvalid' => 'URL無效',
-			'meta.urlCannotEmpty' => 'URL不能為空',
-			'meta.urlTooLong' => 'URL過長(>8182)',
 			'meta.copyUrl' => '複製連結',
 			'meta.openUrl' => '打開連結',
-			'meta.shareUrl' => '分享連結',
 			'meta.coreSettingTips' => '注意:修改配置後,需要重新連接才會生效',
 			'meta.overwrite' => '覆寫',
-			'meta.overwriteCustom' => '自定義覆寫',
 			'meta.overwriteAppend' => '追加覆寫',
 			'meta.overwriteTips' => '原始配置<-自定義覆寫<-App覆寫',
 			'meta.noOverwrite' => '不覆寫',
-			'meta.overwriteSettings' => '覆寫設置',
 			'meta.diversionTemplates' => '分流模板',
 			'meta.ruleProviders' => '規則提供者',
 			'meta.ruleTemplates' => '規則模板',
@@ -713,7 +614,6 @@ extension on TranslationsZhTw {
 			'meta.tun' => 'TUN',
 			'meta.ntp' => 'NTP',
 			'meta.tls' => 'TLS',
-			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => '使用代理下載Geo RuleSet',
 			'meta.geoRulesetTips' => 'Geosite/Geoip 會被轉換成 對應的RuleSet',
 			'meta.sniffer' => '嗅探',
@@ -723,7 +623,6 @@ extension on TranslationsZhTw {
 			'meta.tunModeRunAsAdmin' => 'TUN模式需要系統管理員權限,請以管理員身份重新啟動應用',
 			'meta.portableMode' => '便攜模式',
 			'meta.portableModeDisableTips' => '如需退出便攜模式,請退出[mclash]後,手動刪除[mclash.exe]同目錄下的[portable]文件夾即可',
-			'meta.systemProxy' => '系統代理',
 			'meta.autoConnectAfterLaunch' => '啟動後自動連接',
 			'meta.autoConnectAtBoot' => '系統啟動後自動連接',
 			'meta.autoConnectAtBootTips' => '需要系統支持,部分系統可能還需要開啟[自啟動]',
@@ -735,34 +634,18 @@ extension on TranslationsZhTw {
 			'meta.hideDockIcon' => '隱藏Dock圖標',
 			'meta.showTrayTraffic' => '托盤上顯示流量資訊',
 			'meta.website' => '官網',
-			'meta.homePage' => '主頁',
 			'meta.rule' => '規則',
 			'meta.global' => '全局',
 			'meta.direct' => '直連',
-			'meta.block' => '攔截',
 			'meta.qrcode' => '二維碼',
 			'meta.qrcodeTooLong' => '文本過長,無法展示',
 			'meta.qrcodeShare' => '分享二維碼',
-			'meta.textToQrcode' => '文本轉二維碼',
 			'meta.qrcodeScan' => '掃描二維碼',
 			'meta.qrcodeScanResult' => '掃描結果',
-			'meta.qrcodeScanFromImage' => '打開二維碼圖片',
-			'meta.qrcodeScanResultFailed' => '解析圖片失敗,請確保截圖為有效的二維碼',
-			'meta.qrcodeScanResultEmpty' => '掃描結果為空',
-			'meta.screenshot' => '截圖',
 			'meta.backupAndSync' => '備份與同步',
-			'meta.importSuccess' => '匯入成功',
-			'meta.rewriteConfirm' => '該文件將覆蓋本地已有配置,是否繼續?',
-			'meta.importAndExport' => '匯入/匯出',
-			'meta.import' => '匯入',
-			'meta.importFromUrl' => '從URL匯入',
 			'meta.export' => '匯出',
 			'meta.send' => '發送',
-			'meta.receive' => '接收',
 			'meta.sendConfirm' => '確認發送?',
-			'meta.continueConnectConfirm' => '是否繼續連接?',
-			'meta.termOfUse' => '使用條款',
-			'meta.privacyPolicy' => '隱私政策',
 			'meta.log' => '日誌',
 			'meta.coreLog' => '核心日誌',
 			'meta.core' => '核心',
@@ -779,7 +662,6 @@ extension on TranslationsZhTw {
 			'meta.reconnectTakesEffect' => '重新連接後生效',
 			'meta.runtimeProfile' => '運行時配置',
 			'meta.willCompleteAfterRebootInstall' => '請重啟設備,以便完成系統擴展安裝',
-			'meta.willCompleteAfterRebootUninstall' => '請重啟設備,以便完成系統擴展卸載',
 			'meta.requestNeedsUserApproval' => '1. 請在[系統設置]-[隱私與安全性]裏[允許] Mclash安裝系統擴展\n2. :[系統設置]-[通用]-[登錄項與擴展-網絡擴展]啟用[mclashServiceSE]\n完成後重新連接',
 			'meta.FullDiskAccessPermissionRequired' => '請在[系統設置]-[隱私與安全性]-[完全磁盤訪問權限]裏開啟mclashServiceSE權限後,重新連接',
 			'meta.proxy' => '代理',
@@ -787,18 +669,13 @@ extension on TranslationsZhTw {
 			'meta.tvMode' => 'TV模式',
 			'meta.autoUpdate' => '自動更新',
 			'meta.updateChannel' => '自動更新通道',
-			'meta.onlineCustomerService' => '線上客服',
-			'meta.subscriptionChannel' => '訂閱頻道',
 			'meta.hasNewVersion' => ({required Object p}) => '更新版本 ${p}',
 			'meta.autoDownloadPkg' => '自動下載更新包',
 			'meta.devOptions' => '開發者選項',
 			'meta.about' => '關於',
 			'meta.name' => '名稱',
 			'meta.version' => '版本',
-			'meta.notice' => '通知',
 			'meta.sort' => '排序',
-			'meta.recommended' => '推薦',
-			'meta.innerError' => ({required Object p}) => '內部錯誤:${p}',
 			'meta.share' => '分享',
 			'meta.importFromClipboard' => '從剪貼簿導入',
 			'meta.exportToClipboard' => '匯出到剪貼簿',
@@ -818,26 +695,12 @@ extension on TranslationsZhTw {
 			'meta.hideAppIcon' => '隱藏應用圖標',
 			'meta.openDir' => '打開文件目錄',
 			'meta.type' => '類型',
-			'meta.fileChoose' => '選擇文件',
-			'meta.filePathCannotEmpty' => '文件路徑不能為空',
 			'meta.fileNotExist' => ({required Object p}) => '文件不存在:${p}',
-			'meta.fileTypeInvalid' => ({required Object p}) => '無效的文件類型:${p}',
-			'meta.uwpExemption' => 'UWP網絡隔離豁免',
-			'meta.getProfile' => '獲取設定',
 			'meta.buyProfile' => '購買設定',
-			'meta.addProfile' => '添加設定',
 			'meta.myProfiles' => '我的設定',
 			'meta.profileEdit' => '編輯設定',
 			'meta.profileNeedActive' => '請先將本設定設為目前設定，並開啟連線/重新連線',
-			'meta.profileDownloadBackupChannel' => '啟用備用下載通道',
-			'meta.profileDownloadBackupChannelTips' => 'Mclash 提供的代理下載通道（不儲存任何資訊）',
-			'meta.profileEditReloadAfterProfileUpdate' => '設定更新後重新載入',
-			'meta.profileRulesAppendProxyTips' => '規則將自動設為原始設定中 [proxy-groups] 內第一個類型為 [url-test] 或 [select] 的代理',
-			'meta.profileImport' => '匯入設定檔',
-			'meta.profileAddUrlOrContent' => '添加設定連結',
 			'meta.profileUrlOrContent' => ({required Object p}) => '${p}設定連結',
-			'meta.profileUrlOrContentHit' => ({required Object p}) => '[必填]，注意: 如果你的連結不是 ${_root.meta.profileUrlOrContent(p: p)}（例如 V2Ray 或 Sing-box），請先使用 Clash 線上轉換工具將其轉換為 ${_root.meta.profileUrlOrContent(p: p)}',
-			'meta.profileUrlOrContentCannotEmpty' => '設定連結不能為空',
 			'meta.tabHome' => '首頁',
 			'meta.tabNodes' => '節點列表',
 			'meta.tabPlans' => '套餐購買',
@@ -847,13 +710,11 @@ extension on TranslationsZhTw {
 			'permission.appQuery' => '獲取應用列表',
 			'permission.request' => ({required Object p}) => '開啟[${p}]權限',
 			'permission.requestNeed' => ({required Object p}) => '請開啟[${p}]權限',
-			'tls.insecure' => '跳過證書驗證',
 			'tls.certificate' => '證書',
 			'tls.privateKey' => '私鑰',
 			'tls.customTrustCert' => '自定義證書',
 			'tun.stack' => '網絡棧',
 			'tun.inet4Address' => 'IPv4位址段',
-			'tun.inet6Address' => 'IPv6位址段',
 			'tun.dnsHijack' => 'DNS劫持',
 			'tun.strictRoute' => '嚴格路由',
 			'tun.tunDefaultRoute' => '預設路由',
@@ -882,17 +743,10 @@ extension on TranslationsZhTw {
 			'profilePatchMode.currentSelected' => '當前選擇',
 			'profilePatchMode.overwrite' => '內置-覆寫',
 			'profilePatchMode.noOverwrite' => '內置-不覆寫',
-			'protocolSniff' => '協議探測',
-			'protocolSniffOverrideDestination' => '探測的域名覆蓋連接目標地址',
 			'sendOrReceiveNotMatch' => ({required Object p}) => '請使用 [${p}]',
 			'targetConnectFailed' => ({required Object p}) => '連線 [${p}] 失敗, 請確保設備在同一個區域網路內',
 			'edgeRuntimeNotInstalled' => '當前設備尚未安裝Edge WebView2運行時,無法展示頁面,請下載安裝Edge WebView2運行時(x64)後,重啟App再試',
 			'locales.en' => 'English',
-			'locales.zh-CN' => '简体中文',
-			'locales.zh-TW' => '繁體中文',
-			'locales.ja' => '日本語',
-			'locales.ko' => '한국어',
-			'locales.ar' => 'عربي',
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',

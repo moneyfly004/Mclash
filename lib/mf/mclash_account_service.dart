@@ -79,10 +79,19 @@ class MclashAccountService extends ChangeNotifier {
 
   MclashAccountInfo get info => MclashAccountInfo(_dash, _sub);
 
+  /// 测试缝：直接灌入账号数据。
+  ///
+  /// [fresh] 默认 true = 「这就是**本次**从服务端拿到的数据」（拦截才会生效）；
+  /// 传 false 可复现「只有启动时回填的旧缓存」这一态 —— 那种情况下不允许拦截。
   @visibleForTesting
-  void debugSetData(Map<String, dynamic>? dash, Map<String, dynamic>? sub) {
+  void debugSetData(
+    Map<String, dynamic>? dash,
+    Map<String, dynamic>? sub, {
+    bool fresh = true,
+  }) {
     _dash = dash;
     _sub = sub;
+    _fresh = fresh;
     notifyListeners();
   }
 
@@ -190,8 +199,16 @@ class MclashAccountService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 断开前先复核一次（避免用陈旧判定把用户踢下线）。
   Future<void> disconnectIfBlocked() async {
     if (!isBlocked) {
+      return;
+    }
+    if (!_fresh && !_loading) {
+      // 判定来自旧缓存或订阅提示时，先拿一次最新数据；刷新完成后
+      // refresh() 自己的尾部会再调一次本方法。
+      Log.i("MclashAccountService: 受限判定不是最新数据($blockTitle)，先复核再断开");
+      await refresh();
       return;
     }
     final started = await VPNService.getStarted();
@@ -243,12 +260,24 @@ class MclashAccountService extends ChangeNotifier {
 
   bool get isBlocked => blockKind != MclashBlockKind.none;
 
+  /// 账号数据是不是**这次真的从服务端拿到的**。
+  ///
+  /// 启动时 `loadCache()` 会把上次的数据填进来（`_fresh = false`）——
+  /// 用它来「禁止连接 / 断开连接」会造成真实事故：
+  ///   * 用户在官网续费/删掉多余设备之后，客户端还拿着旧缓存说自己超限，
+  ///     **连不上**，直到下一次刷新成功；
+  ///   * 离线启动时更糟：明明只是想连代理，却被旧缓存拦住。
+  /// 所以：**陈旧缓存只用于展示，不用于拦截**；拦截必须基于本次实测，
+  /// 或者基于「刚下载下来的那份订阅自己说了什么」（_payloadNotice）。
+  bool get blockingDataFresh => _fresh;
+
   MclashBlockKind get blockKind {
     if (_kicked) {
       return MclashBlockKind.deviceKicked;
     }
     // 后端在这次订阅下发里已经明确说了「不可用」→ 直接采信（最权威，
-    // 且包含账号接口拿不到的设备超限判定）。
+    // 且包含账号接口拿不到的设备超限判定）。它来自刚下载下来的配置档，
+    // 不属于「陈旧缓存」，所以放在新鲜度检查之前。
     switch (_payloadNotice.state) {
       case MclashNoticeState.expired:
         return MclashBlockKind.expired;
@@ -263,6 +292,11 @@ class MclashAccountService extends ChangeNotifier {
       case MclashNoticeState.ok:
       case MclashNoticeState.unknown:
         break;
+    }
+    if (!_fresh) {
+      // 账号数据还没拿到本次实测（只有启动时回填的旧缓存）→ 不拦。
+      // 调用方在真正要拦或要断开之前会先 refresh() 复核一次。
+      return MclashBlockKind.none;
     }
     final acc = info;
     if (!acc.hasData) {
@@ -349,6 +383,17 @@ class MclashAccountService extends ChangeNotifier {
       case MclashBlockKind.none:
         return "";
     }
+  }
+
+  /// 连接前的门禁复核：数据不新就先刷一次，然后再判定。
+  ///
+  /// 返回值就是刷新之后的 blockKind —— 上层用它决定是否拦截。
+  Future<MclashBlockKind> verifyBeforeConnect() async {
+    final payloadBlocked = _payloadNotice.blocked;
+    if (!_fresh && !payloadBlocked && MclashApi.isLoggedIn) {
+      await refresh();
+    }
+    return blockKind;
   }
 
   String get blockEmoji {

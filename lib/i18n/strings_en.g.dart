@@ -57,12 +57,6 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$sniffer$en sniffer = Translations$sniffer$en._(_root);
 	late final Translations$profilePatchMode$en profilePatchMode = Translations$profilePatchMode$en._(_root);
 
-	/// en: 'Protocol Sniff'
-	String get protocolSniff => 'Protocol Sniff';
-
-	/// en: 'The Sniff domain name override the connection target address'
-	String get protocolSniffOverrideDestination => 'The Sniff domain name override the connection target address';
-
 	/// en: 'Please use [$p]'
 	String sendOrReceiveNotMatch({required Object p}) => 'Please use [${p}]';
 
@@ -74,11 +68,6 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 
 	Map<String, String> get locales => {
 		'en': 'English',
-		'zh-CN': '简体中文',
-		'zh-TW': '繁體中文',
-		'ja': '日本語',
-		'ko': '한국어',
-		'ar': 'عربي',
 		'ru': 'Русский',
 		'fa': 'فارسی',
 		'es': 'Español',
@@ -255,47 +244,14 @@ class Translations$loginScreen$en {
 	/// en: 'Provider Code/Alias/URL'
 	String get providerName => '${_root.loginScreen.provider} Code/Alias/URL';
 
-	/// en: 'Please enter the Provider code/alias/URL'
-	String get providerNameRequired => 'Please enter the ${_root.loginScreen.provider} code/alias/URL';
-
 	/// en: 'Account'
 	String get account => 'Account';
-
-	/// en: 'Please enter account'
-	String get accountRequired => 'Please enter account';
 
 	/// en: 'Email'
 	String get email => 'Email';
 
-	/// en: 'Please enter email address'
-	String get emailRequired => 'Please enter email address';
-
 	/// en: 'Password'
 	String get password => 'Password';
-
-	/// en: 'Please enter password'
-	String get passwordRequired => 'Please enter password';
-
-	/// en: 'Please enter valid email address'
-	String get validEmailRequired => 'Please enter valid email address';
-
-	/// en: 'Password length at least $minLength characters'
-	String passwordMinLength({required Object minLength}) => 'Password length at least ${minLength} characters';
-
-	/// en: 'Unsupported Provider'
-	String get unsupportedProvider => 'Unsupported ${_root.loginScreen.provider}';
-
-	/// en: 'Unsupported Provider type'
-	String get unsupportedProviderType => 'Unsupported ${_root.loginScreen.provider} type';
-
-	/// en: 'Login feature is not activated'
-	String get unActivedProvider => 'Login feature is not activated';
-
-	/// en: 'Please request the provider code/alias from your Provider. For Provider integration, please refer to: $p'
-	String providerLoginSupportRequired({required Object p}) => 'Please request the provider code/alias from your ${_root.loginScreen.provider}.\nFor ${_root.loginScreen.provider} integration, please refer to: ${p}';
-
-	/// en: 'Disclaimer: Provider is a third-party service and is not affiliated with this app'
-	String get providerDisclaimer => 'Disclaimer: ${_root.loginScreen.provider} is a third-party service and is not affiliated with this app';
 }
 
 // Path: main
@@ -334,12 +290,6 @@ class Translations$meta$en {
 	/// en: 'Add'
 	String get add => 'Add';
 
-	/// en: 'Added successfully'
-	String get addSuccess => 'Added successfully';
-
-	/// en: 'Add failed:$p'
-	String addFailed({required Object p}) => 'Add failed:${p}';
-
 	/// en: 'Remove'
 	String get remove => 'Remove';
 
@@ -357,9 +307,6 @@ class Translations$meta$en {
 
 	/// en: 'Default'
 	String get byDefault => 'Default';
-
-	/// en: 'Edit Remark'
-	String get editRemark => 'Edit Remark';
 
 	/// en: 'More'
 	String get more => 'More';
@@ -418,17 +365,11 @@ class Translations$meta$en {
 	/// en: 'Milliseconds'
 	String get milliseconds => 'Milliseconds';
 
-	/// en: 'Protocol'
-	String get protocol => 'Protocol';
-
 	/// en: 'Search'
 	String get search => 'Search';
 
 	/// en: 'Filter nodes (name or protocol)'
 	String get searchNodeHint => 'Filter nodes (name or protocol)';
-
-	/// en: 'Custom'
-	String get custom => 'Custom';
 
 	/// en: 'Connect'
 	String get connect => 'Connect';
@@ -451,12 +392,6 @@ class Translations$meta$en {
 	/// en: 'Timeout'
 	String get timeout => 'Timeout';
 
-	/// en: 'Timeout Duration'
-	String get timeoutDuration => 'Timeout Duration';
-
-	/// en: 'Latency'
-	String get latency => 'Latency';
-
 	/// en: 'Latency Checks'
 	String get latencyTest => 'Latency Checks';
 
@@ -477,9 +412,6 @@ class Translations$meta$en {
 
 	/// en: 'Refresh'
 	String get refresh => 'Refresh';
-
-	/// en: 'Retry?'
-	String get retry => 'Retry?';
 
 	/// en: 'Update'
 	String get update => 'Update';
@@ -505,9 +437,6 @@ class Translations$meta$en {
 	/// en: 'Authentication'
 	String get authentication => 'Authentication';
 
-	/// en: 'Submit'
-	String get submit => 'Submit';
-
 	/// en: 'User'
 	String get user => 'User';
 
@@ -526,9 +455,6 @@ class Translations$meta$en {
 	/// en: 'Continue'
 	String get go => 'Continue';
 
-	/// en: 'sudo password (required for TUN mode)'
-	String get sudoPassword => 'sudo password (required for TUN mode)';
-
 	/// en: 'Other'
 	String get other => 'Other';
 
@@ -541,29 +467,17 @@ class Translations$meta$en {
 	/// en: 'Invalid URL'
 	String get urlInvalid => 'Invalid URL';
 
-	/// en: 'Link can not be empty'
-	String get urlCannotEmpty => 'Link can not be empty';
-
-	/// en: 'URL is too long (>8182)'
-	String get urlTooLong => 'URL is too long (>8182)';
-
 	/// en: 'Copy Link'
 	String get copyUrl => 'Copy Link';
 
 	/// en: 'Open Link'
 	String get openUrl => 'Open Link';
 
-	/// en: 'Share Link'
-	String get shareUrl => 'Share Link';
-
 	/// en: 'Note: After modifying the configuration, you need to reconnect to take effect'
 	String get coreSettingTips => 'Note: After modifying the configuration, you need to reconnect to take effect';
 
 	/// en: 'Overwrite'
 	String get overwrite => 'Overwrite';
-
-	/// en: 'Custom Overwrite'
-	String get overwriteCustom => 'Custom Overwrite';
 
 	/// en: 'Append Overwrite'
 	String get overwriteAppend => 'Append Overwrite';
@@ -573,9 +487,6 @@ class Translations$meta$en {
 
 	/// en: 'Do not overwrite'
 	String get noOverwrite => 'Do not overwrite';
-
-	/// en: 'Overwrite Settings'
-	String get overwriteSettings => 'Overwrite Settings';
 
 	/// en: 'Diversion Template'
 	String get diversionTemplates => 'Diversion Template';
@@ -640,9 +551,6 @@ class Translations$meta$en {
 	/// en: 'TLS'
 	String get tls => 'TLS';
 
-	/// en: 'GEO'
-	String get geo => 'GEO';
-
 	/// en: 'Downloading Geo RuleSet by proxy'
 	String get geoDownloadByProxy => 'Downloading Geo RuleSet by proxy';
 
@@ -669,9 +577,6 @@ class Translations$meta$en {
 
 	/// en: 'If you need to exit portable mode, please exit [mclash] and manually delete the [portable] folder in the same directory as [mclash.exe]'
 	String get portableModeDisableTips => 'If you need to exit portable mode, please exit [mclash] and manually delete the [portable] folder in the same directory as [mclash.exe]';
-
-	/// en: 'System Proxy'
-	String get systemProxy => 'System Proxy';
 
 	/// en: 'Auto Connection after Launch'
 	String get autoConnectAfterLaunch => 'Auto Connection after Launch';
@@ -706,9 +611,6 @@ class Translations$meta$en {
 	/// en: 'Website'
 	String get website => 'Website';
 
-	/// en: 'Home Page'
-	String get homePage => 'Home Page';
-
 	/// en: 'Rule'
 	String get rule => 'Rule';
 
@@ -717,9 +619,6 @@ class Translations$meta$en {
 
 	/// en: 'Direct'
 	String get direct => 'Direct';
-
-	/// en: 'Block'
-	String get block => 'Block';
 
 	/// en: 'QR Code'
 	String get qrcode => 'QR Code';
@@ -730,44 +629,14 @@ class Translations$meta$en {
 	/// en: 'Share QR Code'
 	String get qrcodeShare => 'Share QR Code';
 
-	/// en: 'Text To QR Code'
-	String get textToQrcode => 'Text To QR Code';
-
 	/// en: 'Scan QR Code'
 	String get qrcodeScan => 'Scan QR Code';
 
 	/// en: 'Scan Result'
 	String get qrcodeScanResult => 'Scan Result';
 
-	/// en: 'Scan From Image'
-	String get qrcodeScanFromImage => 'Scan From Image';
-
-	/// en: 'Failed to parse the image, please make sure the screenshot is a valid QR code'
-	String get qrcodeScanResultFailed => 'Failed to parse the image, please make sure the screenshot is a valid QR code';
-
-	/// en: 'Scan Result is empty'
-	String get qrcodeScanResultEmpty => 'Scan Result is empty';
-
-	/// en: 'Screenshot'
-	String get screenshot => 'Screenshot';
-
 	/// en: 'Backup and Sync'
 	String get backupAndSync => 'Backup and Sync';
-
-	/// en: 'Import Success'
-	String get importSuccess => 'Import Success';
-
-	/// en: 'This file will overwrite the existing local configuration. Do you want to continue?'
-	String get rewriteConfirm => 'This file will overwrite the existing local configuration. Do you want to continue?';
-
-	/// en: 'Import and Export'
-	String get importAndExport => 'Import and Export';
-
-	/// en: 'Import'
-	String get import => 'Import';
-
-	/// en: 'Import from URL'
-	String get importFromUrl => 'Import from URL';
 
 	/// en: 'Export'
 	String get export => 'Export';
@@ -775,20 +644,8 @@ class Translations$meta$en {
 	/// en: 'Send'
 	String get send => 'Send';
 
-	/// en: 'Receive'
-	String get receive => 'Receive';
-
 	/// en: 'Confirm to send?'
 	String get sendConfirm => 'Confirm to send?';
-
-	/// en: 'Continue to connect?'
-	String get continueConnectConfirm => 'Continue to connect?';
-
-	/// en: 'Terms of Service'
-	String get termOfUse => 'Terms of Service';
-
-	/// en: 'Privacy & Policy'
-	String get privacyPolicy => 'Privacy & Policy';
 
 	/// en: 'Log'
 	String get log => 'Log';
@@ -838,9 +695,6 @@ class Translations$meta$en {
 	/// en: 'Please restart your device to complete the system extension installation'
 	String get willCompleteAfterRebootInstall => 'Please restart your device to complete the system extension installation';
 
-	/// en: 'Please restart your device to complete the the system extension uninstallation'
-	String get willCompleteAfterRebootUninstall => 'Please restart your device to complete the the system extension uninstallation';
-
 	/// en: '1. Please [Allow] Mclash to install system extensions in [System Settings]-[Privacy and Security] 2. [System Settings]-[General]-[Login Items Extensions]-[Network Extension] enable [mclashServiceSE] reconnect after completion'
 	String get requestNeedsUserApproval => '1. Please [Allow] Mclash to install system extensions in [System Settings]-[Privacy and Security]\n2. [System Settings]-[General]-[Login Items Extensions]-[Network Extension] enable [mclashServiceSE]\nreconnect after completion';
 
@@ -862,12 +716,6 @@ class Translations$meta$en {
 	/// en: 'Auto Update Channel'
 	String get updateChannel => 'Auto Update Channel';
 
-	/// en: 'Online Customer Service'
-	String get onlineCustomerService => 'Online Customer Service';
-
-	/// en: 'Subscription Channel'
-	String get subscriptionChannel => 'Subscription Channel';
-
 	/// en: 'Update Version $p'
 	String hasNewVersion({required Object p}) => 'Update Version ${p}';
 
@@ -886,17 +734,8 @@ class Translations$meta$en {
 	/// en: 'Version'
 	String get version => 'Version';
 
-	/// en: 'Notice'
-	String get notice => 'Notice';
-
 	/// en: 'Reorder'
 	String get sort => 'Reorder';
-
-	/// en: 'Recommend'
-	String get recommended => 'Recommend';
-
-	/// en: 'Inner Error:$p'
-	String innerError({required Object p}) => 'Inner Error:${p}';
 
 	/// en: 'Share'
 	String get share => 'Share';
@@ -955,29 +794,11 @@ class Translations$meta$en {
 	/// en: 'Type'
 	String get type => 'Type';
 
-	/// en: 'Select File'
-	String get fileChoose => 'Select File';
-
-	/// en: 'The file path can not be empty'
-	String get filePathCannotEmpty => 'The file path can not be empty';
-
 	/// en: 'File does not exist:$p'
 	String fileNotExist({required Object p}) => 'File does not exist:${p}';
 
-	/// en: 'Invalid file type:$p'
-	String fileTypeInvalid({required Object p}) => 'Invalid file type:${p}';
-
-	/// en: 'UWP Network Isolation Exemptions'
-	String get uwpExemption => 'UWP Network Isolation Exemptions';
-
-	/// en: 'Get Profile'
-	String get getProfile => 'Get Profile';
-
 	/// en: 'Buy Profile'
 	String get buyProfile => 'Buy Profile';
-
-	/// en: 'Add Profile'
-	String get addProfile => 'Add Profile';
 
 	/// en: 'My Profiles'
 	String get myProfiles => 'My Profiles';
@@ -988,32 +809,8 @@ class Translations$meta$en {
 	/// en: 'Please set this profile as the current profile first, then start/reconnect'
 	String get profileNeedActive => 'Please set this profile as the current profile first, then start/reconnect';
 
-	/// en: 'Enable backup download channel'
-	String get profileDownloadBackupChannel => 'Enable backup download channel';
-
-	/// en: 'Proxy download channel provided by Mclash (no information is stored)'
-	String get profileDownloadBackupChannelTips => 'Proxy download channel provided by Mclash (no information is stored)';
-
-	/// en: 'Reload after Profile update'
-	String get profileEditReloadAfterProfileUpdate => 'Reload after Profile update';
-
-	/// en: 'Rules will be automatically set to the first proxy in [proxy-groups] of the original config with type [url-test] or [select]'
-	String get profileRulesAppendProxyTips => 'Rules will be automatically set to the first proxy in [proxy-groups] of the original config with type [url-test] or [select]';
-
-	/// en: 'Import Profile File'
-	String get profileImport => 'Import Profile File';
-
-	/// en: 'Add Profile Link'
-	String get profileAddUrlOrContent => 'Add Profile Link';
-
 	/// en: '$p Profile Link'
 	String profileUrlOrContent({required Object p}) => '${p} Profile Link';
-
-	/// en: '[Required]. Note: If your link is not a $p Profile Link (for example, V2Ray or Sing-box), use the Clash online conversion tool to convert it to a $p Profile Link'
-	String profileUrlOrContentHit({required Object p}) => '[Required]. Note: If your link is not a ${_root.meta.profileUrlOrContent(p: p)} (for example, V2Ray or Sing-box), use the Clash online conversion tool to convert it to a ${_root.meta.profileUrlOrContent(p: p)}';
-
-	/// en: 'Profile Link can not be empty'
-	String get profileUrlOrContentCannotEmpty => 'Profile Link can not be empty';
 
 	/// en: 'Home'
 	String get tabHome => 'Home';
@@ -1060,9 +857,6 @@ class Translations$tls$en {
 
 	// Translations
 
-	/// en: 'Skip Certificate Verification'
-	String get insecure => 'Skip Certificate Verification';
-
 	/// en: 'Certificate'
 	String get certificate => 'Certificate';
 
@@ -1086,9 +880,6 @@ class Translations$tun$en {
 
 	/// en: 'IPv4 Gateway Address'
 	String get inet4Address => 'IPv4 Gateway Address';
-
-	/// en: 'IPv6 Gateway Address'
-	String get inet6Address => 'IPv6 Gateway Address';
 
 	/// en: 'DNS Hijack'
 	String get dnsHijack => 'DNS Hijack';
@@ -1261,20 +1052,9 @@ extension on Translations {
 			'loginScreen.forgotPassword' => 'Forgot Password',
 			'loginScreen.provider' => 'Provider',
 			'loginScreen.providerName' => '${_root.loginScreen.provider} Code/Alias/URL',
-			'loginScreen.providerNameRequired' => 'Please enter the ${_root.loginScreen.provider} code/alias/URL',
 			'loginScreen.account' => 'Account',
-			'loginScreen.accountRequired' => 'Please enter account',
 			'loginScreen.email' => 'Email',
-			'loginScreen.emailRequired' => 'Please enter email address',
 			'loginScreen.password' => 'Password',
-			'loginScreen.passwordRequired' => 'Please enter password',
-			'loginScreen.validEmailRequired' => 'Please enter valid email address',
-			'loginScreen.passwordMinLength' => ({required Object minLength}) => 'Password length at least ${minLength} characters',
-			'loginScreen.unsupportedProvider' => 'Unsupported ${_root.loginScreen.provider}',
-			'loginScreen.unsupportedProviderType' => 'Unsupported ${_root.loginScreen.provider} type',
-			'loginScreen.unActivedProvider' => 'Login feature is not activated',
-			'loginScreen.providerLoginSupportRequired' => ({required Object p}) => 'Please request the provider code/alias from your ${_root.loginScreen.provider}.\nFor ${_root.loginScreen.provider} integration, please refer to: ${p}',
-			'loginScreen.providerDisclaimer' => 'Disclaimer: ${_root.loginScreen.provider} is a third-party service and is not affiliated with this app',
 			'main.tray.menuOpen' => 'Open',
 			'main.tray.menuExit' => 'Exit',
 			'meta.enable' => 'Enable',
@@ -1283,15 +1063,12 @@ extension on Translations {
 			'meta.close' => 'Close',
 			'meta.quit' => 'Quit',
 			'meta.add' => 'Add',
-			'meta.addSuccess' => 'Added successfully',
-			'meta.addFailed' => ({required Object p}) => 'Add failed:${p}',
 			'meta.remove' => 'Remove',
 			'meta.removeConfirm' => 'Are you sure to delete?',
 			'meta.edit' => 'Edit',
 			'meta.view' => 'View',
 			'meta.remark' => 'Remark',
 			'meta.byDefault' => 'Default',
-			'meta.editRemark' => 'Edit Remark',
 			'meta.more' => 'More',
 			'meta.tips' => 'Info',
 			'meta.selectAll' => 'Select All',
@@ -1311,10 +1088,8 @@ extension on Translations {
 			'meta.minutes' => 'Minutes',
 			'meta.seconds' => 'Seconds',
 			'meta.milliseconds' => 'Milliseconds',
-			'meta.protocol' => 'Protocol',
 			'meta.search' => 'Search',
 			'meta.searchNodeHint' => 'Filter nodes (name or protocol)',
-			'meta.custom' => 'Custom',
 			'meta.connect' => 'Connect',
 			'meta.disconnect' => 'Disconnect',
 			'meta.connected' => 'Connected',
@@ -1322,8 +1097,6 @@ extension on Translations {
 			'meta.connecting' => 'Connecting',
 			'meta.connectTimeout' => 'Connect Timeout',
 			'meta.timeout' => 'Timeout',
-			'meta.timeoutDuration' => 'Timeout Duration',
-			'meta.latency' => 'Latency',
 			'meta.latencyTest' => 'Latency Checks',
 			'meta.networkCheck' => 'Network Check',
 			'meta.language' => 'Language',
@@ -1331,7 +1104,6 @@ extension on Translations {
 			'meta.done' => 'Done',
 			'meta.apply' => 'Apply',
 			'meta.refresh' => 'Refresh',
-			'meta.retry' => 'Retry?',
 			'meta.update' => 'Update',
 			'meta.updateInterval' => 'Update interval',
 			'meta.updateFailed' => ({required Object p}) => 'Update failed:${p}',
@@ -1340,30 +1112,23 @@ extension on Translations {
 			'meta.none' => 'None',
 			'meta.reset' => 'Reset',
 			'meta.authentication' => 'Authentication',
-			'meta.submit' => 'Submit',
 			'meta.user' => 'User',
 			'meta.account' => 'Account',
 			'meta.password' => 'Password',
 			'meta.decryptPassword' => 'Decrypt Password',
 			'meta.required' => 'Required',
 			'meta.go' => 'Continue',
-			'meta.sudoPassword' => 'sudo password (required for TUN mode)',
 			'meta.other' => 'Other',
 			'meta.dns' => 'DNS',
 			'meta.url' => 'URL',
 			'meta.urlInvalid' => 'Invalid URL',
-			'meta.urlCannotEmpty' => 'Link can not be empty',
-			'meta.urlTooLong' => 'URL is too long (>8182)',
 			'meta.copyUrl' => 'Copy Link',
 			'meta.openUrl' => 'Open Link',
-			'meta.shareUrl' => 'Share Link',
 			'meta.coreSettingTips' => 'Note: After modifying the configuration, you need to reconnect to take effect',
 			'meta.overwrite' => 'Overwrite',
-			'meta.overwriteCustom' => 'Custom Overwrite',
 			'meta.overwriteAppend' => 'Append Overwrite',
 			'meta.overwriteTips' => 'Original Profile <- Custom Overwrite <- App Overwrite',
 			'meta.noOverwrite' => 'Do not overwrite',
-			'meta.overwriteSettings' => 'Overwrite Settings',
 			'meta.diversionTemplates' => 'Diversion Template',
 			'meta.ruleProviders' => 'Rule Providers',
 			'meta.ruleTemplates' => 'Rule Templates',
@@ -1385,7 +1150,6 @@ extension on Translations {
 			'meta.tun' => 'TUN',
 			'meta.ntp' => 'NTP',
 			'meta.tls' => 'TLS',
-			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'Downloading Geo RuleSet by proxy',
 			'meta.geoRulesetTips' => 'Geosite/Geoip will be converted into the corresponding RuleSet',
 			'meta.sniffer' => 'Sniffer',
@@ -1395,7 +1159,6 @@ extension on Translations {
 			'meta.tunModeRunAsAdmin' => 'The TUN mode requires system administrator permissions, please restart the app as an administrator',
 			'meta.portableMode' => 'Portable Mode',
 			'meta.portableModeDisableTips' => 'If you need to exit portable mode, please exit [mclash] and manually delete the [portable] folder in the same directory as [mclash.exe]',
-			'meta.systemProxy' => 'System Proxy',
 			'meta.autoConnectAfterLaunch' => 'Auto Connection after Launch',
 			'meta.autoConnectAtBoot' => 'Auto Connection after System Startup',
 			'meta.autoConnectAtBootTips' => 'System support is required; some systems may also require [auto-start] to be enabled.',
@@ -1407,34 +1170,18 @@ extension on Translations {
 			'meta.hideDockIcon' => 'Hide Dock Icon',
 			'meta.showTrayTraffic' => 'Show traffic info in tray',
 			'meta.website' => 'Website',
-			'meta.homePage' => 'Home Page',
 			'meta.rule' => 'Rule',
 			'meta.global' => 'Global',
 			'meta.direct' => 'Direct',
-			'meta.block' => 'Block',
 			'meta.qrcode' => 'QR Code',
 			'meta.qrcodeTooLong' => 'The text is too long to display',
 			'meta.qrcodeShare' => 'Share QR Code',
-			'meta.textToQrcode' => 'Text To QR Code',
 			'meta.qrcodeScan' => 'Scan QR Code',
 			'meta.qrcodeScanResult' => 'Scan Result',
-			'meta.qrcodeScanFromImage' => 'Scan From Image',
-			'meta.qrcodeScanResultFailed' => 'Failed to parse the image, please make sure the screenshot is a valid QR code',
-			'meta.qrcodeScanResultEmpty' => 'Scan Result is empty',
-			'meta.screenshot' => 'Screenshot',
 			'meta.backupAndSync' => 'Backup and Sync',
-			'meta.importSuccess' => 'Import Success',
-			'meta.rewriteConfirm' => 'This file will overwrite the existing local configuration. Do you want to continue?',
-			'meta.importAndExport' => 'Import and Export',
-			'meta.import' => 'Import',
-			'meta.importFromUrl' => 'Import from URL',
 			'meta.export' => 'Export',
 			'meta.send' => 'Send',
-			'meta.receive' => 'Receive',
 			'meta.sendConfirm' => 'Confirm to send?',
-			'meta.continueConnectConfirm' => 'Continue to connect?',
-			'meta.termOfUse' => 'Terms of Service',
-			'meta.privacyPolicy' => 'Privacy & Policy',
 			'meta.log' => 'Log',
 			'meta.coreLog' => 'Core Log',
 			'meta.core' => 'Core',
@@ -1451,7 +1198,6 @@ extension on Translations {
 			'meta.reconnectTakesEffect' => 'Reconnect takes effect',
 			'meta.runtimeProfile' => 'Runtime Profile',
 			'meta.willCompleteAfterRebootInstall' => 'Please restart your device to complete the system extension installation',
-			'meta.willCompleteAfterRebootUninstall' => 'Please restart your device to complete the the system extension uninstallation',
 			'meta.requestNeedsUserApproval' => '1. Please [Allow] Mclash to install system extensions in [System Settings]-[Privacy and Security]\n2. [System Settings]-[General]-[Login Items Extensions]-[Network Extension] enable [mclashServiceSE]\nreconnect after completion',
 			'meta.FullDiskAccessPermissionRequired' => 'Please enable mclashServiceSE permission in [System Settings]-[Privacy and Security]-[Full Disk Access] and reconnect.',
 			'meta.proxy' => 'Proxy',
@@ -1459,18 +1205,13 @@ extension on Translations {
 			'meta.tvMode' => 'TV Mode',
 			'meta.autoUpdate' => 'Auto Update',
 			'meta.updateChannel' => 'Auto Update Channel',
-			'meta.onlineCustomerService' => 'Online Customer Service',
-			'meta.subscriptionChannel' => 'Subscription Channel',
 			'meta.hasNewVersion' => ({required Object p}) => 'Update Version ${p}',
 			'meta.autoDownloadPkg' => 'Auto Download Update Packages',
 			'meta.devOptions' => 'Developer Options',
 			'meta.about' => 'About',
 			'meta.name' => 'Name',
 			'meta.version' => 'Version',
-			'meta.notice' => 'Notice',
 			'meta.sort' => 'Reorder',
-			'meta.recommended' => 'Recommend',
-			'meta.innerError' => ({required Object p}) => 'Inner Error:${p}',
 			'meta.share' => 'Share',
 			'meta.importFromClipboard' => 'Import From Clipboard',
 			'meta.exportToClipboard' => 'Export to Clipboard',
@@ -1490,26 +1231,12 @@ extension on Translations {
 			'meta.hideAppIcon' => 'Hide App Icons',
 			'meta.openDir' => 'Open File Directory',
 			'meta.type' => 'Type',
-			'meta.fileChoose' => 'Select File',
-			'meta.filePathCannotEmpty' => 'The file path can not be empty',
 			'meta.fileNotExist' => ({required Object p}) => 'File does not exist:${p}',
-			'meta.fileTypeInvalid' => ({required Object p}) => 'Invalid file type:${p}',
-			'meta.uwpExemption' => 'UWP Network Isolation Exemptions',
-			'meta.getProfile' => 'Get Profile',
 			'meta.buyProfile' => 'Buy Profile',
-			'meta.addProfile' => 'Add Profile',
 			'meta.myProfiles' => 'My Profiles',
 			'meta.profileEdit' => 'Profile Edit',
 			'meta.profileNeedActive' => 'Please set this profile as the current profile first, then start/reconnect',
-			'meta.profileDownloadBackupChannel' => 'Enable backup download channel',
-			'meta.profileDownloadBackupChannelTips' => 'Proxy download channel provided by Mclash (no information is stored)',
-			'meta.profileEditReloadAfterProfileUpdate' => 'Reload after Profile update',
-			'meta.profileRulesAppendProxyTips' => 'Rules will be automatically set to the first proxy in [proxy-groups] of the original config with type [url-test] or [select]',
-			'meta.profileImport' => 'Import Profile File',
-			'meta.profileAddUrlOrContent' => 'Add Profile Link',
 			'meta.profileUrlOrContent' => ({required Object p}) => '${p} Profile Link',
-			'meta.profileUrlOrContentHit' => ({required Object p}) => '[Required]. Note: If your link is not a ${_root.meta.profileUrlOrContent(p: p)} (for example, V2Ray or Sing-box), use the Clash online conversion tool to convert it to a ${_root.meta.profileUrlOrContent(p: p)}',
-			'meta.profileUrlOrContentCannotEmpty' => 'Profile Link can not be empty',
 			'meta.tabHome' => 'Home',
 			'meta.tabNodes' => 'Nodes',
 			'meta.tabPlans' => 'Plans',
@@ -1519,13 +1246,11 @@ extension on Translations {
 			'permission.appQuery' => 'Get Application List',
 			'permission.request' => ({required Object p}) => 'Turn on [${p}] permission',
 			'permission.requestNeed' => ({required Object p}) => 'Please Turn on [${p}] permission',
-			'tls.insecure' => 'Skip Certificate Verification',
 			'tls.certificate' => 'Certificate',
 			'tls.privateKey' => 'Private Key',
 			'tls.customTrustCert' => 'Custom Certifactes',
 			'tun.stack' => 'Network stack',
 			'tun.inet4Address' => 'IPv4 Gateway Address',
-			'tun.inet6Address' => 'IPv6 Gateway Address',
 			'tun.dnsHijack' => 'DNS Hijack',
 			'tun.strictRoute' => 'Strict Route',
 			'tun.tunDefaultRoute' => 'Default Route',
@@ -1554,17 +1279,10 @@ extension on Translations {
 			'profilePatchMode.currentSelected' => 'Current Selected',
 			'profilePatchMode.overwrite' => 'Built-in Overwrite',
 			'profilePatchMode.noOverwrite' => 'Built-in - no Overwrite',
-			'protocolSniff' => 'Protocol Sniff',
-			'protocolSniffOverrideDestination' => 'The Sniff domain name override the connection target address',
 			'sendOrReceiveNotMatch' => ({required Object p}) => 'Please use [${p}]',
 			'targetConnectFailed' => ({required Object p}) => 'Failed to connect to [${p}]. Please make sure the devices are in the same LAN',
 			'edgeRuntimeNotInstalled' => 'The current device has not installed the Edge WebView2 runtime, so the page cannot be displayed. Please download and install the Edge WebView2 runtime (x64), restart the App and try again.',
 			'locales.en' => 'English',
-			'locales.zh-CN' => '简体中文',
-			'locales.zh-TW' => '繁體中文',
-			'locales.ja' => '日本語',
-			'locales.ko' => '한국어',
-			'locales.ar' => 'عربي',
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',

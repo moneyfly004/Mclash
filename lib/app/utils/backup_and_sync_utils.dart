@@ -7,7 +7,6 @@ import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
-import 'package:path/path.dart' as path;
 import 'package:tuple/tuple.dart';
 
 class BackupAndSyncUtils {
@@ -20,11 +19,6 @@ class BackupAndSyncUtils {
         '${appName}_${appVersion}_${Platform.operatingSystem}_${DateTime.now().formatLikeFileNameTimestamp}.backup.${getZipExtension()}';
     name = name.replaceAll(' ', '');
     return name;
-  }
-
-  static Future<String> getZipFilePath() async {
-    final dir = await PathUtils.cacheDir();
-    return path.join(dir, getZipFileName());
   }
 
   static List<Tuple2<String, bool>> getZipFileNameList() {
@@ -45,10 +39,6 @@ class BackupAndSyncUtils {
     }
 
     return list;
-  }
-
-  static List<String> getFileNamesFromList(List<Tuple2<String, bool>> list) {
-    return list.map((tuple) => tuple.item1).toList();
   }
 
 }

@@ -558,19 +558,21 @@ jobs:
           body: |
             # Mclash ${{ github.ref_name }}
 
-            ## 安装包与系统要求
-            - **Android**: `Mclash-android-{arm64-v8a|armeabi-v7a|x86_64}.apk` + `.aab`（Android 8.0+）
-            - **Windows**: `Mclash-setup-*.exe` 安装版 + `Mclash-windows-x64-portable-*.zip`（Windows 10+）
-            - **macOS arm64**（Apple 芯片 / M 系列）: `Mclash-macos-arm64-*.dmg` — 需 **macOS 11+**
-            - **macOS x64**（Intel）: `Mclash-macos-x64-*.dmg` — 需 **macOS 10.15+**（建议 11+）
-            - **macOS universal**: `Mclash-macos-universal-*.dmg`（同时支持两种芯片）
+            ## Packages and system requirements
+            - **Android**: `Mclash-android-{arm64-v8a|armeabi-v7a|x86_64}.apk` + `.aab` (Android 8.0+)
+            - **Windows**: `Mclash-setup-*.exe` installer + `Mclash-windows-x64-portable-*.zip` (Windows 10+)
+            - **macOS arm64** (Apple silicon): `Mclash-macos-arm64-*.dmg` — requires **macOS 11+**
+            - **macOS x64** (Intel): `Mclash-macos-x64-*.dmg` — requires **macOS 10.15+** (11+ recommended)
+            - **macOS universal**: `Mclash-macos-universal-*.dmg` (runs on both chip families)
 
-            ⚠️ **各架构安装包均为原生编译、内置匹配架构内核，请勿跨架构混装。**
-            Intel Mac 使用 `compatible` 内核（标准版要求 AVX2 指令集，老机器会启动即崩溃）。
+            **Do not mix architectures.** Every package is built natively and bundles a kernel
+            matching its architecture. The Intel build ships the `compatible` kernel because the
+            standard build requires AVX2 (older machines crash on launch).
 
-            ## 内核
-            官方 [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) v${{ env.MIHOMO_VERSION }}
-            （Android 经 [moneyfly004/mihomo-lib](https://github.com/moneyfly004/mihomo-lib) gomobile 预编译，**无 fork**）。
+            ## Kernel
+            Official [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) v${{ env.MIHOMO_VERSION }}
+            (Android: prebuilt through [moneyfly004/mihomo-lib](https://github.com/moneyfly004/mihomo-lib)
+            with gomobile bind — no fork).
 
-            ## 校验
+            ## Verify
               shasum -a 256 -c SHA256SUMS-*.txt

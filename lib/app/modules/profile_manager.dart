@@ -592,6 +592,57 @@ class ProfileManager {
     return _config.profiles;
   }
 
+  /// 下载配置档：**先走内核代理、失败再直连**，且代理那次给短超时。
+  ///
+  /// 为什么要短超时：走代理是为了「订阅地址被墙」的情况，但用户当前节点可能正好
+  /// 是坏的/很慢 —— 旧实现两次尝试都用 30 秒，于是「更新订阅」要干等 30 秒才
+  /// 回退直连，用户侧就是「更新订阅一直转圈 / 失败」。
+  ///
+  /// 每次尝试都留日志（端口 / 耗时 / 结果），排查「连不上 / 同步失败」时能直接看出
+  /// 是代理那次挂了还是直连也不通。
+  static Future<ReturnResult<HttpHeaders>> _downloadProfileWithFallback(
+    Uri uri,
+    String savePath,
+    String userAgent,
+    bool xhwid,
+  ) async {
+    final ports = await VPNService.getPortsByPrefer(true);
+    late ReturnResult<HttpHeaders> result;
+    final attempts = <String>[];
+    for (final port in ports) {
+      final viaProxy = port != null && port != 0;
+      final timeout = viaProxy
+          ? const Duration(seconds: 10)
+          : const Duration(seconds: 30);
+      final sw = Stopwatch()..start();
+      result = await DownloadUtils.downloadWithPort(
+        uri,
+        savePath,
+        userAgent,
+        xhwid,
+        port,
+        timeout: timeout,
+      );
+      sw.stop();
+      final where = viaProxy ? "经内核代理 127.0.0.1:$port" : "直连";
+      attempts.add(
+        "$where ${result.error == null ? "成功" : "失败"} ${sw.elapsedMilliseconds}ms",
+      );
+      if (result.error == null) {
+        Log.i("ProfileManager: 下载配置档 $where 成功（${sw.elapsedMilliseconds}ms）");
+        break;
+      }
+      Log.w(
+        "ProfileManager: 下载配置档 $where 失败（${sw.elapsedMilliseconds}ms）："
+        "${result.error!.message}",
+      );
+    }
+    if (result.error != null && attempts.length > 1) {
+      Log.w("ProfileManager: 下载配置档全部尝试失败 —— ${attempts.join("；")}");
+    }
+    return result;
+  }
+
   static Future<ReturnResultError?> validFileContentFormat(
     String filepath,
   ) async {
@@ -632,21 +683,12 @@ class ProfileManager {
       userAgent = SettingManager.getConfig().userAgent();
     }
 
-    List<int?> ports = await VPNService.getPortsByPrefer(true);
-    late ReturnResult<HttpHeaders> result;
-    for (var port in ports) {
-      result = await DownloadUtils.downloadWithPort(
-        uri,
-        savePath,
-        userAgent,
-        xhwid,
-        port,
-        timeout: const Duration(seconds: 30),
-      );
-      if (result.error == null) {
-        break;
-      }
-    }
+    final result = await _downloadProfileWithFallback(
+      uri,
+      savePath,
+      userAgent,
+      xhwid,
+    );
     if (result.data != null) {
       final err = _handleHwidError(result.data!);
       if (err != null) {
@@ -783,21 +825,13 @@ class ProfileManager {
     }
     final savePath = path.join(await PathUtils.profilesDir(), id);
     final savePathTmp = "$savePath.tmp";
-    List<int?> ports = await VPNService.getPortsByPrefer(true);
     late ReturnResult<HttpHeaders> result;
-    for (var port in ports) {
-      result = await DownloadUtils.downloadWithPort(
-        uri,
-        savePathTmp,
-        userAgent,
-        profile.xhwid,
-        port,
-        timeout: const Duration(seconds: 30),
-      );
-      if (result.error == null) {
-        break;
-      }
-    }
+    result = await _downloadProfileWithFallback(
+      uri,
+      savePathTmp,
+      userAgent,
+      profile.xhwid,
+    );
     if (result.data != null) {
       final err = _handleHwidError(result.data!);
       if (err != null) {
@@ -954,20 +988,6 @@ class ProfileManager {
 
     final filePath = path.join(await PathUtils.profilesDir(), id);
     await FileUtils.deletePath(filePath);
-    await save();
-  }
-
-  static Future<void> removeAllProfile() async {
-    var dir = await PathUtils.profilesDir();
-    for (var profile in _config.profiles) {
-      final filePath = path.join(dir, profile.id);
-      await FileUtils.deletePath(filePath);
-    }
-    _config.profiles.clear();
-    _config._currentId = "";
-    for (var event in onEventCurrentChanged) {
-      event(_config._currentId);
-    }
     await save();
   }
 

@@ -199,23 +199,6 @@ class DialogUtils {
     );
   }
 
-  static Future<String?> showPasswordInputDialog(BuildContext context) async {
-    final tcontext = Translations.of(context);
-    String? password = await DialogUtils.showTextInputDialog(
-      context,
-      tcontext.meta.sudoPassword,
-      "",
-      null,
-      null,
-      null,
-      (text) {
-        return text.isNotEmpty;
-      },
-      obscureText: true,
-    );
-    return password;
-  }
-
   static Future<String?> showTextInputDialog(
     BuildContext context,
     String title,

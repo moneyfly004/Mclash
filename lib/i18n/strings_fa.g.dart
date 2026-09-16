@@ -53,18 +53,11 @@ class TranslationsFa with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _Translations$dns$fa dns = _Translations$dns$fa._(_root);
 	@override late final _Translations$sniffer$fa sniffer = _Translations$sniffer$fa._(_root);
 	@override late final _Translations$profilePatchMode$fa profilePatchMode = _Translations$profilePatchMode$fa._(_root);
-	@override String get protocolSniff => 'تشخیص پروتکل';
-	@override String get protocolSniffOverrideDestination => 'نام دامنه شناسایی شده آدرس هدف اتصال را پوشش می دهد';
 	@override String sendOrReceiveNotMatch({required Object p}) => 'لطفا از [${p}] استفاده کنید';
 	@override String targetConnectFailed({required Object p}) => 'اتصال به [${p}] ناموفق بود، لطفاً مطمئن شوید که دستگاه در همان LAN است';
 	@override String get edgeRuntimeNotInstalled => 'زمان اجرا Edge WebView2 روی دستگاه فعلی نصب نشده است و صفحه قابل نمایش نیست لطفاً زمان اجرا Edge WebView2 (x64) را بارگیری و نصب کنید، برنامه را مجدداً راه اندازی کنید و دوباره امتحان کنید.';
 	@override Map<String, String> get locales => {
 		'en': 'English',
-		'zh-CN': '简体中文',
-		'zh-TW': '繁體中文',
-		'ja': '日本語',
-		'ko': '한국어',
-		'ar': 'عربي',
 		'ru': 'Русский',
 		'fa': 'فارسی',
 		'es': 'Español',
@@ -168,20 +161,9 @@ class _Translations$loginScreen$fa implements Translations$loginScreen$en {
 	@override String get forgotPassword => 'فراموشی رمز عبور';
 	@override String get provider => 'ارائه دهنده خدمات';
 	@override String get providerName => 'کد/نام مستعار/URL ${_root.loginScreen.provider}';
-	@override String get providerNameRequired => 'لطفا کد/نام مستعار/URL ${_root.loginScreen.provider} را وارد کنید';
 	@override String get account => 'حساب';
-	@override String get accountRequired => 'لطفا حساب را وارد کنید';
 	@override String get email => 'ایمیل';
-	@override String get emailRequired => 'لطفا آدرس ایمیل را وارد کنید';
 	@override String get password => 'رمز عبور';
-	@override String get passwordRequired => 'لطفا رمز عبور را وارد کنید';
-	@override String get validEmailRequired => 'لطفا یک آدرس ایمیل معتبر وارد کنید';
-	@override String passwordMinLength({required Object minLength}) => 'طول رمز عبور باید حداقل ${minLength} کاراکتر باشد';
-	@override String get unsupportedProvider => '${_root.loginScreen.provider} پشتیبانی نمی شود';
-	@override String get unsupportedProviderType => 'نوع ${_root.loginScreen.provider} پشتیبانی نمی شود';
-	@override String get unActivedProvider => 'قابلیت ورود فعال نشده است';
-	@override String providerLoginSupportRequired({required Object p}) => 'لطفاً کد/نام مستعار ارائه‌دهنده را از ${_root.loginScreen.provider} دریافت کنید.\nبرای راهنمای اتصال ${_root.loginScreen.provider} به این لینک مراجعه کنید: ${p}';
-	@override String get providerDisclaimer => 'سلب مسئولیت: ${_root.loginScreen.provider} یک سرویس شخص ثالث است و ارتباطی با این برنامه ندارد';
 }
 
 // Path: main
@@ -207,15 +189,12 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get close => 'بسته';
 	@override String get quit => 'خروج';
 	@override String get add => 'افزودن';
-	@override String get addSuccess => 'با‌موفقیت اضافه شد';
-	@override String addFailed({required Object p}) => 'افزودن ناموفق بود:${p}';
 	@override String get remove => 'حذف';
 	@override String get removeConfirm => 'آیا از حذف اطمینان دارین؟';
 	@override String get edit => 'ویرایش کنید';
 	@override String get view => 'بررسی';
 	@override String get remark => 'ملاحضات';
 	@override String get byDefault => 'پیش‌فرض';
-	@override String get editRemark => 'یادداشت های اصلاحی';
 	@override String get more => 'بیشتر';
 	@override String get tips => 'اطلاعات';
 	@override String get selectAll => 'انتخاب همه';
@@ -235,10 +214,8 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get minutes => 'دقیقه';
 	@override String get seconds => 'دومین';
 	@override String get milliseconds => 'میلی‌ثانیه';
-	@override String get protocol => 'پروتکل';
 	@override String get search => 'جستجو';
 	@override String get searchNodeHint => 'فیلتر گره‌ها (نام یا پروتکل)';
-	@override String get custom => 'سفارشی';
 	@override String get connect => 'اتصال';
 	@override String get disconnect => 'قطع‌ اتصال';
 	@override String get connected => 'وصل شد';
@@ -246,8 +223,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get connecting => 'درحال اتصال';
 	@override String get connectTimeout => 'اتمام مهلت اتصال';
 	@override String get timeout => 'تایم اوت';
-	@override String get timeoutDuration => 'مدت زمان وقفه';
-	@override String get latency => 'تاخیر';
 	@override String get latencyTest => 'بررسی تاخیر';
 	@override String get networkCheck => 'بررسی شبکه';
 	@override String get language => 'زبان';
@@ -255,7 +230,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get done => 'انجام‌شد';
 	@override String get apply => 'درخواست دادن';
 	@override String get refresh => 'بارگذاری مجدد';
-	@override String get retry => 'دوباره امتحان کنید؟';
 	@override String get update => 'تجدید';
 	@override String get updateInterval => 'فاصله‌ی به‌روزرسانی';
 	@override String get updateInterval5mTips => 'حداقل: 5 متر';
@@ -264,30 +238,23 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get none => 'هیچ‌کدام';
 	@override String get reset => 'ریست';
 	@override String get authentication => 'مجوز';
-	@override String get submit => 'ارسال';
 	@override String get user => 'کاربر';
 	@override String get account => 'نام‌کاربری';
 	@override String get password => 'رمز‌عبور';
 	@override String get decryptPassword => 'دکريپت رمز‌عبور';
 	@override String get required => 'الزامی';
 	@override String get go => 'ادامه';
-	@override String get sudoPassword => 'رمز عبور sudo (برای حالت TUN لازم است)';
 	@override String get other => 'دیگر';
 	@override String get dns => 'DNS';
 	@override String get url => 'URL';
 	@override String get urlInvalid => 'URL نامعتبر';
-	@override String get urlCannotEmpty => 'لینک نمی‌تواند خالی باشد';
-	@override String get urlTooLong => 'URL خیلی طولانی است (>8182)';
 	@override String get copyUrl => 'کپی‌کردن لینک';
 	@override String get openUrl => 'بازکردن لینک';
-	@override String get shareUrl => 'اشتراک لینک';
 	@override String get coreSettingTips => 'توجه: پس از تغییر پیکربندی، باید دوباره وصل شوید تا اعمال شود';
 	@override String get overwrite => 'لغو';
-	@override String get overwriteCustom => 'لغوهای سفارشی';
 	@override String get overwriteAppend => 'لغو الحاقی';
 	@override String get overwriteTips => 'پیکربندی اصلی <- لغو سفارشی <- لغو برنامه';
 	@override String get noOverwrite => 'رونویسی نکنید';
-	@override String get overwriteSettings => 'لغو تنظیمات';
 	@override String get diversionTemplates => 'الگوی تریاژ';
 	@override String get ruleProviders => 'ارائه دهنده قانون';
 	@override String get ruleTemplates => 'الگوی قانون';
@@ -309,7 +276,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get tun => 'TUN';
 	@override String get ntp => 'NTP';
 	@override String get tls => 'TLS';
-	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'دانلود Geo RuleSet با استفاده از یک پروکسی';
 	@override String get geoRulesetTips => 'Geosite/Geoip به RuleSet مربوطه تبدیل می شود';
 	@override String get sniffer => 'بو کشیدن';
@@ -319,7 +285,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get tunModeRunAsAdmin => 'حالت TUN نیازمند مجوز مدیر سیستم می‌باشد لطفا نرم‌افزار را مجدد با حالت مدیر (administrator) راه‌اندازی کنید';
 	@override String get portableMode => 'حالت قابل‌حمل';
 	@override String get portableModeDisableTips => 'اگر نیاز دارین از حالت قابل‌حمل خارج شوید لطفا از [mclash] خارج شده و به‌صورت دستی پوشه [portable] هم مسیر با فایل [mclash.exe] را حذف کنید';
-	@override String get systemProxy => 'پروکسی سیستم';
 	@override String get autoConnectAfterLaunch => 'اتصال خودکار پس‌از راه‌اندازی';
 	@override String get autoConnectAtBoot => 'اتصال خودکار پس از روشن شدن سیستم';
 	@override String get autoConnectAtBootTips => 'پشتیبانی سیستم مورد نیاز است؛ برخی سیستم‌ها ممکن است نیاز به فعال بودن [شروع خودکار] نیز داشته باشند.';
@@ -331,34 +296,18 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get showTrayTraffic => 'نمایش اطلاعات ترافیک در سینی سیستم';
 	@override String get wakeLock => 'قفل بیدارباش';
 	@override String get website => 'وبسایت';
-	@override String get homePage => 'صفحه اصلی';
 	@override String get rule => 'قانون';
 	@override String get global => 'عمومی';
 	@override String get direct => 'مستقیم';
-	@override String get block => 'مسدود';
 	@override String get qrcode => 'کد QR';
 	@override String get qrcodeTooLong => 'متن برای نمایش خیلی طولانی است';
 	@override String get qrcodeShare => 'اشتراک کدQR';
-	@override String get textToQrcode => 'متن به کد QR';
 	@override String get qrcodeScan => 'اسکن QRکد';
 	@override String get qrcodeScanResult => 'نتایج اسکن';
-	@override String get qrcodeScanFromImage => 'اسکن از عکس';
-	@override String get qrcodeScanResultFailed => 'تجزیه عکس ناموفق بود، لطفا مطمعن شوید اسکرین‌شات یک کدQR معتبر است';
-	@override String get qrcodeScanResultEmpty => 'نتیجه اسکن خالی است';
-	@override String get screenshot => 'اسکرین‌شات';
 	@override String get backupAndSync => 'پشتیبان‌گیری و همگام‌سازی';
-	@override String get importSuccess => 'افزودن موفق بود';
-	@override String get rewriteConfirm => 'این فایل کانفیگ‌های محلی موجود را بازنویسی می‌کند. آیا می‌خواهید ادامه بدین؟';
-	@override String get importAndExport => 'وارد‌کردن و خروجی‌گرفتن';
-	@override String get import => 'وارد‌کردن';
-	@override String get importFromUrl => 'وارد کردن از URL';
 	@override String get export => 'خروجی‌گرفتن';
 	@override String get send => 'ارسال کنید';
-	@override String get receive => 'تصاحب';
 	@override String get sendConfirm => 'ارسال را تایید کرد؟';
-	@override String get continueConnectConfirm => 'آیا اتصال ادامه یابد؟';
-	@override String get termOfUse => 'شرایط استفاده';
-	@override String get privacyPolicy => 'سیاست حریم خصوصی';
 	@override String get log => 'ورود به سیستم';
 	@override String get coreLog => 'گزارش هسته';
 	@override String get core => 'هسته';
@@ -375,7 +324,6 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get reconnectTakesEffect => 'پس از اتصال مجدد، اعمال خواهد شد.';
 	@override String get runtimeProfile => 'پیکربندی زمان اجرا';
 	@override String get willCompleteAfterRebootInstall => 'لطفاً دستگاه خود را مجدداً راه اندازی کنید تا نصب افزونه سیستم تکمیل شود.';
-	@override String get willCompleteAfterRebootUninstall => 'لطفاً دستگاه خود را مجدداً راه‌اندازی کنید تا حذف نصب افزونه سیستم تکمیل شود';
 	@override String get requestNeedsUserApproval => '۱. لطفاً به Mclash اجازه دهید افزونه‌های سیستمی را در [تنظیمات سیستم] - [حریم خصوصی و امنیت] نصب کند. ۲. : [تنظیمات سیستم] - [عمومی] - [موارد ورود و افزونه‌ها - افزونه‌های شبکه] [mclashServiceSE] را فعال کنید. پس از اتمام، دوباره متصل شوید.';
 	@override String get FullDiskAccessPermissionRequired => 'لطفاً مجوز mclashServiceSE را در [تنظیمات سیستم]-[حریم خصوصی و امنیت]-[دسترسی کامل به دیسک] فعال کنید و دوباره متصل شوید.';
 	@override String get proxy => 'بازیگری';
@@ -383,18 +331,13 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get tvMode => 'حالت تلویزیون';
 	@override String get autoUpdate => 'به روز رسانی خودکار';
 	@override String get updateChannel => 'کانال به‌روزرسانی خودکار';
-	@override String get onlineCustomerService => 'پشتیبانی آنلاین';
-	@override String get subscriptionChannel => 'کانال اشتراک';
 	@override String hasNewVersion({required Object p}) => 'به‌روزرسانی نسخه ${p} ';
 	@override String get autoDownloadPkg => 'دانلود خودکار بسته‌های به‌روزرسانی';
 	@override String get devOptions => 'تنظیمات توسعه‌دهندگان';
 	@override String get about => 'درباره';
 	@override String get name => 'نام';
 	@override String get version => 'نسخه';
-	@override String get notice => 'اطلاعیه';
 	@override String get sort => 'مرتب‌سازی';
-	@override String get recommended => 'پیشنهادی';
-	@override String innerError({required Object p}) => 'خطای داخلی: ${p}';
 	@override String get share => 'اشتراک گذاری';
 	@override String get importFromClipboard => 'افزودن از کلیپ‌برد';
 	@override String get exportToClipboard => 'صادرات به کلیپ بورد';
@@ -414,26 +357,12 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get hideAppIcon => 'پنهان کردن نماد برنامه';
 	@override String get openDir => 'بازکردن دایرکتوری فایل';
 	@override String get type => 'نوع';
-	@override String get fileChoose => 'انتخاب فایل';
-	@override String get filePathCannotEmpty => 'مسیر فایل نمی‌تواند خالی باشد';
 	@override String fileNotExist({required Object p}) => 'فایل وجود ندارد:${p}';
-	@override String fileTypeInvalid({required Object p}) => 'نوع فایل نامعتبر:${p}';
-	@override String get uwpExemption => 'معافیت جداسازی شبکه UWP';
-	@override String get getProfile => 'پیکربندی را دریافت کنید';
 	@override String get buyProfile => 'خرید پروفایل';
-	@override String get addProfile => 'افزودن پروفایل';
 	@override String get myProfiles => 'پروفایل‌ها';
 	@override String get profileEdit => 'ویرایش پروفایل';
 	@override String get profileNeedActive => 'ابتدا این پروفایل را به‌عنوان پروفایل فعلی تنظیم کنید، سپس اتصال را فعال/دوباره متصل کنید';
-	@override String get profileDownloadBackupChannel => 'فعال‌سازی کانال دانلود پشتیبان';
-	@override String get profileDownloadBackupChannelTips => 'کانال دانلود پراکسی ارائه‌شده توسط Mclash (هیچ اطلاعاتی ذخیره نمی‌شود)';
-	@override String get profileEditReloadAfterProfileUpdate => 'بارگذاری مجدد پس‌از به‌روزرسانی پروفایل';
-	@override String get profileRulesAppendProxyTips => 'قوانین به‌صورت خودکار روی نخستین پراکسی با نوع [url-test] یا [select] در [proxy-groups] پیکربندی اصلی تنظیم می‌شوند';
-	@override String get profileImport => 'وارد‌کردن فایل پروفایل';
-	@override String get profileAddUrlOrContent => 'افزودن لینک پروفایل';
 	@override String profileUrlOrContent({required Object p}) => 'پیوند پیکربندی ${p}';
-	@override String profileUrlOrContentHit({required Object p}) => '[الزامی]، توجه: اگر پیوند شما ${_root.meta.profileUrlOrContent(p: p)} نیست (برای نمونه V2Ray یا Sing-box)، ابتدا از ابزار تبدیل آنلاین Clash استفاده کنید تا آن را به ${_root.meta.profileUrlOrContent(p: p)} تبدیل کنید';
-	@override String get profileUrlOrContentCannotEmpty => 'لینک پروفایل نمی‌تواند خالی باشد';
 	@override String get tabHome => 'خانه';
 	@override String get tabNodes => 'گره‌ها';
 	@override String get tabPlans => 'طرح‌ها';
@@ -461,7 +390,6 @@ class _Translations$tls$fa implements Translations$tls$en {
 	final TranslationsFa _root; // ignore: unused_field
 
 	// Translations
-	@override String get insecure => 'رد شدن از تأیید گواهی';
 	@override String get certificate => 'گواهی';
 	@override String get privateKey => 'کلید خصوصی';
 	@override String get customTrustCert => 'گواهی های سفارشی';
@@ -476,7 +404,6 @@ class _Translations$tun$fa implements Translations$tun$en {
 	// Translations
 	@override String get stack => 'پشته شبکه';
 	@override String get inet4Address => 'محدوده آدرس IPv4';
-	@override String get inet6Address => 'محدوده آدرس IPv6';
 	@override String get dnsHijack => 'ربودن DNS';
 	@override String get strictRoute => 'مسیریابی دقیق';
 	@override String get tunDefaultRoute => 'مسیر پیش‌فرض';
@@ -589,20 +516,9 @@ extension on TranslationsFa {
 			'loginScreen.forgotPassword' => 'فراموشی رمز عبور',
 			'loginScreen.provider' => 'ارائه دهنده خدمات',
 			'loginScreen.providerName' => 'کد/نام مستعار/URL ${_root.loginScreen.provider}',
-			'loginScreen.providerNameRequired' => 'لطفا کد/نام مستعار/URL ${_root.loginScreen.provider} را وارد کنید',
 			'loginScreen.account' => 'حساب',
-			'loginScreen.accountRequired' => 'لطفا حساب را وارد کنید',
 			'loginScreen.email' => 'ایمیل',
-			'loginScreen.emailRequired' => 'لطفا آدرس ایمیل را وارد کنید',
 			'loginScreen.password' => 'رمز عبور',
-			'loginScreen.passwordRequired' => 'لطفا رمز عبور را وارد کنید',
-			'loginScreen.validEmailRequired' => 'لطفا یک آدرس ایمیل معتبر وارد کنید',
-			'loginScreen.passwordMinLength' => ({required Object minLength}) => 'طول رمز عبور باید حداقل ${minLength} کاراکتر باشد',
-			'loginScreen.unsupportedProvider' => '${_root.loginScreen.provider} پشتیبانی نمی شود',
-			'loginScreen.unsupportedProviderType' => 'نوع ${_root.loginScreen.provider} پشتیبانی نمی شود',
-			'loginScreen.unActivedProvider' => 'قابلیت ورود فعال نشده است',
-			'loginScreen.providerLoginSupportRequired' => ({required Object p}) => 'لطفاً کد/نام مستعار ارائه‌دهنده را از ${_root.loginScreen.provider} دریافت کنید.\nبرای راهنمای اتصال ${_root.loginScreen.provider} به این لینک مراجعه کنید: ${p}',
-			'loginScreen.providerDisclaimer' => 'سلب مسئولیت: ${_root.loginScreen.provider} یک سرویس شخص ثالث است و ارتباطی با این برنامه ندارد',
 			'main.tray.menuOpen' => 'بازکردن',
 			'main.tray.menuExit' => 'بستن',
 			'meta.enable' => 'فعال‌سازی',
@@ -611,15 +527,12 @@ extension on TranslationsFa {
 			'meta.close' => 'بسته',
 			'meta.quit' => 'خروج',
 			'meta.add' => 'افزودن',
-			'meta.addSuccess' => 'با‌موفقیت اضافه شد',
-			'meta.addFailed' => ({required Object p}) => 'افزودن ناموفق بود:${p}',
 			'meta.remove' => 'حذف',
 			'meta.removeConfirm' => 'آیا از حذف اطمینان دارین؟',
 			'meta.edit' => 'ویرایش کنید',
 			'meta.view' => 'بررسی',
 			'meta.remark' => 'ملاحضات',
 			'meta.byDefault' => 'پیش‌فرض',
-			'meta.editRemark' => 'یادداشت های اصلاحی',
 			'meta.more' => 'بیشتر',
 			'meta.tips' => 'اطلاعات',
 			'meta.selectAll' => 'انتخاب همه',
@@ -639,10 +552,8 @@ extension on TranslationsFa {
 			'meta.minutes' => 'دقیقه',
 			'meta.seconds' => 'دومین',
 			'meta.milliseconds' => 'میلی‌ثانیه',
-			'meta.protocol' => 'پروتکل',
 			'meta.search' => 'جستجو',
 			'meta.searchNodeHint' => 'فیلتر گره‌ها (نام یا پروتکل)',
-			'meta.custom' => 'سفارشی',
 			'meta.connect' => 'اتصال',
 			'meta.disconnect' => 'قطع‌ اتصال',
 			'meta.connected' => 'وصل شد',
@@ -650,8 +561,6 @@ extension on TranslationsFa {
 			'meta.connecting' => 'درحال اتصال',
 			'meta.connectTimeout' => 'اتمام مهلت اتصال',
 			'meta.timeout' => 'تایم اوت',
-			'meta.timeoutDuration' => 'مدت زمان وقفه',
-			'meta.latency' => 'تاخیر',
 			'meta.latencyTest' => 'بررسی تاخیر',
 			'meta.networkCheck' => 'بررسی شبکه',
 			'meta.language' => 'زبان',
@@ -659,7 +568,6 @@ extension on TranslationsFa {
 			'meta.done' => 'انجام‌شد',
 			'meta.apply' => 'درخواست دادن',
 			'meta.refresh' => 'بارگذاری مجدد',
-			'meta.retry' => 'دوباره امتحان کنید؟',
 			'meta.update' => 'تجدید',
 			'meta.updateInterval' => 'فاصله‌ی به‌روزرسانی',
 			'meta.updateInterval5mTips' => 'حداقل: 5 متر',
@@ -668,30 +576,23 @@ extension on TranslationsFa {
 			'meta.none' => 'هیچ‌کدام',
 			'meta.reset' => 'ریست',
 			'meta.authentication' => 'مجوز',
-			'meta.submit' => 'ارسال',
 			'meta.user' => 'کاربر',
 			'meta.account' => 'نام‌کاربری',
 			'meta.password' => 'رمز‌عبور',
 			'meta.decryptPassword' => 'دکريپت رمز‌عبور',
 			'meta.required' => 'الزامی',
 			'meta.go' => 'ادامه',
-			'meta.sudoPassword' => 'رمز عبور sudo (برای حالت TUN لازم است)',
 			'meta.other' => 'دیگر',
 			'meta.dns' => 'DNS',
 			'meta.url' => 'URL',
 			'meta.urlInvalid' => 'URL نامعتبر',
-			'meta.urlCannotEmpty' => 'لینک نمی‌تواند خالی باشد',
-			'meta.urlTooLong' => 'URL خیلی طولانی است (>8182)',
 			'meta.copyUrl' => 'کپی‌کردن لینک',
 			'meta.openUrl' => 'بازکردن لینک',
-			'meta.shareUrl' => 'اشتراک لینک',
 			'meta.coreSettingTips' => 'توجه: پس از تغییر پیکربندی، باید دوباره وصل شوید تا اعمال شود',
 			'meta.overwrite' => 'لغو',
-			'meta.overwriteCustom' => 'لغوهای سفارشی',
 			'meta.overwriteAppend' => 'لغو الحاقی',
 			'meta.overwriteTips' => 'پیکربندی اصلی <- لغو سفارشی <- لغو برنامه',
 			'meta.noOverwrite' => 'رونویسی نکنید',
-			'meta.overwriteSettings' => 'لغو تنظیمات',
 			'meta.diversionTemplates' => 'الگوی تریاژ',
 			'meta.ruleProviders' => 'ارائه دهنده قانون',
 			'meta.ruleTemplates' => 'الگوی قانون',
@@ -713,7 +614,6 @@ extension on TranslationsFa {
 			'meta.tun' => 'TUN',
 			'meta.ntp' => 'NTP',
 			'meta.tls' => 'TLS',
-			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'دانلود Geo RuleSet با استفاده از یک پروکسی',
 			'meta.geoRulesetTips' => 'Geosite/Geoip به RuleSet مربوطه تبدیل می شود',
 			'meta.sniffer' => 'بو کشیدن',
@@ -723,7 +623,6 @@ extension on TranslationsFa {
 			'meta.tunModeRunAsAdmin' => 'حالت TUN نیازمند مجوز مدیر سیستم می‌باشد لطفا نرم‌افزار را مجدد با حالت مدیر (administrator) راه‌اندازی کنید',
 			'meta.portableMode' => 'حالت قابل‌حمل',
 			'meta.portableModeDisableTips' => 'اگر نیاز دارین از حالت قابل‌حمل خارج شوید لطفا از [mclash] خارج شده و به‌صورت دستی پوشه [portable] هم مسیر با فایل [mclash.exe] را حذف کنید',
-			'meta.systemProxy' => 'پروکسی سیستم',
 			'meta.autoConnectAfterLaunch' => 'اتصال خودکار پس‌از راه‌اندازی',
 			'meta.autoConnectAtBoot' => 'اتصال خودکار پس از روشن شدن سیستم',
 			'meta.autoConnectAtBootTips' => 'پشتیبانی سیستم مورد نیاز است؛ برخی سیستم‌ها ممکن است نیاز به فعال بودن [شروع خودکار] نیز داشته باشند.',
@@ -735,34 +634,18 @@ extension on TranslationsFa {
 			'meta.showTrayTraffic' => 'نمایش اطلاعات ترافیک در سینی سیستم',
 			'meta.wakeLock' => 'قفل بیدارباش',
 			'meta.website' => 'وبسایت',
-			'meta.homePage' => 'صفحه اصلی',
 			'meta.rule' => 'قانون',
 			'meta.global' => 'عمومی',
 			'meta.direct' => 'مستقیم',
-			'meta.block' => 'مسدود',
 			'meta.qrcode' => 'کد QR',
 			'meta.qrcodeTooLong' => 'متن برای نمایش خیلی طولانی است',
 			'meta.qrcodeShare' => 'اشتراک کدQR',
-			'meta.textToQrcode' => 'متن به کد QR',
 			'meta.qrcodeScan' => 'اسکن QRکد',
 			'meta.qrcodeScanResult' => 'نتایج اسکن',
-			'meta.qrcodeScanFromImage' => 'اسکن از عکس',
-			'meta.qrcodeScanResultFailed' => 'تجزیه عکس ناموفق بود، لطفا مطمعن شوید اسکرین‌شات یک کدQR معتبر است',
-			'meta.qrcodeScanResultEmpty' => 'نتیجه اسکن خالی است',
-			'meta.screenshot' => 'اسکرین‌شات',
 			'meta.backupAndSync' => 'پشتیبان‌گیری و همگام‌سازی',
-			'meta.importSuccess' => 'افزودن موفق بود',
-			'meta.rewriteConfirm' => 'این فایل کانفیگ‌های محلی موجود را بازنویسی می‌کند. آیا می‌خواهید ادامه بدین؟',
-			'meta.importAndExport' => 'وارد‌کردن و خروجی‌گرفتن',
-			'meta.import' => 'وارد‌کردن',
-			'meta.importFromUrl' => 'وارد کردن از URL',
 			'meta.export' => 'خروجی‌گرفتن',
 			'meta.send' => 'ارسال کنید',
-			'meta.receive' => 'تصاحب',
 			'meta.sendConfirm' => 'ارسال را تایید کرد؟',
-			'meta.continueConnectConfirm' => 'آیا اتصال ادامه یابد؟',
-			'meta.termOfUse' => 'شرایط استفاده',
-			'meta.privacyPolicy' => 'سیاست حریم خصوصی',
 			'meta.log' => 'ورود به سیستم',
 			'meta.coreLog' => 'گزارش هسته',
 			'meta.core' => 'هسته',
@@ -779,7 +662,6 @@ extension on TranslationsFa {
 			'meta.reconnectTakesEffect' => 'پس از اتصال مجدد، اعمال خواهد شد.',
 			'meta.runtimeProfile' => 'پیکربندی زمان اجرا',
 			'meta.willCompleteAfterRebootInstall' => 'لطفاً دستگاه خود را مجدداً راه اندازی کنید تا نصب افزونه سیستم تکمیل شود.',
-			'meta.willCompleteAfterRebootUninstall' => 'لطفاً دستگاه خود را مجدداً راه‌اندازی کنید تا حذف نصب افزونه سیستم تکمیل شود',
 			'meta.requestNeedsUserApproval' => '۱. لطفاً به Mclash اجازه دهید افزونه‌های سیستمی را در [تنظیمات سیستم] - [حریم خصوصی و امنیت] نصب کند. ۲. : [تنظیمات سیستم] - [عمومی] - [موارد ورود و افزونه‌ها - افزونه‌های شبکه] [mclashServiceSE] را فعال کنید. پس از اتمام، دوباره متصل شوید.',
 			'meta.FullDiskAccessPermissionRequired' => 'لطفاً مجوز mclashServiceSE را در [تنظیمات سیستم]-[حریم خصوصی و امنیت]-[دسترسی کامل به دیسک] فعال کنید و دوباره متصل شوید.',
 			'meta.proxy' => 'بازیگری',
@@ -787,18 +669,13 @@ extension on TranslationsFa {
 			'meta.tvMode' => 'حالت تلویزیون',
 			'meta.autoUpdate' => 'به روز رسانی خودکار',
 			'meta.updateChannel' => 'کانال به‌روزرسانی خودکار',
-			'meta.onlineCustomerService' => 'پشتیبانی آنلاین',
-			'meta.subscriptionChannel' => 'کانال اشتراک',
 			'meta.hasNewVersion' => ({required Object p}) => 'به‌روزرسانی نسخه ${p} ',
 			'meta.autoDownloadPkg' => 'دانلود خودکار بسته‌های به‌روزرسانی',
 			'meta.devOptions' => 'تنظیمات توسعه‌دهندگان',
 			'meta.about' => 'درباره',
 			'meta.name' => 'نام',
 			'meta.version' => 'نسخه',
-			'meta.notice' => 'اطلاعیه',
 			'meta.sort' => 'مرتب‌سازی',
-			'meta.recommended' => 'پیشنهادی',
-			'meta.innerError' => ({required Object p}) => 'خطای داخلی: ${p}',
 			'meta.share' => 'اشتراک گذاری',
 			'meta.importFromClipboard' => 'افزودن از کلیپ‌برد',
 			'meta.exportToClipboard' => 'صادرات به کلیپ بورد',
@@ -818,26 +695,12 @@ extension on TranslationsFa {
 			'meta.hideAppIcon' => 'پنهان کردن نماد برنامه',
 			'meta.openDir' => 'بازکردن دایرکتوری فایل',
 			'meta.type' => 'نوع',
-			'meta.fileChoose' => 'انتخاب فایل',
-			'meta.filePathCannotEmpty' => 'مسیر فایل نمی‌تواند خالی باشد',
 			'meta.fileNotExist' => ({required Object p}) => 'فایل وجود ندارد:${p}',
-			'meta.fileTypeInvalid' => ({required Object p}) => 'نوع فایل نامعتبر:${p}',
-			'meta.uwpExemption' => 'معافیت جداسازی شبکه UWP',
-			'meta.getProfile' => 'پیکربندی را دریافت کنید',
 			'meta.buyProfile' => 'خرید پروفایل',
-			'meta.addProfile' => 'افزودن پروفایل',
 			'meta.myProfiles' => 'پروفایل‌ها',
 			'meta.profileEdit' => 'ویرایش پروفایل',
 			'meta.profileNeedActive' => 'ابتدا این پروفایل را به‌عنوان پروفایل فعلی تنظیم کنید، سپس اتصال را فعال/دوباره متصل کنید',
-			'meta.profileDownloadBackupChannel' => 'فعال‌سازی کانال دانلود پشتیبان',
-			'meta.profileDownloadBackupChannelTips' => 'کانال دانلود پراکسی ارائه‌شده توسط Mclash (هیچ اطلاعاتی ذخیره نمی‌شود)',
-			'meta.profileEditReloadAfterProfileUpdate' => 'بارگذاری مجدد پس‌از به‌روزرسانی پروفایل',
-			'meta.profileRulesAppendProxyTips' => 'قوانین به‌صورت خودکار روی نخستین پراکسی با نوع [url-test] یا [select] در [proxy-groups] پیکربندی اصلی تنظیم می‌شوند',
-			'meta.profileImport' => 'وارد‌کردن فایل پروفایل',
-			'meta.profileAddUrlOrContent' => 'افزودن لینک پروفایل',
 			'meta.profileUrlOrContent' => ({required Object p}) => 'پیوند پیکربندی ${p}',
-			'meta.profileUrlOrContentHit' => ({required Object p}) => '[الزامی]، توجه: اگر پیوند شما ${_root.meta.profileUrlOrContent(p: p)} نیست (برای نمونه V2Ray یا Sing-box)، ابتدا از ابزار تبدیل آنلاین Clash استفاده کنید تا آن را به ${_root.meta.profileUrlOrContent(p: p)} تبدیل کنید',
-			'meta.profileUrlOrContentCannotEmpty' => 'لینک پروفایل نمی‌تواند خالی باشد',
 			'meta.tabHome' => 'خانه',
 			'meta.tabNodes' => 'گره‌ها',
 			'meta.tabPlans' => 'طرح‌ها',
@@ -847,13 +710,11 @@ extension on TranslationsFa {
 			'permission.appQuery' => 'Get Application List',
 			'permission.request' => ({required Object p}) => 'مجوزهای [${p}] را فعال کنید',
 			'permission.requestNeed' => ({required Object p}) => 'لطفاً مجوز [${p}] را فعال کنید',
-			'tls.insecure' => 'رد شدن از تأیید گواهی',
 			'tls.certificate' => 'گواهی',
 			'tls.privateKey' => 'کلید خصوصی',
 			'tls.customTrustCert' => 'گواهی های سفارشی',
 			'tun.stack' => 'پشته شبکه',
 			'tun.inet4Address' => 'محدوده آدرس IPv4',
-			'tun.inet6Address' => 'محدوده آدرس IPv6',
 			'tun.dnsHijack' => 'ربودن DNS',
 			'tun.strictRoute' => 'مسیریابی دقیق',
 			'tun.tunDefaultRoute' => 'مسیر پیش‌فرض',
@@ -882,17 +743,10 @@ extension on TranslationsFa {
 			'profilePatchMode.currentSelected' => 'فعلی انتخاب شده',
 			'profilePatchMode.overwrite' => 'Overwrite داخلی',
 			'profilePatchMode.noOverwrite' => 'داخلی - رونویسی نشده است',
-			'protocolSniff' => 'تشخیص پروتکل',
-			'protocolSniffOverrideDestination' => 'نام دامنه شناسایی شده آدرس هدف اتصال را پوشش می دهد',
 			'sendOrReceiveNotMatch' => ({required Object p}) => 'لطفا از [${p}] استفاده کنید',
 			'targetConnectFailed' => ({required Object p}) => 'اتصال به [${p}] ناموفق بود، لطفاً مطمئن شوید که دستگاه در همان LAN است',
 			'edgeRuntimeNotInstalled' => 'زمان اجرا Edge WebView2 روی دستگاه فعلی نصب نشده است و صفحه قابل نمایش نیست لطفاً زمان اجرا Edge WebView2 (x64) را بارگیری و نصب کنید، برنامه را مجدداً راه اندازی کنید و دوباره امتحان کنید.',
 			'locales.en' => 'English',
-			'locales.zh-CN' => '简体中文',
-			'locales.zh-TW' => '繁體中文',
-			'locales.ja' => '日本語',
-			'locales.ko' => '한국어',
-			'locales.ar' => 'عربي',
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',

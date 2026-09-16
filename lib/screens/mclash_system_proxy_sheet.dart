@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
-import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
@@ -284,15 +283,3 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
 }
 
 /// 便于排查：把当前系统代理状态写进日志（Windows 上用户可据此反馈）。
-Future<void> logSystemProxyState() async {
-  try {
-    final port = ClashSettingManager.getMixedPort();
-    final enable = await VPNService.getSystemProxyEnable();
-    Log.i(
-      "系统代理状态: ${enable ? "已生效" : "未生效"} "
-      "${VPNService.systemProxyHost}:$port",
-    );
-  } catch (err) {
-    Log.w("读取系统代理状态失败 $err");
-  }
-}

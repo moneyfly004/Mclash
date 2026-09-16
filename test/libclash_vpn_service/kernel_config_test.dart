@@ -126,4 +126,52 @@ proxies: []
     expect(back.yaml.trim().isNotEmpty, isTrue);
     expect(back.yaml.contains("proxies:"), isTrue);
   });
+
+  test('配置里没有 mixed-port 时必须补写（否则内核不开任何入站监听）', () async {
+    // 真实事故（本机实测）：配置里没有 mixed-port 时内核**照常启动**、
+    // 控制 API 也通，但一个入站监听都不开 —— 实测日志只有
+    // `RESTful API listening at ...`，没有 `Mixed(http+socks) proxy listening`，
+    // 7890 上没有任何 LISTEN。上层 `_waitReady()` 要求「控制 API + 混合端口
+    // 都能连」→ 60 秒超时 → 用户看到「内核启动超时（可能被安全软件拦截）」。
+    // 旧实现只在端口被占用时才写这个键，等于把"有没有入站"寄托在订阅/patch
+    // 恰好写了 mixed-port 上。
+    final profile = File(p.join(tmp.path, "no_mixed.yaml"));
+    await profile.writeAsString("""
+mode: rule
+proxies:
+  - name: 香港 01
+    type: ss
+    server: 1.1.1.1
+    port: 443
+rules:
+  - MATCH,DIRECT
+""");
+    final cfg = VpnServiceConfig()
+      ..core_path = profile.path
+      ..work_dir = tmp.path
+      ..control_port = 19095
+      ..secret = "s";
+
+    final built = await buildKernelConfig(cfg, checkPort: false);
+    final doc = loadYaml(built.yaml);
+    expect(
+      doc["mixed-port"],
+      isNotNull,
+      reason: '没有 mixed-port 内核就不会开混合入站 → 上层 60s 超时"连不上"',
+    );
+    expect(doc["mixed-port"], built.mixedPort);
+    expect(
+      built.notes.any((n) => n.contains("补上")),
+      isTrue,
+      reason: '要留下"补写"痕迹，排查时能看出端口是哪来的：${built.notes}',
+    );
+  });
+
+  test('订阅自带 mixed-port 时沿用它，不被覆盖成默认值', () async {
+    final cfg = await makeConfig();
+    final built = await buildKernelConfig(cfg, checkPort: false);
+    final doc = loadYaml(built.yaml);
+    expect(doc["mixed-port"], 7890);
+    expect(built.mixedPort, 7890);
+  });
 }

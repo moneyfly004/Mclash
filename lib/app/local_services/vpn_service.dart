@@ -21,6 +21,7 @@ import 'package:mclash/app/utils/install_referrer_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/network_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
+import 'package:mclash/mf/mclash_subscription_revision.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:libclash_vpn_service/proxy_manager.dart';
@@ -30,13 +31,6 @@ import 'package:libclash_vpn_service/vpn_service.dart';
 import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
-
-class VPNServiceSetServerOptions {
-  String disabledServerError = "";
-  String invalidServerError = "";
-  String expiredServerError = "";
-  Set<String> allOutboundsTags = {};
-}
 
 class VPNService {
   static const localhost = "127.0.0.1";
@@ -135,38 +129,6 @@ class VPNService {
       return null;
     }
     return ReturnResultError(err.message);
-  }
-
-  static String durationToString(Duration? duration) {
-    if (duration == null) {
-      return "";
-    }
-    var microseconds = duration.inMicroseconds;
-    var sign = "";
-    var negative = microseconds < 0;
-
-    var hours = microseconds ~/ Duration.microsecondsPerHour;
-    microseconds = microseconds.remainder(Duration.microsecondsPerHour);
-
-    if (negative) {
-      hours = 0 - hours;
-      microseconds = 0 - microseconds;
-      sign = "-";
-    }
-
-    var minutes = microseconds ~/ Duration.microsecondsPerMinute;
-    microseconds = microseconds.remainder(Duration.microsecondsPerMinute);
-
-    var minutesPadding = minutes < 10 ? "0" : "";
-
-    var seconds = microseconds ~/ Duration.microsecondsPerSecond;
-    microseconds = microseconds.remainder(Duration.microsecondsPerSecond);
-
-    var secondsPadding = seconds < 10 ? "0" : "";
-
-    return "$sign$hours:"
-        "$minutesPadding$minutes:"
-        "$secondsPadding$seconds";
   }
 
   static Future<bool> _prepareConfig(ProfileSetting profile) async {
@@ -556,6 +518,9 @@ class VPNService {
       }
     }
 
+    // 记下「内核现在跑的是这份订阅内容」——订阅更新后据此判断要不要重连，
+    // 否则内核会一直用旧节点列表/旧凭据跑（切节点报"节点不存在"、连上没流量）。
+    unawaited(MclashSubscriptionRevision.markRunning());
     return null;
   }
 
@@ -768,12 +733,6 @@ class VPNService {
       return [null, mixedPort];
     }
     return [null];
-  }
-
-  static Future<int?> getPort() async {
-    final mixedPort = ClashSettingManager.getMixedPort();
-    var started = await getStarted();
-    return started ? mixedPort : null;
   }
 
   static Future<ReturnResultError?> reload(Duration timeout) async {

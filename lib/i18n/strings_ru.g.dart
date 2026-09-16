@@ -53,18 +53,11 @@ class TranslationsRu with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _Translations$dns$ru dns = _Translations$dns$ru._(_root);
 	@override late final _Translations$sniffer$ru sniffer = _Translations$sniffer$ru._(_root);
 	@override late final _Translations$profilePatchMode$ru profilePatchMode = _Translations$profilePatchMode$ru._(_root);
-	@override String get protocolSniff => 'Определение протокола';
-	@override String get protocolSniffOverrideDestination => 'Обнаруженное имя домена перезаписывает целевой адрес подключения.';
 	@override String sendOrReceiveNotMatch({required Object p}) => 'Пожалуйста, используйте [${p}]';
 	@override String targetConnectFailed({required Object p}) => 'Не удалось подключиться к [${p}]. Убедитесь, что устройство находится в той же локальной сети.';
 	@override String get edgeRuntimeNotInstalled => 'Среда выполнения Edge WebView2 не установлена ​​на текущем устройстве, и страница не может быть отображена. Загрузите и установите среду выполнения Edge WebView2 (x64), перезапустите приложение и повторите попытку.';
 	@override Map<String, String> get locales => {
 		'en': 'English',
-		'zh-CN': '简体中文',
-		'zh-TW': '繁體中文',
-		'ja': '日本語',
-		'ko': '한국어',
-		'ar': 'عربي',
 		'ru': 'Русский',
 		'fa': 'فارسی',
 		'es': 'Español',
@@ -168,20 +161,9 @@ class _Translations$loginScreen$ru implements Translations$loginScreen$en {
 	@override String get forgotPassword => 'Забыли пароль';
 	@override String get provider => 'Провайдер';
 	@override String get providerName => 'Код/алиас/URL ${_root.loginScreen.provider}';
-	@override String get providerNameRequired => 'Пожалуйста, введите код/алиас/URL ${_root.loginScreen.provider}';
 	@override String get account => 'Аккаунт';
-	@override String get accountRequired => 'Пожалуйста, введите аккаунт';
 	@override String get email => 'Электронная почта';
-	@override String get emailRequired => 'Пожалуйста, введите адрес электронной почты';
 	@override String get password => 'Пароль';
-	@override String get passwordRequired => 'Пожалуйста, введите пароль';
-	@override String get validEmailRequired => 'Пожалуйста, введите действительный адрес электронной почты';
-	@override String passwordMinLength({required Object minLength}) => 'Длина пароля должна быть не менее ${minLength} символов';
-	@override String get unsupportedProvider => 'Неподдерживаемый ${_root.loginScreen.provider}';
-	@override String get unsupportedProviderType => 'Неподдерживаемый тип ${_root.loginScreen.provider}';
-	@override String get unActivedProvider => 'Функция входа не активирована';
-	@override String providerLoginSupportRequired({required Object p}) => 'Запросите код/алиас провайдера у вашего ${_root.loginScreen.provider}.\nИнструкцию по интеграции с ${_root.loginScreen.provider} смотрите: ${p}';
-	@override String get providerDisclaimer => 'Отказ от ответственности: ${_root.loginScreen.provider} — это сторонний сервис и не связан с этим приложением';
 }
 
 // Path: main
@@ -207,15 +189,12 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get close => 'Закрыть';
 	@override String get quit => 'Выйти';
 	@override String get add => 'Добавить';
-	@override String get addSuccess => 'Добавлено успешно';
-	@override String addFailed({required Object p}) => 'Ошибка при добавлении:${p}';
 	@override String get remove => 'Удалить';
 	@override String get removeConfirm => 'Подтверждаете удаление?';
 	@override String get edit => 'Редактировать';
 	@override String get view => 'Просмотр';
 	@override String get remark => 'Примечание';
 	@override String get byDefault => 'по умолчанию';
-	@override String get editRemark => 'Заметки об изменениях';
 	@override String get more => 'Больше';
 	@override String get tips => 'Инфо';
 	@override String get selectAll => 'Выбрать все';
@@ -235,10 +214,8 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get minutes => 'минуты';
 	@override String get seconds => 'секунды';
 	@override String get milliseconds => 'миллисекунды';
-	@override String get protocol => 'Протокол';
 	@override String get search => 'Поиск';
 	@override String get searchNodeHint => 'Фильтр узлов (имя или протокол)';
-	@override String get custom => 'Настроить самостоятельно';
 	@override String get connect => 'Соединить';
 	@override String get disconnect => 'Отключить';
 	@override String get connected => 'Подключено';
@@ -246,8 +223,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get connecting => 'Подключение';
 	@override String get connectTimeout => 'Таймаут при соединении';
 	@override String get timeout => 'Тайм-аут';
-	@override String get timeoutDuration => 'Длительность тайм-аута';
-	@override String get latency => 'Задерживать';
 	@override String get latencyTest => 'Обнаружение задержки';
 	@override String get networkCheck => 'Проверка сети';
 	@override String get language => 'Язык';
@@ -255,7 +230,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get done => 'Готово';
 	@override String get apply => 'Применить';
 	@override String get refresh => 'Обновить';
-	@override String get retry => 'Хотите попробовать еще раз?';
 	@override String get update => 'Обновить';
 	@override String get updateInterval => 'Интервал обновления';
 	@override String get updateInterval5mTips => 'Минимум: 5 м';
@@ -264,30 +238,23 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get none => 'Ничего не делать';
 	@override String get reset => 'Перезагрузить';
 	@override String get authentication => 'Авторизация';
-	@override String get submit => 'Отправить';
 	@override String get user => 'Пользователь';
 	@override String get account => 'Аккаунт';
 	@override String get password => 'Пароль';
 	@override String get decryptPassword => 'Пароль расшифровки';
 	@override String get required => 'Необходимо';
 	@override String get go => 'Продолжить';
-	@override String get sudoPassword => 'Пароль sudo (требуется для режима TUN)';
 	@override String get other => 'Другой';
 	@override String get dns => 'DNS';
 	@override String get url => 'URL';
 	@override String get urlInvalid => 'Неверный URL';
-	@override String get urlCannotEmpty => 'Ссылка не может быть пустой';
-	@override String get urlTooLong => 'URL слишком длинный (>8182)';
 	@override String get copyUrl => 'Скопировать ссылку';
 	@override String get openUrl => 'Открыть ссылку';
-	@override String get shareUrl => 'Поделиться ссылкой';
 	@override String get coreSettingTips => 'Примечание: После изменения конфигурации необходимо повторно подключиться, чтобы изменения вступили в силу.';
 	@override String get overwrite => 'Переопределить';
-	@override String get overwriteCustom => 'Пользовательские переопределения';
 	@override String get overwriteAppend => 'Дополнительное переопределение';
 	@override String get overwriteTips => 'Исходная конфигурация <- Пользовательское переопределение <- Переопределение приложения';
 	@override String get noOverwrite => 'Не перезаписывать';
-	@override String get overwriteSettings => 'Переопределить настройки';
 	@override String get diversionTemplates => 'Шаблон сортировки пациентов';
 	@override String get ruleProviders => 'Поставщик правил';
 	@override String get ruleTemplates => 'Шаблон правила';
@@ -309,7 +276,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get tun => 'TUN';
 	@override String get ntp => 'NTP';
 	@override String get tls => 'TLS';
-	@override String get geo => 'GEO';
 	@override String get geoDownloadByProxy => 'Загрузка гео-правил через прокси';
 	@override String get geoRulesetTips => 'Geosite/Geoip будет преобразован в соответствующий RuleSet';
 	@override String get sniffer => 'Обнаружение доменов';
@@ -319,7 +285,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get tunModeRunAsAdmin => 'Для режима TUN требуются права администратора. Перезапустите приложение от имени администратора';
 	@override String get portableMode => 'Портативный режим';
 	@override String get portableModeDisableTips => 'Если вам нужно выйти из портативного режима, выйдите из [mclash] и вручную удалите папку [portable] в том же каталоге, что и [mclash.exe]';
-	@override String get systemProxy => 'Системный прокси';
 	@override String get autoConnectAfterLaunch => 'Автоматическое подключение после запуска';
 	@override String get autoConnectAtBoot => 'Автоматическое подключение после запуска системы';
 	@override String get autoConnectAtBootTips => 'Требуется поддержка системы; некоторые системы также могут потребовать включения [автозапуска].';
@@ -331,34 +296,18 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get hideDockIcon => 'Скрыть значок дока';
 	@override String get showTrayTraffic => 'Показывать трафик в трее';
 	@override String get website => 'Веб-сайт';
-	@override String get homePage => 'Главная';
 	@override String get rule => 'Правила';
 	@override String get global => 'Глобально';
 	@override String get direct => 'Напрямую';
-	@override String get block => 'Блокировать';
 	@override String get qrcode => 'QR-код';
 	@override String get qrcodeTooLong => 'Слишком большой текст для отображения';
 	@override String get qrcodeShare => 'Поделиться QR-кодом';
-	@override String get textToQrcode => 'Преобразование текста в QR-код';
 	@override String get qrcodeScan => 'Сканировать QR-код';
 	@override String get qrcodeScanResult => 'Результат сканирования';
-	@override String get qrcodeScanFromImage => 'Открыть';
-	@override String get qrcodeScanResultFailed => 'Не удалось проанализировать изображение. Убедитесь, что снимок экрана представляет собой действительный QR-код.';
-	@override String get qrcodeScanResultEmpty => 'Пустой результат сканирования.';
-	@override String get screenshot => 'Скриншот';
 	@override String get backupAndSync => 'Резервное копирование и синхронизация';
-	@override String get importSuccess => 'Импорт выполнен успешно';
-	@override String get rewriteConfirm => 'Этот файл перезапишет существующую локальную профиль. Продолжить?';
-	@override String get importAndExport => 'Импорт и экспорт';
-	@override String get import => 'Импорт';
-	@override String get importFromUrl => 'Импорт из URL';
 	@override String get export => 'Экспорт';
 	@override String get send => 'Передать';
-	@override String get receive => 'Принять';
 	@override String get sendConfirm => 'Подтверждаете передачу?';
-	@override String get continueConnectConfirm => 'Продолжить подключение?';
-	@override String get termOfUse => 'Условия использования';
-	@override String get privacyPolicy => 'Политика конфиденциальности';
 	@override String get log => 'Журнал';
 	@override String get coreLog => 'Журнал ядра';
 	@override String get core => 'Ядро';
@@ -375,7 +324,6 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get reconnectTakesEffect => 'Изменения вступят в силу после повторного подключения.';
 	@override String get runtimeProfile => 'Конфигурация времени выполнения';
 	@override String get willCompleteAfterRebootInstall => 'Пожалуйста, перезагрузите устройство, чтобы завершить установку расширения системы.';
-	@override String get willCompleteAfterRebootUninstall => 'Пожалуйста, перезагрузите устройство, чтобы завершить удаление системного расширения.';
 	@override String get requestNeedsUserApproval => '1. Пожалуйста, [разрешите] Mclash устанавливать системные расширения в [Системные настройки] - [Конфиденциальность и безопасность]. 2. : [Системные настройки] - [Основные] - [Элементы входа и расширения - Сетевые расширения] Включите [mclashServiceSE]. После завершения подключитесь снова.';
 	@override String get FullDiskAccessPermissionRequired => 'Включите разрешение mclashServiceSE в [Системные настройки]-[Конфиденциальность и безопасность]-[Полный доступ к диску] и переподключитесь.';
 	@override String get proxy => 'Прокси';
@@ -383,18 +331,13 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get tvMode => 'Режим ТВ';
 	@override String get autoUpdate => 'Автоматические обновления';
 	@override String get updateChannel => 'Канал автоматического обновления';
-	@override String get onlineCustomerService => 'Онлайн-служба поддержки';
-	@override String get subscriptionChannel => 'Канал подписки';
 	@override String hasNewVersion({required Object p}) => 'Обновить версию ${p}';
 	@override String get autoDownloadPkg => 'Автоматически загружать пакеты обновлений';
 	@override String get devOptions => 'Параметры разработчика';
 	@override String get about => 'О приложении';
 	@override String get name => 'Название';
 	@override String get version => 'Версия';
-	@override String get notice => 'Уведомления';
 	@override String get sort => 'Отсортировать';
-	@override String get recommended => 'Рекомендуемые';
-	@override String innerError({required Object p}) => 'Внутренняя ошибка:${p}';
 	@override String get share => 'Поделиться';
 	@override String get importFromClipboard => 'Импорт из буфера обмена';
 	@override String get exportToClipboard => 'Экспорт в буфер обмена';
@@ -414,26 +357,12 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get hideAppIcon => 'Скрыть значок приложения';
 	@override String get openDir => 'Открыть каталог файлов';
 	@override String get type => 'Тип';
-	@override String get fileChoose => 'Выбрать файл';
-	@override String get filePathCannotEmpty => 'Путь к файлу не может быть пустым';
 	@override String fileNotExist({required Object p}) => 'Файла не существует:${p}';
-	@override String fileTypeInvalid({required Object p}) => 'Неверный тип файла:${p}';
-	@override String get uwpExemption => 'Исключение из изоляции сети UWP';
-	@override String get getProfile => 'Получить профиль';
 	@override String get buyProfile => 'Купить профиль';
-	@override String get addProfile => 'Добавить профиль';
 	@override String get myProfiles => 'Профили';
 	@override String get profileEdit => 'Редактирование профилей';
 	@override String get profileNeedActive => 'Сначала сделайте этот профиль текущим, затем включите подключение/переподключитесь';
-	@override String get profileDownloadBackupChannel => 'Включить резервный канал загрузки';
-	@override String get profileDownloadBackupChannelTips => 'Прокси-канал загрузки, предоставляемый Mclash (никакая информация не сохраняется)';
-	@override String get profileEditReloadAfterProfileUpdate => 'Перезагрузить после обновления профиля';
-	@override String get profileRulesAppendProxyTips => 'Правила будут автоматически установлены на первый прокси в [proxy-groups] исходной конфигурации с типом [url-test] или [select]';
-	@override String get profileImport => 'Импорт файла конфигурации';
-	@override String get profileAddUrlOrContent => 'Добавление подписки';
 	@override String profileUrlOrContent({required Object p}) => 'Ссылка на профиль ${p}';
-	@override String profileUrlOrContentHit({required Object p}) => '[Обязательно]. Внимание: если ваша ссылка не является ${_root.meta.profileUrlOrContent(p: p)} (например, V2Ray или Sing-box), сначала воспользуйтесь онлайн-конвертером Clash, чтобы преобразовать ее в ${_root.meta.profileUrlOrContent(p: p)}';
-	@override String get profileUrlOrContentCannotEmpty => 'Ссылка на подписку не может быть пустой';
 	@override String get tabHome => 'Главная';
 	@override String get tabNodes => 'Узлы';
 	@override String get tabPlans => 'Тарифы';
@@ -461,7 +390,6 @@ class _Translations$tls$ru implements Translations$tls$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get insecure => 'Пропустить проверку сертификата';
 	@override String get certificate => 'Сертификат';
 	@override String get privateKey => 'Закрытый ключ';
 	@override String get customTrustCert => 'Индивидуальные сертификаты';
@@ -476,7 +404,6 @@ class _Translations$tun$ru implements Translations$tun$en {
 	// Translations
 	@override String get stack => 'Сетевой стек';
 	@override String get inet4Address => 'Диапазон IPv4-адресов';
-	@override String get inet6Address => 'Диапазон IPv6-адресов';
 	@override String get dnsHijack => 'Перехват DNS';
 	@override String get strictRoute => 'Строгая маршрутизация';
 	@override String get tunDefaultRoute => 'Маршрут по умолчанию';
@@ -589,20 +516,9 @@ extension on TranslationsRu {
 			'loginScreen.forgotPassword' => 'Забыли пароль',
 			'loginScreen.provider' => 'Провайдер',
 			'loginScreen.providerName' => 'Код/алиас/URL ${_root.loginScreen.provider}',
-			'loginScreen.providerNameRequired' => 'Пожалуйста, введите код/алиас/URL ${_root.loginScreen.provider}',
 			'loginScreen.account' => 'Аккаунт',
-			'loginScreen.accountRequired' => 'Пожалуйста, введите аккаунт',
 			'loginScreen.email' => 'Электронная почта',
-			'loginScreen.emailRequired' => 'Пожалуйста, введите адрес электронной почты',
 			'loginScreen.password' => 'Пароль',
-			'loginScreen.passwordRequired' => 'Пожалуйста, введите пароль',
-			'loginScreen.validEmailRequired' => 'Пожалуйста, введите действительный адрес электронной почты',
-			'loginScreen.passwordMinLength' => ({required Object minLength}) => 'Длина пароля должна быть не менее ${minLength} символов',
-			'loginScreen.unsupportedProvider' => 'Неподдерживаемый ${_root.loginScreen.provider}',
-			'loginScreen.unsupportedProviderType' => 'Неподдерживаемый тип ${_root.loginScreen.provider}',
-			'loginScreen.unActivedProvider' => 'Функция входа не активирована',
-			'loginScreen.providerLoginSupportRequired' => ({required Object p}) => 'Запросите код/алиас провайдера у вашего ${_root.loginScreen.provider}.\nИнструкцию по интеграции с ${_root.loginScreen.provider} смотрите: ${p}',
-			'loginScreen.providerDisclaimer' => 'Отказ от ответственности: ${_root.loginScreen.provider} — это сторонний сервис и не связан с этим приложением',
 			'main.tray.menuOpen' => 'Открыть',
 			'main.tray.menuExit' => 'Выйти',
 			'meta.enable' => 'Включить',
@@ -611,15 +527,12 @@ extension on TranslationsRu {
 			'meta.close' => 'Закрыть',
 			'meta.quit' => 'Выйти',
 			'meta.add' => 'Добавить',
-			'meta.addSuccess' => 'Добавлено успешно',
-			'meta.addFailed' => ({required Object p}) => 'Ошибка при добавлении:${p}',
 			'meta.remove' => 'Удалить',
 			'meta.removeConfirm' => 'Подтверждаете удаление?',
 			'meta.edit' => 'Редактировать',
 			'meta.view' => 'Просмотр',
 			'meta.remark' => 'Примечание',
 			'meta.byDefault' => 'по умолчанию',
-			'meta.editRemark' => 'Заметки об изменениях',
 			'meta.more' => 'Больше',
 			'meta.tips' => 'Инфо',
 			'meta.selectAll' => 'Выбрать все',
@@ -639,10 +552,8 @@ extension on TranslationsRu {
 			'meta.minutes' => 'минуты',
 			'meta.seconds' => 'секунды',
 			'meta.milliseconds' => 'миллисекунды',
-			'meta.protocol' => 'Протокол',
 			'meta.search' => 'Поиск',
 			'meta.searchNodeHint' => 'Фильтр узлов (имя или протокол)',
-			'meta.custom' => 'Настроить самостоятельно',
 			'meta.connect' => 'Соединить',
 			'meta.disconnect' => 'Отключить',
 			'meta.connected' => 'Подключено',
@@ -650,8 +561,6 @@ extension on TranslationsRu {
 			'meta.connecting' => 'Подключение',
 			'meta.connectTimeout' => 'Таймаут при соединении',
 			'meta.timeout' => 'Тайм-аут',
-			'meta.timeoutDuration' => 'Длительность тайм-аута',
-			'meta.latency' => 'Задерживать',
 			'meta.latencyTest' => 'Обнаружение задержки',
 			'meta.networkCheck' => 'Проверка сети',
 			'meta.language' => 'Язык',
@@ -659,7 +568,6 @@ extension on TranslationsRu {
 			'meta.done' => 'Готово',
 			'meta.apply' => 'Применить',
 			'meta.refresh' => 'Обновить',
-			'meta.retry' => 'Хотите попробовать еще раз?',
 			'meta.update' => 'Обновить',
 			'meta.updateInterval' => 'Интервал обновления',
 			'meta.updateInterval5mTips' => 'Минимум: 5 м',
@@ -668,30 +576,23 @@ extension on TranslationsRu {
 			'meta.none' => 'Ничего не делать',
 			'meta.reset' => 'Перезагрузить',
 			'meta.authentication' => 'Авторизация',
-			'meta.submit' => 'Отправить',
 			'meta.user' => 'Пользователь',
 			'meta.account' => 'Аккаунт',
 			'meta.password' => 'Пароль',
 			'meta.decryptPassword' => 'Пароль расшифровки',
 			'meta.required' => 'Необходимо',
 			'meta.go' => 'Продолжить',
-			'meta.sudoPassword' => 'Пароль sudo (требуется для режима TUN)',
 			'meta.other' => 'Другой',
 			'meta.dns' => 'DNS',
 			'meta.url' => 'URL',
 			'meta.urlInvalid' => 'Неверный URL',
-			'meta.urlCannotEmpty' => 'Ссылка не может быть пустой',
-			'meta.urlTooLong' => 'URL слишком длинный (>8182)',
 			'meta.copyUrl' => 'Скопировать ссылку',
 			'meta.openUrl' => 'Открыть ссылку',
-			'meta.shareUrl' => 'Поделиться ссылкой',
 			'meta.coreSettingTips' => 'Примечание: После изменения конфигурации необходимо повторно подключиться, чтобы изменения вступили в силу.',
 			'meta.overwrite' => 'Переопределить',
-			'meta.overwriteCustom' => 'Пользовательские переопределения',
 			'meta.overwriteAppend' => 'Дополнительное переопределение',
 			'meta.overwriteTips' => 'Исходная конфигурация <- Пользовательское переопределение <- Переопределение приложения',
 			'meta.noOverwrite' => 'Не перезаписывать',
-			'meta.overwriteSettings' => 'Переопределить настройки',
 			'meta.diversionTemplates' => 'Шаблон сортировки пациентов',
 			'meta.ruleProviders' => 'Поставщик правил',
 			'meta.ruleTemplates' => 'Шаблон правила',
@@ -713,7 +614,6 @@ extension on TranslationsRu {
 			'meta.tun' => 'TUN',
 			'meta.ntp' => 'NTP',
 			'meta.tls' => 'TLS',
-			'meta.geo' => 'GEO',
 			'meta.geoDownloadByProxy' => 'Загрузка гео-правил через прокси',
 			'meta.geoRulesetTips' => 'Geosite/Geoip будет преобразован в соответствующий RuleSet',
 			'meta.sniffer' => 'Обнаружение доменов',
@@ -723,7 +623,6 @@ extension on TranslationsRu {
 			'meta.tunModeRunAsAdmin' => 'Для режима TUN требуются права администратора. Перезапустите приложение от имени администратора',
 			'meta.portableMode' => 'Портативный режим',
 			'meta.portableModeDisableTips' => 'Если вам нужно выйти из портативного режима, выйдите из [mclash] и вручную удалите папку [portable] в том же каталоге, что и [mclash.exe]',
-			'meta.systemProxy' => 'Системный прокси',
 			'meta.autoConnectAfterLaunch' => 'Автоматическое подключение после запуска',
 			'meta.autoConnectAtBoot' => 'Автоматическое подключение после запуска системы',
 			'meta.autoConnectAtBootTips' => 'Требуется поддержка системы; некоторые системы также могут потребовать включения [автозапуска].',
@@ -735,34 +634,18 @@ extension on TranslationsRu {
 			'meta.hideDockIcon' => 'Скрыть значок дока',
 			'meta.showTrayTraffic' => 'Показывать трафик в трее',
 			'meta.website' => 'Веб-сайт',
-			'meta.homePage' => 'Главная',
 			'meta.rule' => 'Правила',
 			'meta.global' => 'Глобально',
 			'meta.direct' => 'Напрямую',
-			'meta.block' => 'Блокировать',
 			'meta.qrcode' => 'QR-код',
 			'meta.qrcodeTooLong' => 'Слишком большой текст для отображения',
 			'meta.qrcodeShare' => 'Поделиться QR-кодом',
-			'meta.textToQrcode' => 'Преобразование текста в QR-код',
 			'meta.qrcodeScan' => 'Сканировать QR-код',
 			'meta.qrcodeScanResult' => 'Результат сканирования',
-			'meta.qrcodeScanFromImage' => 'Открыть',
-			'meta.qrcodeScanResultFailed' => 'Не удалось проанализировать изображение. Убедитесь, что снимок экрана представляет собой действительный QR-код.',
-			'meta.qrcodeScanResultEmpty' => 'Пустой результат сканирования.',
-			'meta.screenshot' => 'Скриншот',
 			'meta.backupAndSync' => 'Резервное копирование и синхронизация',
-			'meta.importSuccess' => 'Импорт выполнен успешно',
-			'meta.rewriteConfirm' => 'Этот файл перезапишет существующую локальную профиль. Продолжить?',
-			'meta.importAndExport' => 'Импорт и экспорт',
-			'meta.import' => 'Импорт',
-			'meta.importFromUrl' => 'Импорт из URL',
 			'meta.export' => 'Экспорт',
 			'meta.send' => 'Передать',
-			'meta.receive' => 'Принять',
 			'meta.sendConfirm' => 'Подтверждаете передачу?',
-			'meta.continueConnectConfirm' => 'Продолжить подключение?',
-			'meta.termOfUse' => 'Условия использования',
-			'meta.privacyPolicy' => 'Политика конфиденциальности',
 			'meta.log' => 'Журнал',
 			'meta.coreLog' => 'Журнал ядра',
 			'meta.core' => 'Ядро',
@@ -779,7 +662,6 @@ extension on TranslationsRu {
 			'meta.reconnectTakesEffect' => 'Изменения вступят в силу после повторного подключения.',
 			'meta.runtimeProfile' => 'Конфигурация времени выполнения',
 			'meta.willCompleteAfterRebootInstall' => 'Пожалуйста, перезагрузите устройство, чтобы завершить установку расширения системы.',
-			'meta.willCompleteAfterRebootUninstall' => 'Пожалуйста, перезагрузите устройство, чтобы завершить удаление системного расширения.',
 			'meta.requestNeedsUserApproval' => '1. Пожалуйста, [разрешите] Mclash устанавливать системные расширения в [Системные настройки] - [Конфиденциальность и безопасность]. 2. : [Системные настройки] - [Основные] - [Элементы входа и расширения - Сетевые расширения] Включите [mclashServiceSE]. После завершения подключитесь снова.',
 			'meta.FullDiskAccessPermissionRequired' => 'Включите разрешение mclashServiceSE в [Системные настройки]-[Конфиденциальность и безопасность]-[Полный доступ к диску] и переподключитесь.',
 			'meta.proxy' => 'Прокси',
@@ -787,18 +669,13 @@ extension on TranslationsRu {
 			'meta.tvMode' => 'Режим ТВ',
 			'meta.autoUpdate' => 'Автоматические обновления',
 			'meta.updateChannel' => 'Канал автоматического обновления',
-			'meta.onlineCustomerService' => 'Онлайн-служба поддержки',
-			'meta.subscriptionChannel' => 'Канал подписки',
 			'meta.hasNewVersion' => ({required Object p}) => 'Обновить версию ${p}',
 			'meta.autoDownloadPkg' => 'Автоматически загружать пакеты обновлений',
 			'meta.devOptions' => 'Параметры разработчика',
 			'meta.about' => 'О приложении',
 			'meta.name' => 'Название',
 			'meta.version' => 'Версия',
-			'meta.notice' => 'Уведомления',
 			'meta.sort' => 'Отсортировать',
-			'meta.recommended' => 'Рекомендуемые',
-			'meta.innerError' => ({required Object p}) => 'Внутренняя ошибка:${p}',
 			'meta.share' => 'Поделиться',
 			'meta.importFromClipboard' => 'Импорт из буфера обмена',
 			'meta.exportToClipboard' => 'Экспорт в буфер обмена',
@@ -818,26 +695,12 @@ extension on TranslationsRu {
 			'meta.hideAppIcon' => 'Скрыть значок приложения',
 			'meta.openDir' => 'Открыть каталог файлов',
 			'meta.type' => 'Тип',
-			'meta.fileChoose' => 'Выбрать файл',
-			'meta.filePathCannotEmpty' => 'Путь к файлу не может быть пустым',
 			'meta.fileNotExist' => ({required Object p}) => 'Файла не существует:${p}',
-			'meta.fileTypeInvalid' => ({required Object p}) => 'Неверный тип файла:${p}',
-			'meta.uwpExemption' => 'Исключение из изоляции сети UWP',
-			'meta.getProfile' => 'Получить профиль',
 			'meta.buyProfile' => 'Купить профиль',
-			'meta.addProfile' => 'Добавить профиль',
 			'meta.myProfiles' => 'Профили',
 			'meta.profileEdit' => 'Редактирование профилей',
 			'meta.profileNeedActive' => 'Сначала сделайте этот профиль текущим, затем включите подключение/переподключитесь',
-			'meta.profileDownloadBackupChannel' => 'Включить резервный канал загрузки',
-			'meta.profileDownloadBackupChannelTips' => 'Прокси-канал загрузки, предоставляемый Mclash (никакая информация не сохраняется)',
-			'meta.profileEditReloadAfterProfileUpdate' => 'Перезагрузить после обновления профиля',
-			'meta.profileRulesAppendProxyTips' => 'Правила будут автоматически установлены на первый прокси в [proxy-groups] исходной конфигурации с типом [url-test] или [select]',
-			'meta.profileImport' => 'Импорт файла конфигурации',
-			'meta.profileAddUrlOrContent' => 'Добавление подписки',
 			'meta.profileUrlOrContent' => ({required Object p}) => 'Ссылка на профиль ${p}',
-			'meta.profileUrlOrContentHit' => ({required Object p}) => '[Обязательно]. Внимание: если ваша ссылка не является ${_root.meta.profileUrlOrContent(p: p)} (например, V2Ray или Sing-box), сначала воспользуйтесь онлайн-конвертером Clash, чтобы преобразовать ее в ${_root.meta.profileUrlOrContent(p: p)}',
-			'meta.profileUrlOrContentCannotEmpty' => 'Ссылка на подписку не может быть пустой',
 			'meta.tabHome' => 'Главная',
 			'meta.tabNodes' => 'Узлы',
 			'meta.tabPlans' => 'Тарифы',
@@ -847,13 +710,11 @@ extension on TranslationsRu {
 			'permission.appQuery' => 'Получить список приложений',
 			'permission.request' => ({required Object p}) => 'Включить разрешения [${p}]',
 			'permission.requestNeed' => ({required Object p}) => 'Пожалуйста, включите разрешение [${p}]',
-			'tls.insecure' => 'Пропустить проверку сертификата',
 			'tls.certificate' => 'Сертификат',
 			'tls.privateKey' => 'Закрытый ключ',
 			'tls.customTrustCert' => 'Индивидуальные сертификаты',
 			'tun.stack' => 'Сетевой стек',
 			'tun.inet4Address' => 'Диапазон IPv4-адресов',
-			'tun.inet6Address' => 'Диапазон IPv6-адресов',
 			'tun.dnsHijack' => 'Перехват DNS',
 			'tun.strictRoute' => 'Строгая маршрутизация',
 			'tun.tunDefaultRoute' => 'Маршрут по умолчанию',
@@ -882,17 +743,10 @@ extension on TranslationsRu {
 			'profilePatchMode.currentSelected' => 'Текущий сервер',
 			'profilePatchMode.overwrite' => 'Встроенная функция переопределения',
 			'profilePatchMode.noOverwrite' => 'Встроенный - не перезаписывается',
-			'protocolSniff' => 'Определение протокола',
-			'protocolSniffOverrideDestination' => 'Обнаруженное имя домена перезаписывает целевой адрес подключения.',
 			'sendOrReceiveNotMatch' => ({required Object p}) => 'Пожалуйста, используйте [${p}]',
 			'targetConnectFailed' => ({required Object p}) => 'Не удалось подключиться к [${p}]. Убедитесь, что устройство находится в той же локальной сети.',
 			'edgeRuntimeNotInstalled' => 'Среда выполнения Edge WebView2 не установлена ​​на текущем устройстве, и страница не может быть отображена. Загрузите и установите среду выполнения Edge WebView2 (x64), перезапустите приложение и повторите попытку.',
 			'locales.en' => 'English',
-			'locales.zh-CN' => '简体中文',
-			'locales.zh-TW' => '繁體中文',
-			'locales.ja' => '日本語',
-			'locales.ko' => '한국어',
-			'locales.ar' => 'عربي',
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',

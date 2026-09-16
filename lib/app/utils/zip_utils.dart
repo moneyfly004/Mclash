@@ -86,35 +86,6 @@ class ZipUtils {
     }
   }
 
-  static Future<ReturnResultError?> unzip(
-    String zipPath,
-    String dir, {
-    Set<String> whiteList = const {},
-  }) async {
-    try {
-      final bytes = await io.File(zipPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-      for (final file in archive) {
-        if (whiteList.isNotEmpty) {
-          if (!whiteList.contains(file.name.toLowerCase())) {
-            continue;
-          }
-        }
-        final filePath = "$dir/${file.name}";
-        if (file.isFile) {
-          final data = file.content as List<int>;
-          await io.File(filePath).writeAsBytes(data, flush: true);
-        } else {
-          await io.Directory(filePath).create(recursive: true);
-        }
-      }
-    } catch (err, stacktrace) {
-      return ReturnResultError(err.toString());
-    }
-
-    return null;
-  }
-
   static Future<ReturnResult<List<String>>> list(String zipPath) async {
     try {
       List<String> filelist = [];
