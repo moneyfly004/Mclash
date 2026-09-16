@@ -58,6 +58,11 @@ class TranslationsEs with BaseTranslations<AppLocale, Translations> implements T
 	@override String get edgeRuntimeNotInstalled => 'El dispositivo actual no ha instalado el motor de ejecución Edge WebView2, por lo que la página no se puede mostrar. Descargue e instale el motor de ejecución Edge WebView2 (x64), reinicie la App e inténtelo de nuevo.';
 	@override Map<String, String> get locales => {
 		'en': 'English',
+		'zh-CN': '简体中文',
+		'zh-TW': '繁體中文',
+		'ja': '日本語',
+		'ko': '한국어',
+		'ar': 'عربي',
 		'ru': 'Русский',
 		'fa': 'فارسی',
 		'es': 'Español',
@@ -747,6 +752,11 @@ extension on TranslationsEs {
 			'targetConnectFailed' => ({required Object p}) => 'Error al conectar con [${p}]. Asegúrese de que los dispositivos estén en la misma LAN',
 			'edgeRuntimeNotInstalled' => 'El dispositivo actual no ha instalado el motor de ejecución Edge WebView2, por lo que la página no se puede mostrar. Descargue e instale el motor de ejecución Edge WebView2 (x64), reinicie la App e inténtelo de nuevo.',
 			'locales.en' => 'English',
+			'locales.zh-CN' => '简体中文',
+			'locales.zh-TW' => '繁體中文',
+			'locales.ja' => '日本語',
+			'locales.ko' => '한국어',
+			'locales.ar' => 'عربي',
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',

@@ -299,6 +299,11 @@
   "edgeRuntimeNotInstalled": "El dispositivo actual no ha instalado el motor de ejecución Edge WebView2, por lo que la página no se puede mostrar. Descargue e instale el motor de ejecución Edge WebView2 (x64), reinicie la App e inténtelo de nuevo.",
   "locales(map)": {
     "en": "English",
+    "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "ar": "عربي",
     "ru": "Русский",
     "fa": "فارسی",
     "es": "Español"

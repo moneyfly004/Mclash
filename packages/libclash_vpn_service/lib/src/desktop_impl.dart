@@ -1478,8 +1478,55 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     }
   }
 
-  static Future<List<int>> killStaleKernels() async {
+  /// 取某个 PID 的可执行文件路径（用于确认「这是我们自己的内核」）。
+  static Future<String> _exePathOfPid(int pid) async {
+    try {
+      if (Platform.isWindows) {
+        return "";
+      }
+      final r = await Process.run("ps", ["-p", "$pid", "-o", "comm="]);
+      return r.stdout.toString().trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  static Future<List<int>> killStaleKernels({bool includeOwn = false}) async {
     final killed = <int>[];
+    // 同一路径上、但不是正在被跟踪的那个进程 → 残留内核（父进程还活着，
+    // 因此不是孤儿，但继续占着端口）。起内核前必须收掉。
+    if (includeOwn) {
+      // 正在被跟踪的内核（本次连接用的那个）不能杀。
+      final platform = VpnServicePlatform.instance;
+      final keepPid = platform is DesktopVpnServiceImpl
+          ? (platform._proc?.pid ?? 0)
+          : 0;
+      try {
+        final kernel = await resolveKernelPath();
+        final want = kernel == null ? "" : File(kernel).absolute.path;
+        if (want.isNotEmpty) {
+          final r = await Process.run("pgrep", ["-x", "mihomo"]);
+          if (r.exitCode == 0) {
+            for (final line in r.stdout.toString().split("\n")) {
+              final pid = int.tryParse(line.trim());
+              if (pid == null || pid == keepPid) {
+                continue;
+              }
+              final exe = await _exePathOfPid(pid);
+              if (exe != want) {
+                continue;
+              }
+              try {
+                Process.killPid(pid, ProcessSignal.sigterm);
+                await Future<void>.delayed(const Duration(milliseconds: 150));
+                Process.killPid(pid, ProcessSignal.sigkill);
+                killed.add(pid);
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
+    }
     try {
       final kernel = await resolveKernelPath();
       if (Platform.isWindows) {

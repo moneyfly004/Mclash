@@ -150,10 +150,15 @@ class FlutterVpnService {
   ///
   /// 桌面端专用：Windows 没有「父死子死」，非正常退出会留下内核继续吃端口。
   /// Android 的内核是同一个进程里的 libmihomo，不存在这种情况。
-  static Future<List<int>> killStaleKernels() async {
+  /// [includeOwn] = true 时，除了孤儿内核，还把**不在当前跟踪中**的、
+  /// 与我们同一份内核路径的 mihomo 一起收掉。
+  ///
+  /// 为什么需要：用户实测「点了连接连不上、重试也连不上」—— 占用控制端口的
+  /// 就是上一次启动留下、父进程（App）还活着因而**不是孤儿**的内核。
+  static Future<List<int>> killStaleKernels({bool includeOwn = false}) async {
     if (Platform.isAndroid) {
       return const [];
     }
-    return DesktopVpnServiceImpl.killStaleKernels();
+    return DesktopVpnServiceImpl.killStaleKernels(includeOwn: includeOwn);
   }
 }

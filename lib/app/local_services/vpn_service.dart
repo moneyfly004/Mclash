@@ -137,6 +137,21 @@ class VPNService {
     final patch = ProfilePatchManager.getProfilePatch(profile.patch);
     final setting = ClashSettingManager.getConfig();
     final appSetting = SettingManager.getConfig();
+
+    // 起内核之前先清场：**同一份内核路径**上还在跑的旧进程会占着控制端口与混合
+    // 端口，让新内核 bind 失败（用户实测：控制端口 9090 被占 → 连接直接失败，
+    // 而且重试一次也失败，因为占用者就是上一次留下的内核）。
+    try {
+      final stale = await FlutterVpnService.killStaleKernels(includeOwn: true);
+      if (stale.isNotEmpty) {
+        Log.w("VPNService: 起内核前清理残留内核进程 ${stale.join("、")}");
+      }
+    } catch (err) {
+      Log.w("VPNService: 清理残留内核失败（忽略）${err.toString()}");
+    }
+    // 两个端口都要可用：混合端口（入站）与控制端口（Clash API）
+    await _ensureMixedPortAvailable();
+    await _ensureControlPortAvailable();
     final controlPort = ClashSettingManager.getControlPort();
 
     bool overwriteFinal =
@@ -580,6 +595,38 @@ class VPNService {
       Log.w("VPNService: 拿不到有效的混合端口（内核 $kernelPort / 设置 $configured），跳过系统代理设置");
     }
     return port;
+  }
+
+  /// 控制端口（Clash API）也必须可用。
+  ///
+  /// 真实案例（用户机器实测）：另一款代理客户端的内核占着 127.0.0.1:9090，
+  /// 我们的内核日志只有一行
+  /// `External controller listen error: listen tcp 127.0.0.1:9090: bind: address already in use`，
+  /// 随后就绪检测一直等控制 API → 超时 → 界面报「本地代理端口被占用」。
+  /// 混合端口早就会自动换端口，控制端口却一直是写死的 9090 —— 这里补齐。
+  static Future<void> _ensureControlPortAvailable() async {
+    final cur = ClashSettingManager.getControlPort();
+    if (cur > 0 && await _portFree(cur)) {
+      return;
+    }
+    final mixed = ClashSettingManager.getMixedPort();
+    var picked = 0;
+    for (final p in [9091, 9092, 9093, 19090, 29090, 39090]) {
+      if (p == mixed) {
+        continue;
+      }
+      if (await _portFree(p)) {
+        picked = p;
+        break;
+      }
+    }
+    if (picked <= 0) {
+      picked = await _pickFreePort();
+    }
+    Log.w(
+      "VPNService: 控制端口 $cur 被占用（多为另一个代理软件的内核）→ 改用 $picked 并写入设置",
+    );
+    await ClashSettingManager.setControlPort(picked);
   }
 
   static Future<void> _ensureMixedPortAvailable() async {

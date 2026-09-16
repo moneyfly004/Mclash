@@ -1,4 +1,5 @@
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -205,7 +206,12 @@ class _LanguageSettingsScreenState
                         Row(
                           children: [
                             Text(
-                              t.locales[current.languageTag]!,
+                              // 语言名是**动态 map 查找**（t.locales[tag]）：
+                              // 少一个键静态检查发现不了，以前会在界面上整项崩掉
+                              // （用户反馈的「语言少了很多」就是这么来的）。
+                              // 取不到就退回 languageTag，并留一条日志。
+                              t.locales[current.languageTag] ??
+                                  _fallbackLocaleName(current.languageTag),
                               style: TextStyle(
                                 fontSize: ThemeConfig.kFontSizeGroupItem,
                               ),
@@ -222,6 +228,12 @@ class _LanguageSettingsScreenState
         ),
       ),
     );
+  }
+
+  /// 语言名兜底：取不到就显示 tag 本身（至少用户能看出是哪个语言）。
+  String _fallbackLocaleName(String tag) {
+    Log.w("LanguageSettingsScreen: 缺少 locales[$tag] 文案（i18n 文件不完整）");
+    return tag;
   }
 
   Future<void> onTapItem(dynamic current) async {

@@ -615,6 +615,16 @@ class ClashSettingManager {
     return _setting.MixedPort ?? 7890;
   }
 
+  /// 改控制端口（Clash API）。被别的代理软件占用时由 VPNService 调用。
+  static Future<void> setControlPort(int port) async {
+    if (port <= 0 || getControlPort() == port) {
+      return;
+    }
+    _setting.ExternalController = "127.0.0.1:$port";
+    await save();
+    Log.w("ClashSettingManager: 控制端口已改为 $port");
+  }
+
   static Future<void> setMixedPort(int port) async {
     if (port <= 0 || _setting.MixedPort == port) {
       return;

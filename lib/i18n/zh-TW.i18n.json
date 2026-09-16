@@ -299,6 +299,11 @@
   "edgeRuntimeNotInstalled": "當前設備尚未安裝Edge WebView2運行時,無法展示頁面,請下載安裝Edge WebView2運行時(x64)後,重啟App再試",
   "locales(map)": {
     "en": "English",
+    "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "ar": "عربي",
     "ru": "Русский",
     "fa": "فارسی",
     "es": "Español"
