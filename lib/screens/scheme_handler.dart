@@ -2,8 +2,6 @@ import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_scheme_actions.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/app/utils/system_scheme_utils.dart';
-import 'package:mclash/app/utils/url_launcher_utils.dart';
-import 'package:mclash/screens/add_profile_by_url_screen.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/app/utils/vpn_action_handler.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +20,7 @@ class SchemeHandler {
     if (uri.isScheme(SystemSchemeUtils.getClashScheme()) ||
         uri.isScheme(SystemSchemeUtils.getClashMiScheme())) {
       if (uri.host == AppSchemeActions.installConfigAction()) {
-        return await _installConfig(context, uri);
+        return await _rejectInstallConfig(context);
       } else if (uri.host == AppSchemeActions.connectAction()) {
         if (VpnActionHandler.vpnConnect != null) {
           bool background = false;
@@ -56,111 +54,24 @@ class SchemeHandler {
     return ReturnResultError("unsupport scheme: ${uri.scheme}");
   }
 
-  static Future<ReturnResultError?> _installConfig(
+  /// `clash://install-config?url=…` / `mclash://install-config?url=…`
+  ///
+  /// **一次性导入订阅配置的能力已按产品要求整体移除**：客户端只允许
+  /// 「登录账号 → 自动同步订阅」这一条路径，不接受任何外部链接塞进来的配置。
+  /// 这里如实拒绝并告诉用户该怎么做 —— 静默忽略会让用户以为是链接坏了。
+  static Future<ReturnResultError?> _rejectInstallConfig(
     BuildContext context,
-    Uri uri,
   ) async {
+    const message =
+        "Mclash 不支持导入订阅配置。\n\n"
+        "请在 App 内登录账号，订阅会由客户端自动同步与更新。\n"
+        "如需续费或更换套餐，请前往「套餐购买」。";
     if (PlatformUtils.isPC()) {
       await windowManager.show();
     }
-    String? name;
-    String? url;
-    bool? overwrite;
-    bool? xhwid;
-
-    if (!context.mounted) {
-      return null;
+    if (context.mounted) {
+      await DialogUtils.showAlertDialog(context, message, showCopy: true);
     }
-    try {
-      name = uri.queryParameters["name"];
-      url = uri.queryParameters["url"];
-      String? ow = uri.queryParameters["overwrite"];
-      if (ow != null) {
-        if (ow == "true" || ow == "1" || ow == "yes") {
-          overwrite = true;
-        } else if (ow == "false" || ow == "0" || ow == "no") {
-          overwrite = false;
-        }
-      }
-      String? xh = uri.queryParameters["xhwid"] ?? uri.queryParameters["hwid"];
-      if (xh != null) {
-        if (xh == "true" || xh == "1" || xh == "yes") {
-          xhwid = true;
-        } else if (xh == "false" || xh == "0" || xh == "no") {
-          xhwid = false;
-        }
-      }
-    } catch (err) {
-      DialogUtils.showAlertDialog(
-        context,
-        err.toString(),
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-      return ReturnResultError(err.toString());
-    }
-    name ??= uri.fragment;
-    if (name.isNotEmpty) {
-      try {
-        name = Uri.decodeComponent(name);
-      } catch (err) {}
-    }
-    if (url != null) {
-      try {
-        url = Uri.decodeComponent(url);
-      } catch (err) {}
-    }
-
-    if (url == null || url.isEmpty) {
-      return ReturnResultError("url empty");
-    }
-
-    if (!context.mounted) {
-      return null;
-    }
-    ReturnResultError? result = await addConfigBySubscriptionLink(
-      context,
-      url,
-      name ?? "",
-      overwrite,
-      xhwid,
-    );
-
-    return result;
-  }
-
-  static Future<ReturnResultError?> addConfigBySubscriptionLink(
-    BuildContext context,
-    String url,
-    String name,
-    bool? overwrite,
-    bool? xhwid,
-  ) async {
-    int kMaxPush = 1;
-    if (AddProfileByUrlScreen.pushed >= kMaxPush) {
-      return ReturnResultError("addprofile request already exists");
-    }
-    UrlLauncherUtils.closeWebview();
-    if (!context.mounted) {
-      return null;
-    }
-
-    bool? ok = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: AddProfileByUrlScreen.routeSettings(),
-        builder: (context) => AddProfileByUrlScreen(
-          url: url,
-          remark: name,
-          overwrite: overwrite,
-          xhwid: xhwid,
-        ),
-      ),
-    );
-    if (ok != true) {
-      return ReturnResultError("addprofile failed or canceled by user");
-    }
-    return null;
+    return ReturnResultError("install-config is not supported");
   }
 }

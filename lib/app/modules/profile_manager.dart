@@ -602,48 +602,6 @@ class ProfileManager {
     return _config.profiles;
   }
 
-  static Future<ReturnResultError?> addLocal(
-    String filePath, {
-    String remark = "",
-  }) async {
-    final id = "${filePath.hashCode}.yaml";
-    final savePath = path.join(await PathUtils.profilesDir(), id);
-    final file = File(filePath);
-    if (!await file.exists()) {
-      return ReturnResultError("file not exist: $filePath");
-    }
-    try {
-      await file.copy(savePath);
-      int index = _config.profiles.indexWhere((value) {
-        return value.id == id;
-      });
-      if (index < 0) {
-        _config.profiles.add(
-          ProfileSetting(id: id, remark: remark, update: DateTime.now()),
-        );
-      } else {
-        _config.profiles[index] = ProfileSetting(
-          id: id,
-          remark: remark,
-          update: DateTime.now(),
-        );
-      }
-
-      for (var event in onEventAdd) {
-        event(id);
-      }
-
-      if (_config._currentId.isEmpty) {
-        setCurrent(id);
-      }
-
-      await save();
-      return null;
-    } catch (err) {
-      return ReturnResultError("addLocalProfile exception: ${err.toString()}");
-    }
-  }
-
   static Future<ReturnResultError?> validFileContentFormat(
     String filepath,
   ) async {
