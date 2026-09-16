@@ -207,6 +207,11 @@ abstract final class MclashSubscriptionService {
         remark: kProfileRemark,
         updateInterval: kUpdateInterval,
         updateIntervalPreferByProfile: false,
+        // 必须带上设备详情头（x-hwid / x-device-os / x-device-model…）：
+        // 设备**登记**就发生在这次订阅请求里，不带的话面板里的型号/系统是空的
+        // （用户实测反馈「设备管理看不到型号」）。注意：指纹用的是
+        // X-App-Device-Id（Did），跟这些头无关，所以不会因此多算一台设备。
+        xhwid: true,
       );
       if (added.error != null) {
         Log.w("MclashSubscriptionService: 添加订阅失败 ${added.error!.message}");
