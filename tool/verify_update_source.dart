@@ -150,5 +150,20 @@ void main() {
       proxyPorts: _proxyPorts,
     );
     expect(same, isNull, reason: '已是最新版本时不得再提示更新');
+
+    // 上一版（App 内部四段版本 0.0.1.1）必须能检测到这一版 —— 这正是
+    // 老用户装上新客户端后第一次「发现新版本」的场景。
+    if (info.version != "0.0.1") {
+      final upgrade = await MclashUpdateCheck.latest(
+        currentVersion: "0.0.1.1",
+        proxyPorts: _proxyPorts,
+      );
+      expect(
+        upgrade?.version,
+        info.version,
+        reason: '装了 0.0.1 的客户端必须能发现 ${info.version}',
+      );
+      print("升级检测：0.0.1.1 -> ${upgrade?.version}（${upgrade?.assetName}）");
+    }
   }, timeout: const Timeout(Duration(minutes: 2)));
 }
