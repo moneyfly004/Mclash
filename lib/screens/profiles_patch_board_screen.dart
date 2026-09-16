@@ -3,16 +3,10 @@ import 'dart:async';
 import 'package:after_layout/after_layout.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
 import 'package:mclash/i18n/strings.g.dart';
-import 'package:mclash/screens/add_profile_by_scan_qrcode_screen.dart';
-import 'package:mclash/screens/add_profile_patch_by_import_from_file_screen.dart';
-import 'package:mclash/screens/add_profile_patch_by_url_screen.dart';
-import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/profiles_patch_board_screen_widgets.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/widgets/framework.dart';
-import 'package:mclash/screens/widgets/sheet.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class ProfilesPatchBoardScreen extends LasyRenderingStatefulWidget {
   static RouteSettings routeSettings() {
@@ -113,19 +107,6 @@ class _ProfilesPatchBoardScreenState
                             ),
                           ),
                         ),
-                  InkWell(
-                    onTap: () async {
-                      onTapAdd();
-                    },
-                    child: Tooltip(
-                      message: tcontext.meta.add,
-                      child: const SizedBox(
-                        width: 50,
-                        height: 30,
-                        child: Icon(Icons.add, size: 30),
-                      ),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -160,123 +141,6 @@ class _ProfilesPatchBoardScreenState
 
   void onTapUpdateAll() async {
     await ProfilePatchManager.updateAll();
-  }
-
-  void onTapAdd() async {
-    final tcontext = Translations.of(context);
-    var widgets = [
-      ListTile(
-        title: Text(tcontext.meta.profileAddUrlOrContent),
-        onTap: () async {
-          Navigator.of(context).pop();
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: AddProfilePatchByUrlScreen.routeSettings(),
-              builder: (context) => AddProfilePatchByUrlScreen(),
-            ),
-          );
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.importFromClipboard),
-        onTap: () async {
-          Navigator.of(context).pop();
-          ClipboardData? data;
-          try {
-            data = await Clipboard.getData("text/plain");
-          } catch (err) {
-            if (!mounted) {
-              return;
-            }
-            DialogUtils.showAlertDialog(
-              context,
-              err.toString(),
-              showCopy: true,
-              showFAQ: true,
-              withVersion: true,
-            );
-            return;
-          }
-          if (!mounted) {
-            return;
-          }
-          if (data == null || data.text == null || data.text!.isEmpty) {
-            return;
-          }
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: AddProfilePatchByUrlScreen.routeSettings(),
-              builder: (context) =>
-                  AddProfilePatchByUrlScreen(url: data!.text!),
-            ),
-          );
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.qrcodeScan),
-        onTap: () async {
-          Navigator.of(context).pop();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: AddProfileByScanQrcodeScanScreen.routeSettings(),
-              builder: (context) => const AddProfileByScanQrcodeScanScreen(),
-            ),
-          ).then((value) {
-            if ((value != null) && (value.qrcode != null)) {
-              if (!mounted) {
-                return;
-              }
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  settings: AddProfilePatchByUrlScreen.routeSettings(),
-                  builder: (context) =>
-                      AddProfilePatchByUrlScreen(url: value.qrcode!),
-                ),
-              );
-            }
-          });
-        },
-      ),
-      ListTile(
-        title: Text(tcontext.meta.profileImport),
-        onTap: () async {
-          Navigator.of(context).pop();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              settings: AddProfilePatchByImportFromFileScreen.routeSettings(),
-              builder: (context) =>
-                  const AddProfilePatchByImportFromFileScreen(),
-            ),
-          );
-        },
-      ),
-    ];
-
-    showSheet(
-      context: context,
-      body: SizedBox(
-        height: 400,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-          child: Scrollbar(
-            child: ListView.separated(
-              itemBuilder: (BuildContext context, int index) {
-                return widgets[index];
-              },
-              separatorBuilder: (BuildContext context, int index) {
-                return const Divider(height: 1, thickness: 0.3);
-              },
-              itemCount: widgets.length,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _onAdd(String id) async {

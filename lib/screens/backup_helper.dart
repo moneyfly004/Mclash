@@ -2,20 +2,11 @@
 
 import 'dart:io';
 
-import 'package:mclash/app/local_services/vpn_service.dart';
-import 'package:mclash/app/modules/clash_setting_manager.dart';
-import 'package:mclash/app/modules/profile_manager.dart';
-import 'package:mclash/app/modules/profile_patch_manager.dart';
-import 'package:mclash/app/modules/diversion_template_manager.dart';
-import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/backup_and_sync_utils.dart';
-import 'package:mclash/app/utils/file_utils.dart';
-import 'package:mclash/app/utils/http_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/zip_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
-import 'package:mclash/screens/dialog_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as path;
@@ -53,104 +44,4 @@ class BackupHelper {
     }
   }
 
-  static Future<ReturnResultError?> reloadFromZip(String zipPath) async {
-    var result = await BackupAndSyncUtils.validZip(zipPath);
-    if (result != null) {
-      return result;
-    }
-    await VPNService.stop();
-    await ProfileManager.removeAllProfile();
-    await ProfilePatchManager.removeAllProfile();
-    var dir = await PathUtils.profileDir();
-    var error = await ZipUtils.unzip(zipPath, dir);
-    if (error != null) {
-      return error;
-    }
-
-    await SettingManager.reload();
-    await ClashSettingManager.reload();
-    await ProfileManager.reload();
-    await ProfilePatchManager.reload();
-    await DiversionTemplateManager.reload();
-    return null;
-  }
-
-  static Future<ReturnResultError?> restoreBackupFromUrl(
-    BuildContext context,
-    String url,
-  ) async {
-    Uri? downloadUri = Uri.tryParse(url);
-    if (downloadUri == null) {
-      return ReturnResultError("invalid URL: $url");
-    }
-    if (!context.mounted) {
-      return null;
-    }
-    final tcontext = Translations.of(context);
-    bool? ok = await DialogUtils.showConfirmDialog(
-      context,
-      tcontext.meta.rewriteConfirm,
-    );
-    if (ok != true) {
-      return null;
-    }
-    if (!context.mounted) {
-      return null;
-    }
-    DialogUtils.showLoadingDialog(context, text: "");
-    String dir = await PathUtils.cacheDir();
-    String filePath = path.join(dir, BackupAndSyncUtils.getZipFileName());
-    var result = await HttpUtils.httpDownload(
-      downloadUri,
-      filePath,
-      null,
-      null,
-      false,
-      const Duration(seconds: 10),
-    );
-
-    if (!context.mounted) {
-      return null;
-    }
-    Navigator.pop(context);
-    if (result.error != null) {
-      DialogUtils.showAlertDialog(
-        context,
-        result.error!.message,
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-      return ReturnResultError(result.error!.message);
-    }
-    await backupRestoreFromZip(context, filePath);
-    await FileUtils.deletePath(filePath);
-    return null;
-  }
-
-  static Future<void> backupRestoreFromZip(
-    BuildContext context,
-    String zipPath,
-  ) async {
-    if (!context.mounted) {
-      return;
-    }
-    final tcontext = Translations.of(context);
-
-    var error = await reloadFromZip(zipPath);
-    if (!context.mounted) {
-      return;
-    }
-    if (error != null) {
-      DialogUtils.showAlertDialog(
-        context,
-        error.message,
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-    } else {
-      DialogUtils.showAlertDialog(context, tcontext.meta.importSuccess);
-    }
-  }
 }

@@ -1,8 +1,6 @@
 import 'dart:io';
 
 import 'package:mclash/app/clash/clash_http_api.dart';
-import 'package:mclash/app/modules/board_provider_manager.dart';
-import 'package:mclash/app/modules/board_session_persistent_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
@@ -10,14 +8,10 @@ import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/file_view_screen.dart';
-import 'package:mclash/screens/group_helper.dart';
 import 'package:mclash/screens/profile_settings_edit_screen.dart';
-import 'package:mclash/screens/qrcode_screen.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:tuple/tuple.dart';
 
 class ProfilesBoardItem extends StatelessWidget {
@@ -41,10 +35,6 @@ class ProfilesBoardItem extends StatelessWidget {
     final tcontext = Translations.of(context);
     final settings = SettingManager.getConfig();
     final patch = ProfilePatchManager.getProfilePatch(setting.patch);
-    final provider = BoardProviderManager.getProviderById(
-      setting.boardProviderId,
-    );
-
     String patchRemark = "";
     if (setting.patch.isEmpty || patch.id.isEmpty) {
       final currentPatch = ProfilePatchManager.getCurrent();
@@ -97,34 +87,6 @@ class ProfilesBoardItem extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      if (provider != null) ...[
-                        provider.appIconUrl.isNotEmpty && provider.logoBranding
-                            ? FastCachedImage(
-                                url: provider.appIconUrl,
-                                width: 16,
-                                height: 16,
-                                cacheWidth: 64,
-                                cacheHeight: 64,
-                                loadingBuilder: (context, loadingProgress) {
-                                  return SizedBox.shrink();
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.business,
-                                    size: 16,
-                                    color: selected
-                                        ? ThemeDefine.kColorBlue
-                                        : null,
-                                  );
-                                },
-                              )
-                            : Icon(
-                                Icons.business,
-                                size: 16,
-                                color: selected ? ThemeDefine.kColorBlue : null,
-                              ),
-                        const SizedBox(width: 5),
-                      ],
                       Text(
                         setting.getShowName(),
                         overflow: TextOverflow.ellipsis,
@@ -306,23 +268,8 @@ class _ProfilesBoardScreenWidget extends State<ProfilesBoardScreenWidget> {
 
   void showMore(ProfileSetting setting) {
     final tcontext = Translations.of(context);
-    final provider = BoardProviderManager.getProviderById(
-      setting.boardProviderId,
-    );
-
     var widgets = [
-      if (provider != null && GroupHelper.canShowVpnProvider(provider)) ...[
-        ListTile(
-          title: Text(provider.name),
-          onTap: () async {
-            Navigator.of(context).pop();
-            final session = BoardSessionPersistentManager.instance()
-                .getBySubscribeUrl(setting.url);
-            GroupHelper.showVpnProvider(context, provider, session);
-          },
-        ),
-      ],
-      if (provider?.hideNodeDetails != true) ...[
+      ...[
         ListTile(
           title: Text(
             setting.isRemote() ? tcontext.meta.view : tcontext.meta.edit,
@@ -372,30 +319,8 @@ class _ProfilesBoardScreenWidget extends State<ProfilesBoardScreenWidget> {
             }
           },
         ),
-        if (provider?.hideNodeDetails != true) ...[
-          ListTile(
-            title: Text(tcontext.meta.copyUrl),
-            onTap: () async {
-              Navigator.of(context).pop();
-              try {
-                Clipboard.setData(ClipboardData(text: setting.url));
-              } catch (e) {}
-            },
-          ),
-          ListTile(
-            title: Text(tcontext.meta.qrcode),
-            onTap: () async {
-              Navigator.of(context).pop();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  settings: QrcodeScreen.routeSettings(),
-                  builder: (context) => QrcodeScreen(content: setting.url),
-                ),
-              );
-            },
-          ),
-        ],
+        // 「复制订阅地址」「二维码」已按产品要求移除：订阅地址不外露 = 与外发
+        // 分享保持一致的口径（拿到地址的人可以直接用，会绕过设备/防合租控制）。
       ],
 
       ListTile(

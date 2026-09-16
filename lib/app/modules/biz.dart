@@ -1,7 +1,6 @@
 
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
-import 'package:mclash/app/modules/board_provider_notice_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
@@ -39,11 +38,9 @@ class Biz {
     initAllFinish();
 
     AppLifecycleStateNofity.init();
-    BoardProviderNoticeManager.init();
   }
 
   static Future<void> uninit() async {
-    BoardProviderNoticeManager.uninit();
     await AutoUpdateManager.uninit();
     AppLifecycleStateNofity.uninit();
 

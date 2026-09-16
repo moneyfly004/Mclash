@@ -5,10 +5,8 @@ import 'dart:io';
 import 'package:mclash/app/extension/datetime.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
-import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
-import 'package:mclash/app/utils/zip_utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:tuple/tuple.dart';
 
@@ -38,8 +36,6 @@ class BackupAndSyncUtils {
       Tuple2(PathUtils.profilesFileName(), true),
       Tuple2(PathUtils.profilePatchsFileName(), true),
       Tuple2(PathUtils.diversionTemplateFileName(), true),
-      Tuple2(PathUtils.providersConfigFileName(), true),
-      Tuple2(PathUtils.boardSessionFileName(), true),
     ];
     if (profiles.isNotEmpty) {
       list.add(Tuple2(PathUtils.profilesName(), true));
@@ -55,24 +51,4 @@ class BackupAndSyncUtils {
     return list.map((tuple) => tuple.item1).toList();
   }
 
-  static Future<ReturnResultError?> validZip(String zipPath) async {
-    final result = await ZipUtils.list(zipPath);
-    if (result.error != null) {
-      return result.error;
-    }
-    if (result.data!.isEmpty) {
-      return ReturnResultError('backup zip file is empty');
-    }
-
-    final expectedFileNames = getFileNamesFromList(getZipFileNameList());
-    final actualFileNames = result.data!;
-    final intersection = expectedFileNames.toSet().intersection(
-      actualFileNames.toSet(),
-    );
-
-    if (intersection.isEmpty) {
-      return ReturnResultError('backup zip file is not compatible');
-    }
-    return null;
-  }
 }

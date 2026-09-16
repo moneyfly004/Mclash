@@ -65,12 +65,16 @@ Material 3 + 种子色 `#293CA0` + 方角 + 高密度列表 + 唯一分隔线
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**两个自有插件**（替代原 Clash Mi 依赖的外置包）：
+**自有插件**（替代原 Clash Mi 依赖的外置包）：
 
 | 包 | 作用 |
 |---|---|
 | `packages/libclash_vpn_service` | VPN 服务。Android 走 `VpnService.establish()` 拿 TUN fd 注入内核；桌面端**纯 Dart**（`Process.start(mihomo)` + Clash REST API 双条件就绪探测 + `reg`/`networksetup` 系统代理）—— 少一层原生服务二进制 |
-| `packages/board_service` | 后台客户端。保留 Clash Mi 的类名契约（`V2BoardClient`/`XboardClient`/`SSPanelUimClient`），底层指向自有后台，使其约 3000 行会话/配置管理零改动可用 |
+
+> 账号与订阅走 Mclash 自有的 `lib/mf/`（`MclashApi` + `cboard_client.dart`）。
+> 原 Clash Mi 的 `board_service`（V2board / Xboard / SSPanel 三套面板客户端）与
+> 「第三方机场 provider」整套能力已按产品要求删除：**客户端只允许
+> 「登录账号 → 自动同步订阅」，不支持手动导入配置**。
 
 ---
 

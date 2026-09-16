@@ -1,7 +1,6 @@
 
 library;
 
-import 'package:tuple/tuple.dart';
 
 const List<String> ProxyBypassDoaminsDefault = [
   "<local>",
@@ -47,51 +46,5 @@ abstract final class AppUrlUtilsPrivate {
     String bodyLen = "0",
   }) async {
     return "";
-  }
-}
-
-abstract final class BoardProviderPrivate {
-
-  static Tuple3<String, String, String> getBycodeUrlAndBody({
-    required String app,
-    required String version,
-    required String did,
-    required String code,
-  }) {
-    return const Tuple3("", "", "{}");
-  }
-
-  static Tuple3<String, String, String> getNoticePushUrlAndBody({
-    required String app,
-    required String version,
-    required String did,
-    required String pid,
-  }) {
-    return const Tuple3("", "", "{}");
-  }
-
-  static Tuple3<String, String, String> getNotifyIntegrationUrlAndBody({
-    required String app,
-    required String version,
-    required String did,
-    required String url,
-    required String type,
-  }) {
-    return const Tuple3("", "", "{}");
-  }
-}
-
-abstract final class ProfileProxyProviderPrivate {
-
-  static Tuple3<String, String, String> getProviderProxyUrlAndBody({
-    required String app,
-    required String version,
-    required String did,
-    required String boardProviderId,
-    required String url,
-    required String userAgent,
-    required Map<String, String> xhwidHeaders,
-  }) {
-    return const Tuple3("", "", "{}");
   }
 }

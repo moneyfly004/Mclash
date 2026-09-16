@@ -8,8 +8,6 @@ import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
 import 'package:mclash/app/modules/biz.dart';
-import 'package:mclash/app/modules/board_provider_manager.dart';
-import 'package:mclash/app/modules/board_session_persistent_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/remote_config_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
@@ -68,8 +66,6 @@ void main(List<String> args) async {
   await RemoteConfigManager.init();
   await SettingManager.init();
   Log.setLevel(SettingManager.getConfig().logLevel);
-  await BoardSessionPersistentManager.init();
-  await BoardProviderManager.init();
   if (Platform.isWindows || Platform.isMacOS) {
     await _ensureSingleInstanceOrExit();
   }

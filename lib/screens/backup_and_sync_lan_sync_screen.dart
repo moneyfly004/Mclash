@@ -16,8 +16,6 @@ import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/widgets/framework.dart';
 import 'package:flutter/material.dart';
-import 'package:http_parser/http_parser.dart';
-import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:tuple/tuple.dart';
 
@@ -27,12 +25,7 @@ class BackupAndSyncLanSyncScreen extends LasyRenderingStatefulWidget {
   }
 
   final String? title;
-  final bool? syncUpload;
-  const BackupAndSyncLanSyncScreen({
-    super.key,
-    required this.title,
-    required this.syncUpload,
-  });
+  const BackupAndSyncLanSyncScreen({super.key, required this.title});
 
   @override
   State<BackupAndSyncLanSyncScreen> createState() =>
@@ -64,7 +57,7 @@ class _BackupAndSyncLanSyncScreenState
 
   Future<void> start() async {
     try {
-      if (widget.syncUpload != true) {
+      {
         String dir = await PathUtils.cacheDir();
         if (!mounted) {
           return;
@@ -122,15 +115,11 @@ class _BackupAndSyncLanSyncScreenState
         ips.add(addr.address);
       }
 
-      String action = (widget.syncUpload == true
-          ? AppSchemeActions.syncUploadAction()
-          : AppSchemeActions.syncDownloadAction());
+      final action = AppSchemeActions.syncDownloadAction();
 
       String url =
           "${AppSchemeActions.scheme()}://$action/?ips=${Uri.encodeComponent(ips.join(","))}&port=$listenPort";
-      if (widget.syncUpload != true) {
-        url += "&filename=${Uri.encodeComponent(path.basename(_zipPath!))}";
-      }
+      url += "&filename=${Uri.encodeComponent(path.basename(_zipPath!))}";
       _image = QrcodeUtils.toImage(url).data;
 
       _server = await HttpServer.bind('0.0.0.0', listenPort);
@@ -150,81 +139,22 @@ class _BackupAndSyncLanSyncScreenState
         httpRequest.response.statusCode = HttpStatus.ok;
         httpRequest.response.close();
       });
-      if (widget.syncUpload == true) {
-        _onRouting("/${AppSchemeActions.syncUploadAction()}", "POST", (
-          HttpRequest httpRequest,
-        ) async {
-          if (httpRequest.contentLength > 100 * 1024 * 1024) {
-            httpRequest.response.statusCode = HttpStatus.ok;
-            httpRequest.response.write('{"error":"file too large(>100MB)"}');
-            httpRequest.response.close();
-            return;
-          }
-          late MediaType contentType;
-          try {
-            contentType = MediaType.parse(
-              httpRequest.headers.value('content-type')!,
-            );
-          } catch (e) {
-            httpRequest.response.statusCode = HttpStatus.ok;
-            httpRequest.response.write('{"error":"invalid content-type"}');
-            httpRequest.response.close();
-            return;
-          }
-          final boundary = contentType.parameters['boundary'];
-          if (boundary == null) {
-            httpRequest.response.statusCode = HttpStatus.ok;
-            httpRequest.response.write('{"error":"missing boundary"}');
-            httpRequest.response.close();
-            return;
-          }
-          final transformer = MimeMultipartTransformer(boundary);
-          final parts = await transformer.bind(httpRequest).toList();
-          String err = "";
-          String zipPath = "";
-          if (parts.length == 1) {
-            final part = parts[0];
-            final contentDisp = part.headers['content-disposition']!;
-
-            var filename = _extractFilename(contentDisp);
-            if (filename != null) {
-              filename = path.basename(filename);
-              String dir = await PathUtils.cacheDir();
-              final filepath = path.join(dir, filename);
-              try {
-                await _saveFile(part, filepath);
-                zipPath = filepath;
-              } catch (e) {
-                err = e.toString();
-              }
-            } else {
-              err = "filename is empty";
-            }
-          } else {
-            err = "too much files";
-          }
-          httpRequest.response.statusCode = HttpStatus.ok;
-          httpRequest.response.write('{"error":"$err"}');
-          httpRequest.response.close();
-          if (zipPath.isNotEmpty) {
-            restoreFromZip(zipPath);
-          }
-        });
-      } else {
-        _onRouting("/${AppSchemeActions.syncDownloadAction()}", "GET", (
-          HttpRequest httpRequest,
-        ) async {
-          var file = File(_zipPath!);
-          bool found = await file.exists();
-          if (!found) {
-            _sendNotFound(httpRequest.response);
-            return;
-          }
-          var stream = file.openRead();
-          await stream.pipe(httpRequest.response).catchError((e) {});
-          httpRequest.response.close();
-        });
-      }
+      // 只保留「发送」方向：本机把备份**给出去**，对端随时来取。
+      // 「接收」（对端把 zip 上传到本机、本机立刻恢复）已按产品要求移除 ——
+      // 恢复只能靠登录账号重新同步订阅，不允许从外部把数据塞回来。
+      _onRouting("/${AppSchemeActions.syncDownloadAction()}", "GET", (
+        HttpRequest httpRequest,
+      ) async {
+        var file = File(_zipPath!);
+        bool found = await file.exists();
+        if (!found) {
+          _sendNotFound(httpRequest.response);
+          return;
+        }
+        var stream = file.openRead();
+        await stream.pipe(httpRequest.response).catchError((e) {});
+        httpRequest.response.close();
+      });
       setState(() {});
     } catch (err, stacktrace) {
       if (!mounted) {
@@ -241,17 +171,7 @@ class _BackupAndSyncLanSyncScreenState
     }
   }
 
-  Future<void> _saveFile(MimeMultipart part, String filename) async {
-    var file = File(filename);
-    await file.create(recursive: true);
-    await part.pipe(file.openWrite());
-  }
 
-  String? _extractFilename(String contentDisposition) {
-    return RegExp(
-      'filename="([^"]*)"',
-    ).firstMatch(contentDisposition)?.group(1);
-  }
 
   void _sendNotFound(HttpResponse response) {
     response.statusCode = HttpStatus.notFound;
@@ -307,10 +227,6 @@ class _BackupAndSyncLanSyncScreenState
     }
   }
 
-  Future<void> restoreFromZip(String zipPath) async {
-    await BackupHelper.backupRestoreFromZip(context, zipPath);
-    await FileUtils.deletePath(zipPath);
-  }
 
   @override
   Widget build(BuildContext context) {

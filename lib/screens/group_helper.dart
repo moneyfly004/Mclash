@@ -7,10 +7,6 @@ import 'dart:ui';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
-import 'package:mclash/app/modules/board_provider_manager.dart';
-import 'package:mclash/app/modules/board_provider_notice_manager.dart';
-import 'package:mclash/app/modules/board_session_persistent_manager.dart'
-    show BoardSession;
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
@@ -47,7 +43,6 @@ import 'package:mclash/screens/map_string_and_string_add_screen.dart';
 import 'package:mclash/screens/perapp_android_screen.dart';
 import 'package:mclash/screens/profiles_patch_board_screen.dart';
 import 'package:mclash/screens/qrcode_scan_screen.dart';
-import 'package:mclash/screens/richtext_viewer.screen.dart';
 import 'package:mclash/screens/rule_providers_screen.dart';
 import 'package:mclash/screens/rule_templates_screen.dart';
 import 'package:mclash/screens/proxygroup_templates_screen.dart';
@@ -55,7 +50,6 @@ import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/themes.dart';
 import 'package:mclash/screens/version_update_screen.dart';
 import 'package:mclash/screens/webview_helper.dart';
-import 'package:mclash/screens/widgets/sheet.dart';
 import 'package:mclash/screens/widgets/text_field.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -189,10 +183,8 @@ class GroupHelper {
                 context,
                 MaterialPageRoute(
                   settings: BackupAndSyncLanSyncScreen.routeSettings(),
-                  builder: (context) => BackupAndSyncLanSyncScreen(
-                    title: tcontext.meta.send,
-                    syncUpload: false,
-                  ),
+                  builder: (context) =>
+                      BackupAndSyncLanSyncScreen(title: tcontext.meta.send),
                 ),
               );
             },
@@ -225,57 +217,6 @@ class GroupHelper {
     );
   }
 
-  static Future<void> onTapLanSyncReceiveFrom(BuildContext context) async {
-    final tcontext = Translations.of(context);
-    Future<List<GroupItem>> getOptions(
-      BuildContext context,
-      SetStateCallback? setstate,
-    ) async {
-      List<GroupItemOptions> options = [
-        GroupItemOptions(
-          pushOptions: GroupItemPushOptions(
-            name: tcontext.meta.qrcode,
-            onPush: () async {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  settings: BackupAndSyncLanSyncScreen.routeSettings(),
-                  builder: (context) => BackupAndSyncLanSyncScreen(
-                    title: tcontext.meta.receive,
-                    syncUpload: true,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        if (PlatformUtils.isMobile()) ...[
-          GroupItemOptions(
-            pushOptions: GroupItemPushOptions(
-              name: tcontext.meta.qrcodeScan,
-              onPush: () async {
-                onTapSyncByScanQRcode(context, false);
-              },
-            ),
-          ),
-        ],
-      ];
-      return [GroupItem(options: options)];
-    }
-
-    if (!context.mounted) {
-      return;
-    }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: GroupScreen.routeSettings("receive"),
-        builder: (context) =>
-            GroupScreen(title: tcontext.meta.receive, getOptions: getOptions),
-      ),
-    );
-  }
-
   static Future<void> onTapLanSync(BuildContext context) async {
     final tcontext = Translations.of(context);
 
@@ -289,14 +230,6 @@ class GroupHelper {
             name: tcontext.meta.send,
             onPush: () async {
               onTapLanSyncSendTo(context);
-            },
-          ),
-        ),
-        GroupItemOptions(
-          pushOptions: GroupItemPushOptions(
-            name: tcontext.meta.receive,
-            onPush: () async {
-              onTapLanSyncReceiveFrom(context);
             },
           ),
         ),
@@ -338,7 +271,6 @@ class GroupHelper {
 
     String ips = uri.queryParameters['ips'] ?? '';
     String port = uri.queryParameters['port'] ?? '';
-    String filename = uri.queryParameters['filename'] ?? '';
     if (ips.isEmpty || port.isEmpty) {
       return;
     }
@@ -394,48 +326,16 @@ class GroupHelper {
     }
 
     if (uri.host == AppSchemeActions.syncDownloadAction()) {
-      if (send) {
-        DialogUtils.showAlertDialog(
-          context,
-          tcontext.sendOrReceiveNotMatch(p: tcontext.meta.receive),
-          showCopy: false,
-          showFAQ: true,
-          withVersion: true,
-        );
-        return;
-      }
-      if (filename.isEmpty) {
-        return;
-      }
-
-      String dir = await PathUtils.cacheDir();
-      String zipPath = path.join(dir, filename);
-      String url = "http://$targetHost:$targetPort/${uri.host}";
-      ReturnResult<HttpHeaders> result = await HttpUtils.httpDownload(
-        Uri.parse(url),
-        zipPath,
-        null,
-        null,
-        false,
-        null,
+      // 「从对端拉一份备份回来并恢复本机」这条路径已按产品要求移除：
+      // 恢复只能靠登录账号重新同步订阅，不允许从外部把数据塞进来。
+      DialogUtils.showAlertDialog(
+        context,
+        tcontext.sendOrReceiveNotMatch(p: tcontext.meta.send),
+        showCopy: false,
+        showFAQ: true,
+        withVersion: true,
       );
-      if (result.error != null) {
-        if (!context.mounted) {
-          return;
-        }
-        DialogUtils.showAlertDialog(
-          context,
-          result.error!.message,
-          showCopy: true,
-          showFAQ: true,
-          withVersion: true,
-        );
-        return;
-      }
-      if (!context.mounted) {
-        return;
-      }
-      await BackupHelper.backupRestoreFromZip(context, zipPath);
+      return;
     } else if (uri.host == AppSchemeActions.syncUploadAction()) {
       if (!send) {
         DialogUtils.showAlertDialog(
@@ -533,22 +433,6 @@ class GroupHelper {
       List<GroupItemOptions> options = [
         GroupItemOptions(
           pushOptions: GroupItemPushOptions(
-            name: tcontext.meta.import,
-            onPush: () async {
-              onTapImport(context);
-            },
-          ),
-        ),
-        GroupItemOptions(
-          pushOptions: GroupItemPushOptions(
-            name: tcontext.meta.importFromUrl,
-            onPush: () async {
-              onTapImportFromUrl(context);
-            },
-          ),
-        ),
-        GroupItemOptions(
-          pushOptions: GroupItemPushOptions(
             name: tcontext.meta.export,
             onPush: () async {
               onTapExport(context);
@@ -568,81 +452,12 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("importAndExport"),
         builder: (context) => GroupScreen(
-          title: tcontext.meta.importAndExport,
+          // 只剩「导出备份」：导入（从文件 / 从 URL 恢复）已按产品要求移除
+          title: tcontext.meta.export,
           getOptions: getOptions,
         ),
       ),
     );
-  }
-
-  static Future<void> onTapImport(BuildContext context) async {
-    final tcontext = Translations.of(context);
-    List<String> extensions = [BackupAndSyncUtils.getZipExtension()];
-    try {
-      FilePickerResult? pickResult = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: extensions,
-      );
-      if (!context.mounted) {
-        return;
-      }
-      if (pickResult != null) {
-        String filePath = pickResult.files.first.path!;
-        String ext = path.extension(filePath).replaceAll('.', '').toLowerCase();
-        if (!extensions.contains(ext)) {
-          DialogUtils.showAlertDialog(
-            context,
-            tcontext.meta.fileTypeInvalid(p: ext),
-          );
-          return;
-        }
-        if (!context.mounted) {
-          return;
-        }
-        await BackupHelper.backupRestoreFromZip(context, filePath);
-      }
-    } catch (err, stacktrace) {
-      if (!context.mounted) {
-        return;
-      }
-      DialogUtils.showAlertDialog(
-        context,
-        err.toString(),
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-    }
-  }
-
-  static Future<void> onTapImportFromUrl(BuildContext context) async {
-    final tcontext = Translations.of(context);
-    String? text = await DialogUtils.showTextInputDialog(
-      context,
-      tcontext.meta.url,
-      "",
-      null,
-      null,
-      null,
-      (text) {
-        text = text.trim();
-
-        Uri? uri = Uri.tryParse(text);
-        if (uri == null || (!uri.isScheme("HTTP") && !uri.isScheme("HTTPS"))) {
-          DialogUtils.showAlertDialog(context, tcontext.meta.urlInvalid);
-          return false;
-        }
-
-        return true;
-      },
-    );
-
-    if (text != null) {
-      if (!context.mounted) {
-        return;
-      }
-      BackupHelper.restoreBackupFromUrl(context, text);
-    }
   }
 
   static Future<void> onTapPortableModeOn(BuildContext context) async {
@@ -2881,165 +2696,4 @@ class GroupHelper {
     );
   }
 
-  static bool canShowVpnProvider(BoardProviderConfig provider) {
-    return provider.homeUrl.isNotEmpty ||
-        provider.clientServiceUrl.isNotEmpty ||
-        provider.subscriptionChannelUrl.isNotEmpty;
-  }
-
-  static Future<void> showVpnProvider(
-    BuildContext context,
-    BoardProviderConfig provider,
-    BoardSession? session,
-  ) async {
-    final tcontext = Translations.of(context);
-    bool notice =
-        BoardProviderNoticeManager.getFirstUnread(provider.id) != null;
-    var widgets = [
-      ListTile(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [Text(provider.name)],
-        ),
-      ),
-      if (provider.homeUrl.isNotEmpty) ...[
-        ListTile(
-          leading: const Icon(Icons.home_outlined),
-          title: Text(tcontext.meta.homePage),
-          onTap: () async {
-            Navigator.pop(context);
-
-            WebviewHelper.loadUrl(
-              context,
-              provider.homeUrl,
-              "homeUrl",
-              title: tcontext.meta.homePage,
-              useInappWebViewForPC: true,
-              inappWebViewOpenExternal: true,
-              headers: session?.headers(),
-              cookies: session?.cookies(),
-              localStorage: session?.localStorage(),
-            );
-          },
-        ),
-      ],
-      if (provider.clientServiceUrl.isNotEmpty) ...[
-        ListTile(
-          leading: const Icon(Icons.contact_support_outlined),
-          title: Text(tcontext.meta.onlineCustomerService),
-          onTap: () async {
-            Navigator.pop(context);
-            UrlLauncherUtils.loadUrl(provider.clientServiceUrl);
-          },
-        ),
-      ],
-      if (provider.subscriptionChannelUrl.isNotEmpty) ...[
-        ListTile(
-          leading: const Icon(Icons.message_outlined),
-          title: Text(tcontext.meta.subscriptionChannel),
-          onTap: () async {
-            Navigator.pop(context);
-            UrlLauncherUtils.loadUrl(provider.subscriptionChannelUrl);
-          },
-        ),
-      ],
-      ListTile(
-        leading: Icon(Icons.notification_important_outlined),
-        trailing: notice
-            ? Icon(Icons.fiber_manual_record, color: Colors.red, size: 12)
-            : null,
-        title: Text(tcontext.meta.notice),
-        onTap: () async {
-          Navigator.pop(context);
-          onTapNotice(context, provider);
-        },
-      ),
-    ];
-
-    showSheet(
-      context: context,
-      body: SizedBox(
-        height: 400,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-          child: Scrollbar(
-            child: ListView.separated(
-              itemBuilder: (BuildContext context, int index) {
-                return widgets[index];
-              },
-              separatorBuilder: (BuildContext context, int index) {
-                return const Divider(height: 1, thickness: 0.3);
-              },
-              itemCount: widgets.length,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static Future<void> onTapNotice(
-    BuildContext context,
-    BoardProviderConfig provider,
-  ) async {
-    final tcontext = Translations.of(context);
-    Future<List<GroupItem>> getOptions(
-      BuildContext context,
-      SetStateCallback? setstate,
-    ) async {
-      List<GroupItemOptions> options = [];
-      final notices = BoardProviderNoticeManager.getNotices(provider.id);
-      for (var item in notices) {
-        options.add(
-          GroupItemOptions(
-            pushOptions: GroupItemPushOptions(
-              name: item.title,
-              reddot: !item.readed,
-              text: item.updateTime,
-              textWidthPercent: 0.65,
-              onPush: () async {
-                item.readed = true;
-                BoardProviderNoticeManager.setReaded();
-                BoardProviderNoticeManager.save();
-                setstate?.call();
-
-                if (item.url.isNotEmpty) {
-                  await WebviewHelper.loadUrl(
-                    context,
-                    item.url,
-                    "provider_notice",
-                    title: item.title,
-                    useInappWebViewForPC: true,
-                  );
-                } else {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      settings: RichtextViewScreen.routeSettings(),
-                      builder: (context) => RichtextViewScreen(
-                        title: item.title,
-                        file: "",
-                        content: item.content,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-          ),
-        );
-      }
-
-      return [GroupItem(options: options)];
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: GroupScreen.routeSettings("notice"),
-        builder: (context) =>
-            GroupScreen(title: tcontext.meta.notice, getOptions: getOptions),
-      ),
-    );
-  }
 }

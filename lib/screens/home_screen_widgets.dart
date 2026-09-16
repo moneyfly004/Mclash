@@ -5,7 +5,6 @@ import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/biz.dart';
-import 'package:mclash/app/modules/board_provider_notice_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
@@ -92,8 +91,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     AppLifecycleStateNofity.onStatePaused(hashCode, _onStatePaused);
     ProfileManager.onEventCurrentChanged.add(_onCurrentChanged);
     ProfileManager.onEventUpdate.add(_onUpdate);
-    BoardProviderNoticeManager.onEventCheck.add(_onNoticeUpdate);
-    BoardProviderNoticeManager.onEventReaded.add(_onNoticeReaded);
     if (!AppLifecycleStateNofity.isPaused()) {
       _onStateResumed();
     }
@@ -128,8 +125,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     AppLifecycleStateNofity.onStatePaused(hashCode, null);
     ProfileManager.onEventCurrentChanged.remove(_onCurrentChanged);
     ProfileManager.onEventUpdate.remove(_onUpdate);
-    BoardProviderNoticeManager.onEventCheck.remove(_onNoticeUpdate);
-    BoardProviderNoticeManager.onEventReaded.remove(_onNoticeReaded);
     _focusNodeConnect.dispose();
     MclashAccountService.instance.removeListener(_onAccountChanged);
     super.dispose();
@@ -688,14 +683,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _onUpdate(String id, bool finish) async {
-    setState(() {});
-  }
-
-  Future<void> _onNoticeUpdate() async {
-    setState(() {});
-  }
-
-  Future<void> _onNoticeReaded() async {
     setState(() {});
   }
 

@@ -432,47 +432,6 @@ class ProfilePatchManager {
     return _config.profiles;
   }
 
-  static Future<ReturnResultError?> addLocal(
-    String filePath, {
-    String remark = "",
-    ProfilePatchFileType type = ProfilePatchFileType.yaml,
-  }) async {
-    final id = type == ProfilePatchFileType.yaml
-        ? "${filePath.hashCode}.yaml"
-        : "${filePath.hashCode}.js";
-    final savePath = path.join(await PathUtils.profilePatchsDir(), id);
-    final file = File(filePath);
-    if (!await file.exists()) {
-      return ReturnResultError("file not exist: $filePath");
-    }
-    try {
-      await file.copy(savePath);
-      int index = _config.profiles.indexWhere((value) {
-        return value.id == id;
-      });
-      if (index < 0) {
-        _config.profiles.add(
-          ProfilePatchSetting(id: id, remark: remark, type: type),
-        );
-      } else {
-        _config.profiles[index] = ProfilePatchSetting(
-          id: id,
-          remark: remark,
-          type: type,
-        );
-      }
-
-      for (var event in onEventAdd) {
-        event(id);
-      }
-
-      await save();
-      return null;
-    } catch (err) {
-      return ReturnResultError("addLocalProfile exception: ${err.toString()}");
-    }
-  }
-
   static Future<ReturnResultError?> validFileContentFormat(
     String filepath,
   ) async {
@@ -488,86 +447,6 @@ class ProfilePatchManager {
       }
     }
     return null;
-  }
-
-  static Future<ReturnResult<String>> addRemote(
-    String url, {
-    String remark = "",
-    ProfilePatchFileType type = ProfilePatchFileType.yaml,
-  }) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      return ReturnResult(error: ReturnResultError("invalid url"));
-    }
-    final id = type == ProfilePatchFileType.yaml
-        ? "${url.hashCode}.yaml"
-        : "${url.hashCode}.js";
-    final savePath = path.join(await PathUtils.profilePatchsDir(), id);
-    final userAgent = SettingManager.getConfig().userAgent();
-    List<int?> ports = await VPNService.getPortsByPrefer(true);
-    late ReturnResult<HttpHeaders> result;
-    for (var port in ports) {
-      result = await DownloadUtils.downloadWithPort(
-        uri,
-        savePath,
-        userAgent,
-        false,
-        port,
-        timeout: const Duration(seconds: 30),
-      );
-      if (result.error == null) {
-        break;
-      }
-    }
-    if (result.error != null) {
-      return ReturnResult(error: result.error);
-    }
-    if (type == ProfilePatchFileType.yaml) {
-      final err = await validFileContentFormat(savePath);
-      if (err != null) {
-        FileUtils.deletePath(savePath);
-        return ReturnResult(error: err);
-      }
-      await FileUtils.append(savePath, "\n$urlComment$url\n");
-    }
-
-    if (remark.isEmpty) {
-      final result = await HttpUtils.httpGetTitle(url, userAgent);
-      if (result.data == null || result.data!.length > 32) {
-        remark = uri.host;
-      } else {
-        remark = result.data!;
-      }
-    }
-
-    int index = _config.profiles.indexWhere((value) {
-      return value.id == id;
-    });
-    final profile = ProfilePatchSetting(
-      id: id,
-      remark: remark,
-      updateInterval: const Duration(days: 1),
-      update: DateTime.now(),
-      url: url,
-      type: type,
-    );
-
-    if (index < 0) {
-      _config.profiles.add(profile);
-    } else {
-      _config.profiles[index] = profile;
-    }
-
-    for (var event in onEventAdd) {
-      event(id);
-    }
-
-    if (_config._currentId.isEmpty) {
-      setCurrent(id);
-    }
-
-    await save();
-    return ReturnResult(data: id);
   }
 
   static Future<void> updateAll() async {

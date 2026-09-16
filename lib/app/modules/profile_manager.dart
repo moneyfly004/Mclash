@@ -6,19 +6,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:mclash/app/local_services/vpn_service.dart';
-import 'package:mclash/app/modules/board_provider_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
-import 'package:mclash/app/private/app_url_utils_private.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_lifecycle_state_notify.dart';
-import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/convert_utils.dart';
 import 'package:mclash/app/utils/date_time_utils.dart';
-import 'package:mclash/app/utils/did.dart';
 import 'package:mclash/app/utils/download_utils.dart';
 import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/http_utils.dart';
-import 'package:mclash/app/utils/hwid_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
@@ -62,7 +57,6 @@ class ProfileSetting {
     this.decryptPassword = "",
     this.userAgent = "",
     this.patch = "",
-    this.boardProviderId = "",
   });
   String id = "";
   String remark = "";
@@ -80,7 +74,6 @@ class ProfileSetting {
   num download = 0;
   num total = 0;
   String expire = "";
-  String boardProviderId = "";
 
   bool overwriteProxyGroups = false;
   bool overwriteRules = false;
@@ -104,7 +97,6 @@ class ProfileSetting {
     'download': download,
     'total': total,
     'expire': expire,
-    'board_provider_id': boardProviderId,
     'overwrite_rules': overwriteRules,
     'overwrite_proxy_groups': overwriteProxyGroups,
     'proxy_groups': proxyGroups,
@@ -149,7 +141,6 @@ class ProfileSetting {
     total = map['total'] ?? 0;
     expire = map['expire'] ?? "";
     decryptPassword = map['decrypt_password'] ?? "";
-    boardProviderId = map['board_provider_id'] ?? "";
     overwriteProxyGroups = map['overwrite_proxy_groups'] ?? false;
     overwriteRules = map['overwrite_rules'] ?? false;
     final pgs = map["proxy_groups"];
@@ -280,7 +271,6 @@ class ProfileSetting {
     ps.download = download;
     ps.total = total;
     ps.expire = expire;
-    ps.boardProviderId = boardProviderId;
     ps.overwriteProxyGroups = overwriteProxyGroups;
     ps.overwriteRules = overwriteRules;
     proxyGroups.forEach((key, value) {
@@ -631,7 +621,6 @@ class ProfileManager {
     String decryptPassword = "",
     Duration? updateInterval,
     bool updateIntervalPreferByProfile = false,
-    String boardProviderId = "",
   }) async {
     final uri = Uri.tryParse(url);
     if (uri == null) {
@@ -658,11 +647,6 @@ class ProfileManager {
         break;
       }
     }
-    if (boardProviderId.startsWith(
-      BoardProviderManager.unknownProviderIdPrefix,
-    )) {
-      updateInterval ??= const Duration(hours: 24);
-    }
     if (result.data != null) {
       final err = _handleHwidError(result.data!);
       if (err != null) {
@@ -670,34 +654,7 @@ class ProfileManager {
       }
     }
     if (result.error != null) {
-      bool success = false;
-      if (!HttpUtils.isStatusError(result.error!) &&
-          boardProviderId.isNotEmpty) {
-        final provider = BoardProviderManager.getProviderById(boardProviderId);
-        if (boardProviderId == BoardProviderManager.unknownProviderId ||
-            (provider != null && provider.unbanSubscription)) {
-          final result2 = await downloadByProviderProxy(
-            boardProviderId,
-            url,
-            userAgent,
-            xhwid,
-          );
-          if (result2.error == null && result2.data!.item1 == 200) {
-            try {
-              var file = File(savePath);
-              await file.writeAsString(result2.data!.item2, flush: true);
-              success = true;
-            } catch (err) {
-              Log.w(
-                "addRemote downloadByProviderProxy exception ${err.toString()} ",
-              );
-            }
-          }
-        }
-      }
-      if (!success) {
-        return ReturnResult(error: result.error);
-      }
+      return ReturnResult(error: result.error);
     }
     Duration? updateIntervalByProfile;
     if (result.data != null) {
@@ -743,22 +700,12 @@ class ProfileManager {
     }
 
     await FileUtils.append(savePath, "\n$urlComment$url\n");
-    if (remark.isEmpty ||
-        boardProviderId.startsWith(
-          BoardProviderManager.unknownProviderIdPrefix,
-        )) {
+    if (remark.isEmpty) {
       final result = await HttpUtils.httpGetTitle(url, userAgent);
       if (result.data == null || result.data!.length > 32) {
         remark = uri.host;
       } else {
-        if (boardProviderId.startsWith(
-              BoardProviderManager.unknownProviderIdPrefix,
-            ) &&
-            result.data!.isNotEmpty) {
-          remark = "${result.data!} ($remark)";
-        } else {
-          remark = result.data!;
-        }
+        remark = result.data!;
       }
     }
     int index = _config.profiles.indexWhere((value) {
@@ -776,25 +723,11 @@ class ProfileManager {
       xhwid: xhwid,
       decryptPassword: decryptPassword,
       patch: patch,
-      boardProviderId: boardProviderId == BoardProviderManager.unknownProviderId
-          ? ""
-          : boardProviderId,
     );
 
     profile.updateSubscriptionTraffic(result.data);
     if (index < 0) {
-      bool insertToFirst = false;
-      if (boardProviderId.isNotEmpty) {
-        final provider = BoardProviderManager.getProviderById(boardProviderId);
-        if (provider != null && provider.highlightPin) {
-          insertToFirst = true;
-        }
-      }
-      if (insertToFirst) {
-        _config.profiles.insert(0, profile);
-      } else {
-        _config.profiles.add(profile);
-      }
+      _config.profiles.add(profile);
     } else {
       _config.profiles[index] = profile;
     }
@@ -872,42 +805,14 @@ class ProfileManager {
       }
     }
     if (result.error != null) {
-      bool success = false;
-      if (!HttpUtils.isStatusError(result.error!) &&
-          profile.boardProviderId.isNotEmpty) {
-        final provider = BoardProviderManager.getProviderById(
-          profile.boardProviderId,
-        );
-        if (provider != null && provider.unbanSubscription) {
-          final result2 = await downloadByProviderProxy(
-            profile.boardProviderId,
-            profile.url,
-            userAgent,
-            profile.xhwid,
-          );
-          if (result2.error == null && result2.data!.item1 == 200) {
-            try {
-              var file = File(savePath);
-              await file.writeAsString(result2.data!.item2, flush: true);
-              success = true;
-            } catch (err) {
-              Log.w(
-                "update downloadByProviderProxy exception ${err.toString()} ",
-              );
-            }
-          }
+      updating.remove(id);
+      Future.delayed(const Duration(milliseconds: 10), () async {
+        for (var event in onEventUpdate) {
+          event(id, true);
         }
-      }
-      if (!success) {
-        updating.remove(id);
-        Future.delayed(const Duration(milliseconds: 10), () async {
-          for (var event in onEventUpdate) {
-            event(id, true);
-          }
-        });
-        profile.updateFailed = DateTime.now();
-        return result.error;
-      }
+      });
+      profile.updateFailed = DateTime.now();
+      return result.error;
     }
     profile.update = DateTime.now();
     profile.updateFailed = null;
@@ -1008,53 +913,6 @@ class ProfileManager {
       );
     }
     return null;
-  }
-
-  static Future<ReturnResult<Tuple2<int, String>>> downloadByProviderProxy(
-    String boardProviderId,
-    String url,
-    String userAgent,
-    bool xhwid,
-  ) async {
-    var headers = {
-      HttpHeaders.contentTypeHeader: "application/json; charset=UTF-8",
-    };
-    if (boardProviderId.startsWith(BoardProviderManager.unknownProviderId)) {
-      boardProviderId = BoardProviderManager.unknownProviderId;
-    }
-    final urlAndbody = ProfileProxyProviderPrivate.getProviderProxyUrlAndBody(
-      app: AppUtils.getName(),
-      version: AppUtils.getBuildinVersion(),
-      did: await Did.getDid(),
-      boardProviderId: boardProviderId,
-      url: url,
-      userAgent: userAgent.isEmpty ? await HttpUtils.getUserAgent() : userAgent,
-      xhwidHeaders: xhwid ? await HwidUtils.getHwidHeaders() : {},
-    );
-
-    var result = await HttpUtils.httpPostRequest(
-      urlAndbody.item1,
-      null,
-      headers,
-      urlAndbody.item3,
-      const Duration(seconds: 30),
-      null,
-      null,
-      null,
-    );
-    if (result.error != null && urlAndbody.item2.isNotEmpty) {
-      result = await HttpUtils.httpPostRequest(
-        urlAndbody.item2,
-        null,
-        headers,
-        urlAndbody.item3,
-        const Duration(seconds: 30),
-        null,
-        null,
-        null,
-      );
-    }
-    return result;
   }
 
   static Future<void> updateByTicker() async {

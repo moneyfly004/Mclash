@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
-import 'package:mclash/app/modules/board_provider_manager.dart';
 import 'package:mclash/app/modules/diversion_template_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
@@ -41,7 +40,6 @@ class _ProfilesSettingsEditScreenState
   final _textControllerRemark = TextEditingController();
   final _textControllerUrl = TextEditingController();
   late ProfileSetting _profile;
-  BoardProviderConfig? _provider;
   List<ClashProxiesNode> _nodes = [];
 
   @override
@@ -50,8 +48,6 @@ class _ProfilesSettingsEditScreenState
     _profile.userAgent = _profile.userAgent.isEmpty
         ? SettingManager.getConfig().userAgent()
         : _profile.userAgent;
-
-    _provider = BoardProviderManager.getProviderById(_profile.boardProviderId);
 
     _textControllerRemark.value = _textControllerRemark.value.copyWith(
       text: _profile.remark,
@@ -128,7 +124,6 @@ class _ProfilesSettingsEditScreenState
                           child: Column(
                             children: [
                               TextFieldEx(
-                                enabled: _provider == null,
                                 controller: _textControllerRemark,
                                 textInputAction: _profile.isRemote()
                                     ? TextInputAction.next
@@ -144,8 +139,7 @@ class _ProfilesSettingsEditScreenState
                               _profile.isRemote()
                                   ? TextFieldEx(
                                       maxLines: 5,
-                                      enabled: _provider == null,
-                                      controller: _textControllerUrl,
+                                            controller: _textControllerUrl,
                                       decoration: InputDecoration(
                                         labelText: tcontext.meta.url,
                                         hintText: tcontext.meta.url,
@@ -257,9 +251,7 @@ class _ProfilesSettingsEditScreenState
           name: tcontext.meta.userAgent,
           text: _profile.userAgent,
           textWidthPercent: 0.6,
-          enabled:
-              _provider == null ||
-              (_provider != null && _provider!.userAgent.isEmpty),
+          enabled: true,
           onChanged: (String value) {
             _profile.userAgent = value;
           },
@@ -269,12 +261,10 @@ class _ProfilesSettingsEditScreenState
         switchOptions: GroupItemSwitchOptions(
           name: "X-HWID",
           switchValue: _profile.xhwid,
-          onSwitch: _provider != null
-              ? null
-              : (bool value) async {
-                  _profile.xhwid = value;
-                  setState(() {});
-                },
+          onSwitch: (bool value) async {
+            _profile.xhwid = value;
+            setState(() {});
+          },
         ),
       ),
       GroupItemOptions(

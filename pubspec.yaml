@@ -75,7 +75,6 @@ dependencies:
   webdav_client_plus: 1.0.2
   android_package_manager: 0.7.1
   libclash_vpn_service: 1.0.0
-  board_service: 1.0.0
 
 dev_dependencies:
   source_gen: 4.2.3
@@ -99,9 +98,6 @@ dependency_overrides:
   # Windows/macOS: mihomo 子进程 + 系统代理）
   libclash_vpn_service:
     path: packages/libclash_vpn_service
-  # Mclash 自有的后台客户端（对接 https://new.moneyfly.top，XBoard 兼容）
-  board_service:
-    path: packages/board_service
 flutter:
   uses-material-design: true
   assets:

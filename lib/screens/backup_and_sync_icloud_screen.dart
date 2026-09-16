@@ -194,20 +194,8 @@ class _BackupAndSyncIcloudScreenState
                               ],
                             ),
                           ),
-                          const SizedBox(width: 5),
-                          InkWell(
-                            onTap: () {
-                              onTapDownload(current);
-                            },
-                            child: const SizedBox(
-                              width: 30,
-                              height: ThemeConfig.kListItemHeight2,
-                              child: Icon(
-                                Icons.cloud_download_outlined,
-                                size: 26,
-                              ),
-                            ),
-                          ),
+                          // 「下载并恢复本机数据」按钮已按产品要求移除：
+                          // 恢复只能靠登录账号重新同步订阅，不允许从云端把数据塞回来。
                           const SizedBox(width: 10),
                           InkWell(
                             onTap: () {
@@ -330,37 +318,6 @@ class _BackupAndSyncIcloudScreenState
     }
   }
 
-  Future<void> onTapDownload(String filename) async {
-    final tcontext = Translations.of(context);
-    bool? ok = await DialogUtils.showConfirmDialog(
-      context,
-      tcontext.meta.rewriteConfirm,
-    );
-    if (ok != true) {
-      return;
-    }
-    String dir = await PathUtils.cacheDir();
-    String filePath = path.join(dir, BackupAndSyncUtils.getZipFileName());
-    ReturnResultError? error = await ICloudUtils.download(
-      relativePath: filename,
-      localPath: filePath,
-    );
-    if (!mounted) {
-      return;
-    }
-    if (error != null) {
-      DialogUtils.showAlertDialog(
-        context,
-        error.message,
-        showCopy: true,
-        showFAQ: true,
-        withVersion: true,
-      );
-      return;
-    }
-    await BackupHelper.backupRestoreFromZip(context, filePath);
-    await FileUtils.deletePath(filePath);
-  }
 
   Future<void> onTapDelete(String filename) async {
     var error = await ICloudUtils.delete(filename);
