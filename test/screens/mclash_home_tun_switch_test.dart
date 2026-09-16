@@ -20,6 +20,13 @@ import 'package:mclash/screens/home_screen_widgets.dart';
 ///   1. 桌面端主页**有**这一行，且文案说清当前走哪条通路；
 ///   2. 点一下真的改设置（并且落盘到 SettingConfig）；
 ///   3. 安卓端**不显示** TUN 相关 UI（测试机不是安卓，所以用代码路径断言）。
+/// Linux 只是 CI 主机，不是产品平台（`PlatformUtils.isPC()` 仅 Windows/macOS）：
+/// TUN 相关的界面用例只在真正的桌面平台上跑，否则会误报失败。
+final bool kDesktopHost = PlatformUtils.isPC();
+/// `skip` 只认 bool（或 dynamic 的中文说明）；这里统一用 bool +
+/// reason 说明为什么在非桌面平台上跳过。
+final bool kSkipOnNonDesktop = !kDesktopHost;
+
 void main() {
   setUp(() {
     SettingManager.getConfig().tunMode = false;
@@ -54,7 +61,7 @@ void main() {
   }
 
   testWidgets('桌面端主页有 TUN 开关，默认关闭（提示走系统代理）', (tester) async {
-    expect(PlatformUtils.isPC(), isTrue, reason: '测试机是桌面平台');
+    expect(kDesktopHost, isTrue, reason: '测试机是桌面平台');
     await pumpHome(tester);
 
     expect(find.text("TUN 模式"), findsOneWidget);
@@ -66,7 +73,7 @@ void main() {
     expect(SettingManager.getConfig().tunMode, isFalse);
 
     await finish(tester);
-  });
+  }, skip: kSkipOnNonDesktop);
 
   testWidgets('点 TUN 开关：设置真的被改掉（未连接时不重连、只提示连接后生效）', (tester) async {
     await pumpHome(tester);
@@ -93,7 +100,7 @@ void main() {
     expect(SettingManager.getConfig().tunMode, isFalse);
 
     await finish(tester);
-  });
+  }, skip: kSkipOnNonDesktop);
 
   // 注意：这里用普通 test（不是 testWidgets）—— widget 测试的假时钟下
   // 真实文件 I/O 的 future 永远不会完成，会直接卡住整轮测试。

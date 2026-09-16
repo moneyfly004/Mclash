@@ -49,11 +49,15 @@ void main() {
   });
 
   test("TUN 打开时不主动写系统代理（避免两套通路同时生效）", () {
+    // 系统代理只有桌面端支持（Windows/macOS）。Linux 只是 CI 主机，
+    // 在那里「不写系统代理」本身就是正确行为。
+    final supported = VPNService.getSupportSystemProxy();
+
     SettingManager.getConfig().tunMode = false;
     expect(
       VPNService.shouldApplySystemProxy(),
-      isTrue,
-      reason: '默认（TUN 关）必须写系统代理，否则连上也上不了网',
+      supported,
+      reason: '默认（TUN 关）在支持的平台上必须写系统代理，否则连上也上不了网',
     );
 
     SettingManager.getConfig().tunMode = true;
