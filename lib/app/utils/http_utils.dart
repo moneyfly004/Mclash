@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:mclash/app/runtime/return_result.dart';
 
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/app/utils/did.dart';
 import 'package:mclash/app/utils/hwid_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:http/http.dart' as http;
@@ -48,6 +49,8 @@ abstract final class HttpUtils {
     try {
       HttpClientRequest request = await client.headUrl(uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, "*/*");
+      // 稳定设备标识（后端据此统计设备数；不带就会按 UA 版本各算一台新设备）
+      await applyDeviceIdentityHeaders(request);
       if (xhwid) {
         final hwidHeaders = await HwidUtils.getHwidHeaders();
         hwidHeaders.forEach((key, value) => request.headers.set(key, value));
@@ -135,6 +138,8 @@ abstract final class HttpUtils {
     try {
       HttpClientRequest request = await client.getUrl(uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, "*/*");
+      // 稳定设备标识（后端据此统计设备数；不带就会按 UA 版本各算一台新设备）
+      await applyDeviceIdentityHeaders(request);
       if (xhwid) {
         final hwidHeaders = await HwidUtils.getHwidHeaders();
         hwidHeaders.forEach((key, value) => request.headers.set(key, value));
@@ -672,5 +677,24 @@ abstract final class HttpUtils {
 
   static void setProxy(HttpClient client, int proxyPort) {
     client.findProxy = (Uri uri) => "PROXY 127.0.0.1:$proxyPort";
+  }
+}
+
+
+/// 订阅请求统一带上**稳定的设备标识**。
+///
+/// 为什么必须带：后端（/Users/apple/v2 的 subscription.go）按设备指纹统计设备数，
+/// 优先用 `X-App-Device-Id`（或 `x-hwid`），拿不到才退回「UA 特征」——而 UA 里
+/// 带版本号（`Mclash/0.0.7 platform/macos mihomo/...`），于是**每发一个版本
+/// 就会在后台多出一台"新设备"**，设备数量与设备列表都不准。
+/// 这里用持久化的 Did 作标识，同一台机器升级/换 IP 都算同一台设备。
+Future<void> applyDeviceIdentityHeaders(HttpClientRequest request) async {
+  try {
+    final did = await Did.getDid();
+    if (did.isNotEmpty) {
+      request.headers.set("X-App-Device-Id", did);
+    }
+  } catch (err) {
+    Log.w("注入设备标识失败: $err");
   }
 }

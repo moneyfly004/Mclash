@@ -136,6 +136,13 @@ class SettingConfig {
   String autoUpdateChannel = "stable";
   bool autoDownloadUpdatePkg = true;
   bool autoConnectAfterLaunch = false;
+
+  /// 用户**固定**的节点名（手动选过节点或国家后记住）。
+  ///
+  /// 空 = 自动模式：连接后自动选延迟最低的节点。
+  /// 非空 = 固定模式：每次连接都沿用这个节点；只有它探测不可用、或用户点了
+  /// 「自动最优」时才改变（参考客户端 MoneyFly 的 lastSelectedTag 行为）。
+  String fixedNode = "";
   bool autoSetSystemProxy = getAutoSetSystemProxyDefault();
   List<String> systemProxyBypassDomain = ProxyBypassDoaminsDefault.toList();
   String _userAgent = "";
@@ -161,6 +168,7 @@ class SettingConfig {
     'auto_update_channel': autoUpdateChannel,
     'auto_download_udpate_pkg': autoDownloadUpdatePkg,
     'auto_connect_after_launch': autoConnectAfterLaunch,
+    'fixed_node': fixedNode,
     'auto_set_system_proxy': autoSetSystemProxy,
     'system_proxy_bypass_domain': systemProxyBypassDomain,
     'user_agent': _userAgent,
@@ -193,6 +201,7 @@ class SettingConfig {
     }
     autoDownloadUpdatePkg = map["auto_download_udpate_pkg"] ?? true;
     autoConnectAfterLaunch = map["auto_connect_after_launch"] ?? false;
+    fixedNode = map["fixed_node"]?.toString() ?? "";
     autoSetSystemProxy =
         map["auto_set_system_proxy"] ?? getAutoSetSystemProxyDefault();
     systemProxyBypassDomain = ConvertUtils.getListStringFromDynamic(

@@ -215,6 +215,8 @@ class MclashQuickCountries extends StatelessWidget {
 
   /// 「自动最优」：让自动选路挑一个最快节点，并留在主页。
   Future<void> _onTapAutoBest(BuildContext context) async {
+    // 「自动最优」= 解除固定，回到自动选路（参考客户端的「自动最优」同义）
+    await MclashNodeAutoPick.setFixedNode("");
     final note = await MclashNodeAutoPick.selectBestOnConnect();
     if (!context.mounted) {
       return;

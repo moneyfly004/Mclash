@@ -242,4 +242,48 @@ void main() {
       expect(await MclashNodeAutoPick.selectBestOnConnect(), "好节点");
     });
   });
+
+  group('自动选 vs 固定节点（用户问的「什么时候自动、什么时候固定」）', () {
+    test('没固定过 → 自动选择', () {
+      expect(
+        MclashNodeAutoPick.shouldAutoSelect(
+          fixed: "",
+          candidates: const ["香港 01", "日本 01"],
+        ),
+        isTrue,
+        reason: '首次连接/点过「自动最优」之后应当自动选最优',
+      );
+    });
+
+    test('固定了且节点仍在 → 沿用，不自动切换', () {
+      expect(
+        MclashNodeAutoPick.shouldAutoSelect(
+          fixed: "香港 01",
+          candidates: const ["香港 01", "日本 01"],
+        ),
+        isFalse,
+        reason: '用户选过的节点必须被尊重，不能每次连接都换掉',
+      );
+    });
+
+    test('固定的节点已不存在（换订阅/下架）→ 回到自动选择', () {
+      expect(
+        MclashNodeAutoPick.shouldAutoSelect(
+          fixed: "已下架的节点",
+          candidates: const ["香港 01", "日本 01"],
+        ),
+        isTrue,
+      );
+    });
+
+    test('固定节点名前后的空格不影响判断', () {
+      expect(
+        MclashNodeAutoPick.shouldAutoSelect(
+          fixed: "  香港 01  ",
+          candidates: const ["香港 01"],
+        ),
+        isFalse,
+      );
+    });
+  });
 }

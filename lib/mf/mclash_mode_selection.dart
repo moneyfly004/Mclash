@@ -6,6 +6,7 @@ import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/mf/mclash_node_autopick.dart';
 
 /// 内核内置的 GLOBAL 选择器名。
 ///
@@ -192,6 +193,8 @@ abstract final class MclashNodeSelector {
     if (err == null) {
       if (manual) {
         lastManualPickAt = DateTime.now();
+        // 手动选择 = 固定这个节点：下次连接沿用，不再被自动选路改掉
+        await MclashNodeAutoPick.setFixedNode(nodeName);
       }
       Log.i("MclashNodeSelector: 已把 [$group] 切到 [$nodeName]");
     }

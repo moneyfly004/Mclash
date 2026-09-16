@@ -18,6 +18,45 @@ abstract final class MclashNodeAutoPick {
   static Future<Map<String, int>> Function(String group)? debugGroupDelayOverride;
   static Future<bool> Function(String group, String node)? debugSwitchOverride;
 
+  /// 读取用户固定的节点名（空 = 自动模式）。
+  static String fixedNode() => SettingManager.getConfig().fixedNode.trim();
+
+  /// 记住/清除固定节点（手动选节点、点国家、点「自动最优」时调用）。
+  static Future<void> setFixedNode(String name) async {
+    final v = name.trim();
+    final cfg = SettingManager.getConfig();
+    if (cfg.fixedNode == v) {
+      return;
+    }
+    cfg.fixedNode = v;
+    SettingManager.save();
+    Log.i(
+      v.isEmpty
+          ? "MclashNodeAutoPick: 已切回自动选路（清除固定节点）"
+          : "MclashNodeAutoPick: 已固定节点 [$v]",
+    );
+  }
+
+  /// 连接时该做什么：沿用固定节点，还是自动选最优。
+  ///
+  /// 返回 `true` 表示「应当自动选」。
+  ///
+  /// 规则（与参考客户端一致，回答用户「什么时候自动、什么时候固定」）：
+  ///   * 用户固定了节点，且该节点仍在候选列表里 → **沿用，不自动切换**；
+  ///   * 没固定（首次连接 / 点过「自动最优」）→ 自动选延迟最低的；
+  ///   * 固定的节点已经不存在（换订阅/下架）→ 视为没固定，自动选并重新固定。
+  static bool shouldAutoSelect({
+    required String fixed,
+    required Iterable<String> candidates,
+  }) {
+    // 名称两侧的空格不该影响判断（各来源的写法不完全一致）
+    final name = fixed.trim();
+    if (name.isEmpty) {
+      return true;
+    }
+    return !candidates.map((e) => e.trim()).contains(name);
+  }
+
   static Future<String?> selectBestOnConnect({
     void Function(String note)? onNote,
   }) async {
@@ -48,6 +87,32 @@ abstract final class MclashNodeAutoPick {
     if (MclashNodeSelector.userPickedRecently()) {
       Log.i("MclashNodeAutoPick: 用户刚手动选过节点，本轮不自动切换");
       return null;
+    }
+
+    // 固定模式：用户选过的节点优先沿用（不再每次连接都改掉他的选择）。
+    final fixed = fixedNode();
+    final candidates = group.all
+        .where((n) => !MclashPseudoNodes.isPseudo(n))
+        .toList();
+    if (!shouldAutoSelect(fixed: fixed, candidates: candidates)) {
+      final target = MclashNodeSelector.groupNameForMode(proxies) ?? group.name;
+      final now = MclashNodeSelector.byName(proxies, target)?.now ?? group.now;
+      if (now == fixed) {
+        Log.i("MclashNodeAutoPick: 固定节点 [$fixed] 已生效，保持不动");
+        return null;
+      }
+      // 固定节点与内核当前选择不一致（例如切过模式）→ 只把它写回去，不换节点
+      final ok = await _switch(target, fixed);
+      if (ok) {
+        onNote?.call("已回到固定节点：$fixed");
+        Log.i("MclashNodeAutoPick: 已把内核选择改回固定节点 [$fixed]");
+        return fixed;
+      }
+      return null;
+    }
+    if (fixed.isNotEmpty) {
+      Log.w("MclashNodeAutoPick: 固定节点 [$fixed] 已不在候选里，改回自动选路");
+      await setFixedNode("");
     }
 
     final url = SettingManager.getConfig().delayTestUrl;
@@ -95,6 +160,8 @@ abstract final class MclashNodeAutoPick {
     }
     Log.i("MclashNodeAutoPick: 已自动连接最优节点 [$bestNode]（${bestMs}ms）");
     onNote?.call("已自动连接最优节点：$bestNode（${bestMs}ms）");
+    // 记下来，避免"每次重连都换一个节点"（用户明确要的是可预期）
+    await setFixedNode(bestNode);
     return bestNode;
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/i18n/strings.g.dart';
@@ -288,6 +289,65 @@ void main() {
     expect(find.textContaining("请使用支付宝 / 微信扫码"), findsOneWidget);
     expect(find.text("支付宝"), findsOneWidget);
 
+    await finish(tester);
+  });
+
+  testWidgets('安卓：支付宝二维码面板提供「打开支付宝支付」，且唤起的是 alipays:// 深链', (tester) async {
+    // 用户要求：安卓端选支付宝时，要能直接跳到支付宝 App 付款。
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final launches = <String>[];
+    debugLaunchOverride = (target, external) async {
+      launches.add(target);
+      return true;
+    };
+
+    const qr = "https://qr.alipay.com/bax0123abc";
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => showMclashPaymentSheet(
+                    context,
+                    orderNo: "UPG-ANDROID-1",
+                    amount: 71.1,
+                    qrCode: qr,
+                    methodName: "支付宝",
+                    channel: MclashPayChannel.alipayQr,
+                  ),
+                  child: const Text("pay"),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text("pay"));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.text("打开支付宝支付"),
+      findsOneWidget,
+      reason: '安卓上必须提供跳转支付宝 App 的入口',
+    );
+
+    await tester.tap(find.text("打开支付宝支付"));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(launches.length, 1);
+    expect(
+      launches.first.startsWith("alipays://platformapi/startapp"),
+      isTrue,
+      reason: '直接开 https://qr.alipay.com 只会打开浏览器；必须包成支付宝深链',
+    );
+    expect(launches.first.contains("qrcode="), isTrue);
+
+    debugDefaultTargetPlatformOverride = null;
     await finish(tester);
   });
 }
