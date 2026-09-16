@@ -10,10 +10,6 @@ class SystemSchemeUtils {
   static String getClashMiScheme() => _kClashMiScheme;
   static String getClashSchemeWith() => "$_kClashScheme://";
   static String getClashMiSchemeWith() => "$_kClashMiScheme://";
-  static bool isRegistered(String scheme) {
-    return _isRegistered(scheme);
-  }
-
   static Future<String?> register(String scheme) async {
     try {
       await protocolHandler.register(scheme);
@@ -37,17 +33,4 @@ class SystemSchemeUtils {
     return null;
   }
 
-  static bool _isRegistered(String scheme) {
-    if (!Platform.isWindows) {
-      return false;
-    }
-    String appPath = Platform.resolvedExecutable.toLowerCase();
-    String path = 'Software\\Classes\\$scheme\\shell\\open\\command';
-    RegistryValue? value = Registry.currentUser.getValue("", path: path);
-    if (value == null || value.type != RegistryValueType.string) {
-      return false;
-    }
-    String file = value.data as String;
-    return file.toLowerCase().indexOf(appPath) == 0;
-  }
 }

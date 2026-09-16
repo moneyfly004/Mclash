@@ -87,10 +87,6 @@ class PathUtils {
     }
   }
 
-  static String assetsDir() {
-    return path.join(flutterAssetsDir(), "assets");
-  }
-
   static String profileDirForPortableMode() {
     return path.join(exeDir(), "portable");
   }
@@ -155,13 +151,6 @@ class PathUtils {
     return "profilePatchs";
   }
 
-  static Future<String> backupDir() async {
-    String dir = await profileDir();
-    String cdir = path.join(dir, "backup");
-    await FileUtils.createDir(cdir);
-    return cdir;
-  }
-
   static Future<String> cacheDir() async {
     String dir = await profileDir();
     String cdir = path.join(dir, "cache");
@@ -172,13 +161,6 @@ class PathUtils {
   static Future<String> webviewCacheDir() async {
     String dir = await profileDirNonPortable();
     String cdir = path.join(dir, "webviewCache");
-    await FileUtils.createDir(cdir);
-    return cdir;
-  }
-
-  static Future<String> profileDataDir() async {
-    String dir = await profileDir();
-    String cdir = path.join(dir, "datas");
     await FileUtils.createDir(cdir);
     return cdir;
   }
@@ -200,16 +182,6 @@ class PathUtils {
       throw "unsupport platform";
     }
     return filepath;
-  }
-
-  static String macosDir() {
-    if (Platform.isMacOS) {
-      String filepath = PathUtils.exeDir();
-      filepath = path.dirname(filepath);
-      filepath = path.join(filepath, "MacOS");
-      return filepath;
-    }
-    return "";
   }
 
   static String getExeName() {

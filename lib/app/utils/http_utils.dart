@@ -633,19 +633,6 @@ abstract final class HttpUtils {
     return ReturnResult(data: siteName);
   }
 
-  static Future<HttpClientRequest?> waitRequestDone(
-    Future<HttpClientRequest?> Function() fun,
-  ) async {
-    return await fun();
-  }
-
-  static Future<HttpClientRequest?> waitRequestTimeout(
-    Duration duration,
-  ) async {
-    await Future.delayed(duration);
-    return null;
-  }
-
   static Future<HttpClientResponse?> waitResponseDone(
     HttpClientRequest request,
     String? path,

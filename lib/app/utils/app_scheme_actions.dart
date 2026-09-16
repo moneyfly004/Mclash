@@ -1,8 +1,4 @@
 abstract final class AppSchemeActions {
-  static String clashScheme() {
-    return "clash";
-  }
-
   static String scheme() {
     return "mclash";
   }

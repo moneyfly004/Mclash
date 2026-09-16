@@ -129,16 +129,6 @@ enum ClashProtocolType {
     ];
   }
 
-  static List<String> RuleToList() {
-    return [
-      ClashProtocolType.compatible.name,
-      ClashProtocolType.pass.name,
-      ClashProtocolType.passRule.name,
-      ClashProtocolType.reject.name,
-      ClashProtocolType.rejectDrop.name,
-    ];
-  }
-
   static List<String> GroupToList() {
     return [
       ClashProtocolType.urltest.name,

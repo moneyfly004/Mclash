@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/secure_storage.dart';
 
 class CBoardResponse<T> {
@@ -90,17 +91,53 @@ class CBoardSession {
   }
 }
 
-class CBoardSessionStore {
+/// 会话存储。**是否落盘由登录窗口的「保存账号信息」决定。**
+///
+///   * 勾选（`remember == true`）→ 会话写进磁盘，下次打开自动登录；
+///   * 不勾选 → 会话**只留在内存**里（本次运行照常用），磁盘上不写任何东西，
+///     下次打开就停在登录窗口。同时会把上一次可能残留的会话清掉，
+///     否则「取消勾选」对老会话不生效。
+abstract final class CBoardSessionStore {
   static const _key = 'mclash.cboard.session.v1';
 
   static CBoardSession? _cached;
 
   static CBoardSession? get cached => _cached;
 
+  /// 测试缝：替换「是否记住账号」的来源（真实实现读设置）。
+  @visibleForTesting
+  static bool Function()? rememberOverride;
+
+  /// 测试缝：替换落盘层（真实实现写 SecureStorage），便于断言「到底写没写」。
+  @visibleForTesting
+  static Future<void> Function(String key, String value)? debugWriteOverride;
+
+  @visibleForTesting
+  static Future<String?> Function(String key)? debugReadOverride;
+
+  @visibleForTesting
+  static void debugResetCache() => _cached = null;
+
+  static bool get remember => (rememberOverride ?? _rememberFromSettings)();
+
+  static bool _rememberFromSettings() =>
+      SettingManager.getConfig().rememberAccount;
+
+  static Future<void> _write(String value) =>
+      (debugWriteOverride ?? SecureStorage.write)(_key, value);
+
+  static Future<String?> _read() =>
+      (debugReadOverride ?? SecureStorage.read)(_key);
+
   static Future<CBoardSession?> load() async {
     if (_cached != null) return _cached;
+    // 不记住账号 → 磁盘上的旧会话一律不认，并顺手删掉
+    if (!remember) {
+      await _write('');
+      return null;
+    }
     try {
-      final raw = await SecureStorage.read(_key);
+      final raw = await _read();
       if (raw == null || raw.isEmpty) return null;
       _cached = CBoardSession.fromJson(jsonDecode(raw));
       return _cached;
@@ -114,12 +151,15 @@ class CBoardSessionStore {
     _cached = s;
     try {
       if (s == null) {
-        await SecureStorage.write(_key, '');
-      } else {
-        await SecureStorage.write(_key, jsonEncode(s.toJson()));
+        await _write('');
+        return;
       }
+      if (!remember) {
+        // 只留在内存：本次运行照常用，但下次打开不会自动登录
+        return;
+      }
+      await _write(jsonEncode(s.toJson()));
     } catch (e) {
-
       debugPrint('CBoardSessionStore.save failed: $e');
     }
   }

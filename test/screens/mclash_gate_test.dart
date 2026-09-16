@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/screens/mclash_gate.dart';
 import 'package:mclash/screens/mclash_login_screen.dart';
@@ -44,6 +45,59 @@ void main() {
 
     test('已登录 → 主界面', () {
       expect(stageFor(true), MclashGateStage.main);
+    });
+
+    test('已登录但还在拉配置 → 准备页（不能先放进去再让用户干等）', () {
+      expect(
+        stageFor(true, preparing: true),
+        MclashGateStage.preparing,
+        reason: '登录成功 ≠ 能用：没有配置档时主页没有节点、点连接必然失败',
+      );
+    });
+
+    test('拉配置失败 → 失败页（有重试），不能静默进主界面', () {
+      expect(
+        stageFor(true, prepareFailed: true),
+        MclashGateStage.prepareFailed,
+      );
+    });
+
+    test('未登录时准备态不生效（登录页优先）', () {
+      expect(
+        stageFor(false, preparing: true, prepareFailed: true),
+        MclashGateStage.login,
+      );
+    });
+  });
+
+  group('登录页「保存账号信息」', () {
+    testWidgets('默认勾选，取消后写进设置（下次打开停在登录窗口）', (tester) async {
+      // 默认 true：升级前的老用户行为不变（否则会被突然要求重新登录）
+      SettingManager.getConfig().rememberAccount = true;
+      CBoardSessionStore.rememberOverride = () => false;
+
+      await tester.pumpWidget(const MaterialApp(home: MclashLoginScreen()));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('保存账号信息'), findsOneWidget, reason: '登录页必须有这个开关');
+      expect(find.text('下次打开自动登录'), findsOneWidget);
+
+      final box = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(box.value, isTrue, reason: '默认应为勾选（保持既有行为）');
+
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        SettingManager.getConfig().rememberAccount,
+        isFalse,
+        reason: '取消勾选必须落到设置里，下次启动才知道不该自动登录',
+      );
+      expect(find.text('下次打开需要重新登录'), findsOneWidget);
+
+      await _disposeAndSettleTimers(tester);
+      SettingManager.getConfig().rememberAccount = true;
+      CBoardSessionStore.rememberOverride = null;
     });
   });
 

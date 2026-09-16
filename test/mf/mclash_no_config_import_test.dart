@@ -82,8 +82,14 @@ void main() {
           callers.add(f.path);
         }
       }
+      // Windows 上 path 分隔符是 \ —— 必须先归一化再比较（CI 的 Windows runner
+      // 就因为这个判过一次红）
+      final normalized = callers
+          .map((p) => p.replaceAll(r"\", "/"))
+          .where((p) => !p.endsWith("app/modules/profile_manager.dart"))
+          .toList();
       expect(
-        callers.where((p) => !p.endsWith("app/modules/profile_manager.dart")),
+        normalized,
         ["lib/mf/mclash_subscription_service.dart"],
         reason:
             'addRemote 会新增一份远程配置档 —— 只有「账号订阅自动同步」可以用它；'

@@ -2,6 +2,9 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/mclash_forgot_password_screen.dart';
 import 'package:mclash/screens/mclash_register_screen.dart';
@@ -20,6 +23,7 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
   final _password = TextEditingController();
   bool _busy = false;
   bool _obscure = true;
+  bool _remember = SettingManager.getConfig().rememberAccount;
   String? _err;
 
   Map<String, dynamic> _cfg = const {};
@@ -27,11 +31,34 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
   @override
   void initState() {
     super.initState();
+    // 上次登录用的邮箱（只记邮箱、不存密码）：不勾选保存也预填，少输一次
+    final last = SettingManager.getConfig().lastAccountEmail;
+    if (last.isNotEmpty) {
+      _email.text = last;
+    }
     MclashApi.siteConfig().then((c) {
       if (mounted) {
         setState(() => _cfg = c);
       }
     });
+  }
+
+  /// 勾选/取消「保存账号信息」。
+  ///
+  /// 勾选 = 会话落盘 → 下次打开自动登录；
+  /// 取消 = 会话只留在内存 → 下次打开停在登录窗口。
+  /// 取消时立即清掉磁盘上的旧会话，否则对已登录过的用户不生效。
+  Future<void> _setRemember(bool value) async {
+    setState(() => _remember = value);
+    SettingManager.getConfig().rememberAccount = value;
+    SettingManager.save();
+    if (!value) {
+      await CBoardSessionStore.clear();
+      // 「保存账号信息」不勾 = 什么都不留（连上次登录的邮箱也清掉）
+      SettingManager.getConfig().lastAccountEmail = "";
+      SettingManager.save();
+    }
+    Log.i("MclashLoginScreen: 保存账号信息 = $value");
   }
 
   @override
@@ -101,6 +128,26 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                               : Icons.visibility_outlined,
                           size: 20,
                         ),
+                      ),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    value: _remember,
+                    onChanged: _busy
+                        ? null
+                        : (v) => _setRemember(v ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text(
+                      "保存账号信息",
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      _remember ? "下次打开自动登录" : "下次打开需要重新登录",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: ThemeDefine.kColorGrey,
                       ),
                     ),
                   ),
@@ -223,9 +270,10 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
       _err = null;
     });
     try {
-
       await MclashApi.login(email, _password.text);
-
+      // 勾选了保存才记邮箱（**绝不存密码**）：不勾就什么都不留
+      SettingManager.getConfig().lastAccountEmail = _remember ? email : "";
+      SettingManager.save();
     } catch (e) {
       if (!mounted) {
         return;

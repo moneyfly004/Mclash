@@ -7,24 +7,6 @@ abstract final class EmojiUtils {
   static const String _charColon = '/';
   static final RegExp _regexName = RegExp(r'/([\w-+]+)/');
 
-  static String removeEmoji(String text) {
-    if (text.isEmpty) return text;
-
-    final characters = Characters(text);
-    final buffer = StringBuffer();
-    for (final character in characters) {
-      if (_parser.hasEmoji(character)) {
-        var result = character;
-        result = result.replaceAll(character, "");
-
-        buffer.write(result);
-      } else {
-        buffer.write(character);
-      }
-    }
-    return buffer.toString();
-  }
-
   static Tuple2<String, bool> unemojify(String text) {
     if (text.isEmpty) return Tuple2(text, false);
     bool hasEmoji = false;
@@ -88,13 +70,4 @@ abstract final class EmojiUtils {
     return name.replaceAll(_charColon, EmojiConst.charEmpty);
   }
 
-  static String countryCodeToEmoji(String countryCode) {
-    final String code = countryCode.toUpperCase();
-    if (code.length != 2) {
-      return countryCode;
-    }
-    final int firstLetter = code.codeUnitAt(0) - 0x41 + 0x1F1E6;
-    final int secondLetter = code.codeUnitAt(1) - 0x41 + 0x1F1E6;
-    return String.fromCharCode(firstLetter) + String.fromCharCode(secondLetter);
-  }
 }

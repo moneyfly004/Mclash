@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -82,45 +81,4 @@ class QrcodeUtils {
     return true;
   }
 
-  static Future<String?> scanFromFile(String filePath) async {
-    var image = await img.decodeImageFile(filePath);
-    if (image == null) {
-      return null;
-    }
-    LuminanceSource source = RGBLuminanceSource(
-      image.width,
-      image.height,
-      image
-          .convert(numChannels: 4)
-          .getBytes(order: img.ChannelOrder.abgr)
-          .buffer
-          .asInt32List(),
-    );
-    var bitmap = BinaryBitmap(GlobalHistogramBinarizer(source));
-    var reader = QRCodeReader();
-    var result = reader.decode(bitmap);
-
-    return result.text;
-  }
-
-  static Future<String?> scanFromImageData(Uint8List data) async {
-    var image = img.decodeImage(data);
-    if (image == null) {
-      return null;
-    }
-    LuminanceSource source = RGBLuminanceSource(
-      image.width,
-      image.height,
-      image
-          .convert(numChannels: 4)
-          .getBytes(order: img.ChannelOrder.abgr)
-          .buffer
-          .asInt32List(),
-    );
-    var bitmap = BinaryBitmap(GlobalHistogramBinarizer(source));
-    var reader = QRCodeReader();
-    var result = reader.decode(bitmap);
-
-    return result.text;
-  }
 }

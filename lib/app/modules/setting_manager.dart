@@ -158,6 +158,17 @@ class SettingConfig {
   bool autoConnectAtBoot = false;
   bool hideVpn = false;
 
+  /// 登录窗口的「保存账号信息」。
+  ///
+  /// true  → 会话落盘，下次打开软件直接自动登录；
+  /// false → 会话只留在内存里，下次打开**停在登录窗口**（不自动登录）。
+  /// 默认 true：与升级前的行为一致（老用户不会被突然要求重新登录）。
+  bool rememberAccount = true;
+
+  /// 上次登录用的邮箱（**只记邮箱，绝不存密码**）：不勾选保存时也预填，
+  /// 用户只需再输一次密码。
+  String lastAccountEmail = "";
+
   Map<String, dynamic> toJson() => {
     'language_tag': languageTag,
     'setup_done': setupDone,
@@ -183,6 +194,8 @@ class SettingConfig {
     'wake_lock': wakeLock,
     'auto_connect_at_boot': autoConnectAtBoot,
     'hide_vpn': hideVpn,
+    'remember_account': rememberAccount,
+    'last_account_email': lastAccountEmail,
   };
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {
@@ -211,6 +224,9 @@ class SettingConfig {
     )!;
 
     _userAgent = map["user_agent"] ?? "";
+
+    rememberAccount = map["remember_account"] ?? true;
+    lastAccountEmail = map["last_account_email"]?.toString() ?? "";
 
     boardOnline = map["board_online"] ?? false;
     boardUrl = map["board_url"] ?? kDefaultBoardUrl;

@@ -198,18 +198,6 @@ abstract final class FileUtils {
     return true;
   }
 
-  static Future<bool> deleteFile(File file) async {
-    bool exist = await file.exists();
-    if (exist) {
-      try {
-        await file.delete();
-      } catch (err) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   static Future<String?> readAndDelete(String filePath) async {
     if (filePath.isEmpty) return null;
 
@@ -343,57 +331,6 @@ abstract final class FileUtils {
     return null;
   }
 
-  static Future<String?> readStringByMatchStartAndEnd(
-    String filePath,
-    bool Function(String) start,
-    bool Function(String) end,
-  ) async {
-    final file = File(filePath);
-    if (!await file.exists()) {
-      return null;
-    }
-
-    bool matched = false;
-    String content = "";
-    StreamSubscription<String>? subscription;
-    final completer = Completer<void>();
-    final stream = file
-        .openRead()
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
-    subscription = stream.listen(
-      (line) {
-        if (!matched) {
-          if (start(line)) {
-            matched = true;
-            content += "$line\n";
-          }
-          return;
-        }
-        if (end(line)) {
-          subscription?.cancel();
-          completer.complete();
-          return;
-        }
-        content += "$line\n";
-      },
-      onError: (e) {
-        subscription?.cancel();
-        if (!completer.isCompleted) {
-          completer.completeError(e);
-        }
-      },
-      onDone: () {
-        subscription?.cancel();
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      cancelOnError: true,
-    );
-    await completer.future;
-    return content.isEmpty ? null : content;
-  }
 }
 
 class FileSaver {
