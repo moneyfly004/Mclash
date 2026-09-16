@@ -24,7 +24,7 @@ abstract final class AppUtils {
   }
 
   static String getBuildinVersion() {
-    return "0.0.7.1";
+    return "0.0.1.1";
   }
 
   static DateTime getBuildinVersionDate() {
