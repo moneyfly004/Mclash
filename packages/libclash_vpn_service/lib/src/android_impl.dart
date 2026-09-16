@@ -96,6 +96,7 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
       final args = <String, dynamic>{
         "config_yaml": yaml,
         "need_tun": true,
+        "ipv6": cfg.ipv6,
         "home_dir": cfg.work_dir,
         "mixed_port": cfg.control_port,
         "secret": cfg.secret,

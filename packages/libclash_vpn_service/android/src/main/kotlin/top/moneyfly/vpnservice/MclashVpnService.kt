@@ -54,6 +54,7 @@ class MclashVpnService : VpnService() {
         /** ACTION_START_RESULT 的错误附加项：空串表示成功（与磁贴约定一致）。 */
         const val EXTRA_ERR = "err"
         const val EXTRA_CONFIG = "config_yaml"
+        const val EXTRA_IPV6 = "ipv6"
         const val EXTRA_HOME = "home_dir"
         const val EXTRA_NEED_TUN = "need_tun"
         const val EXTRA_KEEP_ALIVE = "keep_alive"
@@ -67,6 +68,12 @@ class MclashVpnService : VpnService() {
 
         /** 虚拟 DNS：系统 DNS 查询发往它 → 进 TUN → 内核 dns-hijack 接管 */
         private const val TUN_DNS = "172.19.0.2"
+
+        // IPv6 侧与 Dart 侧 ClashSettingManager.iNet6Address 保持一致：
+        // TUN 内部网关 fdfe:dcbe:9876::1/126，DNS 用 ::2。
+        private const val TUN6_GATEWAY = "fdfe:dcbe:9876::1"
+        private const val TUN6_PREFIX = 126
+        private const val TUN6_DNS = "fdfe:dcbe:9876::2"
         private const val TUN_MTU = 1280
 
         val mainHandler = Handler(Looper.getMainLooper())
@@ -276,6 +283,7 @@ class MclashVpnService : VpnService() {
             intent.putExtra(EXTRA_CONFIG, args["config_yaml"] as? String ?: "")
             intent.putExtra(EXTRA_HOME, args["home_dir"] as? String ?: "")
             intent.putExtra(EXTRA_NEED_TUN, args["need_tun"] as? Boolean ?: true)
+            intent.putExtra(EXTRA_IPV6, args["ipv6"] as? Boolean ?: false)
             intent.putExtra("secret", args["secret"] as? String ?: "")
             intent.putExtra("mixed_port", (args["mixed_port"] as? Number)?.toInt() ?: 0)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -354,6 +362,7 @@ class MclashVpnService : VpnService() {
 
         val homeDir = intent.getStringExtra(EXTRA_HOME) ?: filesDir.absolutePath
         val needTun = intent.getBooleanExtra(EXTRA_NEED_TUN, true)
+        val ipv6 = intent.getBooleanExtra(EXTRA_IPV6, false)
 
         coreExecutor.execute {
             try {
@@ -403,7 +412,7 @@ class MclashVpnService : VpnService() {
         var fd = 0
         if (needTun) {
             try {
-                fd = establishTun()
+                fd = establishTun(ipv6)
             } catch (e: Exception) {
                 lastStartError = "建立 TUN 失败：${e.message}"
                 setState("disconnected")
@@ -440,7 +449,7 @@ class MclashVpnService : VpnService() {
      *
      * `detachFd()` 把所有权交给内核；此后 Kotlin 侧绝不再 close。
      */
-    private fun establishTun(): Int {
+    private fun establishTun(ipv6: Boolean): Int {
         val builder =
                 Builder()
                         .setSession("Mclash")
@@ -448,6 +457,19 @@ class MclashVpnService : VpnService() {
                         .addAddress(TUN_GATEWAY, TUN_PREFIX)
                         .addDnsServer(TUN_DNS)
                         .addRoute("0.0.0.0", 0)
+        // IPv6：只在用户开启时才加。否则 IPv6 流量不经过隧道 ——
+        // 应用优先用 IPv6 时会直连出去（真实 IP 泄漏 + 被墙站点连不上），
+        // 而用户以为「已经连上了」。不加地址就加路由会把 v6 流量丢进黑洞，
+        // 所以地址、DNS、路由三件一起加。
+        if (ipv6) {
+            try {
+                builder.addAddress(TUN6_GATEWAY, TUN6_PREFIX)
+                builder.addDnsServer(TUN6_DNS)
+                builder.addRoute("::", 0)
+            } catch (e: Exception) {
+                Log.w(TAG, "add ipv6 to tun failed: ${e.message}")
+            }
+        }
         // 排除本 App，避免进程内内核的出站流量被自己的隧道抓回来自环
         try {
             builder.addDisallowedApplication(packageName)

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/modules/profile_patch_manager.dart';
@@ -216,6 +217,9 @@ class VPNService {
             setting.Tun?.Enable == true) ||
         !overwriteFinal;
     config.wake_lock = appSetting.wakeLock;
+    // Android：是否把 IPv6 流量也纳入隧道（用户在「核心设置」里开的 ipv6）。
+    // 不开就完全维持历史行为（只路由 IPv4）；开了才给 TUN 加 IPv6 地址/DNS/路由。
+    config.ipv6 = setting.IPv6 == true;
     config.auto_connect_at_boot = appSetting.autoConnectAtBoot;
     config.include_all_networks =
         setting.Extension?.Tun.includeAllNetworks ?? false;
@@ -324,6 +328,7 @@ class VPNService {
     }
 
     await _ensureMixedPortAvailable();
+    await syncMixedPortFromKernel();
 
     var setting = SettingManager.getConfig();
     if (Platform.isWindows) {
@@ -416,21 +421,92 @@ class VPNService {
       }
     }
 
-    if (PlatformUtils.isPC() && !Platform.isLinux) {
-      final port = ClashSettingManager.getMixedPort();
+    if (PlatformUtils.isPC() &&
+        !Platform.isLinux &&
+        !setting.autoSetSystemProxy) {
+      // 用户明确关掉了「连接后自动设置系统代理」→ 尊重它，不再每次连接都覆盖
+      // 系统代理（以前是无条件覆盖，用户会感觉「这设置改不动 / 我的代理总被改掉」）。
+      // 但 TUN 需要管理员权限；真降级时仍由内核侧的兜底逻辑补上系统代理，
+      // 保证「关掉开关」不会变成「连上了却完全没网」。
+      Log.i("VPNService: 已关闭「连接后自动设置系统代理」，跳过自动设置（可在应用设置→系统代理手动设置）");
+    } else if (PlatformUtils.isPC() && !Platform.isLinux) {
+      // 顺序很关键：**先问内核它到底监听哪个端口**，再据此设系统代理。
+      // 旧实现在 start() 里既不修端口也不问内核，直接拿设置里的值去设：
+      // 配置里 mixed-port 为 0（或被别的软件占用、内核自动换端口）时，
+      // 系统代理要么被跳过（Windows 代理设置页一片空白）、要么指向没人监听的
+      // 端口 —— 用户侧的现象就是「连上了，系统代理是空白，也改不动」。
+      var port = await syncMixedPortFromKernel();
+      if (port <= 0) {
+        await _ensureMixedPortAvailable();
+        port = await syncMixedPortFromKernel();
+      }
       if (port > 0) {
         await setSystemProxy(true);
         final ok = await getSystemProxyEnable();
         Log.i("VPNService: 系统代理 -> 127.0.0.1:$port（读回校验: ${ok ? "已生效" : "未生效"}）");
         if (ok) {
           _startProxyWatchdog(port);
+        } else {
+          Log.w(
+            "VPNService: 系统代理写入后校验未通过（127.0.0.1:$port）——"
+            "可能被其它代理软件/组策略覆盖，可在「我的→应用设置→系统代理」里重设",
+          );
         }
       } else {
-        Log.w("VPNService: 混合端口无效($port)，已跳过系统代理设置");
+        Log.w("VPNService: 混合端口仍无效，未设置系统代理（可在「应用设置→系统代理」手动重设）");
       }
     }
 
     return null;
+  }
+
+  /// 决定系统代理该用哪个端口（纯函数，便于回归测试）。
+  ///
+  /// 内核在配置里的 mixed-port 为 0 或被占用时**会自己改用一个空闲端口**，
+  /// 而应用侧仍记着旧值。若照着旧值去设系统代理，表现就是：
+  ///   「连上了，但系统代理是空白 / 指向一个没人监听的端口」。
+  /// 规则：内核报了什么就用什么（它是事实），拿不到才退回设置值。
+  static int resolveEffectiveMixedPort({
+    required int kernelPort,
+    required int configuredPort,
+  }) {
+    if (kernelPort > 0 && kernelPort <= 65535) {
+      return kernelPort;
+    }
+    if (configuredPort > 0 && configuredPort <= 65535) {
+      return configuredPort;
+    }
+    return 0;
+  }
+
+  /// 把内核**真实监听**的混合端口同步回设置，并返回该端口（0 = 仍然未知）。
+  ///
+  /// 必须在设置系统代理**之前**调用：这是 Windows/macOS 上「系统代理空白」
+  /// 的直接修复点。
+  static Future<int> syncMixedPortFromKernel() async {
+    final configured = ClashSettingManager.getMixedPort();
+    var kernelPort = 0;
+    try {
+      final result = await ClashHttpApi.getConfigs();
+      kernelPort = result.data?.mixed_port ?? 0;
+    } catch (err) {
+      Log.w("VPNService: 读取内核 mixed-port 失败 ${err.toString()}");
+    }
+
+    final port = resolveEffectiveMixedPort(
+      kernelPort: kernelPort,
+      configuredPort: configured,
+    );
+    if (port > 0 && port != configured) {
+      Log.w("VPNService: 内核实际监听 $port，设置里是 $configured，已同步为 $port");
+      await ClashSettingManager.setMixedPort(port);
+    }
+    if (port <= 0) {
+      // 内核没起来或没监听任何入站：这时设置系统代理是没有意义的，
+      // 必须明确说出来，而不是静默跳过（用户看到的就是「代理是空白」）。
+      Log.w("VPNService: 拿不到有效的混合端口（内核 $kernelPort / 设置 $configured），跳过系统代理设置");
+    }
+    return port;
   }
 
   static Future<void> _ensureMixedPortAvailable() async {
@@ -514,6 +590,10 @@ class VPNService {
   static bool getSupportSystemProxy() {
     return PlatformUtils.isPC();
   }
+
+  /// 系统代理固定写入的本机回环地址（Windows/macOS 都不用局域网 IP：
+  /// 用局域 IP 时本机应用反而绕不过去，而且会随网卡变化而失效）。
+  static String get systemProxyHost => localhost;
 
   static Future<void> setSystemProxy(bool enable) async {
     if (getSupportSystemProxy()) {

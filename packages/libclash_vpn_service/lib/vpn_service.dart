@@ -66,13 +66,15 @@ class FlutterVpnService {
 
   static Future<void> setAlwaysOn(bool enable) => _p.setAlwaysOn(enable);
 
-  static Future<void> setSystemProxy(ProxyOption option) async {
-    await _p.setSystemProxy(option);
-  }
+  /// 设置系统代理；返回是否**真的写成功**。
+  ///
+  /// 之前这里返回 void，把平台层的成败丢掉了：调用方只能再读回一次，
+  /// 而「写失败」和「写完没生效」是两回事（Windows 上被组策略/其它代理软件
+  /// 覆盖时就是后者）。把结果透出去，调用方才能给出准确提示。
+  static Future<bool> setSystemProxy(ProxyOption option) =>
+      _p.setSystemProxy(option);
 
-  static Future<void> cleanSystemProxy() async {
-    await _p.cleanSystemProxy();
-  }
+  static Future<bool> cleanSystemProxy() => _p.cleanSystemProxy();
 
   static Future<bool> getSystemProxyEnable(ProxyOption option) =>
       _p.getSystemProxyEnable(option);

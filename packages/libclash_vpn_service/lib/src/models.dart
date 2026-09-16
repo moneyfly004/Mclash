@@ -107,6 +107,13 @@ class ProxyOption {
 }
 
 class VpnServiceConfig {
+  /// 是否把 IPv6 流量也纳入隧道。
+  ///
+  /// 默认 false：行为与历史版本完全一致。用户开启 IPv6 后，Android 侧必须
+  /// 给 TUN 加上 IPv6 地址与 `::/0` 路由，否则 IPv6 流量**根本不进隧道**
+  /// （应用优先走 IPv6 时直连出去：既泄漏真实 IP，也可能连不上被墙的站点）。
+  bool ipv6 = false;
+
   int control_port = 0;
   String base_dir = "";
   String work_dir = "";

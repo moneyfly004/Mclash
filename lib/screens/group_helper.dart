@@ -42,6 +42,7 @@ import 'package:mclash/screens/group_item_options.dart';
 import 'package:mclash/screens/group_screen.dart';
 import 'package:mclash/screens/language_settings_screen.dart';
 import 'package:mclash/screens/list_add_screen.dart';
+import 'package:mclash/screens/mclash_system_proxy_sheet.dart';
 import 'package:mclash/screens/map_string_and_string_add_screen.dart';
 import 'package:mclash/screens/perapp_android_screen.dart';
 import 'package:mclash/screens/profiles_patch_board_screen.dart';
@@ -1191,16 +1192,27 @@ class GroupHelper {
             },
           ),
         ),
-        GroupItemOptions(
-          switchOptions: GroupItemSwitchOptions(
-            name: tcontext.meta.autoSetSystemProxy,
-            switchValue: setting.autoSetSystemProxy,
-            onSwitch: (bool value) async {
-              setting.autoSetSystemProxy = value;
-            },
+        // 「连接后自动设置系统代理」「绕过域名」「系统代理状态」都是 PC 专属能力：
+        // Android/iOS 没有可供 App 修改的系统代理（Android 走 VpnService 的 TUN），
+        // 以前这些开关在手机上也照常显示，点了毫无作用 —— 用户看到的就是
+        // 「这个设置改不动」。所以在移动端直接不显示。
+        if (VPNService.getSupportSystemProxy()) ...[
+          GroupItemOptions(
+            switchOptions: GroupItemSwitchOptions(
+              name: tcontext.meta.autoSetSystemProxy,
+              switchValue: setting.autoSetSystemProxy,
+              onSwitch: (bool value) async {
+                setting.autoSetSystemProxy = value;
+              },
+            ),
           ),
-        ),
-        if (PlatformUtils.isPC()) ...[
+          GroupItemOptions(
+            pushOptions: GroupItemPushOptions(
+              name: "系统代理",
+              tips: "查看/重设地址与端口",
+              onPush: () => showMclashSystemProxySheet(context),
+            ),
+          ),
           GroupItemOptions(
             pushOptions: GroupItemPushOptions(
               name: tcontext.meta.bypassSystemProxy,
