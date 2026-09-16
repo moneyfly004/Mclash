@@ -47,8 +47,8 @@ import 'package:mclash/screens/rule_providers_screen.dart';
 import 'package:mclash/screens/rule_templates_screen.dart';
 import 'package:mclash/screens/proxygroup_templates_screen.dart';
 import 'package:mclash/screens/theme_define.dart';
+import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/themes.dart';
-import 'package:mclash/screens/version_update_screen.dart';
 import 'package:mclash/screens/webview_helper.dart';
 import 'package:mclash/screens/widgets/text_field.dart';
 import 'package:file_picker/file_picker.dart';
@@ -64,35 +64,19 @@ import 'package:url_launcher/url_launcher.dart';
 class GroupHelper {
   static Future<void> newVersionUpdate(BuildContext context) async {
     AutoUpdateCheckVersion versionCheck = AutoUpdateManager.getVersionCheck();
-    if (!versionCheck.newVersion) {
+    if (!versionCheck.newVersion || versionCheck.version.isEmpty) {
       return;
     }
-    var remoteConfig = RemoteConfigManager.getConfig();
-    String url = remoteConfig.download.isEmpty
-        ? versionCheck.url
-        : remoteConfig.download;
-    if (AutoUpdateManager.isSupport()) {
-      String? installerNew = await AutoUpdateManager.checkReplace();
-      if (!context.mounted) {
-        return;
-      }
-      if (installerNew != null) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            settings: VersionUpdateScreen.routeSettings(),
-            builder: (context) => const VersionUpdateScreen(),
-          ),
-        );
-      } else {
-        await UrlLauncherUtils.loadUrl(
-          url,
-          mode: LaunchMode.externalApplication,
-        );
-      }
-    } else {
-      await UrlLauncherUtils.loadUrl(url, mode: LaunchMode.externalApplication);
-    }
+    // 统一走「更新提示」里的安装流程（同一个入口，行为一致）：
+    //   * 后台已经下好 → 直接进安装页；
+    //   * 还没下好 → 催一次后台下载，仍不行就给**本项目 GitHub 上适合本机架构**
+    //     的安装包地址。
+    // 这里**不再**用远端配置里的 download 地址：那是别的客户端的下载页，
+    // 点进去拿到的包装不上（架构/客户端都不对）。
+    await MclashUpdatePrompt.installNow(
+      context,
+      version: versionCheck.version,
+    );
   }
 
   static Future<void> showBackupAndSync(BuildContext context) async {

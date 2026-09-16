@@ -26,6 +26,7 @@ import 'package:mclash/screens/net_check_screen.dart';
 import 'package:mclash/screens/mclash_orders_screen.dart';
 import 'package:mclash/screens/profiles_board_screen.dart';
 import 'package:mclash/screens/mclash_change_password_screen.dart';
+import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/about_screen.dart';
 import 'package:mclash/screens/file_view_screen.dart';
 import 'package:mclash/screens/richtext_viewer.screen.dart';
@@ -392,6 +393,12 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           () => GroupHelper.newVersionUpdate(context),
           iconColor: Colors.red,
         ),
+      // 常驻的「检查更新」：手动查一次，有新版本就提示并给下载/安装入口
+      _settingRow(
+        "检查更新",
+        Icons.system_update_alt_outlined,
+        () => MclashUpdatePrompt.checkManually(context),
+      ),
       _settingRow(
         t.meta.about,
         Icons.info,

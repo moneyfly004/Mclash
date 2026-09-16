@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -169,6 +168,9 @@ class SettingConfig {
   /// 用户只需再输一次密码。
   String lastAccountEmail = "";
 
+  /// 用户点过「稍后」的更新版本号：同一个版本不再反复弹提示。
+  String dismissedUpdateVersion = "";
+
   Map<String, dynamic> toJson() => {
     'language_tag': languageTag,
     'setup_done': setupDone,
@@ -196,6 +198,7 @@ class SettingConfig {
     'hide_vpn': hideVpn,
     'remember_account': rememberAccount,
     'last_account_email': lastAccountEmail,
+    'dismissed_update_version': dismissedUpdateVersion,
   };
   void fromJson(Map<String, dynamic>? map) {
     if (map == null) {
@@ -210,7 +213,7 @@ class SettingConfig {
     logLevel = map["log_level"] ?? "info";
     autoUpdateChannel = map["auto_update_channel"] ?? "stable";
     if (autoUpdateChannel.isEmpty) {
-      autoUpdateChannel = Random().nextInt(10) < 5 ? "beta" : "stable";
+      autoUpdateChannel = "stable";
     }
     autoDownloadUpdatePkg = map["auto_download_udpate_pkg"] ?? true;
     autoConnectAfterLaunch = map["auto_connect_after_launch"] ?? false;
@@ -227,6 +230,8 @@ class SettingConfig {
 
     rememberAccount = map["remember_account"] ?? true;
     lastAccountEmail = map["last_account_email"]?.toString() ?? "";
+    dismissedUpdateVersion =
+        map["dismissed_update_version"]?.toString() ?? "";
 
     boardOnline = map["board_online"] ?? false;
     boardUrl = map["board_url"] ?? kDefaultBoardUrl;

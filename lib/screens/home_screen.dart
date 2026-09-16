@@ -23,6 +23,7 @@ import 'package:mclash/screens/language_settings_screen.dart';
 import 'package:mclash/screens/scheme_handler.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
+import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/themes.dart';
 import 'package:mclash/screens/user_agreement_screen.dart';
 import 'package:mclash/screens/webview_helper.dart';
@@ -166,6 +167,8 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
   Future<void> _onInitAllFinish() async {
     AutoUpdateManager.onEventCheck.add(() {
       setState(() {});
+      // 有新版本时提示一次（同一版本用户点过「稍后」就不再打扰）
+      MclashUpdatePrompt.maybePromptOnLaunch(context);
     });
     DialogUtils.faqCallback = (BuildContext context, String text) async {
       final tcontext = Translations.of(context);

@@ -7,7 +7,9 @@ import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/file_view_screen.dart';
 import 'package:mclash/screens/mclash_change_password_screen.dart';
 import 'package:mclash/screens/mclash_orders_screen.dart';
+import 'package:mclash/mf/mclash_update_check.dart';
 import 'package:mclash/screens/mclash_profile_screen.dart';
+import 'package:mclash/screens/mclash_update_prompt.dart';
 
 /// 「我的」页的**逐按钮**验证。
 ///
@@ -167,6 +169,25 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(MclashDevicesScreen), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('点「检查更新」→ 手动查一次并给结论（已是最新/发现新版本）', (tester) async {
+    MclashUpdateCheck.debugLatestOverride = () async => null;
+    MclashUpdatePrompt.debugReset();
+    addTearDown(() {
+      MclashUpdateCheck.debugLatestOverride = null;
+      MclashUpdatePrompt.debugReset();
+    });
+    await pump(tester);
+    final target = find.text("检查更新");
+    await scrollTo(tester, target);
+    expect(target, findsOneWidget, reason: '手动检查更新的入口必须常驻在「我的」页');
+    await tester.tap(target);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining("已是最新版本"), findsOneWidget);
     await finish(tester);
   });
 

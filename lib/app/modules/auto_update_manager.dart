@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
@@ -17,7 +18,7 @@ import 'package:mclash/app/utils/install_referrer_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
-import 'package:mclash/app/utils/version_compare_utils.dart';
+import 'package:mclash/mf/mclash_update_check.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:path/path.dart' as path;
 
@@ -108,7 +109,7 @@ class AutoUpdateManager {
     await load();
     String version = AppUtils.getBuildinVersion();
 
-    if (VersionCompareUtils.compareVersion(version, _versionCheck.version) >=
+    if (MclashUpdateCheck.compareVersions(version, _versionCheck.version) >=
         0) {
       if (_versionCheck.version.isNotEmpty) {
         if (isSupport()) {
@@ -165,6 +166,10 @@ class AutoUpdateManager {
     return _versionCheck;
   }
 
+  /// 测试缝：替换「本地是否已经下好安装包」。
+  @visibleForTesting
+  static Future<String?> Function()? debugCheckReplaceOverride;
+
   static Future<void> load() async {
     String filePath = await PathUtils.autoUpdateFilePath();
     var file = File(filePath);
@@ -185,7 +190,54 @@ class AutoUpdateManager {
     await _fileSaver.saveAsJson(_versionCheck);
   }
 
+  /// **手动**检查更新：绕过间隔限制，立刻查一次并刷新状态。
+  ///
+  /// 「我的 → 检查更新」用它。返回查到的更新信息（null = 已是最新/查不到）。
+  static Future<MclashUpdateInfo?> checkNow() async {
+    final info = await MclashUpdateCheck.latest(
+      currentVersion: AppUtils.getBuildinVersion(),
+      proxyPorts: await VPNService.getPortsByPrefer(true),
+    );
+    _versionCheck.latestCheck = DateTime.now().toString();
+    if (info == null) {
+      _versionCheck.newVersion = false;
+      _versionCheck.version = "";
+      _versionCheck.url = "";
+      _versionCheck.sha256 = "";
+      await save();
+      _notify();
+      return null;
+    }
+    _versionCheck.newVersion = true;
+    _versionCheck.version = info.version;
+    _versionCheck.url = info.downloadUrl;
+    _versionCheck.sha256 = info.sha256;
+    _lastCheck = DateTime.now();
+    await save();
+    _notify();
+    // 勾了「自动下载更新包」就顺手在后台下好，用户点安装时不用等。
+    // 这里兜住异常：后台预下载失败不能把「检查更新」本身搞崩。
+    unawaited(
+      download().catchError((Object e) {
+        Log.w("AutoUpdateManager.checkNow: 后台预下载失败 $e");
+      }),
+    );
+    return info;
+  }
+
+  static void _notify() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      for (var callback in onEventCheck) {
+        callback();
+      }
+    });
+  }
+
   static Future<String?> checkReplace() async {
+    final override = debugCheckReplaceOverride;
+    if (override != null) {
+      return override();
+    }
     if (!isSupport()) {
       return null;
     }
@@ -197,7 +249,7 @@ class AutoUpdateManager {
     if (downloadPath.isEmpty) {
       return null;
     }
-    if (VersionCompareUtils.compareVersion(version, _versionCheck.version) <
+    if (MclashUpdateCheck.compareVersions(version, _versionCheck.version) <
         0) {
       var file = File(downloadPath);
       bool exist = await file.exists();
@@ -228,7 +280,7 @@ class AutoUpdateManager {
     }
     List<int?> ports = await VPNService.getPortsByPrefer(true);
     String version = AppUtils.getBuildinVersion();
-    if (VersionCompareUtils.compareVersion(version, _versionCheck.version) <
+    if (MclashUpdateCheck.compareVersions(version, _versionCheck.version) <
         0) {
       String downloadPath = await _versionCheck.getDownloadPath();
       if (downloadPath.isEmpty) {
@@ -262,6 +314,9 @@ class AutoUpdateManager {
           null,
           false,
           port,
+          // 安装包动辄几十 MB：默认 60 秒的下载超时会把包下坏（.tmp 被删掉），
+          // 用户点「立即更新」就变成「下载失败」。
+          timeout: const Duration(minutes: 10),
         );
         if (result.error == null) {
           break;
@@ -282,6 +337,10 @@ class AutoUpdateManager {
         final hash = await CryptoUtils.getFileSha256(downloadPath);
         if (hash != null) {
           if (_versionCheck.sha256 != hash) {
+            Log.w(
+              "AutoUpdateManager.download: 校验值不匹配，删除安装包 "
+              "expect=${_versionCheck.sha256} actual=$hash path=$downloadPath",
+            );
             await FileUtils.deletePath(downloadPath);
           }
         }
@@ -407,7 +466,7 @@ class AutoUpdateManager {
           }
 
           if (item.channels.contains("*") || item.channels.contains(channel)) {
-            if (VersionCompareUtils.compareVersion(version, item.version) < 0) {
+            if (MclashUpdateCheck.compareVersions(version, item.version) < 0) {
               _versionCheck.newVersion = true;
               _versionCheck.version = item.version;
               _versionCheck.url = item.url;
