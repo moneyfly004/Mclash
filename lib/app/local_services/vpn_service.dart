@@ -604,6 +604,13 @@ class VPNService {
     return PlatformUtils.isPC();
   }
 
+  /// TUN 是否**没能**起来（此时数据通路是系统代理）。
+  ///
+  /// 首页用它判断并展示「当前到底怎么被代理的」：TUN 正常时不需要系统代理，
+  /// 系统里的代理设置保持原样是正常的。
+  static bool get systemProxyFallbackActive =>
+      FlutterVpnService.systemProxyFallbackActive;
+
   /// 系统代理固定写入的本机回环地址（Windows/macOS 都不用局域网 IP：
   /// 用局域 IP 时本机应用反而绕不过去，而且会随网卡变化而失效）。
   static String get systemProxyHost => localhost;

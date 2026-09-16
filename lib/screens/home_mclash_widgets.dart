@@ -8,6 +8,7 @@ import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
+import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -118,6 +119,18 @@ class MclashQuickCountries extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
+                // 「自动最优」：解除国家限制，让内核/自动选路挑最快节点
+                // （参考客户端 MoneyFly 的快捷栏就有这一项，用户按国家点几下
+                //   之后需要一个「回到自动」的出口）。
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ActionChip(
+                    key: const ValueKey("home-country-auto-best"),
+                    avatar: const Icon(Icons.auto_awesome, size: 15),
+                    label: const Text("自动最优", style: TextStyle(fontSize: 12)),
+                    onPressed: () => _onTapAutoBest(context),
+                  ),
+                ),
                 // 两排：每排 3 个（共 6 个，延迟最低的优先）
                 for (var row = 0; row < 2; row++)
                   Padding(
@@ -197,6 +210,17 @@ class MclashQuickCountries extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 「自动最优」：让自动选路挑一个最快节点，并留在主页。
+  Future<void> _onTapAutoBest(BuildContext context) async {
+    final note = await MclashNodeAutoPick.selectBestOnConnect();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(note == null ? "已在自动选路（最优节点）" : "已切换到最优节点：$note")),
     );
   }
 

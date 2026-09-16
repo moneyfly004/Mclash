@@ -24,6 +24,7 @@ import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/clash_traffic_watcher.dart';
+import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
@@ -794,14 +795,28 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
-  /// 判断并显示当前数据通路：优先 TUN，其次系统代理。
+  /// 判断并显示当前数据通路，直接回答「我到底是怎么被代理的」。
+  ///
+  /// 两种可能：
+  ///   * **TUN 模式**：内核创建虚拟网卡接管全部流量，此时**不需要**系统代理，
+  ///     Windows 的「设置 → 代理」保持原样是正常的（用户反馈的
+  ///     「系统代理没改却可以上网」就是这种情况）；
+  ///   * **系统代理**：TUN 起不来（Windows/macOS 需要管理员权限）时退而设置
+  ///     系统代理，此时必须能在系统里看到 127.0.0.1:<port>。
   Future<void> _updateProxyMode() async {
     try {
       final enabled = await VPNService.getSystemProxyEnable();
       final port = ClashSettingManager.getMixedPort();
-      _proxyMode.value = enabled
-          ? "系统代理 127.0.0.1:$port · 已生效"
-          : "系统代理未生效 · 点此设置";
+      final tunDriving = !VPNService.systemProxyFallbackActive;
+      if (tunDriving) {
+        _proxyMode.value = enabled
+            ? "TUN + 系统代理 127.0.0.1:$port · 均已生效"
+            : "TUN 模式 · 内核接管全部流量（无需系统代理）";
+      } else {
+        _proxyMode.value = enabled
+            ? "系统代理 127.0.0.1:$port · 已生效"
+            : "系统代理未生效 · 点此设置";
+      }
     } catch (_) {
       _proxyMode.value = "";
     }
@@ -881,22 +896,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       if (result.error != null || result.data!.isEmpty) {
         _proxyNow.value = "";
       } else {
-        if (result.data!.length >= 2) {
-          if (result.data!.first.delay != null) {
-            _proxyNow.value =
-                "${result.data![1].name} -> ${result.data!.first.name} (${result.data!.first.delay} ms)";
-          } else {
-            _proxyNow.value =
-                "${result.data![1].name} -> ${result.data!.first.name}";
-          }
-        } else {
-          if (result.data!.first.delay != null) {
-            _proxyNow.value =
-                "${result.data!.first.name} (${result.data!.first.delay} ms)";
-          } else {
-            _proxyNow.value = result.data!.first.name;
-          }
-        }
+        // 只显示**节点本身**（跳过内核内置的 GLOBAL 等组名）：
+        // 全局模式下内核会把链路报成 "GLOBAL -> 节点"，直接摊给用户看会让人
+        // 以为「选的是 global 而不是节点」（参考客户端就是只显示节点）。
+        _proxyNow.value = formatCurrentProxyName(
+          result.data!.map((e) => e.name),
+          delayMs: result.data!.first.delay,
+        );
       }
       _proxyNowUpdating = false;
     } else {

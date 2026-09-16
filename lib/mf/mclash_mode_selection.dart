@@ -198,3 +198,52 @@ abstract final class MclashNodeSelector {
     return err;
   }
 }
+
+/// 内核内置的伪目标/伪组名（用户不该看到这些名字）。
+const Set<String> kInternalProxyNames = {
+  "GLOBAL",
+  "DIRECT",
+  "REJECT",
+  "REJECT-DROP",
+  "PASS",
+  "COMPATIBLE",
+  "DIRECT-URL",
+};
+
+bool isInternalProxyName(String name) =>
+    kInternalProxyNames.contains(name.trim().toUpperCase());
+
+/// 把「当前节点」链路格式化成一句人话。
+///
+/// 参考客户端（MoneyFly）的做法：**只显示节点本身**。内核在全局模式下会把
+/// 链路报成 `GLOBAL -> 日本东京`，直接把内核内部组名摊给用户看会让人困惑
+/// （用户反馈：「为什么你这个全局还有 global，而不是选择节点呢？」）。
+///
+/// 规则：
+///   * 先取链路里**最后一个真实节点**（跳过 GLOBAL 这类内置组名）；
+///   * 只有 DIRECT/REJECT 这类伪目标时，说人话（直连 / 已拦截）；
+///   * 末尾附上延迟（有的话）。
+String formatCurrentProxyName(
+  Iterable<String> chain, {
+  int? delayMs,
+}) {
+  final names = chain.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  String? real;
+  for (final n in names.reversed) {
+    if (!isInternalProxyName(n)) {
+      real = n;
+      break;
+    }
+  }
+  if (real == null) {
+    final last = names.isEmpty ? "" : names.last.toUpperCase();
+    if (last == "DIRECT") {
+      return "直连（不走代理）";
+    }
+    if (last.startsWith("REJECT")) {
+      return "已拦截";
+    }
+    return names.isEmpty ? "" : names.last;
+  }
+  return delayMs != null && delayMs > 0 ? "$real ($delayMs ms)" : real;
+}

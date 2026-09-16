@@ -4,6 +4,7 @@ import 'package:after_layout/after_layout.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
+import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
@@ -399,7 +400,12 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
   Future<List<ClashProxiesNode>> _getProxiesFromKernel() async {
     var result = await ClashHttpApi.getProxies();
     if (result.error == null) {
-      return result.data!;
+      // 隐藏内核**内置**的 GLOBAL 组：它是 mode=global 时的内部路由目标，
+      // 由 App 自动指向用户选中的节点，不该作为「一个组」摊在用户面前
+      // （参考客户端同样不展示它；用户反馈「为什么全局还有 global」）。
+      return result.data!
+          .where((n) => !isInternalProxyName(n.name))
+          .toList();
     }
     return [];
   }
