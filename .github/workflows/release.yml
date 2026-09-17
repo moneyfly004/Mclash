@@ -59,11 +59,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: 离线分流数据（构建时下载，不入库）
+      - name: Fetch offline routing data (downloaded at build time, not committed)
         run: bash tool/fetch_geodata.sh
 
       # libmihomo.aar 约 180MB，从发布仓库秒级下载（不在主仓库现编）
-      - name: 下载 libmihomo.aar
+      - name: Download libmihomo.aar
         run: |
           mkdir -p packages/libclash_vpn_service/android/libs
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 1800 \
@@ -71,10 +71,10 @@ jobs:
             "https://github.com/moneyfly004/mihomo-lib/releases/download/v$MIHOMO_VERSION/libmihomo.aar"
           ls -lh packages/libclash_vpn_service/android/libs/libmihomo.aar
 
-      - name: 依赖
+      - name: Dependencies
         run: flutter pub get
 
-      - name: 静态检查与测试
+      - name: Analyze and test
         run: |
           flutter analyze --no-fatal-infos
           flutter test --concurrency=1
@@ -86,7 +86,7 @@ jobs:
       # 「Multiple shrunk-resources files found ... Please disable building multiple
       # APKs when building an Android app bundle」（AGP 已知问题 402800800），
       # 整个 Android 作业直接红。反过来先出 AAB 就没有这个问题。
-      - name: 构建 AAB（应用商店备用）
+      - name: Build AAB (for app stores)
         run: |
           # 双保险：即使有缓存残留也先清掉那个目录
           rm -rf build/app/intermediates/shrunk_resources_proto_format || true
@@ -101,7 +101,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: 构建多 ABI APK（obfuscate + 保留符号，省约 10% 体积）
+      - name: Build multi-ABI APKs (obfuscated + split debug symbols, ~10% smaller)
         run: flutter build apk --release --split-per-abi --split-debug-info=build/symbols --obfuscate
         env:
           # 必须在此注入，否则 Gradle 读不到 → 每次构建用临时 debug 签名 →
@@ -111,7 +111,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: 重命名产物
+      - name: Rename artifacts
         run: |
           V="${{ github.event.inputs.version || github.ref_name }}"
           V="${V#v}"
@@ -129,7 +129,7 @@ jobs:
 
   # ================= Windows：exe 安装包 + zip 便携版 =================
   windows:
-    name: Windows (exe 安装包 + zip 便携版)
+    name: Windows (exe installer + portable zip)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,14 +140,14 @@ jobs:
           channel: stable
           cache: true
 
-      - name: 依赖
+      - name: Dependencies
         run: flutter pub get
 
-      - name: 离线分流数据
+      - name: Fetch offline routing data
         shell: bash
         run: bash tool/fetch_geodata.sh
 
-      - name: 下载 mihomo 内核（官方预编译，**compatible** 版）
+      - name: Download mihomo kernel (official prebuilt, **compatible** build)
         shell: bash
         env:
           MIHOMO_VERSION: ${{ env.MIHOMO_VERSION }}
@@ -159,27 +159,27 @@ jobs:
           # 交叉编译环境做不了，所以脚本里没有。
           ./build/mihomo/mihomo.exe -v | head -1
 
-      - name: 静态检查与测试（含真实内核 e2e）
+      - name: Analyze and test (incl. real-kernel e2e)
         shell: bash
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo.exe"
           flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
-      - name: 构建 Windows release
+      - name: Build Windows release
         run: flutter build windows --release
 
-      - name: 内置 mihomo 内核（与 Mclash.exe 同目录）
+      - name: Bundle mihomo kernel (next to Mclash.exe)
         shell: bash
         run: |
           RELEASE_DIR="build/windows/x64/runner/Release"
           cp build/mihomo/mihomo.exe "$RELEASE_DIR/mihomo.exe"
           ls -la "$RELEASE_DIR/mihomo.exe"
 
-      - name: 安装 Inno Setup
+      - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: 补齐 Inno Setup 语言包
+      - name: Add Inno Setup language files
         shell: bash
         run: |
           # inno_setup.iss 的 [Languages] 里有简体中文等**非官方**语言包，
@@ -230,7 +230,7 @@ jobs:
           print("all language packs present")
           PYEOF
 
-      - name: 打包（zip 便携版 + exe 安装版）
+      - name: Package (portable zip + exe installer)
         shell: bash
         run: |
           V="${INPUT_VERSION:-$GITHUB_REF_NAME}"
@@ -309,14 +309,14 @@ jobs:
           channel: stable
           cache: true
 
-      - name: 依赖
+      - name: Dependencies
         run: flutter pub get
 
-      - name: 离线分流数据
+      - name: Fetch offline routing data
         run: |
           bash tool/fetch_geodata.sh
 
-      - name: 下载 mihomo 内核（arm64）
+      - name: Download mihomo kernel (arm64)
         run: |
           mkdir -p build/mihomo
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
@@ -324,16 +324,16 @@ jobs:
           gunzip -f mihomo.gz && mv mihomo build/mihomo/mihomo && chmod +x build/mihomo/mihomo
           ./build/mihomo/mihomo -v | head -1
 
-      - name: 静态检查与测试（含真实内核 e2e）
+      - name: Analyze and test (incl. real-kernel e2e)
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
           flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
-      - name: 构建 macOS（arm64）
+      - name: Build macOS (arm64)
         run: flutter build macos --release
 
-      - name: 内置 mihomo 内核（arm64）
+      - name: Bundle mihomo kernel (arm64)
         run: |
           APP="build/macos/Build/Products/Release/Mclash.app"
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
@@ -344,14 +344,14 @@ jobs:
       # Flutter 的 macOS release **默认产出 universal**。若不裁剪就直接标成
       # "arm64" 发布，包里会同时带着 x86_64 主程序 —— 而内嵌内核是 arm64-only，
       # Intel 用户装上后表现为"能开但连不上"。所以必须把 app 与内核一起裁成 arm64。
-      - name: 裁剪为纯 arm64 并校验
+      - name: Thin to arm64-only and verify
         run: |
           bash scripts/thin_app.sh arm64 build/macos/Build/Products/Release/Mclash.app
           APP="build/macos/Build/Products/Release/Mclash.app"
           [ "$(lipo -archs "$APP/Contents/MacOS/Mclash")" = "arm64" ] || { echo "主程序不是纯 arm64"; exit 1; }
           [ "$(lipo -archs "$APP/Contents/MacOS/mihomo")" = "arm64" ] || { echo "内核不是纯 arm64"; exit 1; }
 
-      - name: 打包 arm64 DMG
+      - name: Package arm64 DMG
         run: |
           V="${INPUT_VERSION:-$GITHUB_REF_NAME}"; V="${V#v}"
           APP="build/macos/Build/Products/Release/Mclash.app"; mkdir -p dist
@@ -386,20 +386,20 @@ jobs:
           channel: stable
           cache: true
 
-      - name: 安装 Rosetta 2
+      - name: Install Rosetta 2
         run: |
           if ! arch -x86_64 true 2>/dev/null; then
             softwareupdate --install-rosetta --agree-to-license || true
           fi
 
-      - name: 依赖
+      - name: Dependencies
         run: flutter pub get
 
-      - name: 离线分流数据
+      - name: Fetch offline routing data
         run: |
           bash tool/fetch_geodata.sh
 
-      - name: 下载 mihomo 内核（**compatible**，x64）
+      - name: Download mihomo kernel (**compatible**, x64)
         run: |
           mkdir -p build/mihomo
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
@@ -407,16 +407,16 @@ jobs:
           gunzip -f mihomo.gz && mv mihomo build/mihomo/mihomo && chmod +x build/mihomo/mihomo
           ./build/mihomo/mihomo -v | head -1
 
-      - name: 静态检查与测试（含真实内核 e2e）
+      - name: Analyze and test (incl. real-kernel e2e)
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
           flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
-      - name: 构建 macOS（x64，Rosetta 整链）
+      - name: Build macOS (x64, full Rosetta toolchain)
         run: arch -x86_64 flutter build macos --release
 
-      - name: 内置 mihomo 内核（**compatible**，必须）
+      - name: Bundle mihomo kernel (**compatible**, required)
         run: |
           APP="build/macos/Build/Products/Release/Mclash.app"
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
@@ -427,14 +427,14 @@ jobs:
       # Rosetta 整链本应只产 x86_64，但仍显式裁剪一次并断言：
       # 若某天 Flutter 改成在 Rosetta 下也产 universal，这里会立刻失败而不是
       # 静默发出一个"标着 Intel、实际带 arm64"的包。
-      - name: 裁剪为纯 x86_64 并校验
+      - name: Thin to x86_64-only and verify
         run: |
           bash scripts/thin_app.sh x86_64 build/macos/Build/Products/Release/Mclash.app
           APP="build/macos/Build/Products/Release/Mclash.app"
           [ "$(lipo -archs "$APP/Contents/MacOS/Mclash")" = "x86_64" ] || { echo "主程序不是纯 x86_64"; exit 1; }
           [ "$(lipo -archs "$APP/Contents/MacOS/mihomo")" = "x86_64" ] || { echo "内核不是纯 x86_64"; exit 1; }
 
-      - name: 打包 x64 DMG
+      - name: Package x64 DMG
         run: |
           V="${INPUT_VERSION:-$GITHUB_REF_NAME}"; V="${V#v}"
           APP="build/macos/Build/Products/Release/Mclash.app"; mkdir -p dist
@@ -456,7 +456,7 @@ jobs:
 
   # ================= macOS universal =================
   macos-universal:
-    name: macOS universal（arm64 + x86_64）
+    name: macOS universal (arm64 + x86_64)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -466,37 +466,37 @@ jobs:
           channel: stable
           cache: true
 
-      - name: 依赖
+      - name: Dependencies
         run: flutter pub get
 
-      - name: 离线分流数据
+      - name: Fetch offline routing data
         run: |
           bash tool/fetch_geodata.sh
 
-      - name: 下载 mihomo 内核（测试用 arm64）
+      - name: Download mihomo kernel (arm64, for tests)
         run: |
           mkdir -p build/mihomo
           curl -fL --retry 5 --retry-delay 3 --retry-all-errors --max-time 600 -o mihomo.gz \
             "https://github.com/MetaCubeX/mihomo/releases/download/v$MIHOMO_VERSION/mihomo-darwin-arm64-v$MIHOMO_VERSION.gz"
           gunzip -f mihomo.gz && mv mihomo build/mihomo/mihomo && chmod +x build/mihomo/mihomo
 
-      - name: 静态检查与测试（含真实内核 e2e）
+      - name: Analyze and test (incl. real-kernel e2e)
         run: |
           export MCLASH_MIHOMO="$PWD/build/mihomo/mihomo"
           flutter analyze --no-fatal-infos
           flutter test --concurrency=1
 
-      - name: 构建 macOS release（Flutter 直出 universal）
+      - name: Build macOS release (Flutter universal output)
         run: flutter build macos --release
 
-      - name: 校验双架构（主程序必须同时含 arm64 与 x86_64）
+      - name: Verify both architectures (the app must contain arm64 and x86_64)
         run: |
           lipo build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash -verify_arch arm64 x86_64
           archs="$(lipo -archs build/macos/Build/Products/Release/Mclash.app/Contents/MacOS/Mclash)"
           echo "$archs" | grep -qw arm64   || { echo "缺 arm64"; exit 1; }
           echo "$archs" | grep -qw x86_64  || { echo "缺 x86_64"; exit 1; }
 
-      - name: 内置 mihomo 内核（universal：arm64 + amd64-compatible）
+      - name: "Bundle mihomo kernel (universal: arm64 + amd64-compatible)"
         run: |
           APP="build/macos/Build/Products/Release/Mclash.app"
           mkdir -p sb && cd sb
@@ -512,7 +512,7 @@ jobs:
           chmod +x "$APP/Contents/MacOS/mihomo"
           lipo "$APP/Contents/MacOS/mihomo" -verify_arch arm64 x86_64
 
-      - name: 打包 universal DMG
+      - name: Package universal DMG
         run: |
           V="${INPUT_VERSION:-$GITHUB_REF_NAME}"; V="${V#v}"
           APP="build/macos/Build/Products/Release/Mclash.app"; mkdir -p dist
@@ -534,7 +534,7 @@ jobs:
 
   # ================= 发布 =================
   release:
-    name: 发布到 GitHub Releases
+    name: Publish to GitHub Releases
     if: startsWith(github.ref, 'refs/tags/')
     needs: [android, windows, macos-arm64, macos-x64, macos-universal]
     runs-on: ubuntu-latest
@@ -546,7 +546,7 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: 创建 Release 并上传产物
+      - name: Create the release and upload artifacts
         uses: softprops/action-gh-release@v2
         with:
           files: dist/**
@@ -555,24 +555,5 @@ jobs:
           make_latest: true
           generate_release_notes: false
           fail_on_unmatched_files: true
-          body: |
-            # Mclash ${{ github.ref_name }}
-
-            ## Packages and system requirements
-            - **Android**: `Mclash-android-{arm64-v8a|armeabi-v7a|x86_64}.apk` + `.aab` (Android 8.0+)
-            - **Windows**: `Mclash-setup-*.exe` installer + `Mclash-windows-x64-portable-*.zip` (Windows 10+)
-            - **macOS arm64** (Apple silicon): `Mclash-macos-arm64-*.dmg` — requires **macOS 11+**
-            - **macOS x64** (Intel): `Mclash-macos-x64-*.dmg` — requires **macOS 10.15+** (11+ recommended)
-            - **macOS universal**: `Mclash-macos-universal-*.dmg` (runs on both chip families)
-
-            **Do not mix architectures.** Every package is built natively and bundles a kernel
-            matching its architecture. The Intel build ships the `compatible` kernel because the
-            standard build requires AVX2 (older machines crash on launch).
-
-            ## Kernel
-            Official [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) v${{ env.MIHOMO_VERSION }}
-            (Android: prebuilt through [moneyfly004/mihomo-lib](https://github.com/moneyfly004/mihomo-lib)
-            with gomobile bind — no fork).
-
-            ## Verify
-              shasum -a 256 -c SHA256SUMS-*.txt
+          # 说明文本按要求留空（不写更新说明，也不使用中文）
+          body: ""
