@@ -398,18 +398,28 @@ class MclashHomeHeader extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, c) {
                   final brand = _brand();
-                  if (c.maxWidth < 340) {
+                  if (c.maxWidth < 300) {
+                    // 极窄（小屏手机竖屏）：标志一行，信息条整条移到下一行
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         brand,
-                        const SizedBox(height: 8),
-                        Align(alignment: Alignment.centerRight, child: pill),
+                        const SizedBox(height: 6),
+                        pill,
                       ],
                     );
                   }
-                  return Row(
-                    children: [brand, const Spacer(), Flexible(child: pill)],
+                  // 注意：**不能用 Row + Spacer + Flexible** —— Spacer 与 Flexible
+                  // 都是 flex，会把剩余空间对半分，信息条只拿到一半 → 文字被省略号
+                  // 截断（用户实测「到期时间/设备使用情况显示不完整、被遮挡」）。
+                  // Wrap + spaceBetween：放得下就两端对齐，放不下就整条换行，
+                  // 而且每个子项都按**自身需要的宽度**布局，不会压缩文字。
+                  return Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [brand, pill],
                   );
                 },
               ),
@@ -497,9 +507,15 @@ class MclashHomeHeader extends StatelessWidget {
     required bool blocked,
     required String blockedTitle,
   }) {
+    // 「设备 2/50」这种紧凑写法（deviceText 是 "2 / 50"，多两个空格更容易被挤掉）
+    final used = info.deviceUsed;
+    final limit = info.deviceLimit;
+    final deviceText = (used != null || limit != null)
+        ? "${used ?? "-"}/${limit ?? "-"}"
+        : (info.deviceText ?? "").replaceAll(" ", "");
     final bits = <String>[
       if (info.expireDate.isNotEmpty) "到期 ${info.expireDate}",
-      if (info.deviceText != null) "设备 ${info.deviceText}",
+      if (deviceText.isNotEmpty) "设备 $deviceText",
     ];
     final text = blocked ? blockedTitle : bits.join(" · ");
     if (text.isEmpty) {
@@ -535,6 +551,10 @@ class MclashHomeHeader extends StatelessWidget {
               color: blocked ? Colors.red : ThemeDefine.kColorBlue,
             ),
             const SizedBox(width: 5),
+            // 只在**真的放不下**时才允许省略：外层已经换成 Wrap（不再和 Spacer
+            // 抢宽度），所以正常窗口里永远是完整显示；这个 Flexible+ellipsis 只是
+            // 极端窄屏下的兜底，避免整行溢出（用户反馈过「显示不完整」，也绝不能
+            // 反过来变成红黄条溢出）。
             Flexible(
               child: Text(
                 text,

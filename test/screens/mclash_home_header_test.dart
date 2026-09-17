@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
@@ -74,19 +75,19 @@ void main() {
       reason: '两者在同一行（顶栏），信息条不再另起一张卡在下面',
     );
     expect(find.textContaining("到期 2028-06-25"), findsOneWidget);
-    expect(find.textContaining("设备 1 / 50"), findsOneWidget);
+    expect(find.textContaining("设备 1/50"), findsOneWidget);
     await finish(tester);
   });
 
   testWidgets('账号数据一变，顶栏立刻跟着变（不再出现「数据没同步」）', (tester) async {
     await pumpHeader(tester);
-    expect(find.textContaining("设备 1 / 50"), findsOneWidget);
+    expect(find.textContaining("设备 1/50"), findsOneWidget);
 
     MclashAccountService.instance.debugSetData(dash(3), sub(3));
     await tester.pump();
 
-    expect(find.textContaining("设备 1 / 3"), findsOneWidget);
-    expect(find.textContaining("1 / 50"), findsNothing);
+    expect(find.textContaining("设备 1/3"), findsOneWidget);
+    expect(find.textContaining("1/50"), findsNothing);
     await finish(tester);
   });
 
@@ -104,6 +105,69 @@ void main() {
     expect(find.byKey(const ValueKey("home-freshness")), findsOneWidget);
     expect(find.textContaining("刷新"), findsWidgets);
     await finish(tester);
+  });
+
+  // 用户反馈：「主页右上角的到期时间显示不完整，设备使用情况也不完整，被遮挡了」。
+  // 根因是 Row + Spacer + Flexible 把剩余空间对半分，信息条只拿到一半宽度 →
+  // 文字被省略号截断。这里用真实几何断言钉住：任何窗口宽度下都要**完整**显示。
+  group('信息条不截断（真实几何）', () {
+    Future<void> pumpAt(WidgetTester tester, double width) async {
+      tester.view.physicalSize = Size(width * 3, 900 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await pumpHeader(tester);
+    }
+
+    // 说明：`flutter test` 用的是等宽测试字体（每个字形都是 1em 方块），
+    // 比真机字体宽约 1.7 倍 —— 因此这里的 420px 大约相当于真机 250px，
+    // 已经比任何真机窗口都窄。前三个宽度断言「一个字符都不能少」。
+    for (final width in <double>[900, 700, 520, 420]) {
+      testWidgets('宽 ${width.toInt()}px：到期/设备完整显示且不出屏', (tester) async {
+        await pumpAt(tester, width);
+
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '窄窗口下不能出现 RenderFlex overflow',
+        );
+        expect(find.textContaining("到期 2028-06-25"), findsOneWidget);
+        expect(find.textContaining("设备 1/50"), findsOneWidget);
+
+        // 文本实际渲染宽度 == 它需要的宽度 → 没有被压缩/截断
+        for (final finder in [
+          find.textContaining("到期 2028-06-25"),
+          find.textContaining("设备 1/50"),
+        ]) {
+          final p = tester.renderObject<RenderParagraph>(finder);
+          expect(
+            p.size.width,
+            greaterThanOrEqualTo(p.getMaxIntrinsicWidth(double.infinity) - 0.5),
+            reason: '「${p.text.toPlainText()}」被截断了（可用宽度不足）',
+          );
+        }
+
+        final pill = tester.getRect(
+          find.byKey(const ValueKey("home-sub-pill")),
+        );
+        expect(pill.right, lessThanOrEqualTo(width + 0.5), reason: '信息条不能出屏');
+      });
+    }
+
+    // 极端窄屏（比任何真机都窄）：宁可省略，也不能溢出红黄条
+    for (final width in <double>[360, 320]) {
+      testWidgets('宽 ${width.toInt()}px：不溢出（兜底允许省略）', (tester) async {
+        await pumpAt(tester, width);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '极端窄屏下不能出现 RenderFlex overflow',
+        );
+        final pill = tester.getRect(
+          find.byKey(const ValueKey("home-sub-pill")),
+        );
+        expect(pill.right, lessThanOrEqualTo(width + 0.5));
+      });
+    }
   });
 
   group('新鲜度文案（纯函数）', () {
