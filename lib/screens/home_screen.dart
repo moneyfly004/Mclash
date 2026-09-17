@@ -8,7 +8,6 @@ import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
 import 'package:mclash/app/modules/biz.dart';
 import 'package:mclash/app/modules/remote_config_manager.dart';
-import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/error_reporter_utils.dart';
 import 'package:mclash/app/utils/local_storage.dart';
 import 'package:mclash/app/utils/log.dart';
@@ -20,8 +19,6 @@ import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
 import 'package:mclash/screens/language_settings_screen.dart';
 import 'package:mclash/screens/scheme_handler.dart';
-import 'package:mclash/screens/theme_config.dart';
-import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/themes.dart';
 import 'package:mclash/screens/user_agreement_screen.dart';
@@ -280,29 +277,10 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
         child: Column(
           children: [
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Column(
-                children: [
-                  Text(
-                    AppUtils.getName(),
-                    style: const TextStyle(
-                      fontWeight: ThemeConfig.kFontWeightTitle,
-                      fontSize: ThemeConfig.kFontSizeTitle,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-
-                    "订阅自动同步 · 无需手动添加节点",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ThemeDefine.kColorGrey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // 顶栏：标志缩小靠左上，到期/设备信息条在标志右侧（连接卡**上方**）。
+            // 以前是 18px 居中大标题 + 一整行副标题，把订阅信息挤到连接卡下方，
+            // 用户要滚动/找才能看到「到期时间、设备数」。
+            const MclashHomeHeader(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
@@ -324,11 +302,6 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
                           HomeScreenWidgetPart1(
                             key: const ValueKey('home-connect-card'),
                           ),
-                          const SizedBox(height: 12),
-                          if (!blocked)
-                            const MclashSubscriptionCard(
-                              key: ValueKey('home-sub-bar'),
-                            ),
                           const SizedBox(height: 12),
                           const MclashQuickCountries(
                             key: ValueKey('home-quick-countries'),

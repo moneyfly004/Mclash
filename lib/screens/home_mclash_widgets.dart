@@ -1,10 +1,14 @@
 
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/screens/dialog_utils.dart';
+import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
@@ -330,4 +334,226 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
   }
   await showMclashAccountGateDialog(context);
   return false;
+}
+
+
+/// 主页顶栏：**标志缩小靠左上，到期/设备信息条放在标志右侧、连接卡上方**。
+///
+/// 用户实测反馈：
+///   * 「主页上 Mclash 的标志太大」——原来是 18px 居中大字 + 一行副标题，占掉整行；
+///   * 「到期设备的信息应该放在连接按钮上方、标志右侧」——原来那张卡在连接卡**下方**；
+///   * 「卡片数据没同步」——卡片取的就是账号服务的数据（后端口径），
+///     这里补一条**新鲜度**提示，过期时点一下立刻刷新，避免「看着像没更新」。
+///
+/// 点信息条 → 设备管理（当前设备列表、删除旧记录都在那里）。
+class MclashHomeHeader extends StatelessWidget {
+  const MclashHomeHeader({super.key});
+
+  /// 数据超过这个时长就提示「点击刷新」。
+  static const Duration kStaleAfter = Duration(minutes: 5);
+
+  /// 新鲜度文案（纯函数，便于测试）。[cachedAt] 为空 = 还没成功拉过。
+  static String freshnessText(DateTime? cachedAt, {DateTime? now}) {
+    if (cachedAt == null) {
+      return "尚未同步 · 点击刷新";
+    }
+    final diff = (now ?? DateTime.now()).difference(cachedAt);
+    if (diff.inMinutes < 1) {
+      return "刚刚更新 · 点右侧管理设备";
+    }
+    if (diff < kStaleAfter) {
+      return "${diff.inMinutes} 分钟前更新 · 点右侧管理设备";
+    }
+    return "${diff.inMinutes} 分钟前更新 · 点击刷新";
+  }
+
+  static bool isStale(DateTime? cachedAt, {DateTime? now}) {
+    if (cachedAt == null) {
+      return true;
+    }
+    return (now ?? DateTime.now()).difference(cachedAt) >= kStaleAfter;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: MclashAccountService.instance,
+      builder: (context, _) {
+        final acc = MclashAccountService.instance;
+        final info = MclashAccountInfo(acc.dashboard, acc.subscription);
+        final blocked = acc.isBlocked;
+        final cachedAt = acc.cachedAt;
+        final pill = _subscriptionPill(
+          context,
+          info: info,
+          blocked: blocked,
+          blockedTitle: blocked ? "${acc.blockEmoji} ${acc.blockTitle}" : "",
+        );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 窄屏（手机）折行：标志一行，信息条紧随其下，仍然在连接卡之前
+              LayoutBuilder(
+                builder: (context, c) {
+                  final brand = _brand();
+                  if (c.maxWidth < 340) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        brand,
+                        const SizedBox(height: 8),
+                        Align(alignment: Alignment.centerRight, child: pill),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [brand, const Spacer(), Flexible(child: pill)],
+                  );
+                },
+              ),
+              const SizedBox(height: 3),
+              GestureDetector(
+                key: const ValueKey("home-freshness"),
+                onTap: () {
+                  if (isStale(cachedAt)) {
+                    unawaited(MclashAccountService.instance.refresh());
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 32),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isStale(cachedAt)
+                            ? Icons.refresh
+                            : Icons.check_circle_outline,
+                        size: 12,
+                        color: ThemeDefine.kColorGrey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        freshnessText(cachedAt),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: ThemeDefine.kColorGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 左侧标志：真实 logo（24px）+ 应用名（15px）+ 一行 10.5px 副标题。
+  Widget _brand() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset(
+          "assets/images/logo-round.png",
+          width: 24,
+          height: 24,
+          filterQuality: FilterQuality.medium,
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppUtils.getName(),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: ThemeConfig.kFontWeightTitle,
+                height: 1.15,
+              ),
+            ),
+            const Text(
+              "订阅自动同步",
+              style: TextStyle(
+                fontSize: 10.5,
+                color: ThemeDefine.kColorGrey,
+                height: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 右侧信息条：到期时间 + 设备数；点一下进设备管理。
+  Widget _subscriptionPill(
+    BuildContext context, {
+    required MclashAccountInfo info,
+    required bool blocked,
+    required String blockedTitle,
+  }) {
+    final bits = <String>[
+      if (info.expireDate.isNotEmpty) "到期 ${info.expireDate}",
+      if (info.deviceText != null) "设备 ${info.deviceText}",
+    ];
+    final text = blocked ? blockedTitle : bits.join(" · ");
+    if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      key: const ValueKey("home-sub-pill"),
+      borderRadius: BorderRadius.circular(999),
+      onTap: () {
+        if (blocked) {
+          showMclashAccountGateDialog(context);
+          return;
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MclashDevicesScreen()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 5, 8, 5),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              blocked ? Icons.error_outline : Icons.workspace_premium_outlined,
+              size: 14,
+              color: blocked ? Colors.red : ThemeDefine.kColorBlue,
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: blocked ? Colors.red : null,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 15,
+              color: ThemeDefine.kColorGrey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
