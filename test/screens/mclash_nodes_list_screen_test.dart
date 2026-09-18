@@ -293,6 +293,40 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  // 用户实测的「打开节点列表卡一下、搜一下就卡住」：旧实现用
+  // `ListView(children: [...])` 一次性构建**全部**节点行 —— 300~400 个节点的订阅
+  // 会同时建几百个 ListTile，而且在测速进度每 500ms 通知一次界面时全部重建。
+  // 现在拍平成「表头/节点」行交给 ListView.builder 按需构建，
+  // 这里用 400 个节点验证：真正被构建的行数必须远小于总数。
+  testWidgets('400 个节点：只构建视口内的行（懒构建回归）', (tester) async {
+    final many = [
+      for (var i = 0; i < 400; i++)
+        MclashNode(
+          name: "节点 $i",
+          type: "vless",
+          server: "10.0.${i ~/ 250}.${i % 250 + 1}",
+          port: 443,
+        )..latencyMs = 100,
+    ];
+
+    await pump(tester, injectSample: false);
+    MclashNodesStore.instance.debugSetNodes(many, loading: false);
+    await tester.pump(const Duration(milliseconds: 50));
+    await expandAll(tester);
+
+    final built = find.byType(ListTile).evaluate().length;
+    expect(
+      built,
+      lessThan(80),
+      reason: '只应构建视口内的行；一次性构建 400 行会让打开/搜索/刷新都卡',
+    );
+    expect(find.textContaining("节点 0"), findsWidgets);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets('空列表：显示空状态与「重新加载」按钮，点击不崩', (tester) async {
     await pump(tester, injectSample: false);
     MclashNodesStore.instance.debugSetNodes([], loading: false);

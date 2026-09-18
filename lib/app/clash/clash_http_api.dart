@@ -5,8 +5,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:mclash/app/clash/clash_config.dart';
+import 'package:tuple/tuple.dart';
+
 import 'package:mclash/app/runtime/return_result.dart';
-import 'package:mclash/app/utils/http_utils.dart';
 
 class ClashConfigsTun {
   bool enable = false;
@@ -280,18 +281,109 @@ class ClashHttpApi {
     return headers;
   }
 
-  static Future<ReturnResult<ClashConfigs>> getConfigs() async {
-    String secret = getSecret?.call() ?? "";
-    Map<String, String> headers = getHeaders(secret);
+  // ======================================================================
+  // 控制接口的传输层：**复用连接 + 合并并发请求**
+  // ======================================================================
+  //
+  // 旧实现每个请求都 `HttpClient()` 新建一个客户端：每次都要建立连接、每次都要
+  // 创建一整套连接管理器（含定时器与事件循环任务），用完就丢。而控制接口是
+  // **本机回环、同一个内核**：一轮测速几百次 `/proxies/{name}/delay`、每 15 秒
+  // 几次轮询、切节点/切模式各一次 —— 全都在为「重新握手」付钱。
+  // 用户反馈的「连接之后非常卡、点不动」里，这是持续背景负载的一份。
+  static HttpClient? _client;
 
-    var result = await HttpUtils.httpGetRequest(
-      "$host:${getControlPort?.call()}/configs",
-      null,
-      headers,
-      const Duration(seconds: timeoutSeconds),
-      null,
-      null,
-    );
+  static HttpClient _sharedClient() {
+    final cached = _client;
+    if (cached != null) {
+      return cached;
+    }
+    final created = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 3)
+      // 回环长连接到同一个内核：保持 20 秒，测速/轮询都能复用。
+      ..idleTimeout = const Duration(seconds: 20)
+      ..maxConnectionsPerHost = 8;
+    _client = created;
+    return created;
+  }
+
+  /// 丢掉连接池。
+  ///
+  /// 什么时候必须调用：内核重启（stop/start）之后，池子里的连接全部指向已经消失的
+  /// 进程 —— 不丢就会看到「Connection closed before full header was received」。
+  /// 也用于测试与内核端口变更。
+  static void resetControlConnection() {
+    final c = _client;
+    _client = null;
+    try {
+      c?.close(force: true);
+    } catch (_) {}
+  }
+
+  /// 对内核控制接口发一次请求（自动重试一次）。
+  ///
+  /// 重试的理由：唯一会「莫名失败一次」的场景就是内核刚重启、池子里的连接已失效。
+  /// 丢掉连接池重试一次即可恢复 —— 否则上层会把它当成节点不通/内核不响应。
+  static Future<ReturnResult<Tuple2<int, String>>> controlRequest(
+    String method,
+    String path, {
+    Duration? timeout,
+    String? body,
+    bool retry = true,
+  }) async {
+    final t = timeout ?? const Duration(seconds: timeoutSeconds);
+    final port = getControlPort?.call() ?? 0;
+    if (port <= 0) {
+      return ReturnResult(error: ReturnResultError("控制端口未就绪"));
+    }
+    final uri = Uri.parse("$host:$port$path");
+    final headers = getHeaders(getSecret?.call() ?? "");
+    Object? lastError;
+    final attempts = retry ? 2 : 1;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        final client = _sharedClient();
+        final req = await client.openUrl(method, uri).timeout(t);
+        headers.forEach((k, v) => req.headers.set(k, v));
+        if (body != null) {
+          req.write(body);
+        }
+        final resp = await req.close().timeout(t);
+        final text = await resp.transform(utf8.decoder).join().timeout(t);
+        return ReturnResult(data: Tuple2(resp.statusCode, text));
+      } catch (err) {
+        lastError = err;
+        resetControlConnection();
+      }
+    }
+    return ReturnResult(error: ReturnResultError("$lastError"));
+  }
+
+  // ---- /proxies 的合并与短缓存 ----
+  //
+  // 为什么需要：`/proxies` 返回**全部节点**（真实订阅 300~400 个，几百 KB JSON），
+  // 而它被三个地方在同一个 15 秒周期里各拉一次（首页当前节点、内核状态同步、
+  // 面板跟随），每次都要重新下载 + 在主 isolate 上 jsonDecode。
+  // 现在：并发调用合并成一次请求，结果缓存 1.5 秒；写操作（切节点/切模式）会主动失效。
+  static Future<ReturnResult<List<ClashProxiesNode>>>? _proxiesInflight;
+  static ReturnResult<List<ClashProxiesNode>>? _proxiesCache;
+  static DateTime? _proxiesAt;
+  static const Duration _proxiesTtl = Duration(milliseconds: 1500);
+
+  /// 让下一次 [getProxies] 重新请求（切节点/切模式/内核重启后调用）。
+  static void invalidateProxiesCache() {
+    _proxiesCache = null;
+    _proxiesAt = null;
+  }
+
+  @visibleForTesting
+  static void debugResetControlState() {
+    resetControlConnection();
+    invalidateProxiesCache();
+    _proxiesInflight = null;
+  }
+
+  static Future<ReturnResult<ClashConfigs>> getConfigs() async {
+    final result = await controlRequest("GET", "/configs");
     if (result.error != null) {
       return ReturnResult(error: result.error);
     }
@@ -319,18 +411,12 @@ class ClashHttpApi {
     if (delayOverride != null) {
       return delayOverride(node, url, timeout);
     }
-    String secret = getSecret?.call() ?? "";
-    Map<String, String> headers = getHeaders(secret);
-
     final encodeNode = Uri.encodeComponent(node);
     final encodeUrl = Uri.encodeComponent(url);
-    var result = await HttpUtils.httpGetRequest(
-      "$host:${getControlPort?.call()}/proxies/$encodeNode/delay?url=$encodeUrl&timeout=${timeout.inMilliseconds}",
-      null,
-      headers,
-      timeout,
-      null,
-      null,
+    final result = await controlRequest(
+      "GET",
+      "/proxies/$encodeNode/delay?url=$encodeUrl&timeout=${timeout.inMilliseconds}",
+      timeout: timeout,
     );
     if (result.error != null) {
       return ReturnResult(error: result.error);
@@ -353,18 +439,12 @@ class ClashHttpApi {
     String url = "https://www.gstatic.com/generate_204",
     Duration timeout = const Duration(seconds: 5),
   }) async {
-    final secret = getSecret?.call() ?? "";
-    final headers = getHeaders(secret);
     final encodeGroup = Uri.encodeComponent(group);
     final encodeUrl = Uri.encodeComponent(url);
-    final result = await HttpUtils.httpGetRequest(
-      "$host:${getControlPort?.call()}/group/$encodeGroup/delay?url=$encodeUrl&timeout=${timeout.inMilliseconds}",
-      null,
-      headers,
-
-      timeout + const Duration(seconds: 10),
-      null,
-      null,
+    final result = await controlRequest(
+      "GET",
+      "/group/$encodeGroup/delay?url=$encodeUrl&timeout=${timeout.inMilliseconds}",
+      timeout: timeout + const Duration(seconds: 10),
     );
     if (result.error != null) {
       return {};
@@ -386,18 +466,34 @@ class ClashHttpApi {
     }
   }
 
-  static Future<ReturnResult<List<ClashProxiesNode>>> getProxies() async {
-    String secret = getSecret?.call() ?? "";
-    Map<String, String> headers = getHeaders(secret);
+  static Future<ReturnResult<List<ClashProxiesNode>>> getProxies({
+    bool force = false,
+  }) {
+    // 1.5 秒内的并发/连续调用共用一次请求与一次解析（见 _proxiesTtl 的说明）。
+    if (!force) {
+      final cached = _proxiesCache;
+      final at = _proxiesAt;
+      if (cached != null &&
+          at != null &&
+          DateTime.now().difference(at) < _proxiesTtl) {
+        return Future.value(cached);
+      }
+      final inflight = _proxiesInflight;
+      if (inflight != null) {
+        return inflight;
+      }
+    }
+    final future = _fetchProxies();
+    _proxiesInflight = future;
+    return future.whenComplete(() {
+      if (identical(_proxiesInflight, future)) {
+        _proxiesInflight = null;
+      }
+    });
+  }
 
-    var resultProxies = await HttpUtils.httpGetRequest(
-      "$host:${getControlPort?.call()}/proxies",
-      null,
-      headers,
-      const Duration(seconds: timeoutSeconds),
-      null,
-      null,
-    );
+  static Future<ReturnResult<List<ClashProxiesNode>>> _fetchProxies() async {
+    final resultProxies = await controlRequest("GET", "/proxies");
     if (resultProxies.error != null) {
       return ReturnResult(error: resultProxies.error);
     }
@@ -408,14 +504,7 @@ class ClashHttpApi {
     } catch (err) {
       return ReturnResult(error: ReturnResultError(err.toString()));
     }
-    var resultProviders = await HttpUtils.httpGetRequest(
-      "$host:${getControlPort?.call()}/providers/proxies",
-      null,
-      headers,
-      const Duration(seconds: timeoutSeconds),
-      null,
-      null,
-    );
+    final resultProviders = await controlRequest("GET", "/providers/proxies");
     if (resultProviders.error == null) {
       try {
         var decodedResponse = jsonDecode(resultProviders.data!.item2);
@@ -424,7 +513,10 @@ class ClashHttpApi {
         return ReturnResult(error: ReturnResultError(err.toString()));
       }
     }
-    return ReturnResult(data: proxies.proxies);
+    final out = ReturnResult(data: proxies.proxies);
+    _proxiesCache = out;
+    _proxiesAt = DateTime.now();
+    return out;
   }
 
   static List<ClashProxiesNode> getNowChain(
@@ -492,22 +584,17 @@ class ClashHttpApi {
     String group,
     String node,
   ) async {
-    String secret = getSecret?.call() ?? "";
-    Map<String, String> headers = getHeaders(secret);
-
     final encodeGroup = Uri.encodeComponent(group);
-    var body = JsonEncoder().convert({"name": node});
-    var result = await HttpUtils.httpPutRequest(
-      "$host:${getControlPort?.call()}/proxies/$encodeGroup",
-      null,
-      headers,
-      body,
-      const Duration(seconds: timeoutSeconds),
-      null,
-      null,
-      null,
+    final body = JsonEncoder().convert({"name": node});
+    final result = await controlRequest(
+      "PUT",
+      "/proxies/$encodeGroup",
+      body: body,
     );
-
+    if (result.error == null) {
+      // 刚改了当前节点 → 之前缓存的 /proxies 立刻过期，别让界面/选路读到旧值。
+      invalidateProxiesCache();
+    }
     return result.error;
   }
 
@@ -515,15 +602,10 @@ class ClashHttpApi {
     String domain, {
     String queryType = "A",
   }) async {
-    String secret = getSecret?.call() ?? "";
-    Map<String, String> headers = getHeaders(secret);
-    var result = await HttpUtils.httpGetRequest(
-      "$host:${getControlPort?.call()}/dns/query?name=$domain&type=$queryType",
-      null,
-      headers,
-      const Duration(seconds: 10),
-      null,
-      null,
+    final result = await controlRequest(
+      "GET",
+      "/dns/query?name=$domain&type=$queryType",
+      timeout: const Duration(seconds: 10),
     );
     if (result.error != null) {
       return ReturnResult(error: result.error);
@@ -549,20 +631,17 @@ class ClashHttpApi {
   }
 
   static Future<ReturnResultError?> setConfigsMode(String mode) async {
-    String secret = getSecret?.call() ?? "";
-    Map<String, String> headers = getHeaders(secret);
-
-    var body = JsonEncoder().convert({"mode": mode});
-    var result = await HttpUtils.httpPatchRequest(
-      "$host:${getControlPort?.call()}/configs",
-      null,
-      headers,
-      body,
-      const Duration(seconds: 2),
-      null,
-      null,
+    final body = JsonEncoder().convert({"mode": mode});
+    final result = await controlRequest(
+      "PATCH",
+      "/configs",
+      body: body,
+      timeout: const Duration(seconds: 2),
     );
-
+    if (result.error == null) {
+      // 模式变了 → GLOBAL/选择组会不同，缓存的 /proxies 不再可信。
+      invalidateProxiesCache();
+    }
     return result.error;
   }
 

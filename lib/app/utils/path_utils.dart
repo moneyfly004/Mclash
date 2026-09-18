@@ -51,9 +51,18 @@ class PathUtils {
   ///
   /// 所以这里做**可写性探测**：安装目录能写就用它（保持便携版/自定义目录的行为），
   /// 不能写就回退到应用数据目录（`%APPDATA%\mclash\mclash`，必然可写）。
+  /// 进程内缓存：内核工作目录在一次运行里不会变，但**每次连接**都会问一次；
+  /// 而它内部要做一次真实的可写性探测（写一个临时文件再删）—— 装在
+  /// `C:\Program Files` 下时那次写入还会失败并抛异常。缓存后只探测一次。
+  static String _serviceWorkDirCache = "";
+
   static Future<String> serviceWorkDir() async {
+    if (_serviceWorkDirCache.isNotEmpty) {
+      return _serviceWorkDirCache;
+    }
     final assets = appAssetsDir();
     if (assets.isNotEmpty && await _isWritable(assets)) {
+      _serviceWorkDirCache = assets;
       return assets;
     }
     final profile = await profileDir();
@@ -63,8 +72,10 @@ class PathUtils {
       } else {
         Log.w("PathUtils: 安装目录不可写（$assets），内核工作目录改用 $profile");
       }
+      _serviceWorkDirCache = profile;
       return profile;
     }
+    _serviceWorkDirCache = assets;
     return assets;
   }
 

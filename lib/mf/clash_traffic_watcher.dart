@@ -55,7 +55,17 @@ class ClashTrafficWatcher {
   int _failures = 0;
 
   /// 开始监听（幂等）。[port] 为内核控制端口，[secret] 为控制密钥。
+  /// 当前连接使用的控制端口（用于识别「内核换了端口」）。
+  int _port = 0;
+
   void start({required int port, required String secret}) {
+    // 端口变了：旧连接指向的是另一个（或已经不存在的）内核 → 先断掉再重连。
+    // 少了这一步，内核重启后控制端口变化时这里会因为「已经有 socket」直接返回，
+    // 首页流量就一直停在旧值（用户看到的是「流量不动」）。
+    if (_socket != null && _port != port) {
+      Log.i("ClashTrafficWatcher: 控制端口 $port != 当前 $_port → 重连流量流");
+      stop();
+    }
     if (_starting || _socket != null) {
       return;
     }
@@ -64,6 +74,7 @@ class ClashTrafficWatcher {
       return;
     }
     _starting = true;
+    _port = port;
     _connect(port, secret).whenComplete(() => _starting = false);
   }
 

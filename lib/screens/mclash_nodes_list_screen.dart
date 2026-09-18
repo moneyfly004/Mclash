@@ -354,16 +354,32 @@ class _MclashNodesListScreenState
     if (grouped.isEmpty) {
       return _empty("没有匹配的节点。");
     }
-    return ListView(
+    // 扁平化成「表头 / 节点」两种行，交给 ListView.builder **按需构建**。
+    //
+    // 为什么必须这么做（流畅度）：旧实现是 `ListView(children: [...])` ——
+    // 一次性构建**全部**节点行。真实订阅 300~400 个节点时，打开这个页面要同时
+    // 建 400 个 ListTile（每个都带 InkWell/Text/图标），而且在等一次搜索、点一次
+    // 折叠、或测速进度每 500ms 通知一次界面时，**400 项全部重建**。
+    // 用户感受到的就是「打开节点列表卡一下、搜一下就卡住」。
+    // 现在只有视口内的十几行会被构建与重建。
+    final rows = <_NodeListRow>[];
+    for (final g in grouped) {
+      rows.add(_NodeListRow.header(g));
+      if (_filter.trim().isNotEmpty || !_collapsed.contains(g.code)) {
+        for (final n in g.nodes) {
+          rows.add(_NodeListRow.node(n));
+        }
+      }
+    }
+    return ListView.builder(
+      key: const PageStorageKey<String>("mclash-nodes-list"),
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      children: [
-        for (final g in grouped) ...[
-          _countryHeader(g),
-
-          if (_filter.trim().isNotEmpty || !_collapsed.contains(g.code))
-            for (final n in g.nodes) _nodeRow(n),
-        ],
-      ],
+      itemCount: rows.length,
+      itemBuilder: (_, i) {
+        final row = rows[i];
+        final header = row.group;
+        return header != null ? _countryHeader(header) : _nodeRow(row.node!);
+      },
     );
   }
 
@@ -584,4 +600,16 @@ abstract final class MclashNodeCountryLabels {
 
   static int weight(String code) =>
       code == "XX" ? 9999 : MclashNodeCountry.sortWeight(code);
+}
+
+/// 节点列表里的一行：要么是国家分组表头，要么是一个节点。
+///
+/// 有了它才能把「分组 + 展开状态」拍平成一维列表交给 `ListView.builder`
+/// 按需构建（见 _buildBody 的说明）。
+class _NodeListRow {
+  _NodeListRow.header(this.group) : node = null;
+  _NodeListRow.node(this.node) : group = null;
+
+  final _CountryGroup? group;
+  final MclashNode? node;
 }

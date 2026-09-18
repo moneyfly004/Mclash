@@ -1097,15 +1097,19 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       final result = await ClashHttpApi.getNowProxy(
         ClashSettingManager.getConfig().Mode ?? ClashConfigsMode.rule.name,
       );
-      if (result.error != null || result.data!.isEmpty) {
+      // data 允许为 null（模式为空、组还没就绪等）—— 旧代码在这里 `data!` 会抛
+      // 「Null check operator used on a null value」，而这个方法每 15 秒被定时器
+      // 调一次，等于周期性丢异常。
+      final chain = result.data;
+      if (result.error != null || chain == null || chain.isEmpty) {
         _proxyNow.value = "";
       } else {
         // 只显示**节点本身**（跳过内核内置的 GLOBAL 等组名）：
         // 全局模式下内核会把链路报成 "GLOBAL -> 节点"，直接摊给用户看会让人
         // 以为「选的是 global 而不是节点」（参考客户端就是只显示节点）。
         _proxyNow.value = formatCurrentProxyName(
-          result.data!.map((e) => e.name),
-          delayMs: result.data!.first.delay,
+          chain.map((e) => e.name),
+          delayMs: chain.first.delay,
         );
       }
       _proxyNowUpdating = false;

@@ -227,6 +227,7 @@ class VPNService {
         patch.id.isEmpty ||
         patch.id == kProfilePatchBuildinOverwrite ||
         patch.appendPatchBuildin == kProfilePatchBuildinOverwrite;
+    final swPatch = Stopwatch()..start();
     await ClashSettingManager.saveCorePatchFinal(
       profile.id,
       overwriteFinal,
@@ -241,6 +242,9 @@ class VPNService {
       // 是一项通用能力（见 ClashSettingManager.getPatchContent）。
       null,
     );
+    // 这段是纯 CPU（规则展开 + JSON 编码几百 KB）且跑在主 isolate 上，单独打点：
+    // 若日志里它很大，就该像内核配置生成那样挪到后台 isolate。
+    Log.i("[perf] 连接：生成内核补丁用时 ${swPatch.elapsedMilliseconds} ms");
 
     var excludePorts = [controlPort];
     excludePorts.add(ClashSettingManager.getMixedPort());
@@ -551,6 +555,12 @@ class VPNService {
     if (prepareResult != null) {
       return prepareResult;
     }
+    // 内核要重启了：控制接口的连接池与 /proxies 缓存都指向即将消失的进程，
+    // 先丢掉，避免之后拿到「已关闭的连接」或过期节点表（虽然传输层有重试兜底，
+    // 但那要多付一次失败往返）。
+    ClashHttpApi.resetControlConnection();
+    ClashHttpApi.invalidateProxiesCache();
+
     final swPrepare = Stopwatch()..start();
     try {
       bool reinstall = await _prepareConfig(profile);
@@ -857,6 +867,9 @@ class VPNService {
     if (Platform.isWindows) {
       await uninstall();
     }
+    // 内核已停：连接池里的连接全部失效，节点表也不再可信。
+    ClashHttpApi.resetControlConnection();
+    ClashHttpApi.invalidateProxiesCache();
     Log.i("[perf] 断开：撤系统代理 + 停内核用时 ${sw.elapsedMilliseconds} ms");
   }
 

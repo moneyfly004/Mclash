@@ -108,18 +108,31 @@ abstract class VpnServicePlatform {
   Future<String> clashiApiTraffic();
 }
 
+/// 应用数据目录的进程内缓存。
+///
+/// 这个目录在一次运行里不会变，但调用点极多（内核配置/日志/错误文件/工作目录…
+/// 每次连接与断开加起来十几次），而每次都要走一次平台通道 + 目录存在性检查。
+/// 缓存后只在第一次真正查询。
+String? _appSupportDirCache;
+
 Future<String> getApplicationSupportDir() async {
+  final cached = _appSupportDirCache;
+  if (cached != null && cached.isNotEmpty) {
+    return cached;
+  }
   try {
     final d = await getApplicationSupportDirectory();
     if (!await d.exists()) {
       await d.create(recursive: true);
     }
+    _appSupportDirCache = d.path;
     return d.path;
   } catch (_) {
     final fallback = Directory(p.join(Directory.systemTemp.path, "mclash"));
     if (!await fallback.exists()) {
       await fallback.create(recursive: true);
     }
+    _appSupportDirCache = fallback.path;
     return fallback.path;
   }
 }
