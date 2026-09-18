@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
-import 'package:mclash/app/clash/clash_config.dart';
 
 /// 内核日志里反复出现的这行 error：
 ///   The `global-client-fingerprint` configuration is removed,
