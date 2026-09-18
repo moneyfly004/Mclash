@@ -177,6 +177,19 @@ void main() {
     );
   });
 
+  // 参考实现（mysoftware/moneyfly 的 SystemProxyManager）比我们多这一步：
+  // 广播 WM_SETTINGCHANGE + lParam="InternetSettings"。Windows 的「Internet 选项 /
+  // 设置 → 代理」界面靠这条消息重新读取代理设置 —— 我们以前只有
+  // InternetSetOption(SETTINGS_CHANGED/REFRESH)，于是出现「注册表里确实有地址端口、
+  // 也能上网，但界面一片空白」。这里在真机 Windows 上确认这条广播可用。
+  test('广播 WM_SETTINGCHANGE（界面刷新的关键一步）', () {
+    expect(
+      windows_wininet.broadcastInternetSettingsChanged(),
+      isTrue,
+      reason: 'user32!SendMessageTimeout 必须可调用，否则界面不会刷新',
+    );
+  });
+
   test('旁路列表不重复（用户实测注册表里出现 <local>;<local>）', () async {
     await FlutterVpnService.setSystemProxy(
       ProxyOption(host, port, const ["<local>", "localhost"]),

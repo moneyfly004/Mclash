@@ -1033,6 +1033,17 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       desktopLog(
         "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
       );
+      // 参考实现（moneyfly）的第三步：向所有顶层窗口广播 WM_SETTINGCHANGE
+      // + lParam="InternetSettings"。Windows 自己的「Internet 选项 / 设置 → 代理」
+      // 界面靠这条消息重新读取代理配置 —— 我们以前只做前两步，于是出现
+      // 「注册表里明明有 127.0.0.1:端口、也能上网，界面却一直空白」。
+      var wm = broadcastInternetSettingsChanged();
+      if (!wm) {
+        // FFI 不可用（极少数受限环境）→ 用 PowerShell 做同一件事
+        wm = await broadcastInternetSettingsViaPowerShell();
+        desktopLog("[mclash] WM_SETTINGCHANGE：FFI 失败，已改用 PowerShell 广播");
+      }
+      desktopLog("[mclash] 已广播 WM_SETTINGCHANGE(InternetSettings): $wm");
       // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
       if (!await _windowsProxyMatches(option)) {
         desktopLog(
@@ -1074,6 +1085,9 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
       // 再广播一次，确保「设置 → 代理」页面立刻刷新。
       clearSystemProxyForConnection();
       notifySystemProxyChanged();
+      if (!broadcastInternetSettingsChanged()) {
+        await broadcastInternetSettingsViaPowerShell();
+      }
       _systemProxyApplied = false;
       return true;
     } catch (_) {

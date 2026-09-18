@@ -406,3 +406,139 @@ bool connectionProxyEnabled() {
   }
   return (flags & _kProxyTypeProxy) != 0;
 }
+
+// ============================================================================
+// WM_SETTINGCHANGE 广播（参考实现 moneyfly 的关键一步，我们以前缺这个）
+// ============================================================================
+//
+// 对比结论：参考实现（/Users/apple/Downloads/mysoftware/moneyfly 的
+// SystemProxyManager）在 Windows 上做的是
+//   ① reg add ProxyEnable/ProxyServer/ProxyOverride（和我们一样）
+//   ② InternetSetOption(SETTINGS_CHANGED=39) + (REFRESH=37)（和我们一样）
+//   ③ **失败时回退**：user32!SendMessageTimeout 向所有顶层窗口广播
+//      WM_SETTINGCHANGE(0x001A)，lParam = "InternetSettings"
+// 第 ③ 步我们完全没有 —— 而 Windows 自己的「Internet 选项 / 设置 → 代理」界面
+// 正是靠这条消息重新读取设置的。只发 ②（且 ② 在某些机器上返回非零却不起作用）时，
+// 注册表里明明有 127.0.0.1:端口、浏览器也能上网，界面却一直显示空白。
+//
+// 这里把 ③ 做成**与 ② 并列的一步**（不是「只在失败时才做」）：代价只有一次
+// 消息广播，换来界面确定刷新。
+
+typedef _SendMessageTimeoutNative = IntPtr Function(
+  IntPtr hWnd,
+  Uint32 msg,
+  UintPtr wParam,
+  IntPtr lParam,
+  Uint32 fuFlags,
+  Uint32 uTimeout,
+  Pointer<UintPtr> lpdwResult,
+);
+typedef _SendMessageTimeoutDart = int Function(
+  int hWnd,
+  int msg,
+  int wParam,
+  int lParam,
+  int fuFlags,
+  int uTimeout,
+  Pointer<UintPtr> lpdwResult,
+);
+
+/// `HWND_BROADCAST`：发给所有顶层窗口
+const int _kHwndBroadcast = 0xffff;
+
+/// `WM_SETTINGCHANGE`
+const int _kWmSettingChange = 0x001A;
+
+/// `SMTO_ABORTIFHUNG`：别因为某个窗口卡住而把自己也卡住
+const int _kSmtoAbortIfHung = 0x0002;
+
+_SendMessageTimeoutDart? _sendMessageTimeout;
+bool _user32LoadFailed = false;
+
+_SendMessageTimeoutDart? _resolveSendMessageTimeout() {
+  if (_sendMessageTimeout != null) {
+    return _sendMessageTimeout;
+  }
+  if (_user32LoadFailed || !Platform.isWindows) {
+    return null;
+  }
+  try {
+    final lib = DynamicLibrary.open('user32.dll');
+    _sendMessageTimeout =
+        lib.lookupFunction<_SendMessageTimeoutNative, _SendMessageTimeoutDart>(
+          'SendMessageTimeoutW',
+        );
+    return _sendMessageTimeout;
+  } catch (_) {
+    _user32LoadFailed = true;
+    return null;
+  }
+}
+
+/// 向所有顶层窗口广播 `WM_SETTINGCHANGE` / `lParam = "InternetSettings"`。
+///
+/// Windows 的「Internet 选项 → 局域网设置」与「设置 → 网络和 Internet → 代理」
+/// 页面收到这条消息才会重新读取代理配置。参考实现（moneyfly）就是靠它让界面刷新的。
+bool broadcastInternetSettingsChanged() {
+  final fn = _resolveSendMessageTimeout();
+  if (fn == null || !_loadMore()) {
+    return false;
+  }
+  var textPtr = 0;
+  var resultPtr = 0;
+  try {
+    textPtr = _allocUtf16("InternetSettings");
+    resultPtr = _localAlloc!(_kLptr, _ptrSize);
+    if (textPtr == 0 || resultPtr == 0) {
+      return false;
+    }
+    final r = fn(
+      _kHwndBroadcast,
+      _kWmSettingChange,
+      0,
+      textPtr,
+      _kSmtoAbortIfHung,
+      1000,
+      Pointer<UintPtr>.fromAddress(resultPtr),
+    );
+    return r != 0;
+  } catch (_) {
+    return false;
+  } finally {
+    if (textPtr != 0) {
+      _localFree?.call(textPtr);
+    }
+    if (resultPtr != 0) {
+      _localFree?.call(resultPtr);
+    }
+  }
+}
+
+/// 广播失败时的高可靠回退：交给 PowerShell 做同一件事（参考实现的写法）。
+Future<bool> broadcastInternetSettingsViaPowerShell() async {
+  if (!Platform.isWindows) {
+    return false;
+  }
+  const script = r'''
+Add-Type -MemberDefinition '[DllImport("user32.dll", SetLastError = true)] public static extern bool SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);' -Name P -Namespace W32
+$r = [UIntPtr]::Zero
+[void][W32.P]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "InternetSettings", 2, 1000, [ref]$r)
+''';
+  try {
+    final ps1 = File(
+      '${Directory.systemTemp.path}/mclash_proxy_notify.ps1',
+    );
+    await ps1.writeAsString(script, flush: true);
+    final r = await Process.run('powershell', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      ps1.path,
+    ]);
+    return r.exitCode == 0;
+  } catch (_) {
+    return false;
+  }
+}
