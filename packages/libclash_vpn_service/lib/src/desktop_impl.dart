@@ -43,6 +43,10 @@ bool usePerConnectionProxyWrite = true;
 /// 才认作「是我们写的」，否则一律不碰。
 const String kSystemProxyOwnerValueName = "MclashProxyOwner";
 
+/// 系统代理所在的注册表键（FFI 与 reg.exe 两条路径共用）。
+const String _kInternetSettingsKey =
+    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+
 /// 我们写入系统代理前的原始状态快照（注册表原始输出 + 每连接那份）。
 ///
 /// 参考实现（moneyfly SystemProxyManager）就是这么做的：断开时**还原**用户原本的
@@ -53,6 +57,16 @@ class SystemProxySnapshot {
   String? enableRaw;
   String? serverRaw;
   String? overrideRaw;
+
+  /// 解析出来的注册表原值（null = 原本不存在）。
+  ///
+  /// 为什么要单独存一份解析结果：还原时要写回**用户原来的值**，而 `readSystemProxyRaw`
+  /// 给的是 `reg query` 的整段文本（含键名、类型）。旧实现拿文本再解析一次，
+  /// 于是「本来不存在」和「存在但读不到」在两条路径上可能得出不同结论，
+  /// 最坏情况是把用户自己的代理值写成了空/删掉。
+  String? enableValue;
+  String? serverValue;
+  String? overrideValue;
 
   /// 界面读的那一份（null = 没读到，可能是 API 不可用）。
   int? connFlags;
@@ -84,6 +98,15 @@ class SystemProxySnapshot {
       }
     }
     return null;
+  }
+
+  /// ProxyEnable 的原始值是不是「开」（`0x1` / `1`）。
+  static bool isEnabledRaw(String? value) {
+    if (value == null) {
+      return false;
+    }
+    final v = value.trim().toLowerCase();
+    return v == "0x1" || v == "1";
   }
 }
 
@@ -236,6 +259,15 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   int _mixedPort = 0;
 
   bool _systemProxyApplied = false;
+
+  /// 正在断开 / 退出清理：**任何**「顺手写一下系统代理」的逻辑都必须让路。
+  ///
+  /// 为什么需要它（真实的竞态）：系统代理看守每 15 秒醒一次，判据是
+  /// `shouldApplySystemProxy() && !getSystemProxyEnable()`。用户点断开时
+  /// `shouldApplySystemProxy()` 还是 true（设置没变），而清理刚好把代理撤掉 ——
+  /// 看守醒来就**又把系统代理写回去**，结果「点了关闭，代理却还在」，
+  /// 或者和清理互相覆盖（谁后写谁赢，用户看到的状态随机）。
+  bool _teardownInProgress = false;
 
   /// 写入系统代理前，用户原本的配置（断开时**还原**，而不是一律抹掉）。
   final SystemProxySnapshot _systemProxySnapshot = SystemProxySnapshot();
@@ -870,47 +902,54 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     _intentionalStop = true;
     _wantConnected = false;
     _autoRecoveries = 0;
+    _teardownInProgress = true;
     _stopKernelWatchdog();
     _setState(FlutterVpnServiceState.disconnecting);
-
-    // 这一步要动系统设置（macOS 逐个网络服务跑 networksetup、Windows 写注册表+广播），
-    // 串行做下来要 1~2 秒 —— 用户感受就是「关闭时卡一下」。
-    // 「撤系统代理」和「让内核拆掉 TUN」互不依赖，并行做 ⇒ 用时取两者的最大值。
-    final swProxy = Stopwatch()..start();
-    final cleanFuture = _systemProxyApplied ? cleanSystemProxy() : Future.value();
-    await Future.wait([cleanFuture, _disableTunBeforeStop()]);
-    swProxy.stop();
-    desktopLog("[perf] 断开：撤系统代理 + 拆 TUN 用时 ${swProxy.elapsedMilliseconds} ms");
-    _systemProxyFallbackActive = false;
-    // 关掉内核之前先把 TUN 拆干净。
-    //
-    // 为什么必须做：Windows 上 Stopping 内核是 `taskkill /F`（强杀），进程没有
-    // 机会执行自己的清理 —— mihomo 用 `auto-route` 加的系统路由与 wintun 虚拟网卡
-    // 会留在系统里，用户看到的就是「退出软件之后电脑上不了网，得重启」。
-    // （拆 TUN 的调用已并入上面的并行等待：先置 tun.enable=false，内核会正常
-    // 撤路由、卸网卡，这时候再强杀就没有副作用了。）
-    final proc = _proc;
-    _proc = null;
-    if (proc != null) {
-      try {
-        if (Platform.isWindows) {
-          await Process.run("taskkill", ["/PID", "${proc.pid}", "/T", "/F"]);
-        } else {
-          proc.kill(ProcessSignal.sigterm);
-        }
-      } catch (_) {}
-      try {
-        // 1.5s 够了：taskkill /F /T 之后内核基本立刻消失；真等不到就直接进
-        // 下面那一层 kill(sigkill) 并返回，不把用户按在「断开中…」上。
-        await proc.exitCode.timeout(const Duration(milliseconds: 1500));
-      } catch (_) {
+    try {
+      // 这一步要动系统设置（macOS 逐个网络服务跑 networksetup、Windows 写注册表+广播），
+      // 串行做下来要 1~2 秒 —— 用户感受就是「关闭时卡一下」。
+      // 「撤系统代理」和「让内核拆掉 TUN」互不依赖，并行做 ⇒ 用时取两者的最大值。
+      final swProxy = Stopwatch()..start();
+      final cleanFuture =
+          _systemProxyApplied ? cleanSystemProxy() : Future.value();
+      await Future.wait([cleanFuture, _disableTunBeforeStop()]);
+      swProxy.stop();
+      desktopLog("[perf] 断开：撤系统代理 + 拆 TUN 用时 ${swProxy.elapsedMilliseconds} ms");
+      _systemProxyFallbackActive = false;
+      // 关掉内核之前先把 TUN 拆干净。
+      //
+      // 为什么必须做：Windows 上 Stopping 内核是 `taskkill /F`（强杀），进程没有
+      // 机会执行自己的清理 —— mihomo 用 `auto-route` 加的系统路由与 wintun 虚拟网卡
+      // 会留在系统里，用户看到的就是「退出软件之后电脑上不了网，得重启」。
+      // （拆 TUN 的调用已并入上面的并行等待：先置 tun.enable=false，内核会正常
+      // 撤路由、卸网卡，这时候再强杀就没有副作用了。）
+      final proc = _proc;
+      _proc = null;
+      if (proc != null) {
         try {
-          proc.kill(ProcessSignal.sigkill);
+          if (Platform.isWindows) {
+            await Process.run("taskkill", ["/PID", "${proc.pid}", "/T", "/F"]);
+          } else {
+            proc.kill(ProcessSignal.sigterm);
+          }
         } catch (_) {}
+        try {
+          // 1.5s 够了：taskkill /F /T 之后内核基本立刻消失；真等不到就直接进
+          // 下面那一层 kill(sigkill) 并返回，不把用户按在「断开中…」上。
+          await proc.exitCode.timeout(const Duration(milliseconds: 1500));
+        } catch (_) {
+          try {
+            proc.kill(ProcessSignal.sigkill);
+          } catch (_) {}
+        }
       }
+      desktopLog("[perf] 断开总用时 ${swProxy.elapsedMilliseconds} ms");
+    } finally {
+      // 必须用 finally：中途抛异常时如果 `_teardownInProgress` 卡在 true，
+      // 之后**所有**系统代理写入都会被静默忽略（用户会看到「连上了但没有代理」）。
+      _teardownInProgress = false;
+      _setState(FlutterVpnServiceState.disconnected);
     }
-    desktopLog("[perf] 断开总用时 ${swProxy.elapsedMilliseconds} ms");
-    _setState(FlutterVpnServiceState.disconnected);
   }
 
   /// 退出前拆掉 TUN（幂等；失败只记日志，不影响退出流程）。
@@ -1162,16 +1201,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   @override
   Future<bool> getSystemProxyEnable(ProxyOption option) async {
     if (Platform.isWindows) {
-      final r = await Process.run("reg", [
-        "query",
-        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
-        "/v",
-        "ProxyServer",
-      ]);
-      if (r.exitCode != 0) {
-        return false;
-      }
-      return r.stdout.toString().contains("${option.host}:${option.port}");
+      // 走 advapi32（微秒级）。以前这里是 `Process.run("reg", …)` —— 每 15 秒
+      // 一次的系统代理看守、每次连接/断开都要打一次，每次都是一个新进程。
+      final raw = await readSystemProxyRaw(value: "ProxyServer");
+      return proxyServerValueMatches(
+        SystemProxySnapshot.valueText(raw, "ProxyServer") ?? "",
+        option.host,
+        option.port,
+      );
     }
     if (Platform.isMacOS) {
       // 只比 host 是不够的：`Enabled: Yes` + host 相同、**端口却是 0（空白）**
@@ -1206,12 +1243,24 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   }
 
   /// 读取系统代理注册表值的**原始**内容（诊断/断言用）。
+  ///
+  /// 优先走 advapi32（一次函数调用，微秒级）；只在 FFI 不可用时退回 `reg.exe`
+  /// （一次进程创建，几十毫秒）。返回格式两者一致，`SystemProxySnapshot.valueText`
+  /// 与诊断面板都不用区分来源。
   static Future<String> readSystemProxyRaw({
     String value = "ProxyServer",
   }) async {
+    if (windowsRegistryAvailable) {
+      final text = queryRegistryValueAsRegText(value);
+      // null = 值不存在。为了让上层「值不存在 → 还原时删掉我们写的」这条判断
+      // 与 reg.exe 路径行为一致，这里返回 reg 的招牌报错文本。
+      return text ??
+          "\r\nERROR: The system was unable to find the specified "
+              "registry key or value.\r\n\r\n";
+    }
     final r = await _reg([
       "query",
-      r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+      _kInternetSettingsKey,
       "/v",
       value,
     ]);
@@ -1226,9 +1275,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       desktopLog("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
       return false;
     }
+    // 正在断开：**任何**写入都是错的（会把刚撤掉的代理又装回去）。
+    // 这是「点了关闭，代理却还在」这类竞态的最后一道闸。
+    if (_teardownInProgress) {
+      desktopLog("[mclash] 忽略一次系统代理写入：正在断开");
+      return false;
+    }
     try {
-      const key =
-          r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
       final server = "${option.host}:${option.port}";
 
       // 0) 先记下用户原本的代理配置（一次），断开时**还原**而不是一律抹掉。
@@ -1246,26 +1299,20 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       final bypass = bypassItems.join(';');
 
       // 1) 注册表（全局值）：浏览器/WinINET 的事实来源，也是 App 读回校验的依据。
-      final enableRes = await _reg([
-        "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f",
-      ]);
-      final serverRes = await _reg([
-        "add", key, "/v", "ProxyServer", "/t", "REG_SZ", "/d", server, "/f",
-      ]);
-      await _reg([
-        "add", key, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", bypass, "/f",
-      ]);
+      //
+      // 走 advapi32（FFI）。以前这里是 4 次 `reg add` —— 每次都是一个新进程，
+      // Windows 上冷启动 20~50ms，四次就是上百毫秒，全在用户点击连接的路上。
+      final wroteEnable = _writeProxyRegistryDword("ProxyEnable", 1);
+      final wroteServer = _writeProxyRegistryString("ProxyServer", server);
+      _writeProxyRegistryString("ProxyOverride", bypass);
       // 2) 归属标记：让「这是我们写的」这件事可判定，避免把别家客户端的代理
       //    当成我们的残留清掉（用户实测的跨软件事故，见 kSystemProxyOwnerValueName）。
-      await _reg([
-        "add", key, "/v", kSystemProxyOwnerValueName, "/t", "REG_SZ", "/d",
-        server, "/f",
-      ]);
-      if (enableRes.exitCode != 0 || serverRes.exitCode != 0) {
+      _writeProxyRegistryString(kSystemProxyOwnerValueName, server);
+      if (!wroteEnable || !wroteServer) {
         desktopLog(
           "[mclash] 写系统代理注册表失败："
-          "ProxyEnable=${enableRes.exitCode}(${enableRes.stderr.trim()}) "
-          "ProxyServer=${serverRes.exitCode}(${serverRes.stderr.trim()})",
+          "ProxyEnable=${wroteEnable ? "ok" : "失败"} "
+          "ProxyServer=${wroteServer ? "ok" : "失败"}",
         );
         return false;
       }
@@ -1289,30 +1336,35 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
 
       // 4) 广播：让已经跑着的程序与 Windows 自己的设置页面立刻重读。
+      //
+      // ⚠️ 这里**不 await** WM_SETTINGCHANGE。它是同步的、发给机器上所有顶层窗口，
+      // 任何一个窗口卡住都要吃掉整个超时 —— 用户日志里「写入到广播返回」之间
+      // 有 8.8 秒，就是它。广播不属于「连接成功了没有」这个结论，交给后台做。
       final notified = notifySystemProxyChanged();
       SystemProxyDiagnostics.internetSetOption = notified;
       desktopLog(
         "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
       );
-      var wm = broadcastInternetSettingsChanged();
+      final wm = broadcastInternetSettingsChangedAsync();
       if (!wm) {
-        // FFI 不可用（极少数受限环境）→ 用 PowerShell 做同一件事
-        wm = await broadcastInternetSettingsViaPowerShell();
+        // FFI 不可用（极少数受限环境）→ 用 PowerShell 做同一件事（后台跑）
+        unawaited(broadcastInternetSettingsViaPowerShell());
         desktopLog("[mclash] WM_SETTINGCHANGE：FFI 失败，已改用 PowerShell 广播");
       }
       SystemProxyDiagnostics.wmSettingChange = wm;
-      desktopLog("[mclash] 已广播 WM_SETTINGCHANGE(InternetSettings): $wm");
+      desktopLog("[mclash] 已发起 WM_SETTINGCHANGE(InternetSettings) 广播: $wm");
 
       // 5) 读回校验：**两层都报**。「界面读的那份」就是界面显示什么；
       //    它和注册表不一致时，用户看到的是它 —— 而这正是我们排查了两轮的坑。
       final connServer = querySystemProxyForConnection();
       final connOn = connectionProxyEnabled();
+      final registryOk = await _windowsProxyMatches(option);
       desktopLog(
-        "[mclash] 读回：注册表=${await _windowsProxyMatches(option) ? "一致" : "不一致"} / "
+        "[mclash] 读回：注册表=${registryOk ? "一致" : "不一致"} / "
         "界面读的那份 ProxyServer=${connServer.isEmpty ? "(空)" : connServer}"
         "（代理已启用=$connOn）",
       );
-      if (!await _windowsProxyMatches(option)) {
+      if (!registryOk) {
         desktopLog(
           "[mclash] 系统代理写入后校验不一致（期望 $server），"
           "可能被其它代理软件覆盖",
@@ -1348,15 +1400,19 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     snap.enableRaw = await readSystemProxyRaw(value: "ProxyEnable");
     snap.serverRaw = await readSystemProxyRaw(value: "ProxyServer");
     snap.overrideRaw = await readSystemProxyRaw(value: "ProxyOverride");
+    snap.enableValue = SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable");
+    snap.serverValue = SystemProxySnapshot.valueText(snap.serverRaw, "ProxyServer");
+    snap.overrideValue =
+        SystemProxySnapshot.valueText(snap.overrideRaw, "ProxyOverride");
     snap.connFlags = queryConnectionFlagsForConnection();
     snap.connServer = querySystemProxyForConnection();
     snap.connBypass = querySystemProxyBypassForConnection();
     snap.captured = true;
     desktopLog(
       "[mclash] 已记录用户原有代理配置：注册表 "
-      "ProxyEnable=${SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable") ?? "(无)"} "
-      "ProxyServer=${SystemProxySnapshot.valueText(snap.serverRaw, "ProxyServer") ?? "(无)"} "
-      "ProxyOverride=${SystemProxySnapshot.valueText(snap.overrideRaw, "ProxyOverride") ?? "(无)"} "
+      "ProxyEnable=${snap.enableValue ?? "(无)"} "
+      "ProxyServer=${snap.serverValue ?? "(无)"} "
+      "ProxyOverride=${snap.overrideValue ?? "(无)"} "
       "/ 界面那份 flags=${snap.connFlags} server='${snap.connServer}'",
     );
   }
@@ -1380,8 +1436,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     if (_systemProxyApplied) {
       return (owned: true, reason: "本进程刚写入");
     }
-    const key =
-        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
     final markerRaw = await readSystemProxyRaw(
       value: kSystemProxyOwnerValueName,
     );
@@ -1389,17 +1443,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       markerRaw,
       kSystemProxyOwnerValueName,
     );
-    // 快路径：系统里当前的代理根本没启用 → 没什么可清（顺带把可能残留的
-    // 归属标记删掉，免得以后误判）。这一步省掉后面两次 reg 查询与一次端口探测，
-    // 而它正是「每次启动 / 每次断开」都要走的路。
+    // 快路径：系统里当前的代理根本没启用 → 没什么可清。
+    //
+    // ⚠️ 这里**不删**归属标记：以前顺手把它删掉了，于是「别家程序临时把
+    // ProxyEnable 关掉」时我们的标记也没了，下次启动只能靠「端口死没死」去猜，
+    // 猜错就会去动别人的代理。标记由真正写入它的那条路（清理完成的第 2 步）负责删。
     final enable = SystemProxySnapshot.valueText(
       await readSystemProxyRaw(value: "ProxyEnable"),
       "ProxyEnable",
     );
     if (enable == null || !enable.contains("0x1")) {
-      if (marker != null && marker.isNotEmpty) {
-        await _reg(["delete", key, "/v", kSystemProxyOwnerValueName, "/f"]);
-      }
       return (
         owned: false,
         reason: "注册表 ProxyEnable 不是 1（系统里没有启用的代理）",
@@ -1436,9 +1489,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   Future<bool> _cleanSystemProxyWindows() async {
     try {
-      const key =
-          r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
-
       // 0) 先判定归属：不是我们写的就**什么都不要动**。
       //    这是「用了 Mclash 之后别的客户端系统代理也不显示了」的修复点：
       //    旧实现每次启动都会无条件把「界面读的那份」写成直连，等于把别人家的
@@ -1456,41 +1506,78 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       final snap = _systemProxySnapshot;
       if (snap.captured) {
         // 1) 还原用户原有的注册表值（原本没有的值 → 删除我们写的）。
-        final enable = SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable");
-        await _reg([
-          "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d",
-          (enable != null && enable.contains("0x1")) ? "1" : "0", "/f",
-        ]);
-        await _restoreWindowsValueOrDelete("ProxyServer", snap.serverRaw);
-        await _restoreWindowsValueOrDelete("ProxyOverride", snap.overrideRaw);
-      } else {
-        // 快照没成功（极少数：reg 不可用）→ 退回「关掉 + 删值」
-        await _reg([
-          "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
-        ]);
-        await _reg(["delete", key, "/v", "ProxyServer", "/f"]);
-      }
-      // 2) 归属标记用完即删（下次启动不会误判成我们的）。
-      await _reg(["delete", key, "/v", kSystemProxyOwnerValueName, "/f"]);
-
-      // 3) 「当前连接」那份（**界面读的就是它**）：还原成用户原来的状态
-      //    （原来没配 → 直连），否则界面上还留着上一次的地址。
-      final flags = snap.connFlags ?? kProxyTypeDirect;
-      if (snap.captured &&
-          (flags & kProxyTypeProxy) != 0 &&
-          snap.connServer.isNotEmpty) {
-        // 用户原本就配着代理 → 把原值写回去（不能一律清成直连）
-        applySystemProxyForConnection(
-          server: snap.connServer,
-          bypass: snap.connBypass,
+        //
+        // 用快照里**解析好的原值**，而不是再解析一遍原始文本：写回用户自己的
+        // 配置这一步不允许有任何歧义。
+        final rawEnable =
+            snap.enableValue ?? SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable");
+        _writeProxyRegistryDword(
+          "ProxyEnable",
+          SystemProxySnapshot.isEnabledRaw(rawEnable) ? 1 : 0,
+        );
+        _restoreWindowsValueOrDelete(
+          "ProxyServer",
+          snap.serverValue ?? SystemProxySnapshot.valueText(snap.serverRaw, "ProxyServer"),
+        );
+        _restoreWindowsValueOrDelete(
+          "ProxyOverride",
+          snap.overrideValue ??
+              SystemProxySnapshot.valueText(snap.overrideRaw, "ProxyOverride"),
         );
       } else {
-        clearSystemProxyForConnection();
+        // 快照没拿到（极少数：注册表读写都不可用）。
+        //
+        // ⚠️ 这里以前是「ProxyEnable=0 + 删掉 ProxyServer」——正是用户实测的
+        // 「我本来配着公司代理，用完 Mclash 就被抹掉了」的那一下。没有快照就说明
+        // 我们无法知道用户原本是什么，那就**什么都不要写**：唯一能确定属于我们的
+        // 东西是下面那个归属标记，其余一律不碰。
+        desktopLog(
+          "[mclash] 清理：没拿到原始快照，不动注册表里的 ProxyEnable/ProxyServer",
+        );
+      }
+      // 2) 归属标记用完即删（下次启动不会误判成我们的）。
+      _deleteProxyRegistryValue(kSystemProxyOwnerValueName);
+
+      // 3) 「当前连接」那份（**界面读的就是它**）。
+      //
+      // ⚠️ 这里以前**无条件**走 clearSystemProxyForConnection()，是「用了 Mclash
+      // 之后 MoneyFly / Clash Party 的系统代理在 Windows 里不显示了」的**真正根因**：
+      //
+      //   * 那份数据我们写、别人不写（MoneyFly / Clash Party / Clash Verge 只写
+      //     注册表 + 广播）；
+      //   * 于是我们一清理，就把界面读的那份写成「直连」，而别人的注册表值还在 ——
+      //     用户看到的就是「注册表里明明有 127.0.0.1:端口、也能上网，界面却空白」，
+      //     只有让别的客户端再写一次（先勾上系统代理、再关掉）才会被刷新回来。
+      //
+      // 现在的规则：**只有快照里记着「我们写入之前它是什么」时，才允许动它**。
+      // 原本就是直连 → 写回直连；原本配着代理 → 把原值写回去。没有快照 → 一行都不碰。
+      if (snap.captured) {
+        final flags = snap.connFlags ?? kProxyTypeDirect;
+        final hadProxy =
+            (flags & kProxyTypeProxy) != 0 && snap.connServer.trim().isNotEmpty;
+        final restored = hadProxy
+            ? restoreSystemProxyForConnection(
+                flags: flags,
+                server: snap.connServer,
+                bypass: snap.connBypass,
+              )
+            : clearSystemProxyForConnection();
+        desktopLog(
+          "[mclash] 清理：「当前连接」那份已还原"
+          "（原本${hadProxy ? "配着 ${snap.connServer}" : "是直连"}）: $restored",
+        );
+      } else {
+        desktopLog(
+          "[mclash] 清理：没拿到原始快照，不动「当前连接」那一份"
+          "（它可能正被别的代理软件使用）",
+        );
       }
 
       notifySystemProxyChanged();
-      if (!broadcastInternetSettingsChanged()) {
-        await broadcastInternetSettingsViaPowerShell();
+      // 广播不阻塞断开：它的作用只是让界面刷新，不该让用户等（见
+      // broadcastInternetSettingsChangedAsync 的说明）。
+      if (!broadcastInternetSettingsChangedAsync()) {
+        unawaited(broadcastInternetSettingsViaPowerShell());
       }
       _systemProxyApplied = false;
       desktopLog("[mclash] 已清理系统代理（注册表 + 界面读的那份 + 广播）");
@@ -1501,18 +1588,90 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
+  /// 写一个系统代理注册表值：先走 FFI，失败再退回 `reg.exe`。
+  ///
+  /// 为什么要有回退：FFI 是**平台相关**的代码（结构体布局、DLL 导出名），
+  /// 而且在没法本机验证的架构/精简系统上可能整个不可用。系统代理是「用户能不能
+  /// 上网」的事，这条路不允许因为一次 FFI 问题而彻底失灵 —— 慢一点也要写进去。
+  /// 正常情况下走的是上面几条（微秒级），回退分支只在异常时才被走到。
+  static bool _writeProxyRegistryString(String name, String value) {
+    try {
+      if (writeRegistryString(name, value)) {
+        return true;
+      }
+    } catch (err) {
+      desktopLog("[mclash] FFI 写注册表 $name 异常，改用 reg.exe：$err");
+    }
+    return _regFallbackSync([
+      "add",
+      _kInternetSettingsKey,
+      "/v",
+      name,
+      "/t",
+      "REG_SZ",
+      "/d",
+      value,
+      "/f",
+    ]);
+  }
+
+  static bool _writeProxyRegistryDword(String name, int value) {
+    try {
+      if (writeRegistryDword(name, value)) {
+        return true;
+      }
+    } catch (err) {
+      desktopLog("[mclash] FFI 写注册表 $name 异常，改用 reg.exe：$err");
+    }
+    return _regFallbackSync([
+      "add",
+      _kInternetSettingsKey,
+      "/v",
+      name,
+      "/t",
+      "REG_DWORD",
+      "/d",
+      "$value",
+      "/f",
+    ]);
+  }
+
+  static bool _deleteProxyRegistryValue(String name) {
+    try {
+      if (deleteRegistryValue(name)) {
+        return true;
+      }
+    } catch (err) {
+      desktopLog("[mclash] FFI 删注册表值 $name 异常，改用 reg.exe：$err");
+    }
+    return _regFallbackSync([
+      "delete",
+      _kInternetSettingsKey,
+      "/v",
+      name,
+      "/f",
+    ]);
+  }
+
+  /// 同步执行一次 `reg`（仅用于 FFI 失效时的回退，故不返回输出）。
+  ///
+  /// 用 `Process.runSync`：调用点（还原/清理）是同步上下文，而这条路本来就不在
+  /// 正常路径上（只在 FFI 抛异常时触发），几毫秒的同步等待可以接受。
+  static bool _regFallbackSync(List<String> args) {
+    try {
+      return Process.runSync("reg", args).exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 把某个注册表字符串值还原成快照里的原值；原本不存在 → 删除我们写的值。
-  Future<void> _restoreWindowsValueOrDelete(String name, String? raw) async {
-    const key =
-        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
-    final value = SystemProxySnapshot.valueText(raw, name);
+  void _restoreWindowsValueOrDelete(String name, String? value) {
     if (value != null) {
-      await _reg([
-        "add", key, "/v", name, "/t", "REG_SZ", "/d", value, "/f",
-      ]);
+      _writeProxyRegistryString(name, value);
       return;
     }
-    await _reg(["delete", key, "/v", name, "/f"]);
+    _deleteProxyRegistryValue(name);
   }
 
   Future<List<String>> _macNetworkServices() async {
@@ -1551,22 +1710,20 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   /// Windows：读回注册表，确认 ProxyEnable=1 且 ProxyServer 精确等于期望值
   static Future<bool> _windowsProxyMatches(ProxyOption option) async {
     try {
-      const key =
-          r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
       String lastServer = "";
       for (var attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) {
           // 注册表写入偶发不是立刻可见（CI 的 Windows runner 上遇到过「刚写完读不到」）
           await Future<void>.delayed(const Duration(milliseconds: 120));
         }
-        final en = await _reg(["query", key, "/v", "ProxyEnable"]);
-        if (en.exitCode != 0 || !en.stdout.contains(RegExp(r"0x1\b"))) {
+        final en = queryRegistryValueAsRegText("ProxyEnable");
+        if (en == null || !en.contains(RegExp(r"0x1\b"))) {
           continue;
         }
-        final sv = await _reg(["query", key, "/v", "ProxyServer"]);
-        lastServer = sv.exitCode == 0 ? sv.stdout : sv.stderr;
-        if (sv.exitCode == 0 &&
-            proxyServerValueMatches(lastServer, option.host, option.port)) {
+        final sv = queryRegistryValueAsRegText("ProxyServer");
+        lastServer = sv ?? "(不存在)";
+        if (sv != null &&
+            proxyServerValueMatches(sv, option.host, option.port)) {
           return true;
         }
       }

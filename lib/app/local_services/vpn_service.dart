@@ -116,7 +116,18 @@ class VPNService {
       }
     }
 
-    if (Platform.isWindows) {
+    // 启动收尾：把「上次没还原干净的系统代理」恢复原状，并确认内核已停。
+    //
+    // 为什么必须在这里做（而不是留给调用方）：上次崩溃/被强杀时，系统代理可能
+    // 还指着本机内核端口 —— 那台电脑此时**完全上不了网**（代理指向没人监听的端口）。
+    // 启动时兜一次，只有「确实是我们写的」才还原（判据在插件侧，见
+    // _systemProxyOwnership）。
+    //
+    // ⚠️ 这里以前只对 Windows 做（`if (Platform.isWindows) await stop();`），
+    // 而 Biz 里又有一个「启动清理系统代理」（restoreSystemProxy），两者是同一次
+    // 清理的两次调用 —— 日志里能直接看到连着两行「清理系统代理已跳过」。
+    // 现在合并成一次：stop() 内部本来就会走系统代理清理。
+    if (PlatformUtils.isPC()) {
       await stop();
     }
   }
@@ -769,6 +780,14 @@ class VPNService {
 
   static Timer? _proxyWatchdog;
 
+  /// 系统代理看守。
+  ///
+  /// 存在的意义：连上之后代理可能被别的程序（或用户手贱）改掉，用户就断网了 ——
+  /// 这里定期确认「该开的时候它开着」，被改掉就按内核实际端口补一次。
+  ///
+  /// ⚠️ 必须让开「正在断开 / 正在连接」的窗口，否则它会和清理/写入互相覆盖：
+  /// 用户点断开 → 清理撤掉代理 → 看守醒来发现「该开却没开」→ 又写回去，
+  /// 结果「关了但代理还在」。判据不能只看设置（设置在整个断开过程中都没变）。
   static void _startProxyWatchdog(int port) {
     _proxyWatchdog?.cancel();
     _proxyWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
@@ -776,6 +795,16 @@ class VPNService {
         // TUN 打开但**没起来**（内核侧已回退到系统代理）时，代理必须继续维持住，
         // 否则 TUN 死掉 + 代理被清理 = 用户彻底没网。
         if (!shouldApplySystemProxy() && !systemProxyFallbackActive) {
+          return;
+        }
+        // 已经断开/正在断开：看守的任务结束了。
+        //
+        // 为什么这条不能省：守看是在**用户点击断开之前**就排好的定时器，
+        // `_stopProxyWatchdog()` 与清理存在竞争窗口；而断开过程中
+        // `shouldApplySystemProxy()` 始终为 true，只看它会得出「该开却没开
+        // → 补一次」的结论，把刚撤掉的代理又写回去。
+        if (await getState() == FlutterVpnServiceState.disconnected) {
+          _stopProxyWatchdog();
           return;
         }
         final expect = ClashSettingManager.getMixedPort();
@@ -797,6 +826,7 @@ class VPNService {
     });
   }
 
+  /// 停掉看守（断开时调用，见 [_startProxyWatchdog] 的说明）。
   static void _stopProxyWatchdog() {
     _proxyWatchdog?.cancel();
     _proxyWatchdog = null;

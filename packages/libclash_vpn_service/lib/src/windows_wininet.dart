@@ -19,6 +19,7 @@
 /// 这里用 `dart:ffi` 直接调 `wininet.dll`，不引入任何插件依赖。
 library;
 
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -91,6 +92,387 @@ bool notifySystemProxyChanged() {
 }
 
 // ============================================================================
+// 注册表：直接调 advapi32，不再起 reg.exe
+// ============================================================================
+//
+// 为什么不再用 `Process.run("reg", …)`：一次连接/断开要读写注册表十几次
+// （4 次写 + 归属判定 2~3 次 + 原始快照 3 次），Windows 上每次 `Process.run`
+// 都是 20~50ms 的进程创建 —— 合起来 300~600ms，全部落在用户点击连接的那条路上。
+// 用户反馈的「点连接要等好几秒」里有它一份（日志里 [perf] 各段用时对不上就是这个）。
+// 这几个 API 与 reg.exe 做的事完全一样（reg.exe 自己也是调它们），只是不用起进程。
+
+typedef _RegOpenKeyExNative = Int32 Function(
+  IntPtr hKey,
+  Pointer<Uint16> lpSubKey,
+  Uint32 ulOptions,
+  Uint32 samDesired,
+  Pointer<IntPtr> phkResult,
+);
+typedef _RegOpenKeyExDart = int Function(
+  int hKey,
+  Pointer<Uint16> lpSubKey,
+  int ulOptions,
+  int samDesired,
+  Pointer<IntPtr> phkResult,
+);
+typedef _RegSetValueExNative = Int32 Function(
+  IntPtr hKey,
+  Pointer<Uint16> lpValueName,
+  Uint32 reserved,
+  Uint32 dwType,
+  Pointer<Uint8> lpData,
+  Uint32 cbData,
+);
+typedef _RegSetValueExDart = int Function(
+  int hKey,
+  Pointer<Uint16> lpValueName,
+  int reserved,
+  int dwType,
+  Pointer<Uint8> lpData,
+  int cbData,
+);
+typedef _RegDeleteValueNative = Int32 Function(
+  IntPtr hKey,
+  Pointer<Uint16> lpValueName,
+);
+typedef _RegDeleteValueDart = int Function(int hKey, Pointer<Uint16> lpValueName);
+typedef _RegQueryValueExNative = Int32 Function(
+  IntPtr hKey,
+  Pointer<Uint16> lpValueName,
+  IntPtr lpReserved,
+  Pointer<Uint32> lpType,
+  Pointer<Uint8> lpData,
+  Pointer<Uint32> lpcbData,
+);
+typedef _RegQueryValueExDart = int Function(
+  int hKey,
+  Pointer<Uint16> lpValueName,
+  int lpReserved,
+  Pointer<Uint32> lpType,
+  Pointer<Uint8> lpData,
+  Pointer<Uint32> lpcbData,
+);
+typedef _RegCloseKeyNative = Int32 Function(IntPtr hKey);
+typedef _RegCloseKeyDart = int Function(int hKey);
+
+/// `HKEY_CURRENT_USER`
+const int _kHkeyCurrentUser = 0x80000001;
+
+/// `KEY_SET_VALUE | KEY_QUERY_VALUE`
+const int _kKeySetAndQueryValue = 0x0002 | 0x0001;
+
+/// 只读（用于读取，能少要权限就少要）
+const int _kKeyQueryValue = 0x0001;
+
+/// `REG_SZ` / `REG_DWORD`
+const int _kRegSz = 1;
+const int _kRegDword = 4;
+
+/// `ERROR_MORE_DATA` / `ERROR_SUCCESS`
+const int _kErrorSuccess = 0;
+
+_RegOpenKeyExDart? _regOpenKeyEx;
+_RegSetValueExDart? _regSetValueEx;
+_RegDeleteValueDart? _regDeleteValue;
+_RegQueryValueExDart? _regQueryValueEx;
+_RegCloseKeyDart? _regCloseKey;
+bool _advapiLoadFailed = false;
+
+bool _loadAdvapi() {
+  if (_regSetValueEx != null) {
+    return true;
+  }
+  if (_advapiLoadFailed || !Platform.isWindows || !_loadLocal()) {
+    return false;
+  }
+  try {
+    final lib = DynamicLibrary.open('advapi32.dll');
+    _regOpenKeyEx = lib
+        .lookupFunction<_RegOpenKeyExNative, _RegOpenKeyExDart>('RegOpenKeyExW');
+    _regSetValueEx = lib
+        .lookupFunction<_RegSetValueExNative, _RegSetValueExDart>('RegSetValueExW');
+    _regDeleteValue = lib
+        .lookupFunction<_RegDeleteValueNative, _RegDeleteValueDart>('RegDeleteValueW');
+    _regQueryValueEx = lib
+        .lookupFunction<_RegQueryValueExNative, _RegQueryValueExDart>('RegQueryValueExW');
+    _regCloseKey =
+        lib.lookupFunction<_RegCloseKeyNative, _RegCloseKeyDart>('RegCloseKey');
+    return true;
+  } catch (_) {
+    _advapiLoadFailed = true;
+    return false;
+  }
+}
+
+/// 把 Dart 字符串编成 UTF-16 结尾的本地缓冲（地址形式；用完用 [_freeLocal] 释放）。
+///
+/// 与文件里其它 FFI 一致：只用 kernel32 的 LocalAlloc，不引入 package:ffi。
+int _utf16Address(String s) {
+  final units = s.codeUnits;
+  final addr = _localAlloc!(_kLptr, (units.length + 1) * 2);
+  if (addr == 0) {
+    return 0;
+  }
+  final p = Pointer<Uint16>.fromAddress(addr);
+  for (var i = 0; i < units.length; i++) {
+    p[i] = units[i];
+  }
+  p[units.length] = 0;
+  return addr;
+}
+
+void _freeLocal(int addr) {
+  if (addr != 0) {
+    _localFree?.call(addr);
+  }
+}
+
+/// 打开 Internet Settings 键；失败返回 0。
+int _openInternetSettings({bool readOnly = false}) {
+  final fn = _regOpenKeyEx;
+  if (fn == null) {
+    return 0;
+  }
+  final sub = _utf16Address(
+    r"Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+  );
+  if (sub == 0) {
+    return 0;
+  }
+  final out = _localAlloc!(_kLptr, _ptrSize);
+  if (out == 0) {
+    _freeLocal(sub);
+    return 0;
+  }
+  try {
+    Pointer<UintPtr>.fromAddress(out).value = 0;
+    final rc = fn(
+      _kHkeyCurrentUser,
+      Pointer<Uint16>.fromAddress(sub),
+      0,
+      readOnly ? _kKeyQueryValue : _kKeySetAndQueryValue,
+      Pointer<IntPtr>.fromAddress(out),
+    );
+    return rc == _kErrorSuccess ? _readPtr(out) : 0;
+  } finally {
+    _freeLocal(sub);
+    _freeLocal(out);
+  }
+}
+
+/// 写一个 REG_SZ 值。成功返回 true。
+bool writeRegistryString(String name, String value) {
+  if (!_loadMore() || !_loadAdvapi()) {
+    return false;
+  }
+  final key = _openInternetSettings();
+  if (key == 0) {
+    return false;
+  }
+  final namePtr = _utf16Address(name);
+  final data = _utf16Address(value);
+  try {
+    if (namePtr == 0 || data == 0) {
+      return false;
+    }
+    // REG_SZ 的字节数包含结尾的 NUL。
+    final rc = _regSetValueEx!(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      _kRegSz,
+      Pointer<Uint8>.fromAddress(data),
+      (value.length + 1) * 2,
+    );
+    return rc == _kErrorSuccess;
+  } finally {
+    _freeLocal(namePtr);
+    _freeLocal(data);
+    _regCloseKey?.call(key);
+  }
+}
+
+/// 写一个 REG_DWORD 值。成功返回 true。
+bool writeRegistryDword(String name, int value) {
+  if (!_loadMore() || !_loadAdvapi()) {
+    return false;
+  }
+  final key = _openInternetSettings();
+  if (key == 0) {
+    return false;
+  }
+  final namePtr = _utf16Address(name);
+  final data = _localAlloc!(_kLptr, 4);
+  try {
+    if (namePtr == 0 || data == 0) {
+      return false;
+    }
+    Pointer<Uint32>.fromAddress(data).value = value;
+    final rc = _regSetValueEx!(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      _kRegDword,
+      Pointer<Uint8>.fromAddress(data),
+      4,
+    );
+    return rc == _kErrorSuccess;
+  } finally {
+    _freeLocal(namePtr);
+    _freeLocal(data);
+    _regCloseKey?.call(key);
+  }
+}
+
+/// 删除一个值。成功、或「本来就不存在」都返回 true（调用方要的是「确保没有」）。
+bool deleteRegistryValue(String name) {
+  if (!_loadMore() || !_loadAdvapi()) {
+    return false;
+  }
+  final key = _openInternetSettings();
+  if (key == 0) {
+    return false;
+  }
+  final namePtr = _utf16Address(name);
+  try {
+    if (namePtr == 0) {
+      return false;
+    }
+    final rc = _regDeleteValue!(key, Pointer<Uint16>.fromAddress(namePtr));
+    // 2 = ERROR_FILE_NOT_FOUND：值本来就不在，语义上已经满足。
+    return rc == _kErrorSuccess || rc == 2;
+  } finally {
+    _freeLocal(namePtr);
+    _regCloseKey?.call(key);
+  }
+}
+
+/// 这几条注册表 API 在当前平台是否可用（不可用时调用方退回 `reg.exe`）。
+bool get windowsRegistryAvailable {
+  _loadMore();
+  return _loadAdvapi();
+}
+
+/// 注册表值的原始字节（REG_SZ 的 UTF-16 / REG_DWORD 的 4 字节）；不存在 → null。
+///
+/// 值不存在、或类型不是这两种（REG_BINARY 等）时返回 null —— 调用方按「没有」处理。
+({int type, List<int> bytes})? queryRegistryValueRaw(String name) {
+  if (!_loadMore() || !_loadAdvapi()) {
+    return null;
+  }
+  final fn = _regQueryValueEx;
+  if (fn == null) {
+    return null;
+  }
+  final key = _openInternetSettings(readOnly: true);
+  if (key == 0) {
+    return null;
+  }
+  final namePtr = _utf16Address(name);
+  final typePtr = _localAlloc!(_kLptr, 4);
+  final sizePtr = _localAlloc!(_kLptr, 4);
+  // 先问一次大小（REG_SZ 的值长度不定）。
+  var dataPtr = 0;
+  try {
+    if (namePtr == 0 || typePtr == 0 || sizePtr == 0) {
+      return null;
+    }
+    Pointer<Uint32>.fromAddress(sizePtr).value = 0;
+    var rc = fn(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      Pointer<Uint32>.fromAddress(typePtr),
+      Pointer<Uint8>.fromAddress(0),
+      Pointer<Uint32>.fromAddress(sizePtr),
+    );
+    final size = Pointer<Uint32>.fromAddress(sizePtr).value;
+    // ERROR_SUCCESS(0) = 拿到了；ERROR_MORE_DATA(234) = 缓冲区不够，但这个大小可用。
+    if (rc != _kErrorSuccess && rc != 234) {
+      return null;
+    }
+    if (size == 0) {
+      return (type: Pointer<Uint32>.fromAddress(typePtr).value, bytes: const []);
+    }
+    dataPtr = _localAlloc!(_kLptr, size);
+    if (dataPtr == 0) {
+      return null;
+    }
+    Pointer<Uint32>.fromAddress(sizePtr).value = size;
+    rc = fn(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      Pointer<Uint32>.fromAddress(typePtr),
+      Pointer<Uint8>.fromAddress(dataPtr),
+      Pointer<Uint32>.fromAddress(sizePtr),
+    );
+    if (rc != _kErrorSuccess) {
+      return null;
+    }
+    final got = Pointer<Uint32>.fromAddress(sizePtr).value;
+    final bytes = List<int>.generate(got, (i) => Pointer<Uint8>.fromAddress(dataPtr)[i]);
+    return (type: Pointer<Uint32>.fromAddress(typePtr).value, bytes: bytes);
+  } catch (_) {
+    return null;
+  } finally {
+    _freeLocal(namePtr);
+    _freeLocal(typePtr);
+    _freeLocal(sizePtr);
+    _freeLocal(dataPtr);
+    _regCloseKey?.call(key);
+  }
+}
+
+/// 读一个 REG_SZ / REG_DWORD，格式化成 `reg query` 同款的一行文本：
+/// `    <name>    REG_SZ    <value>`。不存在/类型不符 → null。
+///
+/// 这样它的输出可以直接喂给 `SystemProxySnapshot.valueText`，两套读取路径
+/// （FFI 与 reg.exe 兜底）的解析结果完全一致。
+String? queryRegistryValueAsRegText(String name) {
+  final raw = queryRegistryValueRaw(name);
+  if (raw == null) {
+    return null;
+  }
+  if (raw.type == _kRegDword) {
+    if (raw.bytes.length < 4) {
+      return null;
+    }
+    final v = raw.bytes[0] |
+        (raw.bytes[1] << 8) |
+        (raw.bytes[2] << 16) |
+        (raw.bytes[3] << 24);
+    return "    $name    REG_DWORD    0x${v.toRadixString(16)}";
+  }
+  if (raw.type == _kRegSz) {
+    final units = <int>[];
+    for (var i = 0; i + 1 < raw.bytes.length; i += 2) {
+      final u = raw.bytes[i] | (raw.bytes[i + 1] << 8);
+      if (u == 0) {
+        break;
+      }
+      units.add(u);
+    }
+    // 值可能是 REG_EXPAND_SZ（2），那种我们按原文显示（不做环境变量展开）——
+    // 只有 REG_SZ 与它会被读成字符串，其余类型上面已经返回 null。
+    return "    $name    REG_SZ    ${String.fromCharCodes(units)}";
+  }
+  // REG_EXPAND_SZ = 2：也按字符串处理
+  if (raw.type == 2) {
+    final units = <int>[];
+    for (var i = 0; i + 1 < raw.bytes.length; i += 2) {
+      final u = raw.bytes[i] | (raw.bytes[i + 1] << 8);
+      if (u == 0) {
+        break;
+      }
+      units.add(u);
+    }
+    return "    $name    REG_EXPAND_SZ    ${String.fromCharCodes(units)}";
+  }
+  return null;
+}
+
+// ============================================================================
 // 用**官方 API** 设置「连接」级代理
 // ============================================================================
 //
@@ -154,9 +536,31 @@ typedef _LocalFreeDart = int Function(int hMem);
 _InternetQueryOptionDart? _queryOption;
 _LocalAllocDart? _localAlloc;
 _LocalFreeDart? _localFree;
+bool _localAllocFailed = false;
 
 /// `LPTR` = LMEM_FIXED | LMEM_ZEROINIT
 const int _kLptr = 0x0040;
+
+/// 加载 kernel32 的 LocalAlloc / LocalFree（注册表写入与每连接选项都要用）。
+bool _loadLocal() {
+  if (_localAlloc != null) {
+    return true;
+  }
+  if (_localAllocFailed || !Platform.isWindows) {
+    return false;
+  }
+  try {
+    final kernel32 = DynamicLibrary.open('kernel32.dll');
+    _localAlloc = kernel32
+        .lookupFunction<_LocalAllocNative, _LocalAllocDart>('LocalAlloc');
+    _localFree =
+        kernel32.lookupFunction<_LocalFreeNative, _LocalFreeDart>('LocalFree');
+    return true;
+  } catch (_) {
+    _localAllocFailed = true;
+    return false;
+  }
+}
 
 bool _loadMore() {
   if (_queryOption != null) {
@@ -168,12 +572,7 @@ bool _loadMore() {
         wininet.lookupFunction<_InternetQueryOptionNative, _InternetQueryOptionDart>(
           'InternetQueryOptionW',
         );
-    final kernel32 = DynamicLibrary.open('kernel32.dll');
-    _localAlloc = kernel32
-        .lookupFunction<_LocalAllocNative, _LocalAllocDart>('LocalAlloc');
-    _localFree =
-        kernel32.lookupFunction<_LocalFreeNative, _LocalFreeDart>('LocalFree');
-    return true;
+    return _loadLocal();
   } catch (_) {
     return false;
   }
@@ -326,6 +725,17 @@ void _fillList(int list, int options, int count) {
 }
 
 /// 把**当前连接**的代理清成「直连」（同样会同步界面缓存）。
+///
+/// ⚠️ 清理系统代理**不要**用这个当作默认动作。
+///
+/// Windows 界面读的就是这份每连接数据，而 MoneyFly / Clash Party / Clash Verge
+/// 这些客户端**只写注册表**、从不去碰它。我们在这里写一次「直连」，等于把别人
+/// 设置的系统代理从界面上抹掉 —— 用户实测的现象就是
+/// 「用了 Mclash 之后，MoneyFly 连上了、Windows 里却不显示 127.0.0.1 和端口了」，
+/// 而注册表里其实是有值的（所以还能上网）。
+/// 现在它只有两个正当用途：测试隔离，以及还原「我们写入前就是直连」的那份快照
+/// （见 desktop_impl 的 _cleanSystemProxyWindows）。其余情况请用
+/// [restoreSystemProxyForConnection]。
 bool clearSystemProxyForConnection() {
   final fn = _resolve();
   if (fn == null || !_loadMore()) {
@@ -333,30 +743,71 @@ bool clearSystemProxyForConnection() {
   }
   var options = 0;
   var list = 0;
+  var emptyServer = 0;
+  var emptyBypass = 0;
   try {
-    options = _localAlloc!(_kLptr, _optionSize);
+    // ⚠️ 必须**同时**清掉服务器与旁路字符串。
+    //
+    // 只把 flags 改成直连（Windows 自己在界面上的行为）时，PROXY_SERVER 字符串
+    // 会留在里面。对我们来说那是残留的坏状态：下次别家客户端只写注册表时，
+    // 这份「flags=直连 + 上一次的 127.0.0.1:端口」会造成界面显示与实际不符。
+    options = _localAlloc!(_kLptr, _optionSize * 3);
     list = _localAlloc!(_kLptr, _listSize);
-    if (options == 0 || list == 0) {
+    emptyServer = _allocUtf16("");
+    emptyBypass = _allocUtf16("");
+    if (options == 0 || list == 0 || emptyServer == 0 || emptyBypass == 0) {
       return false;
     }
     _fillOptions(
       options,
-      count: 1,
+      count: 3,
       flags: _kProxyTypeDirect,
+      serverPtr: emptyServer,
+      bypassPtr: emptyBypass,
     );
-    _fillList(list, options, 1);
+    _fillList(list, options, 3);
     return fn(0, _kOptionPerConnectionOption, list, _listSize) != 0;
   } catch (_) {
     return false;
   } finally {
-    if (options != 0) {
-      _localFree?.call(options);
-    }
-    if (list != 0) {
-      _localFree?.call(list);
-    }
+    _freeLocal(emptyServer);
+    _freeLocal(emptyBypass);
+    _freeLocal(options);
+    _freeLocal(list);
   }
 }
+
+/// 把「当前连接」的代理**还原**成我们写入之前的那个状态。
+///
+/// 与 [clearSystemProxyForConnection] 的区别是「用户原本就配着代理」的那种情况：
+/// 那时应该把原值写回去，而不是一律清成直连。
+///
+/// [flags] 为空（读不到）时按「原本没启用代理」处理 —— 这时写「直连」是安全的，
+/// 因为读不到 flags 的机器上界面本来也没显示过我们的值。
+bool restoreSystemProxyForConnection({
+  int? flags,
+  required String server,
+  required String bypass,
+}) {
+  if (restoreDecisionFor(flags: flags, server: server)) {
+    return writeSystemProxyForConnection(server: server, bypass: bypass);
+  }
+  return clearSystemProxyForConnection();
+}
+
+/// 还原时该「写原值」还是「写直连」——**纯函数**，单测直接钉住。
+///
+/// 只有「flags 里确实开着代理」且「有非空的服务器地址」时才写原值。
+/// 其余情况（读不到 flags / 原本就没配）都按直连处理：那种机器上界面本来也没
+/// 显示过我们的值，写直连不会让界面「从有变无」，因此是安全的默认。
+bool restoreDecisionFor({int? flags, required String server}) {
+  final wanted = flags ?? _kProxyTypeDirect;
+  return (wanted & _kProxyTypeProxy) != 0 && server.trim().isNotEmpty;
+}
+
+/// 测试缝：[restoreDecisionFor] 的字符串形式（"write" / "clear"）。
+String restoreFlagsDecideForTest({int? flags, required String server}) =>
+    restoreDecisionFor(flags: flags, server: server) ? "write" : "clear";
 
 /// 读回「当前连接」里的某个选项（[option] = INTERNET_PER_CONN_*）。
 ///
@@ -495,8 +946,19 @@ const int _kHwndBroadcast = 0xffff;
 /// `WM_SETTINGCHANGE`
 const int _kWmSettingChange = 0x001A;
 
-/// `SMTO_ABORTIFHUNG`：别因为某个窗口卡住而把自己也卡住
-const int _kSmtoAbortIfHung = 0x0002;
+/// `SMTO_NOTIMEOUTIFNOTHUNG`：对方没卡就一定会回，卡住才受超时限制。
+///
+/// 比 [ABORTIFHUNG] 更适合我们这种「发完就不管」的场合：它不会因为对方处理得慢
+/// 就把消息丢掉（那会导致界面不刷新），只在真的挂起时才提前放弃。
+const int _kSmtoNotTimeoutIfNotHung = 0x0008;
+
+/// 广播的超时（毫秒）。
+///
+/// 这条广播是**同步**的，而 `HWND_BROADCAST` 意味着机器上每个顶层窗口都在关键
+/// 路径上。以前用 1000ms：只要有一个窗口不响应，一次连接就要多等整整一秒
+/// （用户日志里那段 8.8 秒的「写入 → 广播返回」间隔就是这么来的，断开时一样）。
+/// 200ms 足够让正常窗口收到消息，卡住的窗口也不会再把我们拖住。
+const int _kBroadcastTimeoutMs = 200;
 
 _SendMessageTimeoutDart? _sendMessageTimeout;
 bool _user32LoadFailed = false;
@@ -525,6 +987,9 @@ _SendMessageTimeoutDart? _resolveSendMessageTimeout() {
 ///
 /// Windows 的「Internet 选项 → 局域网设置」与「设置 → 网络和 Internet → 代理」
 /// 页面收到这条消息才会重新读取代理配置。参考实现（moneyfly）就是靠它让界面刷新的。
+///
+/// ⚠️ 这是**同步**调用（见 [_kBroadcastTimeoutMs]）。连接/断开的关键路径上请用
+/// [broadcastInternetSettingsChangedAsync]，别让用户的点击等在这里。
 bool broadcastInternetSettingsChanged() {
   final fn = _resolveSendMessageTimeout();
   if (fn == null || !_loadMore()) {
@@ -543,21 +1008,42 @@ bool broadcastInternetSettingsChanged() {
       _kWmSettingChange,
       0,
       textPtr,
-      _kSmtoAbortIfHung,
-      1000,
+      _kSmtoNotTimeoutIfNotHung,
+      _kBroadcastTimeoutMs,
       Pointer<UintPtr>.fromAddress(resultPtr),
     );
     return r != 0;
   } catch (_) {
     return false;
   } finally {
-    if (textPtr != 0) {
-      _localFree?.call(textPtr);
-    }
-    if (resultPtr != 0) {
-      _localFree?.call(resultPtr);
-    }
+    _freeLocal(textPtr);
+    _freeLocal(resultPtr);
   }
+}
+
+/// 调用 [broadcastInternetSettingsChanged]，但**不阻塞调用方**。
+///
+/// 广播的用途只有一个：让 Windows 界面与已经在跑的浏览器重读设置 —— 它**不属于**
+/// 「这次连接成功了没有」这个结论的一部分。以前它同步跑在连接/断开路径上，于是
+/// 用户每点一次都要陪着等它（实测 8 秒+）。现在写完之后立刻返回，广播在后台完成，
+/// 结果只写进日志与诊断面板。
+///
+/// 返回值是「广播是否已经发起」（FFI 可用），不是「窗口是否都收到了」。
+bool broadcastInternetSettingsChangedAsync() {
+  if (!Platform.isWindows) {
+    return false;
+  }
+  final fn = _resolveSendMessageTimeout();
+  if (fn == null) {
+    return false;
+  }
+  // 不 await：调用方继续走自己的路。
+  unawaited(Future<void>(() {
+    try {
+      broadcastInternetSettingsChanged();
+    } catch (_) {}
+  }));
+  return true;
 }
 
 /// 广播失败时的高可靠回退：交给 PowerShell 做同一件事（参考实现的写法）。

@@ -40,10 +40,44 @@ class MclashSpeedTester {
   /// TCP 粗测的采样次数（取中位数，抗抖动）。
   static const int probeCount = 3;
 
-  static const int maxConcurrent = 12;
+  /// 并发上限。
+  ///
+  /// 以前是 12：411 个节点 × 每个一条新 TCP 连接打到本机内核，连接后被立刻
+  /// 拉起的自动测速会把控制端口的连接表塞满，而真正需要内核响应的东西
+  /// （切节点、读配置、流量订阅）要排在后面。降到 6 对整体耗时几乎没影响
+  /// （瓶颈是慢节点的超时，不是并发度），但对机器友好得多。
+  static const int maxConcurrent = 6;
+
+  /// 连续这么多次「内核根本没在听」就整批放弃。
+  ///
+  /// 用户日志里最刺眼的一段就是这个：内核 16:35:22 已经停了，测速还在继续，
+  /// 从 16:35:24 到 16:35:30 刷了几百行
+  /// `SocketException: 远程计算机拒绝网络连接 (errno = 1225)` —— 每一条都要
+  /// 新建连接、失败、写一行同步日志。而结论在**失败第一条**时就已经确定了。
+  static const int fatalStreakLimit = 8;
 
   /// 上一轮测速中「内核里还没有」的节点数量（供上层决定要不要重载内核）。
   static int missingInKernel = 0;
+
+  /// 本轮的「内核不在了」连续计数（跨 worker 共享，所以放在实例字段上）。
+  int _deadStreak = 0;
+  bool _kernelGone = false;
+
+  /// 这条错误是不是「内核压根没在监听」。
+  ///
+  /// 这类错误重试没有意义（对方连不上就是连不上），而且一旦出现就说明整批测速
+  /// 的前提已经崩了。区分它和「节点不通」很重要：后者要如实标记节点离线，
+  /// 前者不能把 400 个节点全判成离线（那会误导用户去清空订阅）。
+  static bool isKernelUnreachable(String message) {
+    final m = message.toLowerCase();
+    return m.contains("远程计算机拒绝网络连接") ||
+        m.contains("connection refused") ||
+        m.contains("errno = 1225") ||
+        m.contains("errno=1225") ||
+        m.contains("connection closed before full header was received") ||
+        m.contains("connection reset by peer") ||
+        m.contains("socketexception");
+  }
 
   @visibleForTesting
   static Future<int> Function(MclashNode node)? debugProbeOverride;
@@ -170,9 +204,22 @@ class MclashSpeedTester {
         if (msg.contains("404") || msg.toLowerCase().contains("not found")) {
           node.missingInKernel = true;
           Log.i("MclashSpeedTester: 内核里还没有节点 [${node.name}]，本次跳过");
+        } else if (isKernelUnreachable(msg)) {
+          // 控制端口连不上 = 内核已经不在（用户断开、内核崩了）。这时**不要**
+          // 给节点标离线：结论是「这批没测成」，不是「这批节点都挂了」。
+          node.missingInKernel = true;
+          _deadStreak++;
+          if (_deadStreak == fatalStreakLimit) {
+            _kernelGone = true;
+            Log.w(
+              "MclashSpeedTester: 控制端口连续 $fatalStreakLimit 次连不上"
+              "（内核已停止或正在重启）→ 中止本轮测速，不再逐个尝试",
+            );
+          }
         }
         return -1;
       }
+      _deadStreak = 0;
       final ms = r.data ?? -1;
       if (ms > 0) {
         node.missingInKernel = false;
@@ -229,10 +276,17 @@ class MclashSpeedTester {
     var done = 0;
     /// 本次测速里「内核还没有」的节点数量（>0 说明内核配置落后于订阅）。
     missingInKernel = 0;
+    _deadStreak = 0;
+    _kernelGone = false;
 
     Future<void> worker() async {
       while (queue.isNotEmpty) {
         if (shouldStop != null && shouldStop()) {
+          break;
+        }
+        // 内核已经不在了（连续多次连接被拒）：剩下的节点一个都测不了，
+        // 继续跑只会制造几百行「拒绝连接」的日志。整批停。
+        if (_kernelGone) {
           break;
         }
         final n = nodes[queue.removeLast()];

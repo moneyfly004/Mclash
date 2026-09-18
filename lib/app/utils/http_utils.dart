@@ -263,13 +263,46 @@ abstract final class HttpUtils {
       var stringData = await response.transform(utf8.decoder).join();
       return ReturnResult(data: Tuple2(response.statusCode, stringData));
     } catch (err, _) {
-      Log.i('http GetRequest $url exception: ${err.toString()}');
+      _logRequestFailure(url, err);
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );
     } finally {
       client.close(force: true);
     }
+  }
+
+  /// 同一条「请求失败」日志的去重窗口。
+  ///
+  /// 用户日志里最烦人的一段是测速打到一个已经停掉的内核：411 个节点 × 每条
+  /// 一次失败，`http GetRequest ... exception: 远程计算机拒绝网络连接` 刷了
+  /// 几百行，把真正的诊断行（系统代理写入结果、内核启动失败原因）全埋了 ——
+  /// 而 `Log.i` 是**同步写盘**，这几百行本身就是卡顿的一部分。
+  /// 同一目标 + 同一错误在窗口内只记第一次，窗口结束时补一行「共抑制 N 条」。
+  static const Duration _logDedupeWindow = Duration(seconds: 10);
+  static String _lastLogKey = "";
+  static DateTime? _lastLogAt;
+  static int _suppressed = 0;
+
+  static void _logRequestFailure(String url, Object err) {
+    // 键里带上错误内容：同一个 URL 换了种错法（超时 → 拒绝连接）必须记下来。
+    final key = "$url|${err.runtimeType}";
+    final now = DateTime.now();
+    final at = _lastLogAt;
+    if (key == _lastLogKey &&
+        at != null &&
+        now.difference(at) < _logDedupeWindow) {
+      _suppressed++;
+      _lastLogAt = now;
+      return;
+    }
+    if (_suppressed > 0) {
+      Log.i("http: 同一条请求失败日志已抑制 $_suppressed 条（${_lastLogKey.split("|").first}）");
+      _suppressed = 0;
+    }
+    _lastLogKey = key;
+    _lastLogAt = now;
+    Log.i('http GetRequest $url exception: ${err.toString()}');
   }
 
   static Future<ReturnResult<Tuple2<int, String>>> httpPostRequest(

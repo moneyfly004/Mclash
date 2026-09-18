@@ -182,11 +182,42 @@ void main() {
   // 设置 → 代理」界面靠这条消息重新读取代理设置 —— 我们以前只有
   // InternetSetOption(SETTINGS_CHANGED/REFRESH)，于是出现「注册表里确实有地址端口、
   // 也能上网，但界面一片空白」。这里在真机 Windows 上确认这条广播可用。
-  test('广播 WM_SETTINGCHANGE（界面刷新的关键一步）', () {
+  test('广播 WM_SETTINGCHANGE（界面刷新的关键一步）', () async {
+    // 同步版仍可调用（测试/诊断用），超时已收紧到 200ms。
     expect(
       windows_wininet.broadcastInternetSettingsChanged(),
       isTrue,
       reason: 'user32!SendMessageTimeout 必须可调用，否则界面不会刷新',
+    );
+    // 连接/断开路径用的是**不阻塞**的这一条：广播不属于「连接成功了没有」，
+    // 不该让用户的点击陪着等机器上每一个顶层窗口。
+    expect(
+      windows_wininet.broadcastInternetSettingsChangedAsync(),
+      isTrue,
+      reason: 'FFI 可用时必须能发起后台广播',
+    );
+    // 让后台那一次跑完，避免测试结束后还在动系统设置
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+  });
+
+  // 用户实测的跨软件事故（第二轮）：用了 Mclash 之后，MoneyFly 连上、Windows 里
+  // 却不显示 127.0.0.1 和端口。根因是清理时把「每连接」那份（界面读的数据）
+  // 无条件写成「直连」，而 MoneyFly / Clash Party 只写注册表、从不碰这份缓存。
+  // 这里在真机上确认：**清理不会把「当前连接」那份写成直连**。
+  test('清理后不把「当前连接」那份写成直连（否则别的客户端界面会空白）', () async {
+    // 先摆出一个「别的客户端设置好的」状态：每连接那份有值。
+    final before = windows_wininet.querySystemProxyForConnection();
+    final hadProxy = windows_wininet.connectionProxyEnabled();
+    if (!hadProxy) {
+      // CI 机器上通常没有代理，跳过这一条（断言需要「原本有值」这个前提）。
+      return;
+    }
+    await FlutterVpnService.cleanSystemProxy();
+    // 不是我们写的 → 清理应当直接跳过，那台机器上的值必须原样保留。
+    expect(
+      windows_wininet.querySystemProxyForConnection(),
+      before,
+      reason: '不是我们设置的代理，清理时一行都不该动（界面读的就是这份数据）',
     );
   });
 
