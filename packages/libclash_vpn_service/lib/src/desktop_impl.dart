@@ -193,18 +193,11 @@ class SystemProxyDiagnostics {
       return "";
     }
     final len = blob[12] | (blob[13] << 8) | (blob[14] << 16) | (blob[15] << 24);
-    if (len <= 2 || 16 + len > blob.length) {
+    // 单字节（ANSI）编码、长度 = 字节数（不含 NUL，与 buildDefaultConnectionSettingsBlob 对齐）。
+    if (len <= 0 || 16 + len > blob.length) {
       return "";
     }
-    final units = <int>[];
-    for (var i = 16; i + 1 < 16 + len; i += 2) {
-      final u = blob[i] | (blob[i + 1] << 8);
-      if (u == 0) {
-        break;
-      }
-      units.add(u);
-    }
-    return String.fromCharCodes(units);
+    return String.fromCharCodes(blob.sublist(16, 16 + len));
   }
 
   static Future<String> _regQueryValue(String name) async {

@@ -22,7 +22,7 @@ void main() {
     expect(dword(0), 0x46, reason: 'version 必须是 0x46');
     expect(dword(4), 7, reason: 'counter 写回我们给的 7（Windows 靠它察觉变化）');
     expect(dword(8), 0x3, reason: 'flags = DIRECT|PROXY');
-    expect(dword(12), ('127.0.0.1:17890'.length + 1) * 2, reason: '长度是字节数、含 NUL');
+    expect(dword(12), '127.0.0.1:17890'.length, reason: '长度是字节数（ANSI 单字节、不含 NUL）');
   });
 
   test('构造的 blob 里真的含地址（UTF-16LE），且长度字段与内容一致', () {
@@ -61,14 +61,21 @@ void main() {
     expect(wininet.defaultConnectionSettingsContains([1, 2], ''), isFalse);
   });
 
-  test('字节总长是 4 的倍数（每个段都对齐）', () {
-    for (final bypass in ['<local>', 'a', 'ab;cd;ef', '']) {
-      final blob = wininet.buildDefaultConnectionSettingsBlob(
-        flags: 0x3,
-        server: '127.0.0.1:17890',
-        bypass: bypass,
-      );
-      expect(blob.length % 4, 0, reason: '段与段之间必须 4 字节对齐，否则解析错位');
-    }
+  test('布局与 Windows 官方 API 生成的一致（紧凑、无填充、长度=字节数）', () {
+    final blob = wininet.buildDefaultConnectionSettingsBlob(
+      flags: 0x3,
+      server: '127.0.0.1:17899',
+      bypass: '<local>',
+    );
+    String hex() =>
+        blob.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+    // Windows 生成的权威 hex（WIN-BLOB）：
+    //   46000000 04000000 03000000 0f000000 3132372e302e302e313a3137383939 07000000 3c6c6f63616c3e 00000000
+    //   version counter  flags     len=15     "127.0.0.1:17899"(ASCII)      len=7     "<local>"          autolen=0
+    expect(
+      hex(),
+      '4600000000000000030000000f0000003132372e302e302e313a3137383939070000003c6c6f63616c3e00000000',
+      reason: '必须与 Windows 官方 API 生成的字节完全一致（counter 我们默认 0）',
+    );
   });
 }

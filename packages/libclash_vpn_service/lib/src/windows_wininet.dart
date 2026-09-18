@@ -1424,25 +1424,22 @@ List<int> buildDefaultConnectionSettingsBlob({
     out.add((v >> 24) & 0xff);
   }
 
+  // 字符串：**单字节（ANSI）+ 长度字段 = 字节数（不含 NUL），无结尾 NUL、无对齐**。
+  // 这是 Windows 真实写 DefaultConnectionSettings 的方式（与官方 API 生成的
+  // hex 对齐后确认）：不是 UTF-16，也不带终止符 —— 长度字段就是边界。
   void str(String s) {
-    final units = s.codeUnits;
-    for (final u in units) {
-      out.add(u & 0xff);
-      out.add((u >> 8) & 0xff);
+    final bytes = <int>[];
+    for (final u in s.codeUnits) {
+      bytes.add(u & 0xff); // 系统 ANSI（proxy 内容基本是 ASCII；非 ASCII 按低字节近似）
     }
-    out.add(0); // NUL
-    out.add(0);
-    while (out.length % 4 != 0) {
-      out.add(0); // 补齐到 4 字节
-    }
+    dw(bytes.length);
+    out.addAll(bytes);
   }
 
   dw(0x46); // version
   dw(counter);
   dw(flags);
-  dw((server.length + 1) * 2);
   str(server);
-  dw((bypass.length + 1) * 2);
   str(bypass);
   dw(0); // autoConfigUrlLen = 0（无 auto-config）
   return out;
@@ -1464,14 +1461,15 @@ bool defaultConnectionSettingsContains(List<int>? blob, String server) {
   if (blob == null || blob.isEmpty || server.isEmpty) {
     return false;
   }
-  final units = server.codeUnits;
-  for (var i = 0; i + units.length * 2 <= blob.length; i++) {
+  // 单字节（ANSI）搜索，与 buildDefaultConnectionSettingsBlob 的编码一致。
+  final bytes = <int>[];
+  for (final u in server.codeUnits) {
+    bytes.add(u & 0xff);
+  }
+  for (var i = 0; i + bytes.length <= blob.length; i++) {
     var match = true;
-    for (var k = 0; k < units.length; k++) {
-      final u = units[k];
-      final lo = blob[i + k * 2];
-      final hi = blob[i + k * 2 + 1];
-      if (lo != (u & 0xff) || hi != (u >> 8)) {
+    for (var k = 0; k < bytes.length; k++) {
+      if (blob[i + k] != bytes[k]) {
         match = false;
         break;
       }

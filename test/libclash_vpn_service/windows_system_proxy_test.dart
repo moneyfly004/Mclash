@@ -306,11 +306,22 @@ void main() {
         reason: '写完后注册表里的 blob 必须含 $host:$port（界面读的就是它）',
       );
 
-      // 5) 长度必须一致；不一致时上面的两个 hex 能直接看出差在哪。
+      // 5) 我构造的 blob 必须是 Windows 生成的 blob 的「数据前缀」。
+      //    Windows 会在末尾补 0 到它的缓冲大小，而我们按长度字段紧凑写 —— 所以
+      //    只比较到 autoConfigLen 结束为止，并跳过 counter（[4..8]，Windows 自增）。
+      expect(winBlob, isNotNull);
+      final winNoCounter = <int>[
+        ...winBlob!.sublist(0, 4),
+        ...winBlob.sublist(8),
+      ];
+      final myNoCounter = <int>[
+        ...myBlob.sublist(0, 4),
+        ...myBlob.sublist(8),
+      ];
       expect(
-        myBlob.length,
-        winBlob?.length,
-        reason: '构造的 blob 长度应与 Windows 生成的一致（详见 WIN-BLOB / MY-BLOB）',
+        winNoCounter.sublist(0, myNoCounter.length),
+        myNoCounter,
+        reason: '构造的 blob 应与 Windows 生成的数据部分一致（counter 除外），详见 WIN-BLOB / MY-BLOB',
       );
     } finally {
       if (original != null) {
