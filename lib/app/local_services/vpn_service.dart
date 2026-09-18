@@ -57,17 +57,18 @@ class VPNService {
       // 孤儿内核：它会继续占着混合端口与控制端口，还会让系统代理继续指向它，
       // 用户看到的就是「软件退了，内核还在跑，网还能上」，而且新实例连不上。
       // 新版内核还会被挂到 Job 上（退出即终止），这里负责清理旧版本遗留的。
-      try {
-        final stale = await FlutterVpnService.killStaleKernels();
-        if (stale.isNotEmpty) {
-          Log.w("VPNService: 已清理上一次遗留的内核进程 ${stale.join("、")}");
-        }
-      } catch (err) {
-        Log.w("VPNService: 清理遗留内核失败 ${err.toString()}");
-      }
+      //
+      // ⚠️ 这一步在 Windows 上要起一次 PowerShell（冷启动实测 1~3 秒），以前是
+      // `await` 的 —— 启动流程（含首屏）就白白等它。现在放后台：
+      //   * 安全性由扫描自身的规则保证：只杀「与本次使用同一内核路径、且不在本次
+      //     跟踪中」的进程（keepPid），不会误伤马上要启动的内核；
+      //   * 端口真被占用时，连接前还会**强制**再扫一次（见 _prepareConfig）。
+      unawaited(_scanStaleKernelsInBackground());
     }
     if (Platform.isWindows) {
-      _runAsAdmin = await FlutterVpnService.isRunAsAdmin();
+      // 是否管理员同样放在后台：`net session` 是几百毫秒的进程调用，而它只用于
+      // 「TUN 需要管理员权限」这类提示的判定，不需要挡住启动。
+      unawaited(_readAdminStateInBackground());
       // 防火墙规则**改到后台预热**，不再占着启动路径，也不占点击路径。
       //
       // 以前这里是 `await firewallAddApp` ×2（每次 netsh 都要起一个进程，实测
@@ -135,6 +136,32 @@ class VPNService {
   static Future<void> uninit() async {
     if (PlatformUtils.isPC()) {
       await stop();
+    }
+  }
+
+  /// 后台扫描「上一次异常退出留下的内核」，并把结果写进日志。
+  ///
+  /// 见 init() 里的说明：这一步在 Windows 上是 1~3 秒的 PowerShell 冷启动，
+  /// 不该挡住启动与首屏。
+  static Future<void> _scanStaleKernelsInBackground() async {
+    try {
+      final stale = await FlutterVpnService.killStaleKernels();
+      if (stale.isNotEmpty) {
+        Log.w("VPNService: 已清理上一次遗留的内核进程 ${stale.join("、")}");
+      }
+    } catch (err) {
+      Log.w("VPNService: 清理遗留内核失败 ${err.toString()}");
+    }
+  }
+
+  /// 后台读一次「当前是否以管理员运行」（`net session` 是几百毫秒的进程调用）。
+  static Future<void> _readAdminStateInBackground() async {
+    try {
+      final admin = await FlutterVpnService.isRunAsAdmin();
+      _runAsAdmin = admin;
+      Log.i("VPNService: 管理员权限=${admin ? "是" : "否"}");
+    } catch (err) {
+      Log.w("VPNService: 读取管理员状态失败 ${err.toString()}");
     }
   }
 
