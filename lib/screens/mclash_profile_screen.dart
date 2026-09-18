@@ -20,6 +20,7 @@ import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_data_cleaner.dart';
+import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_heartbeat_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
@@ -529,6 +530,9 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       // flutter_inappwebview 在 Windows/macOS 都支持 → 改成应用内窗口打开。
       useInappWebViewForPC: true,
     );
+    // 面板是直接改内核的（在里面点节点 = 改内核选择），App 侧不会自动知道 ——
+    // 关掉面板后立刻让首页重新读一次内核的当前节点，避免显示旧节点。
+    MclashNodesStore.instance.notifyCurrentMaybeChanged();
     if (PlatformUtils.isMobile()) {
       await Zashboard.stop();
     }

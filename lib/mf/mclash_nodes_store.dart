@@ -207,6 +207,13 @@ class MclashNodesStore extends ChangeNotifier {
 
   VoidCallback? onNodeSwitched;
 
+  /// 通知「内核里当前选中的节点可能变了」。
+  ///
+  /// 典型场景：用户在**面板**（zashboard，直接调内核控制接口）里点了另一个节点。
+  /// 那一下只改内核，App 并不知道；首页「当前节点」是从内核读的
+  /// （`ClashHttpApi.getNowProxy`），所以需要有人通知它重新读一次。
+  void notifyCurrentMaybeChanged() => onNodeSwitched?.call();
+
   /// 测试缝：**整体**替换真实加载（读配置档 + 读延迟缓存都要访问真实文件）。
   ///
   /// widget 测试的假时钟下真实 I/O 的 future 不会推进，于是「点按钮 → 出反馈」

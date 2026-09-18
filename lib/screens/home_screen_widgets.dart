@@ -867,10 +867,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   void _startProxyModeTimer() {
     _timerProxyMode?.cancel();
-    _timerProxyMode = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _updateProxyMode(),
-    );
+    _timerProxyMode = Timer.periodic(const Duration(seconds: 5), (_) {
+      _updateProxyMode();
+      // 顺带把「当前节点」与内核对齐：面板（zashboard）里换节点、或外部工具改了
+      // 内核选择时，App 首页不会自己知道 —— 以前只在切前台/自己切节点时才读一次，
+      // 于是在应用内面板里换完节点返回，首页还显示旧节点。
+      _updateProxyNow();
+    });
   }
 
   void _stopProxyModeTimer() {
