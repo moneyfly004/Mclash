@@ -296,6 +296,18 @@ class ClashSettingManager {
     );
   }
 
+  /// 剔除 mihomo 已删除的配置键（否则内核每次启动都会打一行 error）。
+  ///
+  /// 目前只有 `global-client-fingerprint`：mihomo 1.19 删掉了这个全局键，
+  /// 官方建议改为在**每个节点**上写 `client-fingerprint`（订阅下发的节点已经带了）。
+  /// 老安装的设置文件里还留着它，加载时清掉，save() 会把 null 键剔除。
+  static void stripDeprecatedKeys(RawConfig setting) {
+    if (setting.GlobalClientFingerprint != null) {
+      Log.i("ClashSettingManager: 移除已废弃的 global-client-fingerprint（mihomo 已删除该键，指纹改由节点自带的 client-fingerprint 决定）");
+      setting.GlobalClientFingerprint = null;
+    }
+  }
+
   static RawConfig defaultConfig() {
     return RawConfig.by(
       Mode: ClashConfigsMode.rule.name,
@@ -309,7 +321,12 @@ class ClashSettingManager {
       TLS: defaultTLS(),
       Tun: defaultTun(),
       Extension: defaultExtension(),
-      GlobalClientFingerprint: ClashGlobalClientFingerprint.chrome.name,
+      // 不再写 `global-client-fingerprint`：mihomo 1.19 已经**删除**这个键，
+      // 每次启动都会打一行 error（用户贴的 service_core.log 里就有）：
+      //   The `global-client-fingerprint` configuration is removed,
+      //   please set `client-fingerprint` directly on the proxy instead
+      // 现在按官方建议：指纹由**每个节点**自己的 `client-fingerprint` 决定
+      // （订阅/面板下发的节点里已经带了 `client-fingerprint: chrome`）。
       DisableKeepAlive: false,
       KeepAliveIdle: 30,
       KeepAliveInterval: 30,
@@ -522,6 +539,12 @@ class ClashSettingManager {
       return;
     }
     _setting = setting;
+    // 清理已废弃的配置键：mihomo 1.19 删除了 `global-client-fingerprint`，
+    // 老安装的设置文件里还留着它，内核每次启动都会报
+    //   The `global-client-fingerprint` configuration is removed, …
+    // 这里置空（save() 会把 null 键剔掉），下次写配置就不再出现；
+    // 指纹改为由每个节点自己的 `client-fingerprint` 决定（订阅里已经带了）。
+    stripDeprecatedKeys(_setting);
     _setting.MixedPort ??= 7890;
     _setting.DNS ??= defaultDNS();
     _setting.NTP ??= defaultNTP();

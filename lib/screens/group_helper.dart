@@ -1193,10 +1193,6 @@ class GroupHelper {
       final logLevels = ClashLogLevel.toList();
       final findProcessModes = ClashFindProcessMode.toList();
 
-      final globalFingerprintsTuple = ClashGlobalClientFingerprint.toTupleList(
-        context,
-      );
-
       final ipv6Tuple = BoolToTuple.toTupleList(context);
       final ipv6Selected = BoolToTuple.getSelectedString(context, setting.IPv6);
 
@@ -1471,18 +1467,6 @@ class GroupHelper {
               setting.DisableKeepAlive = duration == null;
               setting.KeepAliveIdle = duration?.inSeconds;
               setting.KeepAliveInterval = duration?.inSeconds;
-            },
-          ),
-        ),
-        GroupItemOptions(
-          stringPickerOptions: GroupItemStringPickerOptions(
-            name: tcontext.meta.globalClientFingerprint,
-            tips: "global-client-fingerprint",
-            selected: setting.GlobalClientFingerprint,
-            tupleStrings: globalFingerprintsTuple,
-            textWidthPercent: 0.3,
-            onPicker: (String? selected) async {
-              setting.GlobalClientFingerprint = selected;
             },
           ),
         ),

@@ -198,6 +198,10 @@ Future<void> run(List<String> args) async {
   }
 
   registerMclashVpnService();
+  // 桌面端（mihomo 子进程 + 系统代理）的诊断以前只写 stderr：Windows 上从开始菜单
+  // 启动的 GUI 程序没有控制台，那些行全部丢失 —— 用户报「系统代理没生效/界面空白」时
+  // 我们拿不到任何线索。这里接到应用日志，Windows 上也能直接查。
+  registerDesktopLogSink((line) => Log.i(line));
 
   runApp(TranslationProvider(child: const MyApp()));
 }

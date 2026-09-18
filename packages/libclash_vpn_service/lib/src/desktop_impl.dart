@@ -16,6 +16,28 @@ import 'vpn_service_platform.dart';
 import 'windows_job.dart';
 import 'windows_wininet.dart';
 
+/// 桌面端诊断日志的出口。
+///
+/// 这些行以前只写 `stderr.writeln` —— Windows 上从开始菜单启动的 GUI 程序没有
+/// 控制台，stderr 直接被丢掉：用户报「系统代理没生效 / 界面空白」时，
+/// 最关键的几行诊断（注册表写了什么、读回校验结果、官方 API 是否成功）
+/// 我们一条都拿不到。App 侧（main.dart）把 [desktopLogSink] 指到 `Log.i`，
+/// 这些行就会进 app.log，Windows 上也能远程排查。
+typedef DesktopLogSink = void Function(String line);
+
+/// 由 App 注入的日志出口（为空时只写 stderr）。
+DesktopLogSink? desktopLogSink;
+
+/// 写一行桌面端诊断日志：先给 App，再兜底写 stderr。
+void desktopLog(String line) {
+  try {
+    desktopLogSink?.call(line);
+  } catch (_) {}
+  try {
+    desktopLog(line);
+  } catch (_) {}
+}
+
 class DesktopVpnServiceImpl extends VpnServicePlatform {
   DesktopVpnServiceImpl();
 
@@ -239,7 +261,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         // 关键：把内核挂到「App 一死就被系统杀掉」的 Job 上。
         // 否则任务管理器结束任务 / 崩溃 / 被强杀都会留下孤儿内核继续跑。
         final joined = assignToKillOnCloseJob(proc.pid);
-        stderr.writeln(
+        desktopLog(
           "[mclash] 内核 PID=${proc.pid} 加入「退出即终止」作业对象: "
           "${joined ? "成功" : "失败（退回退出时显式 taskkill）"}",
         );
@@ -489,7 +511,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     if (kind == TunStartFailureKind.none) {
       return;
     }
-    stderr.writeln(
+    desktopLog(
       "[mclash] TUN 启动失败（${kind.name}）→ ${tunFailureHint(kind)}",
     );
     final port = _mixedPort;
@@ -506,13 +528,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           ProxyOption(InternetAddress.loopbackIPv4.address, port, const []),
         );
         _systemProxyFallbackActive = true;
-        stderr.writeln(
+        desktopLog(
           "[mclash] TUN 不可用（需要管理员权限），已把系统代理指向 "
           "127.0.0.1:$port（读回校验: ${readBack ? "一致" : "不一致，请检查系统代理设置"}）",
         );
       }
     } catch (e) {
-      stderr.writeln("[mclash] TUN 兜底设系统代理失败: $e");
+      desktopLog("[mclash] TUN 兜底设系统代理失败: $e");
     }
   }
 
@@ -546,14 +568,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       return false;
     }
     if (_autoRecoveries >= kMaxAutoRecover) {
-      stderr.writeln(
+      desktopLog(
         "[mclash] $why —— 已连续自愈 $_autoRecoveries 次仍失败，停止重试并如实断开。",
       );
       return false;
     }
     _autoRecoveries++;
     final backoff = Duration(seconds: 2 * _autoRecoveries);
-    stderr.writeln(
+    desktopLog(
       "[mclash] $why —— 第 $_autoRecoveries 次自愈：${backoff.inSeconds}s 后重启内核…",
     );
     _setState(FlutterVpnServiceState.reasserting);
@@ -564,14 +586,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     try {
       final result = await start(const Duration(seconds: 30));
       if (result.type == VpnServiceWaitType.done) {
-        stderr.writeln("[mclash] 自愈成功：内核已恢复（第 $_autoRecoveries 次）");
+        desktopLog("[mclash] 自愈成功：内核已恢复（第 $_autoRecoveries 次）");
         return true;
       }
-      stderr.writeln(
+      desktopLog(
         "[mclash] 自愈失败：${result.err?.message ?? "未知原因"}",
       );
     } catch (e) {
-      stderr.writeln("[mclash] 自愈异常: $e");
+      desktopLog("[mclash] 自愈异常: $e");
     }
     return false;
   }
@@ -598,7 +620,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         return;
       }
       _watchdogMisses++;
-      stderr.writeln(
+      desktopLog(
         "[mclash] 存活探测失败 $_watchdogMisses/$kWatchdogMaxMisses"
         "（控制端口 ${cfg.control_port}）",
       );
@@ -722,11 +744,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       if (resp.statusCode == 200 || resp.statusCode == 204) {
         tunTeardownRequests++;
       }
-      stderr.writeln(
+      desktopLog(
         "[mclash] 退出前已请求内核关闭 TUN（HTTP ${resp.statusCode}）",
       );
     } catch (e) {
-      stderr.writeln("[mclash] 退出前关闭 TUN 失败（继续退出）: $e");
+      desktopLog("[mclash] 退出前关闭 TUN 失败（继续退出）: $e");
     } finally {
       client.close(force: true);
     }
@@ -738,7 +760,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     final result = await buildKernelConfig(cfg);
     for (final note in result.notes) {
       // 配置生成过程的每一步都留痕（排查「内核起不来」时最关键的一段）
-      stderr.writeln("[mclash] 内核配置: $note");
+      desktopLog("[mclash] 内核配置: $note");
     }
     _mixedPort = result.mixedPort;
     return result;
@@ -779,7 +801,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       extraSourceDirs: extra,
     );
     if (_missingGeo.isNotEmpty) {
-      stderr.writeln(
+      desktopLog(
         "[mclash] geo data missing in -d dir: ${_missingGeo.join(", ")} "
         "(searched: ${geoSourceDirs(workDir, support, extraSourceDirs: extra).join(" | ")})",
       );
@@ -954,7 +976,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     // 端口 0 会让注册表里留下 "127.0.0.1:0"，Windows 流量会被发到一个不存在的
     // 代理上（浏览器全打不开），而且这个残留会一直留到下次清理。
     if (option.port <= 0) {
-      stderr.writeln("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
+      desktopLog("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
       return false;
     }
     try {
@@ -984,7 +1006,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         "add", key, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", bypass, "/f",
       ]);
       if (enableRes.exitCode != 0 || serverRes.exitCode != 0) {
-        stderr.writeln(
+        desktopLog(
           "[mclash] 写系统代理注册表失败："
           "ProxyEnable=${enableRes.exitCode}(${enableRes.stderr.trim()}) "
           "ProxyServer=${serverRes.exitCode}(${serverRes.stderr.trim()})",
@@ -1004,16 +1026,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         server: "${option.host}:${option.port}",
         bypass: bypass,
       );
-      stderr.writeln(
+      desktopLog(
         "[mclash] 已按官方 API 设置当前连接的代理（界面/缓存同步）: $perConn",
       );
       final notified = notifySystemProxyChanged();
-      stderr.writeln(
+      desktopLog(
         "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
       );
       // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
       if (!await _windowsProxyMatches(option)) {
-        stderr.writeln(
+        desktopLog(
           "[mclash] 系统代理写入后校验不一致（期望 ${option.host}:${option.port}），"
           "可能被其它代理软件覆盖",
         );
@@ -1114,7 +1136,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
           return true;
         }
       }
-      stderr.writeln(
+      desktopLog(
         "[mclash] 系统代理读回校验未通过（期望 ${option.host}:${option.port}），"
         "注册表实际内容：${lastServer.replaceAll("\n", " | ").trim()}",
       );
@@ -1158,7 +1180,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     // 「代理已开启 + 端口 0（等效 80）」的状态 —— 浏览器把所有流量发给一个不存在的
     // 代理，表现为「连上了却上不了网」，而且这个残留会一直留到下次清理。
     if (option.port <= 0) {
-      stderr.writeln("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
+      desktopLog("[mclash] 拒绝设置无端口的系统代理（port=${option.port}）");
       return false;
     }
     final bypass = [
@@ -1184,7 +1206,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
       if (!anyOk && failed.isNotEmpty) {
         // 普通权限下改不动（或被 TCC 拦）时，用一次系统授权兜底：
         // 这正是用户手动去「系统设置 → 网络 → 代理」填端口的等价操作。
-        stderr.writeln(
+        desktopLog(
           "[mclash] 普通权限设置系统代理失败（${failed.take(3).join(", ")}…），"
           "改用系统授权重试",
         );
@@ -1192,11 +1214,11 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
       }
       _systemProxyApplied = anyOk;
       if (!anyOk) {
-        stderr.writeln("[mclash] 系统代理设置失败：请检查是否允许修改网络设置");
+        desktopLog("[mclash] 系统代理设置失败：请检查是否允许修改网络设置");
       }
       return anyOk;
     } catch (e) {
-      stderr.writeln("[mclash] 设置系统代理异常: $e");
+      desktopLog("[mclash] 设置系统代理异常: $e");
       return false;
     }
   }
@@ -1212,7 +1234,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
       if (r.exitCode != 0) {
         // 以前这里完全不看退出码 —— 失败也被当成成功，读回又只比 host，
         // 于是「设置失败」被伪装成「已生效」。
-        stderr.writeln(
+        desktopLog(
           "[mclash] networksetup ${args.first} $svc 失败(${r.exitCode}): "
           "${r.stderr.toString().trim()}",
         );
@@ -1240,7 +1262,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     try {
       final r = await Process.run("osascript", ["-e", script]);
       if (r.exitCode != 0) {
-        stderr.writeln("[mclash] 授权设置系统代理失败: ${r.stderr.toString().trim()}");
+        desktopLog("[mclash] 授权设置系统代理失败: ${r.stderr.toString().trim()}");
         return false;
       }
       var ok = false;
@@ -1252,7 +1274,7 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
       }
       return ok;
     } catch (e) {
-      stderr.writeln("[mclash] 授权设置系统代理异常: $e");
+      desktopLog("[mclash] 授权设置系统代理异常: $e");
       return false;
     }
   }

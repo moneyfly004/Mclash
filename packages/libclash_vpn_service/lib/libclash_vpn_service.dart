@@ -21,3 +21,8 @@ void registerMclashVpnService() {
   VpnServicePlatform.instance =
       Platform.isAndroid ? AndroidVpnServicePlatform() : DesktopVpnServiceImpl();
 }
+
+/// 让 App 把桌面端诊断日志接到自己的日志文件（见 desktop_impl.dart 的说明）。
+void registerDesktopLogSink(void Function(String line)? sink) {
+  desktopLogSink = sink;
+}
