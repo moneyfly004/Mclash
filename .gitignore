@@ -132,3 +132,6 @@ packages/*/pubspec.lock
 /remote_config.json
 /providers.json
 /board_sessions.json
+
+# 插件包里的 Gradle 缓存（flutter pub get / analyze 会生成）
+packages/*/android/.gradle/

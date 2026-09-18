@@ -28,23 +28,6 @@ FlutterVpnServiceState flutterVpnServiceStateFromString(String? s) {
   }
 }
 
-String flutterVpnServiceStateToString(FlutterVpnServiceState s) {
-  switch (s) {
-    case FlutterVpnServiceState.connected:
-      return "connected";
-    case FlutterVpnServiceState.connecting:
-      return "connecting";
-    case FlutterVpnServiceState.disconnecting:
-      return "disconnecting";
-    case FlutterVpnServiceState.reasserting:
-      return "reasserting";
-    case FlutterVpnServiceState.disconnected:
-      return "disconnected";
-    case FlutterVpnServiceState.invalid:
-      return "invalid";
-  }
-}
-
 enum VpnServiceWaitType { done, timeout, error }
 
 class VpnServiceResultError {

@@ -68,14 +68,13 @@ class VPNService {
     }
     if (Platform.isWindows) {
       _runAsAdmin = await FlutterVpnService.isRunAsAdmin();
-      FlutterVpnService.firewallAddApp(
-        Platform.resolvedExecutable,
-        PathUtils.getExeName(),
-      );
-      FlutterVpnService.firewallAddApp(
-        PathUtils.serviceExePath(),
-        PathUtils.serviceExeName(),
-      );
+      // 防火墙规则**改到后台预热**，不再占着启动路径，也不占点击路径。
+      //
+      // 以前这里是 `await firewallAddApp` ×2（每次 netsh 都要起一个进程，实测
+      // 几百毫秒），而放行端口那两条（`firewallAddPorts`）更是落在**用户点击连接**
+      // 的路上 —— 「点了连接半天没反应」的空窗里就有它们。现在统一在启动后空闲时
+      // 预热一次，插件按规则参数缓存，点击时直接命中缓存（近似 0 成本）。
+      unawaited(_prewarmFirewallRules());
     }
 
     launchAtStartup.setup(
@@ -125,6 +124,42 @@ class VPNService {
   static Future<void> uninit() async {
     if (PlatformUtils.isPC()) {
       await stop();
+    }
+  }
+
+  /// 预热 Windows 防火墙规则（应用本体 + 内核 + 两个端口）。
+  ///
+  /// 为什么放到后台：`netsh advfirewall firewall add rule` 每次都要起一个进程
+  /// （实测几百毫秒，首次更慢）。以前「放行端口」这一条就在用户点击连接的路上
+  /// （`_startInner` → `firewallAddPorts`），点击到界面出现「正在连接…」之间的
+  /// 空窗里有它一份。启动后空闲时先放行，点击时命中插件里的缓存直接返回。
+  ///
+  /// 失败不影响任何功能（只是没有防火墙例外），所以只记日志。
+  static Future<void> _prewarmFirewallRules() async {
+    try {
+      // 先让窗口与首页把首帧画出来，别和启动抢时间
+      await Future<void>.delayed(const Duration(seconds: 3));
+      final ports = <int>[
+        ClashSettingManager.getControlPort(),
+        ClashSettingManager.getMixedPort(),
+      ].where((p) => p > 0).toSet().toList();
+      await FlutterVpnService.firewallAddApp(
+        Platform.resolvedExecutable,
+        PathUtils.getExeName(),
+      );
+      await FlutterVpnService.firewallAddApp(
+        PathUtils.serviceExePath(),
+        PathUtils.serviceExeName(),
+      );
+      if (ports.isNotEmpty) {
+        await FlutterVpnService.firewallAddPorts(
+          ports,
+          PathUtils.serviceExeName(),
+        );
+      }
+      Log.i("VPNService: 防火墙规则已预热（点击连接时不再等 netsh）");
+    } catch (err) {
+      Log.w("VPNService: 预热防火墙规则失败（忽略）${err.toString()}");
     }
   }
 
@@ -409,7 +444,19 @@ class VPNService {
     if (Platform.isMacOS) {
       await FlutterVpnService.setAlwaysOn(false);
     }
-    final enable = await getSystemProxyEnable();
+    // ⚠️ 这里**不能**用「重启前读到的系统代理状态」来决定重启后要不要设置。
+    //
+    // `FlutterVpnService.restart` 内部是先 stop 再 start，而 stop 会把系统代理
+    // 撤掉（并把归属标记一起删掉）。旧代码是
+    //     final enable = await getSystemProxyEnable();   // 重启前
+    //     ...restart...
+    //     if (enable && shouldApplySystemProxy()) setSystemProxy(true);
+    // 于是只要重启前的那次读值不是「指向我们当前端口」（用户手动关过、端口被换过、
+    // 或者本来就没设过），重启之后就**再也不会设置系统代理** —— 用户看到的就是
+    // 「切了模式 / 切了节点 / 自动同步订阅之后，系统代理变空白了」。
+    // 正确的判据只有一个：当前设置是否要求系统代理（shouldApplySystemProxy），
+    // 端口则问内核（它才知道自己监听哪个）。
+    final bool wantProxy = shouldApplySystemProxy();
     VpnServiceWaitResult result = await FlutterVpnService.restart(timeout);
     if (result.type == VpnServiceWaitType.timeout) {
       _logConnectDiagnostics("内核 ${timeout.inSeconds}s 内未就绪");
@@ -436,8 +483,24 @@ class VPNService {
       }
     }
 
-    if (enable && shouldApplySystemProxy()) {
-      await setSystemProxy(true);
+    // 重启后**按当前设置重新写一次**系统代理（理由见上面 wantProxy 的注释）。
+    // 端口以内核实际监听为准 —— 重启有可能换端口，写错端口等于把流量发给空气。
+    if (wantProxy) {
+      var port = await syncMixedPortFromKernel();
+      if (port <= 0) {
+        await _ensureMixedPortAvailable();
+        port = await syncMixedPortFromKernel();
+      }
+      if (port > 0) {
+        await setSystemProxy(true);
+        final ok = await getSystemProxyEnable();
+        Log.i(
+          "VPNService: 重启后已重设系统代理 -> 127.0.0.1:$port"
+          "（读回校验: ${ok ? "已生效" : "未生效"}）",
+        );
+      } else {
+        Log.w("VPNService: 重启后拿不到有效混合端口，未设置系统代理");
+      }
     }
     return null;
   }
@@ -477,14 +540,19 @@ class VPNService {
     if (prepareResult != null) {
       return prepareResult;
     }
+    final swPrepare = Stopwatch()..start();
     try {
       bool reinstall = await _prepareConfig(profile);
       if (reinstall) {
         await uninstall();
       }
     } catch (err, stacktrace) {
+      Log.w("[perf] 连接：准备配置失败，用时 ${swPrepare.elapsedMilliseconds} ms");
       return ReturnResultError(err.toString());
     }
+    // 打点：这一段是「点击连接之后、内核还没开始启动」的部分（端口探测、
+    // 规则/补丁落盘、geo 数据检查、防火墙放行）——「点了半天没反应」时先看它。
+    Log.i("[perf] 连接：准备配置用时 ${swPrepare.elapsedMilliseconds} ms");
     var setting = SettingManager.getConfig();
     if (Platform.isWindows) {
       final controlPort = ClashSettingManager.getControlPort();
@@ -736,16 +804,38 @@ class VPNService {
 
   static Future<void> stop() => _serialOp("stop", _stopInner);
 
+  /// 断开：把互不依赖的两件事**并行**做。
+  ///
+  /// 为什么（用户实测：「关闭的时候点击半天才有反应」）：旧实现是串行的
+  ///   1) 撤系统代理（Windows：注册表 4 次 + 官方 API + 两次广播；macOS：逐网络
+  ///      服务跑 networksetup）
+  ///   2) 让内核停下来（先 PATCH 让内核自己拆 TUN，再 taskkill 并等进程退出）
+  /// 两段本来没有先后依赖，却要一段一段等 —— 总时长是**相加**。
+  /// 现在并行发起，总时长取两者最大值。
   static Future<void> _stopInner() async {
+    final sw = Stopwatch()..start();
     _stopProxyWatchdog();
+    final tasks = <Future<void>>[
+      _quiet("撤系统代理", setSystemProxy(false)),
+      _quiet("停止内核", FlutterVpnService.stop()),
+    ];
     if (Platform.isMacOS) {
-      await FlutterVpnService.setAlwaysOn(false);
+      // 与上面两步独立：只是让系统助手不再 always-on
+      tasks.add(_quiet("关闭 always-on", FlutterVpnService.setAlwaysOn(false)));
     }
-    await setSystemProxy(false);
-    await FlutterVpnService.stop();
-
+    await Future.wait(tasks);
     if (Platform.isWindows) {
       await uninstall();
+    }
+    Log.i("[perf] 断开：撤系统代理 + 停内核用时 ${sw.elapsedMilliseconds} ms");
+  }
+
+  /// 跑一步「失败也不该拖垮断开」的子任务：异常只记日志。
+  static Future<void> _quiet(String what, Future<void> f) async {
+    try {
+      await f;
+    } catch (err) {
+      Log.w("VPNService: 断开步骤「$what」失败（忽略）${err.toString()}");
     }
   }
 

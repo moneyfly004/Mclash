@@ -97,14 +97,6 @@ class SystemProxyDiagnostics {
   /// 最近一次「清理」为什么没做（空 = 做了）。
   static String lastCleanSkip = "";
 
-  static void reset() {
-    internetSetOption = null;
-    wmSettingChange = null;
-    perConnectionApi = null;
-    lastError = "";
-    lastCleanSkip = "";
-  }
-
   /// 给用户/客服看的一份纯文本报告。
   ///
   /// 为什么要有它（用户实测）：Windows 上「注册表里明明有 127.0.0.1:端口、
@@ -690,10 +682,23 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   Future<void> _applyDataPathFallback(File logFile) async {
     _systemProxyFallbackActive = false;
-    final tail = await _tail(logFile, 40);
+    // 判定窗口从 40 行放大到 200 行：内核启动时会打几百行（节点/geo/规则），
+    // TUN 的失败信息很容易被挤出尾部 40 行 —— 漏判的后果是「TUN 没起来、
+    // 系统代理也没设」= 用户两头空（界面上系统代理空白、网也不通）。
+    final tail = await _tail(logFile, 200);
     final kind = classifyTunFailure(tail);
     tunFailureKind = kind;
     if (kind == TunStartFailureKind.none) {
+      // 「配置里开了 TUN，但日志里既没有成功标记也没有可识别的失败标记」要如实说出来：
+      // 这正是「TUN 到底起没起来」说不清的机器（也是用户报「系统代理空白」的一类）。
+      final cfg = _config;
+      if (cfg?.tun_enabled == true && !_tunLooksEstablished(tail)) {
+        desktopLog(
+          "[mclash] ⚠️ 配置里开了 TUN，但内核日志里没有可判定的 TUN 结果"
+          "（既无成功标记也无已知失败标记）—— 若界面里也没有系统代理，"
+          "说明两条数据通路都没生效，请把这份日志发出来。",
+        );
+      }
       return;
     }
     desktopLog(
@@ -895,7 +900,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         }
       } catch (_) {}
       try {
-        await proc.exitCode.timeout(const Duration(seconds: 3));
+        // 1.5s 够了：taskkill /F /T 之后内核基本立刻消失；真等不到就直接进
+        // 下面那一层 kill(sigkill) 并返回，不把用户按在「断开中…」上。
+        await proc.exitCode.timeout(const Duration(milliseconds: 1500));
       } catch (_) {
         try {
           proc.kill(ProcessSignal.sigkill);
@@ -915,6 +922,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     if (cfg.tun_enabled != true) {
       return;
     }
+    // 超时**故意收紧**（原来 3s）：这一步只是为了「先让内核自己把 TUN 的路由与
+    // 网卡撤干净，再强杀」，而且它和「撤系统代理」并行执行 —— 断开的总时长就是
+    // 被这条最慢的分支拖着的。内核已经死了的情况是连接被拒（立刻返回），
+    // 真正会等满超时的只有「假活」，那种情况本来就该马上强杀（后面还有 taskkill
+    // 与「退出即终止」的 Job 对象兜底，不会留残留路由）。
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
     try {
       final req = await client
@@ -923,13 +935,15 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
               "http://127.0.0.1:${cfg.control_port}/configs",
             ),
           )
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(milliseconds: 1200));
       if (cfg.secret.isNotEmpty) {
         req.headers.set(HttpHeaders.authorizationHeader, "Bearer ${cfg.secret}");
       }
       req.headers.contentType = ContentType.json;
       req.write('{"tun":{"enable":false}}');
-      final resp = await req.close().timeout(const Duration(seconds: 3));
+      final resp = await req.close().timeout(
+        const Duration(milliseconds: 1200),
+      );
       await resp.drain<void>();
       if (resp.statusCode == 200 || resp.statusCode == 204) {
         tunTeardownRequests++;
@@ -958,14 +972,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     _mixedPort = result.mixedPort;
     return result;
   }
-
-
-
-
-
-
-
-
 
   /// geo 数据落盘：真正的逻辑在 [installGeoData]（可被单元测试直接覆盖）。
   ///
@@ -1065,16 +1071,64 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return "";
   }
 
+  /// 日志里有没有「TUN 确实起来了」的痕迹。
+  static bool _tunLooksEstablished(String logText) {
+    if (logText.isEmpty) {
+      return false;
+    }
+    final lower = logText.toLowerCase();
+    for (final marker in const [
+      "tun adapter listening at",
+      "use tun name",
+      "start tun listening",
+    ]) {
+      if (lower.contains(marker)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 读日志尾部 [lines] 行（**从文件末尾反向读，不把整个文件读进内存**）。
+  ///
+  /// 旧实现是 `readAsLines()` + sublist：内核日志会一直追加（一次运行可能几十 MB），
+  /// 而 `_applyDataPathFallback` **每次连接**都要读一次 —— 等于每次连接都把整个日志
+  /// 文件读进内存再切开，纯浪费（「连接时有感卡顿」的候选项之一）。
+  /// 现在最多只读尾部 256KB。
   static Future<String> _tail(File f, int lines) async {
+    RandomAccessFile? raf;
     try {
       if (!await f.exists()) {
         return "";
       }
-      final all = await f.readAsLines();
+      const maxBytes = 256 * 1024;
+      final length = await f.length();
+      if (length <= 0) {
+        return "";
+      }
+      final readFrom = length > maxBytes ? length - maxBytes : 0;
+      raf = await f.open();
+      await raf.setPosition(readFrom);
+      final bytes = await raf.read(length - readFrom);
+      // 用 UTF-8 解码（allowMalformed）：日志里可能有中文/非 ASCII，
+      // 按 charCode 硬转会变乱码（旧实现走 readAsLines 是正确的 UTF-8 解码）。
+      var text = utf8.decode(bytes, allowMalformed: true);
+      if (readFrom > 0) {
+        // 从中间切进来的第一行很可能是不完整的 → 丢掉
+        final firstBreak = text.indexOf("\n");
+        if (firstBreak >= 0) {
+          text = text.substring(firstBreak + 1);
+        }
+      }
+      final all = text.split("\n");
       final start = all.length > lines ? all.length - lines : 0;
       return all.sublist(start).join("\n");
     } catch (_) {
       return "";
+    } finally {
+      try {
+        await raf?.close();
+      } catch (_) {}
     }
   }
 
@@ -1672,29 +1726,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     } catch (_) {
       return false;
     }
-  }
-
-  /// 启动巡检：清掉指向**已无人监听**端口的残留系统代理。
-  ///
-  /// 判据必须同时满足两条：
-  ///   ① 代理指向本机端口
-  ///   ② 该端口已无人监听
-  /// 只看 ① 会把**另一个实例正在使用的活代理**误清掉 →
-  /// 界面显示已连接但打不开网页。
-  static Future<void> clearResidualSystemProxy(int port) async {
-    try {
-      final s = await Socket.connect(
-        InternetAddress.loopbackIPv4,
-        port,
-        timeout: const Duration(milliseconds: 400),
-      );
-      s.destroy();
-      return; // 端口还有人听 → 不是残留，别动
-    } catch (_) {
-      // 端口已死 → 是残留，继续清
-    }
-    final impl = DesktopVpnServiceImpl();
-    await impl.cleanSystemProxy();
   }
 
   // ======================================================================

@@ -439,11 +439,8 @@ int? queryConnectionFlagsForConnection() {
   if (raw == null) {
     return null;
   }
-  return int.tryParse(raw) ?? _readPtrFromString(raw);
-}
-
-int _readPtrFromString(String raw) {
-  // 兜底：API 返回的是指针地址的十进制字符串（见 queryConnectionOption）
+  // flags 走的是 union 里的 dwValue，`queryConnectionOption` 会把它读成十进制
+  // 数字字符串（指针宽度那 8 字节的高位是 LPTR 清零的）。解析不出来就按「未启用」。
   return int.tryParse(raw) ?? -1;
 }
 

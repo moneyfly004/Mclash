@@ -48,6 +48,17 @@ class ProxyHttpOverrides extends HttpOverrides {
 }
 
 class HomeScreenWidgetPart1 extends StatefulWidget {
+  /// 测试缝：替换「真的去连 / 真的去断」那一步。
+  ///
+  /// widget 测试里不能真的起内核（会写注册表 / 跑 networksetup / 找 mihomo），
+  /// 而「点击后界面立刻有反馈」这件事必须能被测到 —— 给它一个挂得住的口子，
+  /// 测试就能断言「VPNService 还没返回时，界面已经在转圈了」。
+  @visibleForTesting
+  static Future<bool> Function(String from)? debugStartOverride;
+
+  @visibleForTesting
+  static Future<void> Function()? debugStopOverride;
+
   const HomeScreenWidgetPart1({super.key});
 
   @override
@@ -61,6 +72,36 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   final FocusNode _focusNodeConnect = FocusNode();
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
+
+  /// 本地「刚点了连接/断开」的乐观标记。
+  ///
+  /// 为什么需要（用户实测：「点击连接好大一会才有反应」）：从手指点到
+  /// **插件真正发出 connecting 事件**之间，还有一串真实存在的等待 ——
+  /// 串行闸门排队、端口探测、防火墙规则、配置落盘、内核启动……
+  /// 这段时间旧实现的界面**一点变化都没有**（开关弹回原位、文案不变），
+  /// 用户只能反复点。现在点击的瞬间先本地给出反馈，真实状态事件到达后交还给它。
+  ///
+  /// 注意：它只影响显示，不参与任何逻辑判定（[VPNService] 的状态才是事实）；
+  /// 收到 connected/disconnected 就立刻清掉，避免出现「一直转圈」。
+  FlutterVpnServiceState? _pendingState;
+
+  void _setPending(FlutterVpnServiceState s) {
+    if (!mounted || _pendingState == s) {
+      return;
+    }
+    setState(() => _pendingState = s);
+  }
+
+  void _clearPending() {
+    if (_pendingState == null) {
+      return;
+    }
+    if (!mounted) {
+      _pendingState = null;
+      return;
+    }
+    setState(() => _pendingState = null);
+  }
 
   DateTime? _connectedAt;
   Timer? _timerStateChecker;
@@ -189,10 +230,17 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   @override
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
-    bool connected = _state == FlutterVpnServiceState.connected;
-    final connecting = _state == FlutterVpnServiceState.connecting ||
-        _state == FlutterVpnServiceState.reasserting;
-    final disconnecting = _state == FlutterVpnServiceState.disconnecting;
+    // 乐观反馈优先：刚点下去的那一瞬间就按「正在连接/正在断开」显示，
+    // 而不是等插件的状态事件（中间还有一段真实等待，见 _pendingState 的说明）。
+    final shownState = _pendingState ?? _state;
+    bool connected = shownState == FlutterVpnServiceState.connected;
+    final connecting = shownState == FlutterVpnServiceState.connecting ||
+        shownState == FlutterVpnServiceState.reasserting;
+    final disconnecting = shownState == FlutterVpnServiceState.disconnecting;
+    // 开关位置也要跟着乐观值走：连接期间保持「开」，否则 Switch 会先弹回原位，
+    // 看起来就像「点了没反应」。
+    final switchOn = _pendingState == FlutterVpnServiceState.connecting ||
+        (_pendingState == null && connected);
 
     return Card(
       child: Padding(
@@ -254,14 +302,23 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                 Transform.scale(
                   scale: 1.15,
                   child: Switch.adaptive(
-                    value: _state == FlutterVpnServiceState.connected,
+                    value: switchOn,
                     activeThumbColor: Colors.white,
                     activeTrackColor: ThemeDefine.kColorGreenBright,
                     onChanged: MclashAccountService.instance.isBlocked
                         ? null
                         : (bool value) async {
+                            // 点下去的**第一件事**就是给反馈：门禁复核/串行闸门/
+                            // 端口探测这些都可能在后面排队，不能让用户对着
+                            // 毫无变化的界面等（见 _pendingState 的说明）。
+                            _setPending(
+                              value
+                                  ? FlutterVpnServiceState.connecting
+                                  : FlutterVpnServiceState.disconnecting,
+                            );
                             if (value &&
                                 !(await mclashCheckAccountGate(context))) {
+                              _clearPending();
                               return;
                             }
                             if (value) {
@@ -560,10 +617,56 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> stop() async {
-    await VPNService.stop();
+    // 打点 + 乐观反馈：断开这条路上有「撤系统代理」「拆 TUN」「杀内核」三段真实等待，
+    // 旧实现是用户点完之后界面静止好几秒。日志里这两行能直接看出慢在哪一段。
+    final sw = Stopwatch()..start();
+    _setPending(FlutterVpnServiceState.disconnecting);
+    try {
+      final override = HomeScreenWidgetPart1.debugStopOverride;
+      if (override != null) {
+        await override();
+        return;
+      }
+      await VPNService.stop();
+    } finally {
+      Log.i("[perf] 断开：从点击到 VPNService.stop 返回 ${sw.elapsedMilliseconds} ms");
+      _clearPendingIfSettled();
+    }
+  }
+
+  /// 兜底：VPNService 已经回到稳定状态，但本地乐观标记还挂着（状态事件没等到/丢了一次）
+  /// → 清掉，否则界面会一直转圈。
+  void _clearPendingIfSettled() {
+    final s = _state;
+    if (s == FlutterVpnServiceState.connecting ||
+        s == FlutterVpnServiceState.disconnecting ||
+        s == FlutterVpnServiceState.reasserting) {
+      return;
+    }
+    _clearPending();
   }
 
   Future<bool> start(String from) async {
+    final sw = Stopwatch()..start();
+    _setPending(FlutterVpnServiceState.connecting);
+    try {
+      final override = HomeScreenWidgetPart1.debugStartOverride;
+      if (override != null) {
+        return await override(from);
+      }
+      return await _startInner();
+    } finally {
+      // 这一行是「点击连接很久才有反应」的定位依据：它包含门禁复核、串行闸门排队、
+      // 端口探测、防火墙规则、配置落盘与内核启动等待。配合插件侧的
+      // `[perf] 连接：内核就绪用时 …`（不含前面这些）就能算出各段占比。
+      Log.i(
+        "[perf] 连接($from)：从点击到 VPNService.start 返回 ${sw.elapsedMilliseconds} ms",
+      );
+      _clearPendingIfSettled();
+    }
+  }
+
+  Future<bool> _startInner() async {
     // 每一处连接入口都先过账户门禁：托盘菜单、快捷键、桌面小组件都会直接调到这里，
     // 只在开关的 onChanged 里判断会漏（用户会用托盘连接）。
     if (!await mclashCheckAccountGate(context)) {
@@ -686,7 +789,18 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     FlutterVpnServiceState state,
     Map<String, String> params,
   ) async {
+    // 真实状态一到，乐观标记就必须让位 —— **而且要在这行去重 return 之前**处理：
+    // 例如「点连接 → 立刻失败回到 disconnected」时 `_state` 本来就是 disconnected，
+    // 若在 return 之后才清，乐观标记会永远留着，界面一直转圈。
+    final hadPending = _pendingState != null;
+    if (state == FlutterVpnServiceState.connected ||
+        state == FlutterVpnServiceState.disconnected) {
+      _pendingState = null;
+    }
     if (_state == state) {
+      if (hadPending && mounted) {
+        setState(() {});
+      }
       return;
     }
     _state = state;
