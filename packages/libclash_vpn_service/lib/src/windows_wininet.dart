@@ -114,9 +114,11 @@ const int _kPerConnFlags = 1;
 const int _kPerConnProxyServer = 2;
 const int _kPerConnProxyBypass = 3;
 
-/// `PROXY_TYPE_*`
-const int _kProxyTypeDirect = 0x1;
-const int _kProxyTypeProxy = 0x2;
+/// `PROXY_TYPE_*`（公开：desktop_impl 需要在清理时按原值还原 flags）
+const int kProxyTypeDirect = 0x1;
+const int kProxyTypeProxy = 0x2;
+const int _kProxyTypeDirect = kProxyTypeDirect;
+const int _kProxyTypeProxy = kProxyTypeProxy;
 
 // ── 结构体布局（按指针宽度自适应 32/64 位）──
 // struct INTERNET_PER_CONN_OPTIONW { DWORD dwOption; union { DWORD dwValue; LPWSTR pszValue; } Value; }
@@ -226,6 +228,21 @@ String _readUtf16(int addr) {
 bool applySystemProxyForConnection({
   required String server,
   required String bypass,
+}) => writeSystemProxyForConnection(server: server, bypass: bypass);
+
+/// 写「当前连接」的代理设置（**界面读的就是这一份**）。
+///
+/// 这是 Windows 自己勾选「使用代理服务器」时走的同一条官方 API：
+/// `InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION(75), &list, size)`。
+/// 它一次把 flags / 服务器 / 旁路写进 `Connections\DefaultConnectionSettings`
+/// 并同步注册表 —— 「Internet 选项 → 局域网设置」和「设置 → 网络和 Internet →
+/// 代理」读的都是这份数据。
+///
+/// 只写注册表（ProxyEnable/ProxyServer）时，窗口里的字段在某些机器上**一直空白**：
+/// 用户实测同一台机器上参考客户端能显示、我们不能（见 desktop_impl 里的对比注释）。
+bool writeSystemProxyForConnection({
+  required String server,
+  required String bypass,
 }) {
   final fn = _resolve();
   if (fn == null || !_loadMore() || server.trim().isEmpty) {
@@ -243,22 +260,14 @@ bool applySystemProxyForConnection({
     if (options == 0 || list == 0 || serverPtr == 0 || bypassPtr == 0) {
       return false;
     }
-    // option[0] = FLAGS（直连 + 走代理）
-    _writeDword(options, _kPerConnFlags);
-    _writePtr(options + _optionValueOffset, _kProxyTypeDirect | _kProxyTypeProxy);
-    // option[1] = PROXY_SERVER
-    _writeDword(options + _optionSize, _kPerConnProxyServer);
-    _writePtr(options + _optionSize + _optionValueOffset, serverPtr);
-    // option[2] = PROXY_BYPASS
-    _writeDword(options + _optionSize * 2, _kPerConnProxyBypass);
-    _writePtr(options + _optionSize * 2 + _optionValueOffset, bypassPtr);
-
-    _writeDword(list, _listSize);
-    _writePtr(list + _listPszConnectionOffset, 0);
-    _writeDword(list + _listCountOffset, 3);
-    _writeDword(list + _listErrorOffset, 0);
-    _writePtr(list + _listOptionsOffset, options);
-
+    _fillOptions(
+      options,
+      count: 3,
+      flags: _kProxyTypeDirect | _kProxyTypeProxy,
+      serverPtr: serverPtr,
+      bypassPtr: bypassPtr,
+    );
+    _fillList(list, options, 3);
     final ok = fn(0, _kOptionPerConnectionOption, list, _listSize);
     return ok != 0;
   } catch (_) {
@@ -279,6 +288,43 @@ bool applySystemProxyForConnection({
   }
 }
 
+/// 把 INTERNET_PER_CONN_OPTION 数组按需填好（只填给了的项）。
+void _fillOptions(
+  int options, {
+  required int count,
+  int? flags,
+  int serverPtr = 0,
+  int bypassPtr = 0,
+}) {
+  var index = 0;
+  if (flags != null) {
+    _writeDword(options + _optionSize * index, _kPerConnFlags);
+    _writePtr(options + _optionSize * index + _optionValueOffset, flags);
+    index++;
+  }
+  if (serverPtr != 0) {
+    _writeDword(options + _optionSize * index, _kPerConnProxyServer);
+    _writePtr(options + _optionSize * index + _optionValueOffset, serverPtr);
+    index++;
+  }
+  if (bypassPtr != 0) {
+    _writeDword(options + _optionSize * index, _kPerConnProxyBypass);
+    _writePtr(options + _optionSize * index + _optionValueOffset, bypassPtr);
+    index++;
+  }
+  // count 只是缓冲区上限；实际项数由调用方传进来的个数决定
+  assert(index <= count);
+}
+
+/// 填 INTERNET_PER_CONN_OPTION_LIST（dwSize / pszConnection=NULL / count / options）。
+void _fillList(int list, int options, int count) {
+  _writeDword(list, _listSize);
+  _writePtr(list + _listPszConnectionOffset, 0);
+  _writeDword(list + _listCountOffset, count);
+  _writeDword(list + _listErrorOffset, 0);
+  _writePtr(list + _listOptionsOffset, options);
+}
+
 /// 把**当前连接**的代理清成「直连」（同样会同步界面缓存）。
 bool clearSystemProxyForConnection() {
   final fn = _resolve();
@@ -293,13 +339,12 @@ bool clearSystemProxyForConnection() {
     if (options == 0 || list == 0) {
       return false;
     }
-    _writeDword(options, _kPerConnFlags);
-    _writePtr(options + _optionValueOffset, _kProxyTypeDirect);
-    _writeDword(list, _listSize);
-    _writePtr(list + _listPszConnectionOffset, 0);
-    _writeDword(list + _listCountOffset, 1);
-    _writeDword(list + _listErrorOffset, 0);
-    _writePtr(list + _listOptionsOffset, options);
+    _fillOptions(
+      options,
+      count: 1,
+      flags: _kProxyTypeDirect,
+    );
+    _fillList(list, options, 1);
     return fn(0, _kOptionPerConnectionOption, list, _listSize) != 0;
   } catch (_) {
     return false;
@@ -379,6 +424,10 @@ String? queryConnectionOption(int option, {required bool asString}) {
 /// 用它就能区分「注册表写了但缓存没同步」和「真的没写」。
 String querySystemProxyForConnection() =>
     queryConnectionOption(_kPerConnProxyServer, asString: true) ?? "";
+
+/// 读回「当前连接」里配置的旁路列表；没配则空串。
+String querySystemProxyBypassForConnection() =>
+    queryConnectionOption(_kPerConnProxyBypass, asString: true) ?? "";
 
 /// 读回「当前连接」的 FLAGS（是否启用代理看这里；失败返回 null）。
 ///
@@ -540,5 +589,50 @@ $r = [UIntPtr]::Zero
     return r.exitCode == 0;
   } catch (_) {
     return false;
+  }
+}
+
+/// `127.0.0.1:7890` / `localhost:7890` → 7890；其它形式 → null。
+///
+/// 只认「单机地址 + 端口」这一种形式：`ProxyServer` 也可能是
+/// `http=1.2.3.4:80;https=...` 这类分协议写法，那种一律返回 null
+/// （调用方会因此判定「不是我们写的」→ 不碰，宁可不清理也不能误清）。
+int? loopbackProxyPort(String? server) {
+  if (server == null || server.isEmpty) {
+    return null;
+  }
+  final first = server.split(RegExp(r"[;,]")).first.trim();
+  final m = RegExp(
+    r"^(127\.0\.0\.1|localhost|\[::1\]):(\d{1,5})$",
+  ).firstMatch(first);
+  if (m == null) {
+    return null;
+  }
+  final port = int.tryParse(m.group(2)!) ?? 0;
+  return (port > 0 && port <= 65535) ? port : null;
+}
+
+/// 本机端口上是否还有程序在监听（一次 TCP 连接尝试，默认超时 300ms）。
+///
+/// 用来区分「残留的死代理」和「别的代理软件正在用的活代理」：
+/// 端口还活着 → 不能碰（否则会把别人正在用的系统代理清掉）。
+Future<bool> isLocalPortAlive(
+  int port, {
+  Duration timeout = const Duration(milliseconds: 300),
+}) async {
+  Socket? s;
+  try {
+    s = await Socket.connect(
+      InternetAddress.loopbackIPv4,
+      port,
+      timeout: timeout,
+    );
+    return true;
+  } catch (_) {
+    return false;
+  } finally {
+    try {
+      s?.destroy();
+    } catch (_) {}
   }
 }

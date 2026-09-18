@@ -25,6 +25,8 @@ import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_subscription_revision.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:libclash_vpn_service/libclash_vpn_service.dart'
+    show lastSystemProxyCleanSkip;
 import 'package:libclash_vpn_service/proxy_manager.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
@@ -139,8 +141,24 @@ class VPNService {
     // 起内核之前先清场：**同一份内核路径**上还在跑的旧进程会占着控制端口与混合
     // 端口，让新内核 bind 失败（用户实测：控制端口 9090 被占 → 连接直接失败，
     // 而且重试一次也失败，因为占用者就是上一次留下的内核）。
+    //
+    // ⚠️ 这里以前**每次连接**都无条件扫一遍：Windows 上那是起一次 PowerShell
+    // （冷启动实测 1~3 秒），是「连接时卡顿」的大头。现在只在**端口真的被占用**
+    // 时才强制扫描（占用者十有八九就是残留内核）；平时用启动时那一次扫描的结果
+    // （新内核被挂在「退出即终止」的 Job 上，不会再产生新孤儿）。
     try {
-      final stale = await FlutterVpnService.killStaleKernels(includeOwn: true);
+      final controlPort = ClashSettingManager.getControlPort();
+      final mixedPort = ClashSettingManager.getMixedPort();
+      final busy =
+          (controlPort > 0 && !await _portFree(controlPort)) ||
+          (mixedPort > 0 && !await _portFree(mixedPort));
+      if (busy) {
+        Log.w("VPNService: 端口被占用（控制 $controlPort / 混合 $mixedPort）→ 强制清理残留内核");
+      }
+      final stale = await FlutterVpnService.killStaleKernels(
+        includeOwn: true,
+        force: busy,
+      );
       if (stale.isNotEmpty) {
         Log.w("VPNService: 起内核前清理残留内核进程 ${stale.join("、")}");
       }
@@ -786,14 +804,25 @@ class VPNService {
   ///
   /// 与 [setSystemProxy] 的区别：这里**不看**当前混合端口是否取得到 ——
   /// 端口读不到（内核已停、设置被重置）恰恰是"退出后代理还留着"的常见场景。
+  ///
+  /// ⚠️ 也**不再**用「注册表里是不是 `127.0.0.1:<我们的端口>`」当归属判据：
+  /// Mclash 的默认端口是 7890，而 MoneyFly / Clash Party / Clash Verge 的默认端口
+  /// 也都在 7890 一带 —— 用端口判断「这是我们上次留下的残留」，就会**把别的客户端
+  /// 正在用的系统代理清掉**（用户实测：用了 Mclash 之后，MoneyFly 连上了、
+  /// Windows 里却不显示 127.0.0.1 和端口了）。
+  /// 归属判定现在只在插件侧做一次（注册表里的归属标记 + 端口是否还有人监听），
+  /// 不是我们写的就一行都不碰，并把原因写进日志与诊断报告。
   static Future<void> restoreSystemProxy() async {
     if (!getSupportSystemProxy()) {
       return;
     }
     try {
-      if (await getSystemProxyEnable()) {
-        await FlutterVpnService.cleanSystemProxy();
+      await FlutterVpnService.cleanSystemProxy();
+      final skip = lastSystemProxyCleanSkip;
+      if (skip.isEmpty) {
         Log.i("VPNService: 已还原系统代理（退出清理）");
+      } else {
+        Log.i("VPNService: 系统代理未改动 —— $skip");
       }
     } catch (err) {
       Log.w("VPNService restoreSystemProxy exception:${err.toString()}");

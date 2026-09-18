@@ -29,3 +29,10 @@ void registerDesktopLogSink(void Function(String line)? sink) {
 
 /// Windows 系统代理的诊断报告（面板里直接显示；见 desktop_impl.dart 的说明）。
 Future<String> systemProxyDiagnostics() => SystemProxyDiagnostics.report();
+
+/// 最近一次「清理系统代理」为什么没做（空串 = 做了）。
+///
+/// 用户实测的跨软件事故就靠它可视：Mclash 曾经在启动时无条件清理系统代理，
+/// 把别的客户端（MoneyFly / Clash Party）正在用的代理一起抹掉 ——
+/// 现在只有「确实是我们写的」才会清理，跳过时会写明原因。
+String get lastSystemProxyCleanSkip => SystemProxyDiagnostics.lastCleanSkip;

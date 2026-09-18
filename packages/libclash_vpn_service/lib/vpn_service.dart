@@ -162,10 +162,20 @@ class FlutterVpnService {
   ///
   /// 为什么需要：用户实测「点了连接连不上、重试也连不上」—— 占用控制端口的
   /// 就是上一次启动留下、父进程（App）还活着因而**不是孤儿**的内核。
-  static Future<List<int>> killStaleKernels({bool includeOwn = false}) async {
+  ///
+  /// [force] = true 时忽略「本次运行已经扫过」的缓存再扫一遍。Windows 上这个
+  /// 扫描要起一次 PowerShell（冷启动 1~3 秒），所以默认只在启动时扫一次；
+  /// 端口真的被占用时（多半就是残留内核占着）才需要 force。
+  static Future<List<int>> killStaleKernels({
+    bool includeOwn = false,
+    bool force = false,
+  }) async {
     if (Platform.isAndroid) {
       return const [];
     }
-    return DesktopVpnServiceImpl.killStaleKernels(includeOwn: includeOwn);
+    return DesktopVpnServiceImpl.killStaleKernels(
+      includeOwn: includeOwn,
+      force: force,
+    );
   }
 }

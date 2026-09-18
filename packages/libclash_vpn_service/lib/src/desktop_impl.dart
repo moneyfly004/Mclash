@@ -16,12 +16,76 @@ import 'vpn_service_platform.dart';
 import 'windows_job.dart';
 import 'windows_wininet.dart';
 
-/// 是否额外用 `INTERNET_PER_CONN_OPTION` 写「当前连接」的代理。
+/// 是否同时用 `INTERNET_PER_CONN_OPTION` 写「当前连接」的代理。
 ///
-/// **默认 false**：参考实现（moneyfly）在同一台机器上只用注册表 + 广播就能让
-/// Windows 界面显示地址端口，而多写这一步可能是反作用（见 _setSystemProxyWindows
-/// 里的说明）。保留开关便于对比排查。
-bool usePerConnectionProxyWrite = false;
+/// **默认 true（2026-09-18 改回）**：Windows 的「设置 → 代理 / Internet 选项 →
+/// 局域网设置」读的就是这份**每连接**数据（`Connections\DefaultConnectionSettings`）。
+/// 我们一度改成「只写注册表 + 广播」，理由是「参考实现只写注册表也能显示」——
+/// 但用户随后的实测推翻了它：0.0.1 上界面依旧空白。
+///
+/// 更关键的是我们发现了**为什么**会出现「同一台机器上参考客户端能显示、我们不能」：
+/// 我们以前在清理时（每次启动、每次断开）无条件把这份每连接数据写成「直连」，
+/// 而设置时又从不写它 —— 于是这份「界面唯一读的数据」长期停在「直连」，
+/// 界面必然空白；连**别人家**客户端（MoneyFly / Clash Party）设置的系统代理
+/// 也一起被我们写坏（它们同样只写注册表，不会去修这份缓存）。
+/// 现在写入与清理都走同一个官方接口，并且只在「确实是我们写的」时候才动它。
+bool usePerConnectionProxyWrite = true;
+
+/// 我们在 `Internet Settings` 键下留的「归属标记」值名。
+///
+/// 为什么必须有它（用户实测的跨软件事故）：Mclash 的默认混合端口是 **7890**，
+/// 而 MoneyFly / Clash Party / Clash Verge 这些客户端的默认端口也都在 7890 一带。
+/// 旧实现启动时只按「注册表里 ProxyServer 是不是 `127.0.0.1:<我们的端口>`」判断
+/// 「这是我们上次留下的残留」，于是**把别人正在用的系统代理当成残留清掉**：
+/// ProxyEnable=0、ProxyServer 删除，并把「界面读的那份」写成直连。
+/// 用户看到的就是「用了 Mclash 之后，我的 MoneyFly 连上了、Windows 里却不显示
+/// 127.0.0.1 和端口了」。有了标记：只有标记存在且与当前 ProxyServer 一致，
+/// 才认作「是我们写的」，否则一律不碰。
+const String kSystemProxyOwnerValueName = "MclashProxyOwner";
+
+/// 我们写入系统代理前的原始状态快照（注册表原始输出 + 每连接那份）。
+///
+/// 参考实现（moneyfly SystemProxyManager）就是这么做的：断开时**还原**用户原本的
+/// 代理配置，而不是一律「关掉 + 删值」。旧实现直接 `ProxyEnable=0` 并删除
+/// `ProxyServer`/`ProxyOverride` —— 用户本来配着公司代理，一用 Mclash 就被抹掉了。
+class SystemProxySnapshot {
+  /// 注册表原始输出（null = 该值原本不存在）。
+  String? enableRaw;
+  String? serverRaw;
+  String? overrideRaw;
+
+  /// 界面读的那一份（null = 没读到，可能是 API 不可用）。
+  int? connFlags;
+  String connServer = "";
+  String connBypass = "";
+
+  bool captured = false;
+
+  /// 从 `reg query` 输出里取值的文本（`ProxyServer  REG_SZ  127.0.0.1:7890`）。
+  ///
+  /// 不能按空白 split 取末段：旁路列表本身可能含空格（`localhost; 127.0.0.1`），
+  /// 那样还原出来的名单是残的。
+  static String? valueText(String? raw, String name) {
+    if (raw == null || !raw.contains(name)) {
+      return null;
+    }
+    for (final line in raw.split("\n")) {
+      final i = line.indexOf(name);
+      if (i < 0) {
+        continue;
+      }
+      final rest = line.substring(i + name.length);
+      // 注意用 `[^\r\n]*` 而不是 `.*$`：`reg query` 的输出是 CRLF，行尾的 \r
+      // 不在 `.` 的匹配范围内，而 `$` 又要求真正的结尾 —— 用 `.*$` 会**永远
+      // 匹配不上**（写这段时踩过一次，单测钉住）。
+      final m = RegExp(r"\s+REG_[A-Z_]+\s+([^\r\n]*)").firstMatch(rest);
+      if (m != null) {
+        return m.group(1)!.trim();
+      }
+    }
+    return null;
+  }
+}
 
 /// 最近一次 Windows 系统代理相关的动作结果（面板里直接显示，方便定位）。
 class SystemProxyDiagnostics {
@@ -30,11 +94,15 @@ class SystemProxyDiagnostics {
   static bool? perConnectionApi;
   static String lastError = "";
 
+  /// 最近一次「清理」为什么没做（空 = 做了）。
+  static String lastCleanSkip = "";
+
   static void reset() {
     internetSetOption = null;
     wmSettingChange = null;
     perConnectionApi = null;
     lastError = "";
+    lastCleanSkip = "";
   }
 
   /// 给用户/客服看的一份纯文本报告。
@@ -53,11 +121,24 @@ class SystemProxyDiagnostics {
     }
     buf.writeln("注册表 ProxyEnable: ${await _regQueryValue('ProxyEnable')}");
     buf.writeln("注册表 ProxyServer: ${await _regQueryValue('ProxyServer')}");
+    buf.writeln("注册表 ProxyOverride: ${await _regQueryValue('ProxyOverride')}");
+    // 下面两行就是「Windows 界面显示什么」的答案：界面读的是每连接那份，
+    // 不是上面的全局值。两者不一致时，界面显示的一定是每连接那份。
     buf.writeln("界面读的每连接 ProxyServer: ${querySystemProxyForConnection()}");
     buf.writeln("界面读的每连接 代理已启用: ${connectionProxyEnabled()}");
+    buf.writeln(
+      "界面读的每连接 旁路: ${querySystemProxyBypassForConnection()}",
+    );
+    buf.writeln(
+      "归属标记($kSystemProxyOwnerValueName): "
+      "${await _regQueryValue(kSystemProxyOwnerValueName)}",
+    );
     buf.writeln("最后一次 InternetSetOption 广播: $internetSetOption");
     buf.writeln("最后一次 WM_SETTINGCHANGE 广播: $wmSettingChange");
     buf.writeln("最后一次每连接官方 API 写入: $perConnectionApi");
+    if (lastCleanSkip.isNotEmpty) {
+      buf.writeln("最近一次清理跳过原因: $lastCleanSkip");
+    }
     if (lastError.isNotEmpty) {
       buf.writeln("最后错误: $lastError");
     }
@@ -93,14 +174,44 @@ typedef DesktopLogSink = void Function(String line);
 /// 由 App 注入的日志出口（为空时只写 stderr）。
 DesktopLogSink? desktopLogSink;
 
+/// 是否正在写日志（防止「日志出口又调回 desktopLog」造成递归）。
+bool _logging = false;
+
 /// 写一行桌面端诊断日志：先给 App，再兜底写 stderr。
+///
+/// ⚠️ 这里曾经写成 `desktopLog(line)`（自己调自己）而不是 `stderr.writeln(line)`：
+/// 递归会一路撞到栈溢出才被 catch 吃掉，而**每一层都会先调一次 sink** ——
+/// 于是一行日志被写进 app.log 几百上千次。实测（一行一次调用）：
+///   sink 被调用 11585 次 / 单次 desktopLog 用时 441µs（本机 JIT）。
+/// 用户侧的三个现象全部由此而来：
+///   1. 日志里同一条 `[perf] 断开…` 刷屏几百行（用户实测截图）；
+///   2. 日志文件被放大几百倍，应用日志页卡、复制都费劲；
+///   3. 连接/断开时每个诊断行都要写几百次磁盘（Log 是**同步写**），
+///      叠加起来就是「连接/断开仍然卡顿」——这条比任何 IO 都值钱。
 void desktopLog(String line) {
+  if (_logging) {
+    // 重入（sink 内部又回头调用本函数）：只写 stderr，绝不递归。
+    try {
+      stderr.writeln(line);
+    } catch (_) {}
+    return;
+  }
+  _logging = true;
   try {
-    desktopLogSink?.call(line);
-  } catch (_) {}
-  try {
-    desktopLog(line);
-  } catch (_) {}
+    final sink = desktopLogSink;
+    if (sink != null) {
+      try {
+        sink(line);
+        return;
+      } catch (_) {
+        // sink 抛异常 → 落到下面的 stderr 兜底
+      }
+    }
+    stderr.writeln(line);
+  } catch (_) {
+  } finally {
+    _logging = false;
+  }
 }
 
 class DesktopVpnServiceImpl extends VpnServicePlatform {
@@ -133,7 +244,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   int _mixedPort = 0;
 
   bool _systemProxyApplied = false;
-  Map<String, String>? _systemProxyOriginal;
+
+  /// 写入系统代理前，用户原本的配置（断开时**还原**，而不是一律抹掉）。
+  final SystemProxySnapshot _systemProxySnapshot = SystemProxySnapshot();
 
   List<String> _missingGeo = const [];
 
@@ -1062,8 +1175,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     try {
       const key =
           r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
-      // 记下原值以便恢复
-      _systemProxyOriginal ??= {};
+      final server = "${option.host}:${option.port}";
+
+      // 0) 先记下用户原本的代理配置（一次），断开时**还原**而不是一律抹掉。
+      await _captureSystemProxyOriginal();
 
       // 去重：默认旁路列表本身就含 `<local>`，再拼一次就会写出
       // `<local>;<local>;localhost;…`（用户实测在注册表里看到重复项）。
@@ -1075,15 +1190,22 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         }
       }
       final bypass = bypassItems.join(';');
+
+      // 1) 注册表（全局值）：浏览器/WinINET 的事实来源，也是 App 读回校验的依据。
       final enableRes = await _reg([
         "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f",
       ]);
       final serverRes = await _reg([
-        "add", key, "/v", "ProxyServer", "/t", "REG_SZ", "/d",
-        "${option.host}:${option.port}", "/f",
+        "add", key, "/v", "ProxyServer", "/t", "REG_SZ", "/d", server, "/f",
       ]);
       await _reg([
         "add", key, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", bypass, "/f",
+      ]);
+      // 2) 归属标记：让「这是我们写的」这件事可判定，避免把别家客户端的代理
+      //    当成我们的残留清掉（用户实测的跨软件事故，见 kSystemProxyOwnerValueName）。
+      await _reg([
+        "add", key, "/v", kSystemProxyOwnerValueName, "/t", "REG_SZ", "/d",
+        server, "/f",
       ]);
       if (enableRes.exitCode != 0 || serverRes.exitCode != 0) {
         desktopLog(
@@ -1093,39 +1215,31 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
         return false;
       }
-      // 写注册表只对**之后新建的连接**生效；已经跑着的程序与 Windows 自己的
-      // 「设置 → 代理 / Internet 选项」页面读的是缓存副本。必须再广播一次
-      // SETTINGS_CHANGED + REFRESH，Windows 才会刷新缓存并通知所有 WinINET 使用者
-      // —— 否则用户看到的就是「代理框还是空的，但能上网」。
-      // 每连接（INTERNET_PER_CONN_OPTION）写入：**默认关闭**。
+
+      // 3) 「当前连接」那份（**Windows 界面读的就是它**）。
       //
-      // 为什么关掉（用户实测对比）：同一台 Windows 上，参考实现 moneyfly 只用
-      // 「写注册表 + InternetSetOption(SETTINGS_CHANGED/REFRESH) + 失败时
-      // WM_SETTINGCHANGE 广播」就能让 Internet 选项显示 127.0.0.1:端口，
-      // 而我们（多写了这一步）界面一直是空白 ⇒ 多写这一步不但没帮忙，还可能是
-      // 反作用：pszConnection=NULL 若落到「界面不读的那个连接项」上，会把本该
-      // 继承全局值的那一项写成另一份，界面反而看不到。
-      // 所以默认与参考实现完全一致；需要时可用 usePerConnectionProxyWrite 打开。
+      // 这一步以前默认关闭过（0.0.5 版本），理由是「参考实现只写注册表也能显示」；
+      // 用户实测推翻了它。真正的原因是我们**清理时**总是把这份写成「直连」，
+      // 而设置时从不写 —— 界面长期读到「直连」，自然永远是空白。
+      // 现在：Windows 自己勾选代理走的就是这个官方接口，我们也用它。
       if (usePerConnectionProxyWrite) {
         final perConn = applySystemProxyForConnection(
-          server: "${option.host}:${option.port}",
+          server: server,
           bypass: bypass,
         );
         SystemProxyDiagnostics.perConnectionApi = perConn;
-        desktopLog("[mclash] 已按官方 API 设置当前连接的代理（可选步骤）: $perConn");
+        desktopLog("[mclash] 已按官方 API 写「当前连接」（界面读的那份）: $perConn");
       } else {
         SystemProxyDiagnostics.perConnectionApi = null;
-        desktopLog("[mclash] 跳过每连接 API 写入（默认与参考实现一致，只走注册表 + 广播）");
+        desktopLog("[mclash] 跳过每连接 API 写入（usePerConnectionProxyWrite=false）");
       }
+
+      // 4) 广播：让已经跑着的程序与 Windows 自己的设置页面立刻重读。
       final notified = notifySystemProxyChanged();
       SystemProxyDiagnostics.internetSetOption = notified;
       desktopLog(
         "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
       );
-      // 参考实现（moneyfly）的第三步：向所有顶层窗口广播 WM_SETTINGCHANGE
-      // + lParam="InternetSettings"。Windows 自己的「Internet 选项 / 设置 → 代理」
-      // 界面靠这条消息重新读取代理配置 —— 我们以前只做前两步，于是出现
-      // 「注册表里明明有 127.0.0.1:端口、也能上网，界面却一直空白」。
       var wm = broadcastInternetSettingsChanged();
       if (!wm) {
         // FFI 不可用（极少数受限环境）→ 用 PowerShell 做同一件事
@@ -1134,13 +1248,30 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       SystemProxyDiagnostics.wmSettingChange = wm;
       desktopLog("[mclash] 已广播 WM_SETTINGCHANGE(InternetSettings): $wm");
-      // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
+
+      // 5) 读回校验：**两层都报**。「界面读的那份」就是界面显示什么；
+      //    它和注册表不一致时，用户看到的是它 —— 而这正是我们排查了两轮的坑。
+      final connServer = querySystemProxyForConnection();
+      final connOn = connectionProxyEnabled();
+      desktopLog(
+        "[mclash] 读回：注册表=${await _windowsProxyMatches(option) ? "一致" : "不一致"} / "
+        "界面读的那份 ProxyServer=${connServer.isEmpty ? "(空)" : connServer}"
+        "（代理已启用=$connOn）",
+      );
       if (!await _windowsProxyMatches(option)) {
         desktopLog(
-          "[mclash] 系统代理写入后校验不一致（期望 ${option.host}:${option.port}），"
+          "[mclash] 系统代理写入后校验不一致（期望 $server），"
           "可能被其它代理软件覆盖",
         );
         return false;
+      }
+      if (usePerConnectionProxyWrite && !connOn) {
+        // 注册表对了、界面那份没开 → 界面必然空白。明确记下来（便于定位
+        // 「界面空白但能上网」这一类的机器差异），不要静默。
+        desktopLog(
+          "[mclash] ⚠️ 「当前连接」的代理未启用（界面会显示空白）："
+          "官方 API 返回 ${SystemProxyDiagnostics.perConnectionApi}，读到 '$connServer'",
+        );
       }
       _systemProxyApplied = true;
       // 注意：这里**不再**额外起一个 PowerShell 再调一次 InternetSetOption。
@@ -1148,31 +1279,186 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 每次都要现场编译 C#，实测要 1~3 秒，正好是用户反馈的「连接时卡顿」。
       // 只有 FFI 不可用时才回退（见上面的 WM_SETTINGCHANGE 分支）。
       return true;
-    } catch (_) {
+    } catch (err) {
+      SystemProxyDiagnostics.lastError = "$err";
       return false;
     }
+  }
+
+  /// 记下用户原本的代理配置（只在本进程第一次设置之前记一次）。
+  Future<void> _captureSystemProxyOriginal() async {
+    if (_systemProxySnapshot.captured) {
+      return;
+    }
+    final snap = _systemProxySnapshot;
+    snap.enableRaw = await readSystemProxyRaw(value: "ProxyEnable");
+    snap.serverRaw = await readSystemProxyRaw(value: "ProxyServer");
+    snap.overrideRaw = await readSystemProxyRaw(value: "ProxyOverride");
+    snap.connFlags = queryConnectionFlagsForConnection();
+    snap.connServer = querySystemProxyForConnection();
+    snap.connBypass = querySystemProxyBypassForConnection();
+    snap.captured = true;
+    desktopLog(
+      "[mclash] 已记录用户原有代理配置：注册表 "
+      "ProxyEnable=${SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable") ?? "(无)"} "
+      "ProxyServer=${SystemProxySnapshot.valueText(snap.serverRaw, "ProxyServer") ?? "(无)"} "
+      "ProxyOverride=${SystemProxySnapshot.valueText(snap.overrideRaw, "ProxyOverride") ?? "(无)"} "
+      "/ 界面那份 flags=${snap.connFlags} server='${snap.connServer}'",
+    );
+  }
+
+  /// 现在系统里的代理**是不是我们写的**。
+  ///
+  /// 判据（顺序即优先级）：
+  ///   1. 本进程这次连接确实写成功了（`_systemProxyApplied`）→ 是我们的；
+  ///   2. 注册表里的归属标记存在，且与当前 ProxyServer 完全一致 → 是我们的；
+  ///   3. 没有标记，但 ProxyServer 指向本机回环、**那个端口已经没人监听**
+  ///      → 视为「上一次异常退出留下的死代理」（参考实现用的是同一判据），可以清；
+  ///      端口还活着就一律不碰。
+  ///
+  /// 第 3 条是「别人的活代理不能碰」与「我们自己的死残留要清」之间的界：
+  /// 端口上有程序监听，就说明有内核在用它 —— 那可能是 MoneyFly / Clash Party
+  /// 正在用的系统代理。旧实现按「端口是不是我们设置里的值」判断，而大家的默认
+  /// 端口都在 7890 一带，于是**把别人正在用的系统代理清掉了**（用户实测的
+  /// 跨软件事故：「用了 Mclash 之后，我的 MoneyFly 连上了、Windows 里却不显示
+  /// 127.0.0.1 和端口了」）。
+  Future<({bool owned, String reason})> _systemProxyOwnership() async {
+    if (_systemProxyApplied) {
+      return (owned: true, reason: "本进程刚写入");
+    }
+    const key =
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+    final markerRaw = await readSystemProxyRaw(
+      value: kSystemProxyOwnerValueName,
+    );
+    final marker = SystemProxySnapshot.valueText(
+      markerRaw,
+      kSystemProxyOwnerValueName,
+    );
+    // 快路径：系统里当前的代理根本没启用 → 没什么可清（顺带把可能残留的
+    // 归属标记删掉，免得以后误判）。这一步省掉后面两次 reg 查询与一次端口探测，
+    // 而它正是「每次启动 / 每次断开」都要走的路。
+    final enable = SystemProxySnapshot.valueText(
+      await readSystemProxyRaw(value: "ProxyEnable"),
+      "ProxyEnable",
+    );
+    if (enable == null || !enable.contains("0x1")) {
+      if (marker != null && marker.isNotEmpty) {
+        await _reg(["delete", key, "/v", kSystemProxyOwnerValueName, "/f"]);
+      }
+      return (
+        owned: false,
+        reason: "注册表 ProxyEnable 不是 1（系统里没有启用的代理）",
+      );
+    }
+    final serverRaw = await readSystemProxyRaw(value: "ProxyServer");
+    final server = SystemProxySnapshot.valueText(serverRaw, "ProxyServer");
+    if (marker != null && marker.isNotEmpty) {
+      if (server == marker) {
+        return (owned: true, reason: "归属标记=$marker 一致");
+      }
+      return (
+        owned: false,
+        reason: "归属标记=$marker，但当前 ProxyServer=${server ?? "(空)"} —— 已被别的程序改写",
+      );
+    }
+    // 无标记：只在「本机回环 + 端口已死」时才认作我们的残留
+    final port = loopbackProxyPort(server);
+    if (port == null) {
+      return (
+        owned: false,
+        reason: "没有归属标记，且 ProxyServer=${server ?? "(空)"} 不是本机回环地址",
+      );
+    }
+    if (await isLocalPortAlive(port)) {
+      return (
+        owned: false,
+        reason: "没有归属标记，但 127.0.0.1:$port 仍有程序在监听"
+            "（很可能是其它代理软件正在使用）→ 不碰",
+      );
+    }
+    return (owned: true, reason: "无标记，但 127.0.0.1:$port 已无人监听（异常退出的残留）");
   }
 
   Future<bool> _cleanSystemProxyWindows() async {
     try {
       const key =
           r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
-      await Process.run("reg", [
-        "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
-      ]);
-      await Process.run("reg", ["delete", key, "/v", "ProxyServer", "/f"]);
-      // 「当前连接」那份缓存也要清，否则界面上还留着上一次的地址；
-      // 再广播一次，确保「设置 → 代理」页面立刻刷新。
-      clearSystemProxyForConnection();
+
+      // 0) 先判定归属：不是我们写的就**什么都不要动**。
+      //    这是「用了 Mclash 之后别的客户端系统代理也不显示了」的修复点：
+      //    旧实现每次启动都会无条件把「界面读的那份」写成直连，等于把别人家的
+      //    代理设置从界面上抹掉（注册表也一起清了）。
+      final own = await _systemProxyOwnership();
+      if (!own.owned) {
+        SystemProxyDiagnostics.lastCleanSkip = own.reason;
+        desktopLog("[mclash] 清理系统代理已跳过（不是我们设置的）：${own.reason}");
+        _systemProxyApplied = false;
+        return true;
+      }
+      SystemProxyDiagnostics.lastCleanSkip = "";
+      desktopLog("[mclash] 清理系统代理：${own.reason}");
+
+      final snap = _systemProxySnapshot;
+      if (snap.captured) {
+        // 1) 还原用户原有的注册表值（原本没有的值 → 删除我们写的）。
+        final enable = SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable");
+        await _reg([
+          "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d",
+          (enable != null && enable.contains("0x1")) ? "1" : "0", "/f",
+        ]);
+        await _restoreWindowsValueOrDelete("ProxyServer", snap.serverRaw);
+        await _restoreWindowsValueOrDelete("ProxyOverride", snap.overrideRaw);
+      } else {
+        // 快照没成功（极少数：reg 不可用）→ 退回「关掉 + 删值」
+        await _reg([
+          "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
+        ]);
+        await _reg(["delete", key, "/v", "ProxyServer", "/f"]);
+      }
+      // 2) 归属标记用完即删（下次启动不会误判成我们的）。
+      await _reg(["delete", key, "/v", kSystemProxyOwnerValueName, "/f"]);
+
+      // 3) 「当前连接」那份（**界面读的就是它**）：还原成用户原来的状态
+      //    （原来没配 → 直连），否则界面上还留着上一次的地址。
+      final flags = snap.connFlags ?? kProxyTypeDirect;
+      if (snap.captured &&
+          (flags & kProxyTypeProxy) != 0 &&
+          snap.connServer.isNotEmpty) {
+        // 用户原本就配着代理 → 把原值写回去（不能一律清成直连）
+        applySystemProxyForConnection(
+          server: snap.connServer,
+          bypass: snap.connBypass,
+        );
+      } else {
+        clearSystemProxyForConnection();
+      }
+
       notifySystemProxyChanged();
       if (!broadcastInternetSettingsChanged()) {
         await broadcastInternetSettingsViaPowerShell();
       }
       _systemProxyApplied = false;
+      desktopLog("[mclash] 已清理系统代理（注册表 + 界面读的那份 + 广播）");
       return true;
-    } catch (_) {
+    } catch (err) {
+      SystemProxyDiagnostics.lastError = "$err";
       return false;
     }
+  }
+
+  /// 把某个注册表字符串值还原成快照里的原值；原本不存在 → 删除我们写的值。
+  Future<void> _restoreWindowsValueOrDelete(String name, String? raw) async {
+    const key =
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+    final value = SystemProxySnapshot.valueText(raw, name);
+    if (value != null) {
+      await _reg([
+        "add", key, "/v", name, "/t", "REG_SZ", "/d", value, "/f",
+      ]);
+      return;
+    }
+    await _reg(["delete", key, "/v", name, "/f"]);
   }
 
   Future<List<String>> _macNetworkServices() async {
@@ -1436,6 +1722,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
+  /// 本次运行里已经放行过的防火墙规则（key = 规则参数）。
+  ///
+  /// 为什么要缓存：每次 netsh 都要起一个进程（实测几百毫秒），而
+  /// 「连接」路径上本来每次都调一次 `firewallAddPorts`（两个端口 = 两次 netsh）。
+  /// 规则本身是幂等的（同名规则第二次会报「已存在」→ 退出码非 0，反而被当成失败），
+  /// 缓存之后既省掉这部分等待，也不再产生假失败。
+  static final Set<String> _firewallRulesAdded = {};
+
   /// 放行应用/端口穿过 Windows 防火墙。
   /// 不放行的话防火墙会拦环回，表现为"连上了但网页打不开"。
   @override
@@ -1443,13 +1737,21 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     if (!Platform.isWindows || path.isEmpty) {
       return false;
     }
+    final cacheKey = "app|$name|$path";
+    if (_firewallRulesAdded.contains(cacheKey)) {
+      return true;
+    }
     try {
       final r = await Process.run("netsh", [
         "advfirewall", "firewall", "add", "rule",
         "name=Mclash - $name", "dir=in", "action=allow",
         "program=$path", "enable=yes",
       ]);
-      return r.exitCode == 0;
+      final ok = r.exitCode == 0;
+      if (ok) {
+        _firewallRulesAdded.add(cacheKey);
+      }
+      return ok;
     } catch (_) {
       return false;
     }
@@ -1462,6 +1764,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
     var ok = true;
     for (final port in ports) {
+      final cacheKey = "port|$name|$port";
+      if (_firewallRulesAdded.contains(cacheKey)) {
+        continue;
+      }
       try {
         final r = await Process.run("netsh", [
           "advfirewall", "firewall", "add", "rule",
@@ -1469,6 +1775,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           "protocol=TCP", "localport=$port", "enable=yes",
         ]);
         ok = ok && r.exitCode == 0;
+        if (r.exitCode == 0) {
+          _firewallRulesAdded.add(cacheKey);
+        }
       } catch (_) {
         ok = false;
       }
@@ -1636,7 +1945,23 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
-  static Future<List<int>> killStaleKernels({bool includeOwn = false}) async {
+  /// 本次运行是否已经扫过残留内核（Windows）。
+  ///
+  /// 为什么要记住：Windows 上这个扫描要起一次 PowerShell（冷启动实测 1~3 秒），
+  /// 而它以前在**每次连接前**都跑一遍（`VPNService._prepareConfig` 里的
+  /// `killStaleKernels(includeOwn: true)`）—— 启动时已经扫过一次，新内核又被挂在
+  /// 「退出即终止」的 Job 上（不会产生新的孤儿），所以每次都扫纯属白等，
+  /// 正是用户反馈的「连接时卡顿」的大头之一。端口真被占用时上层会换端口并再次
+  /// 显式扫描（force: true）。
+  static bool _staleKernelScanDone = false;
+
+  static Future<List<int>> killStaleKernels({
+    bool includeOwn = false,
+    bool force = false,
+  }) async {
+    if (Platform.isWindows && _staleKernelScanDone && !force) {
+      return const [];
+    }
     final killed = <int>[];
     // 同一路径上、但不是正在被跟踪的那个进程 → 残留内核（父进程还活着，
     // 因此不是孤儿，但继续占着端口）。起内核前必须收掉。
@@ -1700,6 +2025,7 @@ foreach ($p in $targets) {
           "-Command",
           script,
         ]);
+        _staleKernelScanDone = true;
         for (final line in r.stdout.toString().split("\n")) {
           final pid = int.tryParse(line.trim());
           if (pid != null) {

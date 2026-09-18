@@ -92,11 +92,18 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
       }
       setState(() {
         _diag = diag;
-        _state = !running
-            ? "内核未运行（先在主页打开连接开关）"
-            : enable
-            ? "已生效 · ${VPNService.systemProxyHost}:$port"
-            : "未生效（系统里没有指向 $port 的代理）";
+        if (!running) {
+          _state = "内核未运行（先在主页打开连接开关）";
+        } else if (enable) {
+          _state = "已生效 · ${VPNService.systemProxyHost}:$port";
+        } else if (!VPNService.shouldApplySystemProxy()) {
+          // 「连上了、系统代理却是空的」有一类**不是故障**：TUN 强制模式下我们
+          // 故意不碰系统代理（流量走虚拟网卡）。以前这里只显示「未生效」，
+          // 用户会一直以为坏了 —— 现在把真实原因说清楚。
+          _state = "未设置系统代理 —— ${VPNService.systemProxySkipReason()}";
+        } else {
+          _state = "未生效（系统里没有指向 $port 的代理）";
+        }
       });
     } catch (err) {
       if (mounted) {
