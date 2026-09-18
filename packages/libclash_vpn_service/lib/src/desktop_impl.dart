@@ -128,6 +128,14 @@ class SystemProxyDiagnostics {
   /// 最近一次「清理」为什么没做（空 = 做了）。
   static String lastCleanSkip = "";
 
+  /// 最近一次写入的代理地址（host:port），诊断报告据此判断各连接是否含地址。
+  static String _lastProxyServer = "";
+
+  /// 记录本次写入的地址，供诊断报告使用。
+  static void noteProxyServer(String host, int port) {
+    _lastProxyServer = "$host:$port";
+  }
+
   /// 给用户/客服看的一份纯文本报告。
   ///
   /// 为什么要有它（用户实测）：Windows 上「注册表里明明有 127.0.0.1:端口、
@@ -178,6 +186,25 @@ class SystemProxyDiagnostics {
       "flags=${parseDefaultConnectionSettingsFlags(blob) ?? "?"} "
       "含地址=${blobServer.isEmpty ? "(无)" : blobServer}",
     );
+    // 枚举 Connections 键下**所有**值：FlClash 之所以能成，是因为它会写每一个
+    // RAS 连接；这里把每个值名、flags、是否含地址摊开，一次看出「局域网设置」
+    // 到底读的是哪一个。
+    final connNames = enumerateConnectionValueNames();
+    if (connNames.isEmpty) {
+      buf.writeln("Connections 键下无其它值（只有默认连接）");
+    } else {
+      buf.writeln("Connections 键下所有值（共 ${connNames.length} 个）:");
+      for (final name in connNames) {
+        final b = readDefaultConnectionSettings(connection: name);
+        final flags = parseDefaultConnectionSettingsFlags(b);
+        final hasAddr = b == null
+            ? false
+            : defaultConnectionSettingsContains(b, _lastProxyServer);
+        buf.writeln(
+          "  · $name: flags=${flags ?? "?"} 含地址=${hasAddr ? "是" : "否"}",
+        );
+      }
+    }
     if (lastCleanSkip.isNotEmpty) {
       buf.writeln("最近一次清理跳过原因: $lastCleanSkip");
     }
@@ -1366,6 +1393,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
     try {
       final server = "${option.host}:${option.port}";
+      SystemProxyDiagnostics.noteProxyServer(option.host, option.port);
 
       // 0) 先记下用户原本的代理配置（一次），断开时**还原**而不是一律抹掉。
       await _captureSystemProxyOriginal();
@@ -1381,83 +1409,69 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       final bypass = bypassItems.join(';');
 
-      // 1) 注册表（全局值）：浏览器/WinINET 的事实来源，也是 App 读回校验的依据。
-      //
-      // 走 advapi32（FFI）。以前这里是 4 次 `reg add` —— 每次都是一个新进程，
-      // Windows 上冷启动 20~50ms，四次就是上百毫秒，全在用户点击连接的路上。
-      final wroteEnable = _writeProxyRegistryDword("ProxyEnable", 1);
-      final wroteServer = _writeProxyRegistryString("ProxyServer", server);
-      _writeProxyRegistryString("ProxyOverride", bypass);
-      // 2) 归属标记：让「这是我们写的」这件事可判定，避免把别家客户端的代理
-      //    当成我们的残留清掉（用户实测的跨软件事故，见 kSystemProxyOwnerValueName）。
-      _writeProxyRegistryString(kSystemProxyOwnerValueName, server);
-      if (!wroteEnable || !wroteServer) {
-        desktopLog(
-          "[mclash] 写系统代理注册表失败："
-          "ProxyEnable=${wroteEnable ? "ok" : "失败"} "
-          "ProxyServer=${wroteServer ? "ok" : "失败"}",
-        );
-        return false;
-      }
-
-      // 3) 「当前连接」那份（**Windows 界面读的就是它**）。
-      //
-      // 这一步以前默认关闭过（0.0.5 版本），理由是「参考实现只写注册表也能显示」；
-      // 用户实测推翻了它。真正的原因是我们**清理时**总是把这份写成「直连」，
-      // 而设置时从不写 —— 界面长期读到「直连」，自然永远是空白。
-      // 现在：Windows 自己勾选代理走的就是这个官方接口，我们也用它。
+      // 1) 官方 API **优先**（完全对齐 FlClash proxy_plugin.cpp 的顺序）：
+      //    这一步会同时写 Connections\DefaultConnectionSettings（界面读的那份）与
+      //    注册表全局值。以前我们是「先手动写注册表再调官方 API」—— 用户实测那种
+      //    顺序下官方 API 虽返回成功、blob 也对，「局域网设置」对话框仍空白；
+      //    改成 FlClash 的「官方 API → 广播」后，排除「先写注册表干扰」这一层。
+      var perConnOk = false;
       if (usePerConnectionProxyWrite) {
-        final perConn = applySystemProxyForConnection(
+        perConnOk = applySystemProxyForConnection(
           server: server,
           bypass: bypass,
         );
-        SystemProxyDiagnostics.perConnectionApi = perConn;
-        if (perConn) {
+        SystemProxyDiagnostics.perConnectionApi = perConnOk;
+        if (perConnOk) {
           PerConnectionDiagnostics.fallbackUsed = "official";
-          desktopLog("[mclash] 已按官方 API 写「当前连接」（界面读的那份）: 成功");
-        } else {
-          // 官方 API 返回 0（用户机器实测）。它的失败原因只有 GetLastError 知道，
-          // 但无论如何，界面读的那份 `Connections\DefaultConnectionSettings` 没被写。
-          // 兜底：直接写这份 REG_BINARY —— 与 WinINet 无关，是界面真正读的数据，
-          // 也是 Clash Verge 系等工具用过的可靠手段（灵感：Clash Party 只靠官方
-          // API 一步写完，我们在这台机器上退到更底层的一步）。
-          // blob 兜底：不但写默认/LAN（DefaultConnectionSettings），还写每个
-          // RAS（VPN/拨号）连接 —— 对齐 FlClash：界面读的可能是某个活动连接。
-          final targets = <String>[""];
-          try {
-            targets.addAll(enumerateRasConnections());
-          } catch (_) {}
-
-          var blobOk = true;
-          for (final conn in targets) {
-            final prev = readDefaultConnectionSettings(connection: conn);
-            final prevCounter = (prev != null && prev.length >= 8)
-                ? (prev[4] | (prev[5] << 8) | (prev[6] << 16) | (prev[7] << 24))
-                : 0;
-            final blob = buildDefaultConnectionSettingsBlob(
-              flags: kProxyTypeDirect | kProxyTypeProxy,
-              server: server,
-              bypass: bypass,
-              counter: prevCounter + 1,
-            );
-            final ok = writeDefaultConnectionSettings(blob, connection: conn);
-            blobOk = blobOk && ok;
-            if (conn.isEmpty) {
-              _systemProxySnapshot.blobOverwritten = ok;
-            }
-          }
-          PerConnectionDiagnostics.fallbackUsed = blobOk ? "blob" : "none";
-          desktopLog(
-            "[mclash] 官方 API 写「当前连接」失败（GetLastError="
-            "${PerConnectionDiagnostics.lastError} dwOptionError="
-            "${PerConnectionDiagnostics.optionError}）→ 直接写 DefaultConnectionSettings"
-            "（及 ${targets.length - 1} 个 RAS 连接）兜底: "
-            "${blobOk ? "成功" : "失败"}",
-          );
+          desktopLog("[mclash] 官方 API 写「当前连接」成功（FlClash 同款流程）");
         }
       } else {
         SystemProxyDiagnostics.perConnectionApi = null;
-        desktopLog("[mclash] 跳过每连接 API 写入（usePerConnectionProxyWrite=false）");
+      }
+
+      // 2) 归属标记（我们独有：只写一个标记值，不动 ProxyEnable/ProxyServer，
+      //    用于断开时判定「这是我们的还是别家客户端的代理」）。
+      _writeProxyRegistryString(kSystemProxyOwnerValueName, server);
+
+      // 3) 官方 API 失败时的兜底：手动写注册表全局值 + 直接写 blob（LAN + RAS）。
+      if (!perConnOk) {
+        final wroteEnable = _writeProxyRegistryDword("ProxyEnable", 1);
+        final wroteServer = _writeProxyRegistryString("ProxyServer", server);
+        _writeProxyRegistryString("ProxyOverride", bypass);
+        if (!wroteEnable || !wroteServer) {
+          desktopLog("[mclash] 官方 API 失败且手动写注册表也失败");
+          return false;
+        }
+        final targets = <String>[""];
+        try {
+          targets.addAll(enumerateRasConnections());
+        } catch (_) {}
+        var blobOk = true;
+        for (final conn in targets) {
+          final prev = readDefaultConnectionSettings(connection: conn);
+          final prevCounter = (prev != null && prev.length >= 8)
+              ? (prev[4] | (prev[5] << 8) | (prev[6] << 16) | (prev[7] << 24))
+              : 0;
+          final blob = buildDefaultConnectionSettingsBlob(
+            flags: kProxyTypeDirect | kProxyTypeProxy,
+            server: server,
+            bypass: bypass,
+            counter: prevCounter + 1,
+          );
+          final ok = writeDefaultConnectionSettings(blob, connection: conn);
+          blobOk = blobOk && ok;
+          if (conn.isEmpty) {
+            _systemProxySnapshot.blobOverwritten = ok;
+          }
+        }
+        PerConnectionDiagnostics.fallbackUsed = blobOk ? "blob" : "none";
+        desktopLog(
+          "[mclash] 官方 API 失败（GetLastError="
+          "${PerConnectionDiagnostics.lastError} dwOptionError="
+          "${PerConnectionDiagnostics.optionError}）→ 手动写注册表 + "
+          "DefaultConnectionSettings（及 ${targets.length - 1} 个 RAS 连接）兜底: "
+          "${blobOk ? "成功" : "失败"}",
+        );
       }
 
       // 4) 广播：让已经跑着的程序与 Windows 自己的设置页面立刻重读。

@@ -1682,3 +1682,98 @@ List<String> enumerateRasConnections() {
     _freeLocal(countPtr);
   }
 }
+
+// ============================================================================
+// 枚举 Internet Settings\Connections 键下的所有值名（定位「局域网设置」读哪个）
+// ============================================================================
+typedef _RegEnumValueNative = Int32 Function(
+  IntPtr hKey,
+  Uint32 dwIndex,
+  Pointer<Uint16> lpValueName,
+  Pointer<Uint32> lpcchValueName,
+  IntPtr lpReserved,
+  Pointer<Uint32> lpType,
+  Pointer<Uint8> lpData,
+  Pointer<Uint32> lpcbData,
+);
+typedef _RegEnumValueDart = int Function(
+  int hKey,
+  int dwIndex,
+  Pointer<Uint16> lpValueName,
+  Pointer<Uint32> lpcchValueName,
+  int lpReserved,
+  Pointer<Uint32> lpType,
+  Pointer<Uint8> lpData,
+  Pointer<Uint32> lpcbData,
+);
+
+_RegEnumValueDart? _regEnumValue;
+
+/// 枚举 Connections 键下所有值名（DefaultConnectionSettings / SavedLegacySettings
+/// / 各 RAS 连接名…）。失败/空 → 空列表。
+List<String> enumerateConnectionValueNames() {
+  if (!_loadMore() || !_loadAdvapi()) {
+    return const [];
+  }
+  final fn = _regEnumValue ??= (() {
+    try {
+      return DynamicLibrary.open('advapi32.dll').lookupFunction<
+          _RegEnumValueNative, _RegEnumValueDart>('RegEnumValueW');
+    } catch (_) {
+      return null;
+    }
+  })();
+  if (fn == null) {
+    return const [];
+  }
+  final key = _openConnectionsKey(readOnly: true);
+  if (key == 0) {
+    return const [];
+  }
+  final names = <String>[];
+  try {
+    for (var i = 0; i < 64; i++) {
+      final nameBuf = _localAlloc!(_kLptr, 1024 * 2);
+      final sizePtr = _localAlloc!(_kLptr, 4);
+      if (nameBuf == 0 || sizePtr == 0) {
+        _freeLocal(nameBuf);
+        _freeLocal(sizePtr);
+        break;
+      }
+      try {
+        Pointer<Uint32>.fromAddress(sizePtr).value = 1024;
+        final rc = fn(
+          key,
+          i,
+          Pointer<Uint16>.fromAddress(nameBuf),
+          Pointer<Uint32>.fromAddress(sizePtr),
+          0,
+          Pointer<Uint32>.fromAddress(0),
+          Pointer<Uint8>.fromAddress(0),
+          Pointer<Uint32>.fromAddress(0),
+        );
+        if (rc != 0) {
+          break; // 259 = ERROR_NO_MORE_ITEMS
+        }
+        final len = Pointer<Uint32>.fromAddress(sizePtr).value;
+        final units = <int>[];
+        for (var k = 0; k < len; k++) {
+          final u = Pointer<Uint16>.fromAddress(nameBuf + k * 2).value;
+          if (u == 0) {
+            break;
+          }
+          units.add(u);
+        }
+        if (units.isNotEmpty) {
+          names.add(String.fromCharCodes(units));
+        }
+      } finally {
+        _freeLocal(nameBuf);
+        _freeLocal(sizePtr);
+      }
+    }
+  } finally {
+    _regCloseKey?.call(key);
+  }
+  return names;
+}
