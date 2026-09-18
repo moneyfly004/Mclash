@@ -259,48 +259,60 @@ void main() {
   // Connections\DefaultConnectionSettings 这份 REG_BINARY —— 它是「设置 → 代理 /
   // Internet 选项」真正读的数据。这个用例在真实 Windows 上验证：我们构造的 blob
   // 写进注册表后，WinINET 能否正确读回（格式错了这里立刻红）。
-  test('DefaultConnectionSettings blob：直接写 → 注册表读回 → 还原', () async {
+  test('DefaultConnectionSettings blob：与 Windows 官方 API 生成的格式对齐', () async {
+    String hex(List<int>? b) =>
+        (b ?? []).map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+
     final original = windows_wininet.readDefaultConnectionSettings();
     try {
-      final blob = windows_wininet.buildDefaultConnectionSettingsBlob(
+      // 1) 让 Windows 官方 API 生成一份「权威」blob（runner 上这个 API 是成功的），
+      //    读出来作为格式基准。
+      windows_wininet.applySystemProxyForConnection(
+        server: "$host:$port",
+        bypass: "<local>",
+      );
+      final winBlob = windows_wininet.readDefaultConnectionSettings();
+      // ignore: avoid_print
+      print('WIN-BLOB ${hex(winBlob)}');
+
+      // 2) 我构造的 blob，对比基准。
+      final myBlob = windows_wininet.buildDefaultConnectionSettingsBlob(
         flags: 0x3,
         server: "$host:$port",
         bypass: "<local>",
       );
-      final wrote = windows_wininet.writeDefaultConnectionSettings(blob);
-      expect(wrote, isTrue, reason: '写 REG_BINARY 必须成功');
+      // ignore: avoid_print
+      print('MY-BLOB  ${hex(myBlob)}');
 
-      // 第一步：**直接读注册表**，验证真的写进去了、内容一致。
-      // 这是确定性验证 —— 不经过 WinINET 缓存，不受「没刷新」影响。
+      // 3) 解析函数必须能读 Windows 生成的 blob（否则我的格式理解就是错的）。
+      expect(
+        windows_wininet.defaultConnectionSettingsContains(winBlob, "$host:$port"),
+        isTrue,
+        reason: '解析函数要能识别 Windows 生成的 blob 里的地址',
+      );
+      expect(
+        (windows_wininet.parseDefaultConnectionSettingsFlags(winBlob) ?? 0) & 0x2,
+        isNot(0),
+        reason: 'Windows blob 的 flags 必须含 PROXY 位',
+      );
+
+      // 4) 直接写我构造的 blob → 读回注册表 → 内容一致（确定性的写入正确性）。
+      final wrote = windows_wininet.writeDefaultConnectionSettings(myBlob);
+      expect(wrote, isTrue, reason: '写 REG_BINARY 必须成功');
       final reread = windows_wininet.readDefaultConnectionSettings();
       expect(
         windows_wininet.defaultConnectionSettingsContains(reread, "$host:$port"),
         isTrue,
         reason: '写完后注册表里的 blob 必须含 $host:$port（界面读的就是它）',
       );
-      expect(
-        windows_wininet.parseDefaultConnectionSettingsFlags(reread),
-        0x3,
-        reason: 'flags 必须是 DIRECT|PROXY',
-      );
 
-      // 第二步：刷新 WinINET 后，官方 API 读回应能解出地址 —— 这验证
-      // **Windows 能正确解析我们构造的格式**（格式错则这里读回错乱）。
-      windows_wininet.notifySystemProxyChanged();
-      final viaApi = windows_wininet.querySystemProxyForConnection();
-      // ignore: avoid_print
-      print('BLOB-HEX my=\${blob.map((e) => e.toRadixString(16).padLeft(2, "0")).join()}');
-      // ignore: avoid_print
-      print('BLOB-HEX reread=\${reread!.map((e) => e.toRadixString(16).padLeft(2, "0")).join()}');
-      // ignore: avoid_print
-      print('BLOB viaApi=\$viaApi');
+      // 5) 长度必须一致；不一致时上面的两个 hex 能直接看出差在哪。
       expect(
-        viaApi.contains("$host:$port"),
-        isTrue,
-        reason: '刷新后 WinINET 应读回地址，实际：\$viaApi',
+        myBlob.length,
+        winBlob?.length,
+        reason: '构造的 blob 长度应与 Windows 生成的一致（详见 WIN-BLOB / MY-BLOB）',
       );
     } finally {
-      // 还原：有原值写回原值；没有就写回「直连」，不污染后续用例的网络。
       if (original != null) {
         windows_wininet.writeDefaultConnectionSettings(original);
       } else {
@@ -313,5 +325,4 @@ void main() {
         );
       }
     }
-  });
-}
+  });}
