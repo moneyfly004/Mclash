@@ -2,6 +2,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
@@ -41,6 +42,38 @@ class KernelConfigResult {
 
   /// 生成过程说明（写日志用，便于「有问题时日志能明确列出来」）。
   final List<String> notes;
+}
+
+/// 在**后台 isolate** 里生成内核配置。
+///
+/// 为什么（用户实测）：「点连接会卡顿、软件短暂卡死，断开也一样」。
+/// `buildKernelConfig` 要做 `loadYaml`（订阅 400+ 节点、配置档 400+ KB）
+/// + 深合并 + `dumpYaml`，全程跑在**主 isolate**上 —— 实测 30~100ms，
+/// 真机 release 上更久，正好是用户能感知到的「卡一下」。
+/// 这里把它整体挪到后台 isolate，主线程只等结果。
+///
+/// 返回的对象由 `Isolate.exit` 直接转移，不需要序列化开销。
+Future<KernelConfigResult> buildKernelConfigOffThread(
+  VpnServiceConfig cfg, {
+  bool checkPort = true,
+}) {
+  // 只把需要的字段带过去，避免把整个配置对象（及其它引用）传进新 isolate。
+  final core = cfg.core_path;
+  final patch = cfg.core_path_patch;
+  final patchFinal = cfg.core_path_patch_final;
+  final workDir = cfg.work_dir;
+  final controlPort = cfg.control_port;
+  final secret = cfg.secret;
+  return Isolate.run(() {
+    final sub = VpnServiceConfig()
+      ..core_path = core
+      ..core_path_patch = patch
+      ..core_path_patch_final = patchFinal
+      ..work_dir = workDir
+      ..control_port = controlPort
+      ..secret = secret;
+    return buildKernelConfig(sub, checkPort: checkPort);
+  });
 }
 
 /// 生成内核最终配置。

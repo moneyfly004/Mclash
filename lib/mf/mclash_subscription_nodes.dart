@@ -2,6 +2,7 @@
 library;
 
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
@@ -56,6 +57,15 @@ abstract final class MclashSubscriptionNodes {
     }
     return parse(text);
   }
+
+  /// 在**后台 isolate** 里解析节点列表。
+  ///
+  /// 为什么（用户实测「点连接会卡顿、软件短暂卡死」）：订阅配置档 400+ KB、
+  /// 400+ 节点，`loadYaml` 全程在主 isolate 上跑，而连接成功时（以及切档/同步后）
+  /// 都会重新解析一遍 —— 正好卡在用户刚点完开关的那一刻。搬到后台 isolate 后，
+  /// 主线程只管显示结果。
+  static Future<List<MclashNode>> parseNodesOffThread(String yamlText) =>
+      Isolate.run(() => parseNodes(yamlText));
 
   static List<MclashNode> parseNodes(String yamlText) {
     dynamic doc;
@@ -187,7 +197,7 @@ abstract final class MclashSubscriptionNodes {
         _lastNotice = _cacheNotice!;
         return _cacheNodes!;
       }
-      final nodes = parseNodes(text);
+      final nodes = await parseNodesOffThread(text);
       _cachePath = path;
       _cacheMtime = stat.modified;
       _cacheSize = stat.size;

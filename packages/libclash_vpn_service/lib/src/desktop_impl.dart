@@ -251,6 +251,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
       _setState(FlutterVpnServiceState.connecting);
       _intentionalStop = false;
+      // 各阶段耗时打点：用户反馈「连接时卡顿 / 短暂卡死」，有这行才能从日志看出
+      // 卡在哪一段（配置生成 / geo 数据 / 内核就绪等待），而不是靠猜。
+      final swStart = Stopwatch()..start();
 
       final String yamlText;
       final String workDir;
@@ -425,6 +428,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
 
       await _applyDataPathFallback(logFile);
+      desktopLog(
+        "[perf] 连接：内核就绪用时 ${swStart.elapsedMilliseconds} ms"
+        "（含配置生成 / geo 数据 / 启动等待）",
+      );
       _wantConnected = true;
       _autoRecoveries = 0;
       _setState(FlutterVpnServiceState.connected);
@@ -748,18 +755,22 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     _stopKernelWatchdog();
     _setState(FlutterVpnServiceState.disconnecting);
 
-    if (_systemProxyApplied) {
-      await cleanSystemProxy();
-    }
+    // 这一步要动系统设置（macOS 逐个网络服务跑 networksetup、Windows 写注册表+广播），
+    // 串行做下来要 1~2 秒 —— 用户感受就是「关闭时卡一下」。
+    // 「撤系统代理」和「让内核拆掉 TUN」互不依赖，并行做 ⇒ 用时取两者的最大值。
+    final swProxy = Stopwatch()..start();
+    final cleanFuture = _systemProxyApplied ? cleanSystemProxy() : Future.value();
+    await Future.wait([cleanFuture, _disableTunBeforeStop()]);
+    swProxy.stop();
+    desktopLog("[perf] 断开：撤系统代理 + 拆 TUN 用时 ${swProxy.elapsedMilliseconds} ms");
     _systemProxyFallbackActive = false;
     // 关掉内核之前先把 TUN 拆干净。
     //
     // 为什么必须做：Windows 上 Stopping 内核是 `taskkill /F`（强杀），进程没有
     // 机会执行自己的清理 —— mihomo 用 `auto-route` 加的系统路由与 wintun 虚拟网卡
     // 会留在系统里，用户看到的就是「退出软件之后电脑上不了网，得重启」。
-    // 先通过控制接口把 `tun.enable` 置 false，内核会正常关闭 TUN（撤路由、卸网卡），
-    // 这时候再强杀就没有副作用了。
-    await _disableTunBeforeStop();
+    // （拆 TUN 的调用已并入上面的并行等待：先置 tun.enable=false，内核会正常
+    // 撤路由、卸网卡，这时候再强杀就没有副作用了。）
     final proc = _proc;
     _proc = null;
     if (proc != null) {
@@ -778,6 +789,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         } catch (_) {}
       }
     }
+    desktopLog("[perf] 断开总用时 ${swProxy.elapsedMilliseconds} ms");
     _setState(FlutterVpnServiceState.disconnected);
   }
 
@@ -822,7 +834,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   Future<KernelConfigResult> _buildFinalConfig(VpnServiceConfig cfg) async {
     // 共用实现（与 Android 同一套）：基础 YAML + 深合并 patch + 注入控制端口/密钥
     // + 去掉重复入站端口 + 保证混合端口可用。
-    final result = await buildKernelConfig(cfg);
+    final sw = Stopwatch()..start();
+    final result = await buildKernelConfigOffThread(cfg);
+    sw.stop();
+    desktopLog("[perf] 生成内核配置（后台 isolate）: ${sw.elapsedMilliseconds} ms");
     for (final note in result.notes) {
       // 配置生成过程的每一步都留痕（排查「内核起不来」时最关键的一段）
       desktopLog("[mclash] 内核配置: $note");
@@ -1128,20 +1143,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         return false;
       }
       _systemProxyApplied = true;
-      // 通知系统代理设置已变更（否则部分应用不会重新读取）
-      await Process.run("powershell", [
-        "-NoProfile",
-        "-Command",
-        r"""
-$sig = @'
-[DllImport("wininet.dll", SetLastError=true)]
-public static extern bool InternetSetOption(IntPtr h, int o, IntPtr b, int l);
-'@
-Add-Type -MemberDefinition $sig -Namespace W -Name N
-[W.N]::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0) | Out-Null
-[W.N]::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0) | Out-Null
-""",
-      ]);
+      // 注意：这里**不再**额外起一个 PowerShell 再调一次 InternetSetOption。
+      // 上面 FFI 已经调过了，重复一遍只是白等 —— 而且 PowerShell 的 Add-Type
+      // 每次都要现场编译 C#，实测要 1~3 秒，正好是用户反馈的「连接时卡顿」。
+      // 只有 FFI 不可用时才回退（见上面的 WM_SETTINGCHANGE 分支）。
       return true;
     } catch (_) {
       return false;
@@ -1670,14 +1675,20 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
     try {
       final kernel = await resolveKernelPath();
       if (Platform.isWindows) {
+        // 用 Get-Process 列进程（毫秒级）而不是 Get-CimInstance Win32_Process
+        // 全表扫描（WMI 冷启动实测 1~3 秒）—— 这个扫描在**每次连接**前都会跑，
+        // 正是用户反馈「连接时卡顿」的来源之一。只有真的存在 mihomo 进程时，
+        // 才对它逐个查一次父进程 id。
         final script = r"""
 $mine = '__KERNEL__'
-Get-CimInstance Win32_Process -Filter "Name='mihomo.exe'" | ForEach-Object {
-  $exe = $_.ExecutablePath
-  if ($mine -ne '' -and $exe -and ($exe.ToLower() -ne $mine.ToLower())) { return }
-  $parent = Get-CimInstance Win32_Process -Filter "ProcessId=$($_.ParentProcessId)" -ErrorAction SilentlyContinue
-  if (-not $parent) {
-    try { Stop-Process -Id $_.ProcessId -Force; Write-Output $_.ProcessId } catch {}
+$targets = @(Get-Process -Name mihomo -ErrorAction SilentlyContinue)
+foreach ($p in $targets) {
+  $exe = $p.Path
+  if ($mine -ne '' -and $exe -and ($exe.ToLower() -ne $mine.ToLower())) { continue }
+  $ppid = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction SilentlyContinue).ParentProcessId
+  if (-not $ppid) { continue }
+  if (-not (Get-Process -Id $ppid -ErrorAction SilentlyContinue)) {
+    try { Stop-Process -Id $p.Id -Force; Write-Output $p.Id } catch {}
   }
 }
 """
