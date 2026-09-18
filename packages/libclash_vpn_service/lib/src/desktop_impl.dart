@@ -16,6 +16,13 @@ import 'vpn_service_platform.dart';
 import 'windows_job.dart';
 import 'windows_wininet.dart';
 
+/// 是否额外用 `INTERNET_PER_CONN_OPTION` 写「当前连接」的代理。
+///
+/// **默认 false**：参考实现（moneyfly）在同一台机器上只用注册表 + 广播就能让
+/// Windows 界面显示地址端口，而多写这一步可能是反作用（见 _setSystemProxyWindows
+/// 里的说明）。保留开关便于对比排查。
+bool usePerConnectionProxyWrite = false;
+
 /// 最近一次 Windows 系统代理相关的动作结果（面板里直接显示，方便定位）。
 class SystemProxyDiagnostics {
   static bool? internetSetOption;
@@ -1075,20 +1082,26 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 「设置 → 代理 / Internet 选项」页面读的是缓存副本。必须再广播一次
       // SETTINGS_CHANGED + REFRESH，Windows 才会刷新缓存并通知所有 WinINET 使用者
       // —— 否则用户看到的就是「代理框还是空的，但能上网」。
-      // 只写注册表是**全局**值：新连接会走代理，但「Internet 选项 → 局域网设置」
-      // 与 Windows 11「设置 → 代理」读的是**每个连接的缓存副本**
-      // （Connections\DefaultConnectionSettings）—— 那份没更新时界面一直显示空白，
-      // 用户看到的就是「注册表里有 127.0.0.1:端口，界面却是空的」。
-      // 用官方 API 再设一次「当前连接」的代理，注册表与缓存会一起更新。
-      SystemProxyDiagnostics.perConnectionApi = false;
-      final perConn = applySystemProxyForConnection(
-        server: "${option.host}:${option.port}",
-        bypass: bypass,
-      );
-      SystemProxyDiagnostics.perConnectionApi = perConn;
-      desktopLog(
-        "[mclash] 已按官方 API 设置当前连接的代理（界面/缓存同步）: $perConn",
-      );
+      // 每连接（INTERNET_PER_CONN_OPTION）写入：**默认关闭**。
+      //
+      // 为什么关掉（用户实测对比）：同一台 Windows 上，参考实现 moneyfly 只用
+      // 「写注册表 + InternetSetOption(SETTINGS_CHANGED/REFRESH) + 失败时
+      // WM_SETTINGCHANGE 广播」就能让 Internet 选项显示 127.0.0.1:端口，
+      // 而我们（多写了这一步）界面一直是空白 ⇒ 多写这一步不但没帮忙，还可能是
+      // 反作用：pszConnection=NULL 若落到「界面不读的那个连接项」上，会把本该
+      // 继承全局值的那一项写成另一份，界面反而看不到。
+      // 所以默认与参考实现完全一致；需要时可用 usePerConnectionProxyWrite 打开。
+      if (usePerConnectionProxyWrite) {
+        final perConn = applySystemProxyForConnection(
+          server: "${option.host}:${option.port}",
+          bypass: bypass,
+        );
+        SystemProxyDiagnostics.perConnectionApi = perConn;
+        desktopLog("[mclash] 已按官方 API 设置当前连接的代理（可选步骤）: $perConn");
+      } else {
+        SystemProxyDiagnostics.perConnectionApi = null;
+        desktopLog("[mclash] 跳过每连接 API 写入（默认与参考实现一致，只走注册表 + 广播）");
+      }
       final notified = notifySystemProxyChanged();
       SystemProxyDiagnostics.internetSetOption = notified;
       desktopLog(
