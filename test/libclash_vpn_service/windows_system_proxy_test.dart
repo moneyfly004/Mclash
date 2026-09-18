@@ -259,7 +259,7 @@ void main() {
   // Connections\DefaultConnectionSettings 这份 REG_BINARY —— 它是「设置 → 代理 /
   // Internet 选项」真正读的数据。这个用例在真实 Windows 上验证：我们构造的 blob
   // 写进注册表后，WinINET 能否正确读回（格式错了这里立刻红）。
-  test('DefaultConnectionSettings blob：直接写 → Windows 读回一致 → 还原', () async {
+  test('DefaultConnectionSettings blob：直接写 → 注册表读回 → 还原', () async {
     final original = windows_wininet.readDefaultConnectionSettings();
     try {
       final blob = windows_wininet.buildDefaultConnectionSettingsBlob(
@@ -270,18 +270,34 @@ void main() {
       final wrote = windows_wininet.writeDefaultConnectionSettings(blob);
       expect(wrote, isTrue, reason: '写 REG_BINARY 必须成功');
 
-      // 用 InternetQueryOption 读回：WinINET 应能解出我们写进去的地址与 flags。
-      // 若 blob 布局错，这里读回会为空/错位。
-      final readBack = windows_wininet.querySystemProxyForConnection();
+      // 第一步：**直接读注册表**，验证真的写进去了、内容一致。
+      // 这是确定性验证 —— 不经过 WinINET 缓存，不受「没刷新」影响。
+      final reread = windows_wininet.readDefaultConnectionSettings();
       expect(
-        readBack.contains("$host:$port"),
+        windows_wininet.defaultConnectionSettingsContains(reread, "$host:$port"),
         isTrue,
-        reason: 'blob 写进注册表后，WinINET 读回应包含 $host:$port，实际：$readBack',
+        reason: '写完后注册表里的 blob 必须含 $host:$port（界面读的就是它）',
       );
       expect(
-        windows_wininet.connectionProxyEnabled(),
+        windows_wininet.parseDefaultConnectionSettingsFlags(reread),
+        0x3,
+        reason: 'flags 必须是 DIRECT|PROXY',
+      );
+
+      // 第二步：刷新 WinINET 后，官方 API 读回应能解出地址 —— 这验证
+      // **Windows 能正确解析我们构造的格式**（格式错则这里读回错乱）。
+      windows_wininet.notifySystemProxyChanged();
+      final viaApi = windows_wininet.querySystemProxyForConnection();
+      // ignore: avoid_print
+      print('BLOB-HEX my=\${blob.map((e) => e.toRadixString(16).padLeft(2, "0")).join()}');
+      // ignore: avoid_print
+      print('BLOB-HEX reread=\${reread!.map((e) => e.toRadixString(16).padLeft(2, "0")).join()}');
+      // ignore: avoid_print
+      print('BLOB viaApi=\$viaApi');
+      expect(
+        viaApi.contains("$host:$port"),
         isTrue,
-        reason: 'flags 必须含 PROXY 位，否则界面仍显示「不使用代理」',
+        reason: '刷新后 WinINET 应读回地址，实际：\$viaApi',
       );
     } finally {
       // 还原：有原值写回原值；没有就写回「直连」，不污染后续用例的网络。
