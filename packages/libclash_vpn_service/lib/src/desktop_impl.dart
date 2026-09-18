@@ -1421,23 +1421,37 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           // 兜底：直接写这份 REG_BINARY —— 与 WinINet 无关，是界面真正读的数据，
           // 也是 Clash Verge 系等工具用过的可靠手段（灵感：Clash Party 只靠官方
           // API 一步写完，我们在这台机器上退到更底层的一步）。
-          final prev = readDefaultConnectionSettings();
-          final prevCounter = (prev != null && prev.length >= 8)
-              ? (prev[4] | (prev[5] << 8) | (prev[6] << 16) | (prev[7] << 24))
-              : 0;
-          final blob = buildDefaultConnectionSettingsBlob(
-            flags: kProxyTypeDirect | kProxyTypeProxy,
-            server: server,
-            bypass: bypass,
-            counter: prevCounter + 1,
-          );
-          final blobOk = writeDefaultConnectionSettings(blob);
+          // blob 兜底：不但写默认/LAN（DefaultConnectionSettings），还写每个
+          // RAS（VPN/拨号）连接 —— 对齐 FlClash：界面读的可能是某个活动连接。
+          final targets = <String>[""];
+          try {
+            targets.addAll(enumerateRasConnections());
+          } catch (_) {}
+
+          var blobOk = true;
+          for (final conn in targets) {
+            final prev = readDefaultConnectionSettings(connection: conn);
+            final prevCounter = (prev != null && prev.length >= 8)
+                ? (prev[4] | (prev[5] << 8) | (prev[6] << 16) | (prev[7] << 24))
+                : 0;
+            final blob = buildDefaultConnectionSettingsBlob(
+              flags: kProxyTypeDirect | kProxyTypeProxy,
+              server: server,
+              bypass: bypass,
+              counter: prevCounter + 1,
+            );
+            final ok = writeDefaultConnectionSettings(blob, connection: conn);
+            blobOk = blobOk && ok;
+            if (conn.isEmpty) {
+              _systemProxySnapshot.blobOverwritten = ok;
+            }
+          }
           PerConnectionDiagnostics.fallbackUsed = blobOk ? "blob" : "none";
-          _systemProxySnapshot.blobOverwritten = blobOk;
           desktopLog(
             "[mclash] 官方 API 写「当前连接」失败（GetLastError="
             "${PerConnectionDiagnostics.lastError} dwOptionError="
-            "${PerConnectionDiagnostics.optionError}）→ 直接写 DefaultConnectionSettings 兜底: "
+            "${PerConnectionDiagnostics.optionError}）→ 直接写 DefaultConnectionSettings"
+            "（及 ${targets.length - 1} 个 RAS 连接）兜底: "
             "${blobOk ? "成功" : "失败"}",
           );
         }

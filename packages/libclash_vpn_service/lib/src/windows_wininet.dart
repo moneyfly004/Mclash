@@ -507,7 +507,7 @@ const int _kProxyTypeProxy = kProxyTypeProxy;
 // struct INTERNET_PER_CONN_OPTION_LISTW { DWORD dwSize; LPWSTR pszConnection; DWORD dwOptionCount;
 //                                         DWORD dwOptionError; OPTION* pOptions; }
 int get _ptrSize => sizeOf<Pointer<NativeType>>();
-int get _optionSize => _ptrSize * 2; // x64:16  x86:8
+int get _optionSize => _ptrSize + 8; // union 含 FILETIME(8字节)：x64:16 x86:12
 int get _optionValueOffset => _ptrSize; // x64:8   x86:4
 int get _listPszConnectionOffset => _ptrSize; // x64:8   x86:4
 int get _listCountOffset => _ptrSize * 2; // x64:16  x86:8
@@ -654,38 +654,99 @@ bool writeSystemProxyForConnection({
   if (fn == null || !_loadMore() || server.trim().isEmpty) {
     return false;
   }
+  final s = server.trim();
+  final b = bypass.trim();
+
+  // 目标连接：先是默认/LAN（pszConnection=NULL，对应 DefaultConnectionSettings），
+  // 再枚举所有 RAS（VPN/拨号）连接逐个设置 —— 对齐 FlClash proxy_plugin.cpp：
+  // 有些机器上「局域网设置 / 设置页」读的是某个活动连接而非默认连接，只写默认
+  // 那份界面就是空的。
+  final connections = <String>[""];
+  try {
+    connections.addAll(enumerateRasConnections());
+  } catch (_) {}
+
+  // 每个连接都做二分降级（完整 → 去旁路 → 仅标志），用第一个成功的组合。
+  final attempts = <({String label, String server, String bypass})>[
+    (label: "FLAGS+SERVER+BYPASS", server: s, bypass: b),
+    if (b.isNotEmpty) (label: "FLAGS+SERVER", server: s, bypass: ""),
+    (label: "FLAGS", server: "", bypass: ""),
+  ];
+
+  var lanOk = false;
+  for (final conn in connections) {
+    for (final a in attempts) {
+      PerConnectionDiagnostics.lastAttempt =
+          "${conn.isEmpty ? "LAN" : conn}:${a.label}";
+      final ok = _trySetPerConnection(
+        fn,
+        server: a.server,
+        bypass: a.bypass,
+        connection: conn,
+      );
+      if (ok) {
+        if (conn.isEmpty) {
+          lanOk = true;
+        }
+        PerConnectionDiagnostics.lastError = 0;
+        PerConnectionDiagnostics.optionError = -1;
+        break; // 这个连接用一种组合成功即可，换下一个连接
+      }
+    }
+  }
+  PerConnectionDiagnostics.lastSucceeded = lanOk;
+  return lanOk;
+}
+
+/// 单次 `InternetSetOption(PER_CONNECTION_OPTION)` 尝试（按需填 1~3 个 option）。
+bool _trySetPerConnection(
+  _InternetSetOptionDart fn, {
+  required String server,
+  required String bypass,
+  required String connection,
+}) {
+  final hasServer = server.isNotEmpty;
+  final hasBypass = bypass.isNotEmpty;
+  final count = 1 + (hasServer ? 1 : 0) + (hasBypass ? 1 : 0);
   var options = 0;
   var list = 0;
   var serverPtr = 0;
   var bypassPtr = 0;
+  var connPtr = 0;
   try {
-    options = _localAlloc!(_kLptr, _optionSize * 3);
+    options = _localAlloc!(_kLptr, _optionSize * count);
     list = _localAlloc!(_kLptr, _listSize);
-    serverPtr = _allocUtf16(server.trim());
-    bypassPtr = _allocUtf16(bypass.trim());
-    if (options == 0 || list == 0 || serverPtr == 0 || bypassPtr == 0) {
+    if (hasServer) {
+      serverPtr = _allocUtf16(server);
+    }
+    if (hasBypass) {
+      bypassPtr = _allocUtf16(bypass);
+    }
+    if (connection.isNotEmpty) {
+      connPtr = _allocUtf16(connection);
+    }
+    if (options == 0 ||
+        list == 0 ||
+        (hasServer && serverPtr == 0) ||
+        (hasBypass && bypassPtr == 0) ||
+        (connection.isNotEmpty && connPtr == 0)) {
       return false;
     }
     _fillOptions(
       options,
-      count: 3,
+      count: count,
       flags: _kProxyTypeDirect | _kProxyTypeProxy,
       serverPtr: serverPtr,
       bypassPtr: bypassPtr,
     );
-    _fillList(list, options, 3);
+    _fillList(list, options, count, connection: connPtr);
     final ok = fn(0, _kOptionPerConnectionOption, list, _listSize);
-    PerConnectionDiagnostics.lastSucceeded = ok != 0;
     if (ok == 0) {
       PerConnectionDiagnostics.lastError = _winLastError();
       PerConnectionDiagnostics.optionError = _readDword(list + _listErrorOffset);
-    } else {
-      PerConnectionDiagnostics.lastError = 0;
-      PerConnectionDiagnostics.optionError = -1;
     }
     return ok != 0;
   } catch (_) {
-    PerConnectionDiagnostics.lastSucceeded = false;
     PerConnectionDiagnostics.lastError = _winLastError();
     return false;
   } finally {
@@ -694,6 +755,9 @@ bool writeSystemProxyForConnection({
     }
     if (bypassPtr != 0) {
       _localFree?.call(bypassPtr);
+    }
+    if (connPtr != 0) {
+      _localFree?.call(connPtr);
     }
     if (options != 0) {
       _localFree?.call(options);
@@ -715,7 +779,8 @@ void _fillOptions(
   var index = 0;
   if (flags != null) {
     _writeDword(options + _optionSize * index, _kPerConnFlags);
-    _writePtr(options + _optionSize * index + _optionValueOffset, flags);
+    // dwValue 是 DWORD（4 字节），不是指针 —— 写 4 字节，避免 union 高位字节歧义。
+    _writeDword(options + _optionSize * index + _optionValueOffset, flags);
     index++;
   }
   if (serverPtr != 0) {
@@ -733,9 +798,10 @@ void _fillOptions(
 }
 
 /// 填 INTERNET_PER_CONN_OPTION_LIST（dwSize / pszConnection=NULL / count / options）。
-void _fillList(int list, int options, int count) {
+void _fillList(int list, int options, int count, {int connection = 0}) {
   _writeDword(list, _listSize);
-  _writePtr(list + _listPszConnectionOffset, 0);
+  // pszConnection：0 = 默认/LAN 连接；否则指向 RAS 连接名的 UTF-16 字符串。
+  _writePtr(list + _listPszConnectionOffset, connection);
   _writeDword(list + _listCountOffset, count);
   _writeDword(list + _listErrorOffset, 0);
   _writePtr(list + _listOptionsOffset, options);
@@ -1246,12 +1312,14 @@ class PerConnectionDiagnostics {
   static int lastError = 0; // GetLastError；0 = 无记录
   static int optionError = -1; // dwOptionError；-1 = 未读
   static String fallbackUsed = ""; // "official" / "blob" / "none"
+  static String lastAttempt = ""; // 最后一次尝试的组合（FLAGS+SERVER+BYPASS 等）
 
   static void reset() {
     lastSucceeded = false;
     lastError = 0;
     optionError = -1;
     fallbackUsed = "";
+    lastAttempt = "";
   }
 }
 
@@ -1305,7 +1373,7 @@ int _openConnectionsKey({bool readOnly = false}) {
 }
 
 /// 读 `Connections\DefaultConnectionSettings` 原始字节；不存在 → null。
-List<int>? readDefaultConnectionSettings() {
+List<int>? readDefaultConnectionSettings({String connection = ""}) {
   if (!_loadMore() || !_loadAdvapi()) {
     return null;
   }
@@ -1313,7 +1381,10 @@ List<int>? readDefaultConnectionSettings() {
   if (key == 0) {
     return null;
   }
-  final namePtr = _utf16Address("DefaultConnectionSettings");
+  // connection 为空读「默认/LAN」（DefaultConnectionSettings），否则读该 RAS 连接。
+  final namePtr = _utf16Address(
+    connection.isEmpty ? "DefaultConnectionSettings" : connection,
+  );
   final typePtr = _localAlloc!(_kLptr, 4);
   final sizePtr = _localAlloc!(_kLptr, 4);
   var dataPtr = 0;
@@ -1367,7 +1438,10 @@ List<int>? readDefaultConnectionSettings() {
 }
 
 /// 写 `Connections\DefaultConnectionSettings`（REG_BINARY）。
-bool writeDefaultConnectionSettings(List<int> bytes) {
+bool writeDefaultConnectionSettings(
+  List<int> bytes, {
+  String connection = "",
+}) {
   if (!_loadMore() || !_loadAdvapi() || bytes.isEmpty) {
     return false;
   }
@@ -1375,7 +1449,9 @@ bool writeDefaultConnectionSettings(List<int> bytes) {
   if (key == 0) {
     return false;
   }
-  final namePtr = _utf16Address("DefaultConnectionSettings");
+  final namePtr = _utf16Address(
+    connection.isEmpty ? "DefaultConnectionSettings" : connection,
+  );
   final data = _localAlloc!(_kLptr, bytes.length);
   try {
     if (namePtr == 0 || data == 0) {
@@ -1479,4 +1555,130 @@ bool defaultConnectionSettingsContains(List<int>? blob, String server) {
     }
   }
   return false;
+}
+
+// ============================================================================
+// RAS（VPN/拨号）连接枚举 —— 对齐 FlClash proxy_plugin.cpp 的做法
+// ============================================================================
+//
+// FlClash 设置系统代理时**不只**设 `pszConnection = NULL`（默认/LAN 连接），
+// 还枚举机器上所有 RAS 连接（VPN/拨号）逐个也设一遍。原因是：「Internet 选项 →
+// 连接 → 局域网设置」以及 Windows 设置页在某些机器上读的是**当前活动连接**，
+// 当有 VPN/拨号条目时，只设默认连接那份，界面就是空的（用户实测）。
+// 这里用同样的 RasEnumEntriesW 枚举，把每个连接都写一遍。
+
+typedef _RasEnumEntriesNative = Int32 Function(
+  IntPtr reserved,
+  IntPtr lpszPhonebook,
+  Pointer<Uint8> lprasentryname,
+  Pointer<Uint32> lpcb,
+  Pointer<Uint32> lpcEntries,
+);
+typedef _RasEnumEntriesDart = int Function(
+  int reserved,
+  int lpszPhonebook,
+  Pointer<Uint8> lprasentryname,
+  Pointer<Uint32> lpcb,
+  Pointer<Uint32> lpcEntries,
+);
+
+_RasEnumEntriesDart? _rasEnumEntries;
+bool _rasLoadFailed = false;
+
+/// RASENTRYNAMEW：DWORD dwSize + WCHAR szEntryName[RAS_MaxEntryName+1]。
+const int _rasMaxEntryName = 256;
+const int _rasEntryNameSize = 4 + (_rasMaxEntryName + 1) * 2; // 518
+
+_RasEnumEntriesDart? _resolveRasEnumEntries() {
+  if (_rasEnumEntries != null) {
+    return _rasEnumEntries;
+  }
+  if (_rasLoadFailed || !Platform.isWindows) {
+    return null;
+  }
+  try {
+    final lib = DynamicLibrary.open('Rasapi32.dll');
+    _rasEnumEntries = lib.lookupFunction<_RasEnumEntriesNative, _RasEnumEntriesDart>(
+      'RasEnumEntriesW',
+    );
+    return _rasEnumEntries;
+  } catch (_) {
+    _rasLoadFailed = true;
+    return null;
+  }
+}
+
+/// 枚举机器上的 RAS（VPN/拨号）连接名；失败/没有则返回空列表。
+List<String> enumerateRasConnections() {
+  final fn = _resolveRasEnumEntries();
+  if (fn == null) {
+    return const [];
+  }
+  final sizePtr = _localAlloc!(_kLptr, 4);
+  final countPtr = _localAlloc!(_kLptr, 4);
+  if (sizePtr == 0 || countPtr == 0) {
+    _freeLocal(sizePtr);
+    _freeLocal(countPtr);
+    return const [];
+  }
+  try {
+    Pointer<Uint32>.fromAddress(sizePtr).value = 0;
+    Pointer<Uint32>.fromAddress(countPtr).value = 0;
+    // 第一次调用只问大小（ERROR_BUFFER_TOO_SMALL = 603）
+    final rc = fn(
+      0,
+      0,
+      Pointer<Uint8>.fromAddress(0),
+      Pointer<Uint32>.fromAddress(sizePtr),
+      Pointer<Uint32>.fromAddress(countPtr),
+    );
+    final count = Pointer<Uint32>.fromAddress(countPtr).value;
+    if (rc != 603 || count == 0) {
+      return const [];
+    }
+    final buf = _localAlloc!(_kLptr, _rasEntryNameSize * count);
+    if (buf == 0) {
+      return const [];
+    }
+    final names = <String>[];
+    try {
+      // 每个条目的 dwSize 必须初始化
+      for (var i = 0; i < count; i++) {
+        Pointer<Uint32>.fromAddress(buf + i * _rasEntryNameSize).value =
+            _rasEntryNameSize;
+      }
+      final rc2 = fn(
+        0,
+        0,
+        Pointer<Uint8>.fromAddress(buf),
+        Pointer<Uint32>.fromAddress(sizePtr),
+        Pointer<Uint32>.fromAddress(countPtr),
+      );
+      if (rc2 != 0) {
+        return const [];
+      }
+      final got = Pointer<Uint32>.fromAddress(countPtr).value;
+      for (var i = 0; i < got; i++) {
+        final base = buf + i * _rasEntryNameSize + 4; // 跳过 dwSize
+        final units = <int>[];
+        for (var k = 0; k < _rasMaxEntryName; k++) {
+          final u =
+              Pointer<Uint16>.fromAddress(base + k * 2).value;
+          if (u == 0) {
+            break;
+          }
+          units.add(u);
+        }
+        if (units.isNotEmpty) {
+          names.add(String.fromCharCodes(units));
+        }
+      }
+    } finally {
+      _freeLocal(buf);
+    }
+    return names;
+  } finally {
+    _freeLocal(sizePtr);
+    _freeLocal(countPtr);
+  }
 }
