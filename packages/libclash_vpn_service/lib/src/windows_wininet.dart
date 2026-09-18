@@ -89,3 +89,285 @@ bool notifySystemProxyChanged() {
     return false;
   }
 }
+
+// ============================================================================
+// 用**官方 API** 设置「连接」级代理
+// ============================================================================
+//
+// 为什么还需要这个（真实用户问题，Windows 11）：
+// 只写 `Internet Settings` 的 `ProxyEnable` / `ProxyServer` 是**全局值** ——
+// WinINet 的新连接会用（所以「能上网、有流量」，reg query 也能看到 127.0.0.1:端口），
+// 但「Internet 选项 → 连接 → 局域网设置」和 Windows 11 的「设置 → 网络和 Internet
+// → 代理」读的是**每个连接的缓存副本**（`Connections\DefaultConnectionSettings`）。
+// 那份副本没被更新时，界面就一直显示「不使用代理服务器」= 地址/端口空白 ——
+// 用户反复反馈「注册表里明明有，界面却是空的」。
+//
+// Windows 自己改代理用的是
+// `InternetSetOption(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION(=75), &list, size)`；
+// 这一下会**同时**更新注册表与那份缓存（界面立刻可见）。这里就调它。
+
+/// `INTERNET_OPTION_PER_CONNECTION_OPTION`
+const int _kOptionPerConnectionOption = 75;
+
+/// `INTERNET_PER_CONN_*` 选项号
+const int _kPerConnFlags = 1;
+const int _kPerConnProxyServer = 2;
+const int _kPerConnProxyBypass = 3;
+
+/// `PROXY_TYPE_*`
+const int _kProxyTypeDirect = 0x1;
+const int _kProxyTypeProxy = 0x2;
+
+// ── 结构体布局（按指针宽度自适应 32/64 位）──
+// struct INTERNET_PER_CONN_OPTIONW { DWORD dwOption; union { DWORD dwValue; LPWSTR pszValue; } Value; }
+// struct INTERNET_PER_CONN_OPTION_LISTW { DWORD dwSize; LPWSTR pszConnection; DWORD dwOptionCount;
+//                                         DWORD dwOptionError; OPTION* pOptions; }
+int get _ptrSize => sizeOf<Pointer<NativeType>>();
+int get _optionSize => _ptrSize * 2; // x64:16  x86:8
+int get _optionValueOffset => _ptrSize; // x64:8   x86:4
+int get _listPszConnectionOffset => _ptrSize; // x64:8   x86:4
+int get _listCountOffset => _ptrSize * 2; // x64:16  x86:8
+int get _listErrorOffset => _ptrSize * 2 + 4; // x64:20  x86:12
+int get _listOptionsOffset => _ptrSize == 8 ? 24 : 16;
+int get _listSize => _listOptionsOffset + _ptrSize; // x64:32  x86:20
+
+typedef _InternetQueryOptionNative = Int32 Function(
+  IntPtr hInternet,
+  Int32 dwOption,
+  IntPtr lpBuffer,
+  Pointer<Uint32> lpdwBufferLength,
+);
+typedef _InternetQueryOptionDart = int Function(
+  int hInternet,
+  int dwOption,
+  int lpBuffer,
+  Pointer<Uint32> lpdwBufferLength,
+);
+
+typedef _LocalAllocNative = IntPtr Function(Uint32 uFlags, IntPtr uBytes);
+typedef _LocalAllocDart = int Function(int uFlags, int uBytes);
+typedef _LocalFreeNative = IntPtr Function(IntPtr hMem);
+typedef _LocalFreeDart = int Function(int hMem);
+
+_InternetQueryOptionDart? _queryOption;
+_LocalAllocDart? _localAlloc;
+_LocalFreeDart? _localFree;
+
+/// `LPTR` = LMEM_FIXED | LMEM_ZEROINIT
+const int _kLptr = 0x0040;
+
+bool _loadMore() {
+  if (_queryOption != null) {
+    return true;
+  }
+  try {
+    final wininet = DynamicLibrary.open('wininet.dll');
+    _queryOption =
+        wininet.lookupFunction<_InternetQueryOptionNative, _InternetQueryOptionDart>(
+          'InternetQueryOptionW',
+        );
+    final kernel32 = DynamicLibrary.open('kernel32.dll');
+    _localAlloc = kernel32
+        .lookupFunction<_LocalAllocNative, _LocalAllocDart>('LocalAlloc');
+    _localFree =
+        kernel32.lookupFunction<_LocalFreeNative, _LocalFreeDart>('LocalFree');
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// 写一个 DWORD（flags 之类）。
+void _writeDword(int base, int value) =>
+    Pointer<Uint32>.fromAddress(base).value = value;
+
+/// 写一个指针（LPWSTR / 结构体指针）。
+void _writePtr(int base, int value) =>
+    Pointer<UintPtr>.fromAddress(base).value = value;
+
+/// 读一个指针。
+int _readPtr(int base) => Pointer<UintPtr>.fromAddress(base).value;
+
+int _allocUtf16(String s) {
+  final units = s.codeUnits; // Windows 用的就是 UTF-16
+  final addr = _localAlloc!(_kLptr, (units.length + 1) * 2);
+  if (addr == 0) {
+    return 0;
+  }
+  final p = Pointer<Uint16>.fromAddress(addr);
+  for (var i = 0; i < units.length; i++) {
+    p[i] = units[i];
+  }
+  p[units.length] = 0;
+  return addr;
+}
+
+String _readUtf16(int addr) {
+  if (addr == 0) {
+    return "";
+  }
+  final p = Pointer<Uint16>.fromAddress(addr);
+  final buf = StringBuffer();
+  for (var i = 0; i < 4096; i++) {
+    final u = p[i];
+    if (u == 0) {
+      break;
+    }
+    buf.writeCharCode(u);
+  }
+  return buf.toString();
+}
+
+/// 把 `host:port`（可带旁路列表）写进**当前连接**的代理设置。
+///
+/// 成功时 Windows 的注册表与「Internet 选项 / 设置 → 代理」缓存会一起更新。
+/// 失败（老系统 / 被策略锁住）时返回 false —— 调用方仍保留「只写注册表」那条路，
+/// 所以失败不会让用户断网。
+bool applySystemProxyForConnection({
+  required String server,
+  required String bypass,
+}) {
+  final fn = _resolve();
+  if (fn == null || !_loadMore() || server.trim().isEmpty) {
+    return false;
+  }
+  var options = 0;
+  var list = 0;
+  var serverPtr = 0;
+  var bypassPtr = 0;
+  try {
+    options = _localAlloc!(_kLptr, _optionSize * 3);
+    list = _localAlloc!(_kLptr, _listSize);
+    serverPtr = _allocUtf16(server.trim());
+    bypassPtr = _allocUtf16(bypass.trim());
+    if (options == 0 || list == 0 || serverPtr == 0 || bypassPtr == 0) {
+      return false;
+    }
+    // option[0] = FLAGS（直连 + 走代理）
+    _writeDword(options, _kPerConnFlags);
+    _writePtr(options + _optionValueOffset, _kProxyTypeDirect | _kProxyTypeProxy);
+    // option[1] = PROXY_SERVER
+    _writeDword(options + _optionSize, _kPerConnProxyServer);
+    _writePtr(options + _optionSize + _optionValueOffset, serverPtr);
+    // option[2] = PROXY_BYPASS
+    _writeDword(options + _optionSize * 2, _kPerConnProxyBypass);
+    _writePtr(options + _optionSize * 2 + _optionValueOffset, bypassPtr);
+
+    _writeDword(list, _listSize);
+    _writePtr(list + _listPszConnectionOffset, 0);
+    _writeDword(list + _listCountOffset, 3);
+    _writeDword(list + _listErrorOffset, 0);
+    _writePtr(list + _listOptionsOffset, options);
+
+    final ok = fn(0, _kOptionPerConnectionOption, list, _listSize);
+    return ok != 0;
+  } catch (_) {
+    return false;
+  } finally {
+    if (serverPtr != 0) {
+      _localFree?.call(serverPtr);
+    }
+    if (bypassPtr != 0) {
+      _localFree?.call(bypassPtr);
+    }
+    if (options != 0) {
+      _localFree?.call(options);
+    }
+    if (list != 0) {
+      _localFree?.call(list);
+    }
+  }
+}
+
+/// 把**当前连接**的代理清成「直连」（同样会同步界面缓存）。
+bool clearSystemProxyForConnection() {
+  final fn = _resolve();
+  if (fn == null || !_loadMore()) {
+    return false;
+  }
+  var options = 0;
+  var list = 0;
+  try {
+    options = _localAlloc!(_kLptr, _optionSize);
+    list = _localAlloc!(_kLptr, _listSize);
+    if (options == 0 || list == 0) {
+      return false;
+    }
+    _writeDword(options, _kPerConnFlags);
+    _writePtr(options + _optionValueOffset, _kProxyTypeDirect);
+    _writeDword(list, _listSize);
+    _writePtr(list + _listPszConnectionOffset, 0);
+    _writeDword(list + _listCountOffset, 1);
+    _writeDword(list + _listErrorOffset, 0);
+    _writePtr(list + _listOptionsOffset, options);
+    return fn(0, _kOptionPerConnectionOption, list, _listSize) != 0;
+  } catch (_) {
+    return false;
+  } finally {
+    if (options != 0) {
+      _localFree?.call(options);
+    }
+    if (list != 0) {
+      _localFree?.call(list);
+    }
+  }
+}
+
+/// 读回「当前连接」里配置的代理服务器（`host:port`）；没配则空串。
+///
+/// 这是**和 Windows 界面同一份数据**，所以它为空就说明界面一定显示空白 ——
+/// 用它就能区分「注册表写了但缓存没同步」和「真的没写」。
+String querySystemProxyForConnection() {
+  if (!_loadMore()) {
+    return "";
+  }
+  var options = 0;
+  var list = 0;
+  var size = 0;
+  try {
+    options = _localAlloc!(_kLptr, _optionSize);
+    list = _localAlloc!(_kLptr, _listSize);
+    if (options == 0 || list == 0) {
+      return "";
+    }
+    _writeDword(options, _kPerConnProxyServer);
+    _writePtr(options + _optionValueOffset, 0);
+    _writeDword(list, _listSize);
+    _writePtr(list + _listPszConnectionOffset, 0);
+    _writeDword(list + _listCountOffset, 1);
+    _writeDword(list + _listErrorOffset, 0);
+    _writePtr(list + _listOptionsOffset, options);
+    size = _localAlloc!(_kLptr, 4);
+    if (size == 0) {
+      return "";
+    }
+    _writeDword(size, _listSize);
+    final ok = _queryOption!(
+      0,
+      _kOptionPerConnectionOption,
+      list,
+      Pointer<Uint32>.fromAddress(size),
+    );
+    if (ok == 0) {
+      return "";
+    }
+    final serverAddr = _readPtr(options + _optionValueOffset);
+    final text = _readUtf16(serverAddr);
+    if (serverAddr != 0) {
+      _localFree?.call(serverAddr); // API 分配的字符串由调用方释放
+    }
+    return text;
+  } catch (_) {
+    return "";
+  } finally {
+    if (size != 0) {
+      _localFree?.call(size);
+    }
+    if (options != 0) {
+      _localFree?.call(options);
+    }
+    if (list != 0) {
+      _localFree?.call(list);
+    }
+  }
+}

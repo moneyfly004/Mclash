@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/models.dart';
 import 'package:libclash_vpn_service/src/desktop_impl.dart' as desktop_impl;
+import 'package:libclash_vpn_service/src/windows_wininet.dart' as windows_wininet;
 import 'package:libclash_vpn_service/vpn_service.dart';
 
 /// Windows 系统代理**真机**回归（只在 Windows 上跑，CI 的 Windows runner 会执行）。
@@ -134,6 +135,57 @@ void main() {
       reason:
           '广播之后系统缓存里的代理必须是 $host:$port（十六进制 $hex）；'
           '缓存不同步时，Windows「设置 → 代理」页面会显示旧的/空白状态：$dump',
+    );
+  });
+
+  // 用户第二轮反馈：「注册表里 ProxyEnable=1、ProxyServer=127.0.0.1:17890 都在，
+  // 但 Internet 选项里仍然是空白」。原因是那块界面读的是**每个连接的缓存副本**
+  // （Connections\DefaultConnectionSettings），只写全局值 + 广播在部分环境下
+  // 不会把那份副本刷新。修法是调用 Windows 自己用的官方接口
+  // InternetSetOption(INTERNET_OPTION_PER_CONNECTION_OPTION)，
+  // 注册表与缓存一起更新。这里在真机 Windows 上验证「写进去 → 读回来 → 清干净」。
+  test('官方 API：当前连接的代理能写进去、读回来、清干净', () {
+    final original = windows_wininet.querySystemProxyForConnection();
+    try {
+      final ok = windows_wininet.applySystemProxyForConnection(
+        server: "$host:${port + 1}",
+        bypass: "<local>",
+      );
+      expect(ok, isTrue, reason: 'Windows 上这个官方接口必须可用');
+
+      final readBack = windows_wininet.querySystemProxyForConnection();
+      expect(
+        readBack.contains("$host:${port + 1}"),
+        isTrue,
+        reason: '写完之后读回来必须一致（界面读的就是这份数据）：$readBack',
+      );
+    } finally {
+      // 还原：原来有值就写回去，原来没有就清掉 —— 不能污染后续 CI 步骤的网络
+      if (original.trim().isEmpty) {
+        windows_wininet.clearSystemProxyForConnection();
+      } else {
+        windows_wininet.applySystemProxyForConnection(
+          server: original.trim(),
+          bypass: "<local>",
+        );
+      }
+    }
+    expect(
+      windows_wininet.querySystemProxyForConnection().contains("$host:${port + 1}"),
+      isFalse,
+      reason: '测试结束必须把临时值清掉',
+    );
+  });
+
+  test('旁路列表不重复（用户实测注册表里出现 <local>;<local>）', () async {
+    await FlutterVpnService.setSystemProxy(
+      ProxyOption(host, port, const ["<local>", "localhost"]),
+    );
+    final override = (await query("ProxyOverride")).replaceAll(" ", "");
+    expect(
+      override.split(";").where((e) => e == "<local>").length,
+      1,
+      reason: '默认列表已含 <local>，不能再拼一次：$override',
     );
   });
 

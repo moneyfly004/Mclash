@@ -963,9 +963,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 记下原值以便恢复
       _systemProxyOriginal ??= {};
 
-      final bypass = option.bypassDomains.isEmpty
-          ? "<local>"
-          : "<local>;${option.bypassDomains.join(';')}";
+      // 去重：默认旁路列表本身就含 `<local>`，再拼一次就会写出
+      // `<local>;<local>;localhost;…`（用户实测在注册表里看到重复项）。
+      final bypassItems = <String>["<local>"];
+      for (final d in option.bypassDomains) {
+        final item = d.trim();
+        if (item.isNotEmpty && !bypassItems.contains(item)) {
+          bypassItems.add(item);
+        }
+      }
+      final bypass = bypassItems.join(';');
       final enableRes = await _reg([
         "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f",
       ]);
@@ -988,6 +995,18 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 「设置 → 代理 / Internet 选项」页面读的是缓存副本。必须再广播一次
       // SETTINGS_CHANGED + REFRESH，Windows 才会刷新缓存并通知所有 WinINET 使用者
       // —— 否则用户看到的就是「代理框还是空的，但能上网」。
+      // 只写注册表是**全局**值：新连接会走代理，但「Internet 选项 → 局域网设置」
+      // 与 Windows 11「设置 → 代理」读的是**每个连接的缓存副本**
+      // （Connections\DefaultConnectionSettings）—— 那份没更新时界面一直显示空白，
+      // 用户看到的就是「注册表里有 127.0.0.1:端口，界面却是空的」。
+      // 用官方 API 再设一次「当前连接」的代理，注册表与缓存会一起更新。
+      final perConn = applySystemProxyForConnection(
+        server: "${option.host}:${option.port}",
+        bypass: bypass,
+      );
+      stderr.writeln(
+        "[mclash] 已按官方 API 设置当前连接的代理（界面/缓存同步）: $perConn",
+      );
       final notified = notifySystemProxyChanged();
       stderr.writeln(
         "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
@@ -1029,7 +1048,9 @@ Add-Type -MemberDefinition $sig -Namespace W -Name N
         "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
       ]);
       await Process.run("reg", ["delete", key, "/v", "ProxyServer", "/f"]);
-      // 同样要广播，否则「设置 → 代理」页面会一直显示上一次的值。
+      // 「当前连接」那份缓存也要清，否则界面上还留着上一次的地址；
+      // 再广播一次，确保「设置 → 代理」页面立刻刷新。
+      clearSystemProxyForConnection();
       notifySystemProxyChanged();
       _systemProxyApplied = false;
       return true;
