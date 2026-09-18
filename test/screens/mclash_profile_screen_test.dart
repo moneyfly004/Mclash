@@ -373,6 +373,56 @@ void main() {
     }
   });
 
+  // 用户反馈：「我的页面也会出现 UI 抖动的问题，帮我固定位置」。
+  // 根因：头部那个位置在「加载中(20×20 转圈)」和「加载完(44×44 刷新图标)」之间
+  // 切换，一次刷新的高度差 24px，整页内容跟着上下跳。
+  group('布局稳定（不抖动）', () {
+    testWidgets('加载中与加载完：头部占位一致，卡片位置不移动', (tester) async {
+      await pump(tester);
+      final loadedTop = tester.getRect(find.byType(Card).first).top;
+      final loadedHeader = tester.getRect(find.byIcon(Icons.refresh));
+
+      // 再点一次刷新：进入加载态。此时头部必须还是 44×44
+      // （旧实现这里会缩成 20×20，整页上移 24px）。
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pump();
+
+      final duringTop = tester.getRect(find.byType(Card).first).top;
+      expect(
+        duringTop,
+        closeTo(loadedTop, 0.5),
+        reason: '刷新期间卡片位置不能移动（旧实现在这里跳 24px）',
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        tester.getRect(find.byType(Card).first).top,
+        closeTo(loadedTop, 0.5),
+        reason: '刷新完成后也不能移动',
+      );
+      // 头部占位在两个状态下一致：图标消失时，那个位置仍是同样的高度
+      final afterHeader = tester.getRect(find.byIcon(Icons.refresh));
+      expect(afterHeader.height, closeTo(loadedHeader.height, 0.5));
+      expect(afterHeader.width, closeTo(loadedHeader.width, 0.5));
+      await finish(tester);
+    });
+
+    testWidgets('已有数据时刷新是静默的：不弹转圈、不插错误卡', (tester) async {
+      await pump(tester);
+      final cardsBefore = find.byType(Card).evaluate().length;
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pump();
+      expect(
+        find.byType(CircularProgressIndicator),
+        findsNothing,
+        reason: '已有数据时刷新不该出现转圈（页面不该跳）',
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(Card).evaluate().length, cardsBefore);
+      await finish(tester);
+    });
+  });
+
   testWidgets('面板改了设备上限/到期时间 → 账号服务一更新，「我的」页面跟着变', (tester) async {
     await pump(tester);
     expect(find.text("2028-06-25"), findsWidgets, reason: '先显示旧到期时间');

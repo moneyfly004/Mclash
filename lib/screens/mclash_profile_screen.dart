@@ -38,6 +38,7 @@ import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/webview_helper.dart';
 import 'package:mclash/screens/widgets/framework.dart';
+import 'package:mclash/screens/widgets/mclash_page_header.dart';
 
 class MclashProfileScreen extends LasyRenderingStatefulWidget {
   const MclashProfileScreen({super.key});
@@ -98,17 +99,26 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
 
     if (state == AppLifecycleState.resumed) {
-      _load();
+      // 静默刷新：切回前台不该让整页跳一下
+      _load(silent: true);
     }
   }
 
-  Future<void> _load() async {
+  /// 拉取账号信息。
+  ///
+  /// [silent] = 已经有数据时的静默刷新：**不**点亮转圈、**不**插入错误卡。
+  /// 为什么：以前每次进页面 / 切回前台 / 点刷新都会 `_loading = true → false`，
+  /// 头部在「转圈(20px)」和「刷新图标(44px)」之间切换，整页随之上下跳（UI 抖动）；
+  /// 网络抖一下还会多出一张错误卡，把下面的卡片全顶下去。
+  Future<void> _load({bool silent = false}) async {
     if (!mounted) {
       return;
     }
+    final hadData = _dash != null;
     setState(() {
-      _loading = true;
-      _error = null;
+      _loading = !silent && !hadData;
+      // 注意：这里**不清** _error。清掉会让「错误卡」在刷新期间消失、刷新完又出现，
+      // 页面高度来回变（也是抖动的一种）。它只在新数据到达或新错误到来时更新。
     });
     try {
       Map<String, dynamic>? dash;
@@ -125,12 +135,17 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         return;
       }
       setState(() {
-        _dash = dash;
-        // 账号接口失败时**不能**留一片空白：给出原因和「点右上角刷新重试」的提示
-        // （用户实测：支付失败之后回到「我的」页面一片空白，不知道发生了什么）。
-        _error = dash == null
-            ? "账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。"
-            : null;
+        if (dash != null) {
+          _dash = dash;
+          _error = null;
+        } else if (!hadData) {
+          // 账号接口失败时**不能**留一片空白：给出原因和「点右上角刷新重试」的提示
+          // （用户实测：支付失败之后回到「我的」页面一片空白，不知道发生了什么）。
+          _error = "账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。";
+        } else {
+          // 已经有旧数据：保留它、不插错误卡 —— 否则卡片会被顶下去再弹回来
+          Log.w("profile: 刷新失败，保留上一次的数据");
+        }
         _loading = false;
       });
     } catch (e) {
@@ -138,7 +153,11 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         return;
       }
       setState(() {
-        _error = "$e";
+        if (!hadData) {
+          _error = "$e";
+        } else {
+          Log.w("profile: 刷新异常，保留上一次的数据 $e");
+        }
         _loading = false;
       });
     }
@@ -155,35 +174,10 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 20, right: 20),
-                child: Row(
-                  children: [
-                    Text(
-                      t.meta.user,
-                      style: const TextStyle(
-                        fontWeight: ThemeConfig.kFontWeightTitle,
-                        fontSize: ThemeConfig.kFontSizeTitle,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (_loading)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      InkWell(
-                        onTap: _load,
-                        child: const SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Icon(Icons.refresh, size: 26),
-                        ),
-                      ),
-                  ],
-                ),
+              MclashPageHeader(
+                title: t.meta.user,
+                loading: _loading,
+                onRefresh: () => _load(silent: true),
               ),
               const SizedBox(height: 10),
               Expanded(

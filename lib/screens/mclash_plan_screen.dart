@@ -16,6 +16,7 @@ import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
+import 'package:mclash/screens/widgets/mclash_page_header.dart';
 
 class MclashPlanScreen extends LasyRenderingStatefulWidget {
   const MclashPlanScreen({super.key});
@@ -58,13 +59,15 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     }
   }
 
-  Future<void> _load() async {
+  /// [silent] = 已经有数据时的静默刷新：不点亮转圈，页面不跳。
+  Future<void> _load({bool silent = false}) async {
     if (!mounted) {
       return;
     }
+    final hadData = _plans.isNotEmpty;
     setState(() {
-      _loading = true;
-      _error = null;
+      _loading = !silent && !hadData;
+      // 不清 _error：避免错误提示闪一下又回来（页面高度来回变）
     });
     try {
       Map<String, dynamic>? sub;
@@ -118,35 +121,10 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 20, right: 20),
-                child: Row(
-                  children: [
-                    Text(
-                      t.meta.buyProfile,
-                      style: const TextStyle(
-                        fontWeight: ThemeConfig.kFontWeightTitle,
-                        fontSize: ThemeConfig.kFontSizeTitle,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (_loading)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      InkWell(
-                        onTap: _load,
-                        child: const SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Icon(Icons.refresh, size: 26),
-                        ),
-                      ),
-                  ],
-                ),
+              MclashPageHeader(
+                title: t.meta.buyProfile,
+                loading: _loading,
+                onRefresh: () => _load(silent: true),
               ),
               const SizedBox(height: 10),
               Expanded(
@@ -488,7 +466,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         }
       }
 
-      await _load();
+      await _load(silent: true);
     } catch (e) {
       if (!mounted) {
         return;
