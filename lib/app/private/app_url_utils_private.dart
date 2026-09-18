@@ -3,7 +3,6 @@ library;
 
 
 const List<String> proxyBypassDomainsDefault = [
-  "<local>",
   "localhost",
   "127.*",
   "10.*",

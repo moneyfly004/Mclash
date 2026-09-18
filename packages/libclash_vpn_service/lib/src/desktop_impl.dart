@@ -1398,12 +1398,20 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 0) 先记下用户原本的代理配置（一次），断开时**还原**而不是一律抹掉。
       await _captureSystemProxyOriginal();
 
-      // 去重：默认旁路列表本身就含 `<local>`，再拼一次就会写出
-      // `<local>;<local>;localhost;…`（用户实测在注册表里看到重复项）。
-      final bypassItems = <String>["<local>"];
+      // 旁路列表直接来自配置（默认值已含 localhost/127.*/10.*/…）。
+      //
+      // ⚠️ 绝不写 `<local>` 字面量：inetcpl.cpl 的「局域网设置」对话框在解析
+      // DefaultConnectionSettings 的 bypass 字段时，遇到字面 `<local>` 会当作
+      // 非法内容整体丢弃 —— 结果「为 LAN 使用代理服务器」不勾选、地址/端口空白。
+      // （虚拟机实测：同一份 flags=3 + 127.0.0.1:27890，带 `<local>` 就空白，
+      //   去掉就正常显示。FlClash 的 defaultBypassDomain 也从不含 `<local>`。）
+      // 这里仍过滤一次，是为了兼容老用户已持久化、还带着 `<local>` 的旧配置。
+      final bypassItems = <String>[];
       for (final d in option.bypassDomains) {
         final item = d.trim();
-        if (item.isNotEmpty && !bypassItems.contains(item)) {
+        if (item.isNotEmpty &&
+            item != "<local>" &&
+            !bypassItems.contains(item)) {
           bypassItems.add(item);
         }
       }

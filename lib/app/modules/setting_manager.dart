@@ -184,7 +184,7 @@ class SettingConfig {
   /// 老版本在桌面端默认 false，用户从没动过它 —— 升级后这个 false 被当成
   /// 「用户要求不要设置系统代理」，于是连上了系统代理一直是空的
   /// （用户反馈：「无论规则还是全局，电脑的系统代理都没有配置」）。
-  static const int kSettingsVersion = 3;
+  static const int kSettingsVersion = 4;
 
   /// 本文件的设置版本（老文件没有这个键 → 0）。
   int settingsVersion = 0;
@@ -324,6 +324,20 @@ class SettingConfig {
       if (delayTestUrl.trim() == legacyHttps) {
         delayTestUrl = kDefaultDelayTestUrl;
         Log.i("SettingConfig: 迁移测速地址 $legacyHttps → $kDefaultDelayTestUrl（去掉 TLS 握手，数字不再虚高）");
+      }
+    }
+    if (settingsVersion < 4) {
+      // v4：旁路列表去掉 `<local>` 字面量。inetcpl.cpl 的「局域网设置」对话框
+      // 解析 DefaultConnectionSettings 的 bypass 字段时，遇到字面 `<local>` 会
+      // 整体判空 —— 结果「为 LAN 使用代理服务器」不勾选、地址/端口空白
+      // （虚拟机实测：同一份 flags=3 + 127.0.0.1:27890，带 `<local>` 就空白，
+      //   去掉就正常显示）。FlClash 的 defaultBypassDomain 也从不含 `<local>`。
+      final before = systemProxyBypassDomain.length;
+      systemProxyBypassDomain.removeWhere((e) => e.trim() == "<local>");
+      if (systemProxyBypassDomain.length != before) {
+        Log.i(
+          "SettingConfig: 迁移旁路列表，去掉 <local>（会让局域网设置对话框空白）",
+        );
       }
     }
     if (settingsVersion < 2) {

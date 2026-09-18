@@ -149,7 +149,7 @@ void main() {
     try {
       final ok = windows_wininet.applySystemProxyForConnection(
         server: "$host:${port + 1}",
-        bypass: "<local>",
+        bypass: "localhost",
       );
       expect(ok, isTrue, reason: 'Windows 上这个官方接口必须可用');
 
@@ -166,7 +166,7 @@ void main() {
       } else {
         windows_wininet.applySystemProxyForConnection(
           server: original.trim(),
-          bypass: "<local>",
+          bypass: "localhost",
         );
       }
     }
@@ -221,23 +221,26 @@ void main() {
     );
   });
 
-  test('旁路列表不重复（用户实测注册表里出现 <local>;<local>）', () async {
+  test('旁路列表过滤 <local>（字面 <local> 会让「局域网设置」对话框空白）', () async {
     await FlutterVpnService.setSystemProxy(
       ProxyOption(host, port, const ["<local>", "localhost"]),
     );
-    // reg 输出形如：    ProxyOverride    REG_SZ    <local>;localhost
-    // 取 REG_SZ 之后的那段才是值（以前把 "ProxyOverride REG_SZ" 也当成字段，
-    // 于是第一个分片永远不等于 <local>，断言恒为 0）。
+    // reg 输出形如：    ProxyOverride    REG_SZ    localhost
+    // 取 REG_SZ 之后的那段才是值（以前把 "ProxyOverride REG_SZ" 也当成字段）。
     final raw = await query("ProxyOverride");
     final value = raw.contains("REG_SZ")
         ? raw.split("REG_SZ").last.trim()
         : raw.trim();
     expect(
-      value.split(";").where((e) => e.trim() == "<local>").length,
-      1,
-      reason: '默认列表已含 <local>，不能再拼一次：$value',
+      value.contains("<local>"),
+      isFalse,
+      reason: '字面 <local> 必须被过滤，否则 inetcpl.cpl 对话框空白：$value',
     );
-    expect(value.contains("<local>;<local>"), isFalse, reason: '不能出现重复项：$value');
+    expect(
+      value.contains("localhost"),
+      isTrue,
+      reason: '合法旁路项要保留：$value',
+    );
   });
 
   test('清理后不留残留（下次连接不会被旧值干扰）', () async {
@@ -269,7 +272,7 @@ void main() {
       //    读出来作为格式基准。
       windows_wininet.applySystemProxyForConnection(
         server: "$host:$port",
-        bypass: "<local>",
+        bypass: "localhost",
       );
       final winBlob = windows_wininet.readDefaultConnectionSettings();
       // ignore: avoid_print
@@ -279,7 +282,7 @@ void main() {
       final myBlob = windows_wininet.buildDefaultConnectionSettingsBlob(
         flags: 0x3,
         server: "$host:$port",
-        bypass: "<local>",
+        bypass: "localhost",
       );
       // ignore: avoid_print
       print('MY-BLOB  ${hex(myBlob)}');
