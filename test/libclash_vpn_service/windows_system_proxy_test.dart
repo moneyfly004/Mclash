@@ -254,4 +254,48 @@ void main() {
       reason: '清理后 ProxyEnable 必须是 0：$enable',
     );
   });
+
+  // 官方 API 在用户机器上会返回 0（实测诊断），界面因此空白。兜底是**直接写**
+  // Connections\DefaultConnectionSettings 这份 REG_BINARY —— 它是「设置 → 代理 /
+  // Internet 选项」真正读的数据。这个用例在真实 Windows 上验证：我们构造的 blob
+  // 写进注册表后，WinINET 能否正确读回（格式错了这里立刻红）。
+  test('DefaultConnectionSettings blob：直接写 → Windows 读回一致 → 还原', () async {
+    final original = windows_wininet.readDefaultConnectionSettings();
+    try {
+      final blob = windows_wininet.buildDefaultConnectionSettingsBlob(
+        flags: 0x3,
+        server: "$host:$port",
+        bypass: "<local>",
+      );
+      final wrote = windows_wininet.writeDefaultConnectionSettings(blob);
+      expect(wrote, isTrue, reason: '写 REG_BINARY 必须成功');
+
+      // 用 InternetQueryOption 读回：WinINET 应能解出我们写进去的地址与 flags。
+      // 若 blob 布局错，这里读回会为空/错位。
+      final readBack = windows_wininet.querySystemProxyForConnection();
+      expect(
+        readBack.contains("$host:$port"),
+        isTrue,
+        reason: 'blob 写进注册表后，WinINET 读回应包含 $host:$port，实际：$readBack',
+      );
+      expect(
+        windows_wininet.connectionProxyEnabled(),
+        isTrue,
+        reason: 'flags 必须含 PROXY 位，否则界面仍显示「不使用代理」',
+      );
+    } finally {
+      // 还原：有原值写回原值；没有就写回「直连」，不污染后续用例的网络。
+      if (original != null) {
+        windows_wininet.writeDefaultConnectionSettings(original);
+      } else {
+        windows_wininet.writeDefaultConnectionSettings(
+          windows_wininet.buildDefaultConnectionSettingsBlob(
+            flags: 0x1,
+            server: "",
+            bypass: "",
+          ),
+        );
+      }
+    }
+  });
 }

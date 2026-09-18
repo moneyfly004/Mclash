@@ -555,6 +555,10 @@ bool _loadLocal() {
         .lookupFunction<_LocalAllocNative, _LocalAllocDart>('LocalAlloc');
     _localFree =
         kernel32.lookupFunction<_LocalFreeNative, _LocalFreeDart>('LocalFree');
+    // 顺带加载 GetLastError：诊断用。提前加载是因为 lookupFunction 本身会改
+    // last-error，若在失败后才懒加载，读到的就是被污染的错码。
+    _getLastError = kernel32
+        .lookupFunction<_GetLastErrorNative, _GetLastErrorDart>('GetLastError');
     return true;
   } catch (_) {
     _localAllocFailed = true;
@@ -588,6 +592,9 @@ void _writePtr(int base, int value) =>
 
 /// 读一个指针。
 int _readPtr(int base) => Pointer<UintPtr>.fromAddress(base).value;
+
+/// 读一个 DWORD。
+int _readDword(int base) => Pointer<Uint32>.fromAddress(base).value;
 
 int _allocUtf16(String s) {
   final units = s.codeUnits; // Windows 用的就是 UTF-16
@@ -668,8 +675,18 @@ bool writeSystemProxyForConnection({
     );
     _fillList(list, options, 3);
     final ok = fn(0, _kOptionPerConnectionOption, list, _listSize);
+    PerConnectionDiagnostics.lastSucceeded = ok != 0;
+    if (ok == 0) {
+      PerConnectionDiagnostics.lastError = _winLastError();
+      PerConnectionDiagnostics.optionError = _readDword(list + _listErrorOffset);
+    } else {
+      PerConnectionDiagnostics.lastError = 0;
+      PerConnectionDiagnostics.optionError = -1;
+    }
     return ok != 0;
   } catch (_) {
+    PerConnectionDiagnostics.lastSucceeded = false;
+    PerConnectionDiagnostics.lastError = _winLastError();
     return false;
   } finally {
     if (serverPtr != 0) {
@@ -1202,4 +1219,266 @@ Future<bool> isLocalPortAlive(
       s?.destroy();
     } catch (_) {}
   }
+}
+
+// ============================================================================
+// 每连接官方 API 的失败诊断 + DefaultConnectionSettings 二进制兜底
+// ============================================================================
+//
+// 灵感来源（用户指出）：Clash Party（mihomo-party-org/clash-party）用 sysproxy-rs
+// 只调一次 `InternetSetOption(INTERNET_OPTION_PER_CONNECTION_OPTION)` 就写完。
+// 我们的实现逻辑与其等价，但用户机器实测这次调用返回 0 —— 于是「设置 → 代理 /
+// Internet 选项」真正读的那份 `Connections\DefaultConnectionSettings` 没被更新，
+// 界面一直空白；而读回（InternetQueryOption）因为会继承全局值，反而显示得像成功，
+// 极具迷惑性（旁路读回为空就是破绽）。
+//
+// 这里做两件事：
+//   1) 失败时记录 GetLastError 与 dwOptionError，让「为什么失败」可见；
+//   2) 失败时直接写 `Connections\DefaultConnectionSettings` 这份 REG_BINARY ——
+//      这是与 WinINet API 无关的最终手段，也是界面真正读的数据。
+
+/// REG_BINARY
+const int _kRegBinary = 3;
+
+/// 最近一次「每连接官方 API」写入的结果与失败原因（诊断报告直接展示）。
+class PerConnectionDiagnostics {
+  static bool lastSucceeded = false;
+  static int lastError = 0; // GetLastError；0 = 无记录
+  static int optionError = -1; // dwOptionError；-1 = 未读
+  static String fallbackUsed = ""; // "official" / "blob" / "none"
+
+  static void reset() {
+    lastSucceeded = false;
+    lastError = 0;
+    optionError = -1;
+    fallbackUsed = "";
+  }
+}
+
+typedef _GetLastErrorNative = Uint32 Function();
+typedef _GetLastErrorDart = int Function();
+_GetLastErrorDart? _getLastError;
+
+/// kernel32!GetLastError（失败诊断用）。拿不到返回 -1。
+int _winLastError() {
+  try {
+    _getLastError ??= DynamicLibrary.open(
+      'kernel32.dll',
+    ).lookupFunction<_GetLastErrorNative, _GetLastErrorDart>('GetLastError');
+    return _getLastError!();
+  } catch (_) {
+    return -1;
+  }
+}
+
+/// 打开 `Internet Settings\Connections` 键（DefaultConnectionSettings 在这里）。
+int _openConnectionsKey({bool readOnly = false}) {
+  final fn = _regOpenKeyEx;
+  if (fn == null) {
+    return 0;
+  }
+  final sub = _utf16Address(
+    r"Software\Microsoft\Windows\CurrentVersion\Internet Settings\Connections",
+  );
+  if (sub == 0) {
+    return 0;
+  }
+  final out = _localAlloc!(_kLptr, _ptrSize);
+  if (out == 0) {
+    _freeLocal(sub);
+    return 0;
+  }
+  try {
+    Pointer<UintPtr>.fromAddress(out).value = 0;
+    final rc = fn(
+      _kHkeyCurrentUser,
+      Pointer<Uint16>.fromAddress(sub),
+      0,
+      readOnly ? _kKeyQueryValue : _kKeySetAndQueryValue,
+      Pointer<IntPtr>.fromAddress(out),
+    );
+    return rc == _kErrorSuccess ? _readPtr(out) : 0;
+  } finally {
+    _freeLocal(sub);
+    _freeLocal(out);
+  }
+}
+
+/// 读 `Connections\DefaultConnectionSettings` 原始字节；不存在 → null。
+List<int>? readDefaultConnectionSettings() {
+  if (!_loadMore() || !_loadAdvapi()) {
+    return null;
+  }
+  final key = _openConnectionsKey(readOnly: true);
+  if (key == 0) {
+    return null;
+  }
+  final namePtr = _utf16Address("DefaultConnectionSettings");
+  final typePtr = _localAlloc!(_kLptr, 4);
+  final sizePtr = _localAlloc!(_kLptr, 4);
+  var dataPtr = 0;
+  try {
+    if (namePtr == 0 || typePtr == 0 || sizePtr == 0) {
+      return null;
+    }
+    Pointer<Uint32>.fromAddress(sizePtr).value = 0;
+    var rc = _regQueryValueEx!(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      Pointer<Uint32>.fromAddress(typePtr),
+      Pointer<Uint8>.fromAddress(0),
+      Pointer<Uint32>.fromAddress(sizePtr),
+    );
+    final size = Pointer<Uint32>.fromAddress(sizePtr).value;
+    if (rc != _kErrorSuccess && rc != 234) {
+      return null;
+    }
+    if (size == 0) {
+      return const [];
+    }
+    dataPtr = _localAlloc!(_kLptr, size);
+    if (dataPtr == 0) {
+      return null;
+    }
+    Pointer<Uint32>.fromAddress(sizePtr).value = size;
+    rc = _regQueryValueEx!(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      Pointer<Uint32>.fromAddress(typePtr),
+      Pointer<Uint8>.fromAddress(dataPtr),
+      Pointer<Uint32>.fromAddress(sizePtr),
+    );
+    if (rc != _kErrorSuccess) {
+      return null;
+    }
+    final got = Pointer<Uint32>.fromAddress(sizePtr).value;
+    return List<int>.generate(got, (i) => Pointer<Uint8>.fromAddress(dataPtr)[i]);
+  } catch (_) {
+    return null;
+  } finally {
+    _freeLocal(namePtr);
+    _freeLocal(typePtr);
+    _freeLocal(sizePtr);
+    _freeLocal(dataPtr);
+    _regCloseKey?.call(key);
+  }
+}
+
+/// 写 `Connections\DefaultConnectionSettings`（REG_BINARY）。
+bool writeDefaultConnectionSettings(List<int> bytes) {
+  if (!_loadMore() || !_loadAdvapi() || bytes.isEmpty) {
+    return false;
+  }
+  final key = _openConnectionsKey();
+  if (key == 0) {
+    return false;
+  }
+  final namePtr = _utf16Address("DefaultConnectionSettings");
+  final data = _localAlloc!(_kLptr, bytes.length);
+  try {
+    if (namePtr == 0 || data == 0) {
+      return false;
+    }
+    for (var i = 0; i < bytes.length; i++) {
+      Pointer<Uint8>.fromAddress(data)[i] = bytes[i];
+    }
+    final rc = _regSetValueEx!(
+      key,
+      Pointer<Uint16>.fromAddress(namePtr),
+      0,
+      _kRegBinary,
+      Pointer<Uint8>.fromAddress(data),
+      bytes.length,
+    );
+    return rc == _kErrorSuccess;
+  } finally {
+    _freeLocal(namePtr);
+    _freeLocal(data);
+    _regCloseKey?.call(key);
+  }
+}
+
+/// 构造 `Connections\DefaultConnectionSettings` 二进制（小端）。
+///
+/// 结构（社区多款代理工具沿用 IE 的老格式）：
+///   +0  DWORD version（0x46）
+///   +4  DWORD counter（每次写 +1，Windows 靠它察觉变化）
+///   +8  DWORD flags（1=direct 2=proxy 4=auto-url 8=auto-detect）
+///   +12 DWORD proxyServerLen（字节，含结尾 NUL）
+///   +16 WCHAR proxyServer[]（UTF-16LE，NUL 结尾，之后补到 4 字节对齐）
+///   …  DWORD bypassLen + WCHAR bypass[]
+///   …  DWORD autoConfigUrlLen（=0 时无 autoConfigUrl 字符串）
+List<int> buildDefaultConnectionSettingsBlob({
+  required int flags,
+  required String server,
+  required String bypass,
+  int counter = 0,
+}) {
+  final out = <int>[];
+  void dw(int v) {
+    out.add(v & 0xff);
+    out.add((v >> 8) & 0xff);
+    out.add((v >> 16) & 0xff);
+    out.add((v >> 24) & 0xff);
+  }
+
+  void str(String s) {
+    final units = s.codeUnits;
+    for (final u in units) {
+      out.add(u & 0xff);
+      out.add((u >> 8) & 0xff);
+    }
+    out.add(0); // NUL
+    out.add(0);
+    while (out.length % 4 != 0) {
+      out.add(0); // 补齐到 4 字节
+    }
+  }
+
+  dw(0x46); // version
+  dw(counter);
+  dw(flags);
+  dw((server.length + 1) * 2);
+  str(server);
+  dw((bypass.length + 1) * 2);
+  str(bypass);
+  dw(0); // autoConfigUrlLen = 0（无 auto-config）
+  return out;
+}
+
+/// 解析 blob 的 flags（读不出/格式不符返回 null）。
+int? parseDefaultConnectionSettingsFlags(List<int>? blob) {
+  if (blob == null || blob.length < 12) {
+    return null;
+  }
+  return blob[8] | (blob[9] << 8) | (blob[10] << 16) | (blob[11] << 24);
+}
+
+/// blob 里是否真的含有 [server] 这段文本（UTF-16LE 解码后包含即 true）。
+///
+/// 这是「界面会不会显示 127.0.0.1:端口」的**唯一可靠判据** —— 注意不要用
+/// InternetQueryOption 读回（它在这份数据缺失时会继承全局值，造成假象）。
+bool defaultConnectionSettingsContains(List<int>? blob, String server) {
+  if (blob == null || blob.isEmpty || server.isEmpty) {
+    return false;
+  }
+  final units = server.codeUnits;
+  for (var i = 0; i + units.length * 2 <= blob.length; i++) {
+    var match = true;
+    for (var k = 0; k < units.length; k++) {
+      final u = units[k];
+      final lo = blob[i + k * 2];
+      final hi = blob[i + k * 2 + 1];
+      if (lo != (u & 0xff) || hi != (u >> 8)) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      return true;
+    }
+  }
+  return false;
 }

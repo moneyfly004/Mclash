@@ -73,6 +73,14 @@ class SystemProxySnapshot {
   String connServer = "";
   String connBypass = "";
 
+  /// 写入前的 `Connections\DefaultConnectionSettings` 原始字节（null = 原本没有）。
+  ///
+  /// 官方 API 失败时我们改走「直接写这份 blob」兜底，断开时就必须把它还原回来。
+  List<int>? connBlob;
+
+  /// 本进程是否用 blob 兜底覆盖过这份数据（断开时据此决定要不要还原）。
+  bool blobOverwritten = false;
+
   bool captured = false;
 
   /// 从 `reg query` 输出里取值的文本（`ProxyServer  REG_SZ  127.0.0.1:7890`）。
@@ -151,6 +159,25 @@ class SystemProxyDiagnostics {
     buf.writeln("最后一次 InternetSetOption 广播: $internetSetOption");
     buf.writeln("最后一次 WM_SETTINGCHANGE 广播: $wmSettingChange");
     buf.writeln("最后一次每连接官方 API 写入: $perConnectionApi");
+    // 官方 API 失败的真实原因（用户机器实测 API 返回 0，界面就空白）：
+    //   GetLastError 错误码 + 是哪个 option 出错（dwOptionError）。
+    if (perConnectionApi == false) {
+      buf.writeln(
+        "每连接官方 API 失败: GetLastError=${PerConnectionDiagnostics.lastError} "
+        "dwOptionError=${PerConnectionDiagnostics.optionError} "
+        "兜底=${PerConnectionDiagnostics.fallbackUsed.isEmpty ? "未记录" : PerConnectionDiagnostics.fallbackUsed}",
+      );
+    }
+    // 「界面到底会不会显示 127.0.0.1:端口」的唯一可靠判据：直接看
+    // Connections\DefaultConnectionSettings 这份二进制里有没有这个地址。
+    // 不要信上面 InternetQueryOption 的读回 —— 它在数据缺失时会继承全局值，会骗人。
+    final blob = readDefaultConnectionSettings();
+    final blobServer = await _regQueryValueBlobServer(blob);
+    buf.writeln(
+      "界面真正读的 DefaultConnectionSettings: "
+      "flags=${parseDefaultConnectionSettingsFlags(blob) ?? "?"} "
+      "含地址=${blobServer.isEmpty ? "(无)" : blobServer}",
+    );
     if (lastCleanSkip.isNotEmpty) {
       buf.writeln("最近一次清理跳过原因: $lastCleanSkip");
     }
@@ -158,6 +185,26 @@ class SystemProxyDiagnostics {
       buf.writeln("最后错误: $lastError");
     }
     return buf.toString();
+  }
+
+  /// 从 DefaultConnectionSettings blob 里解出 ProxyServer 字符串（用于「界面会显示什么」）。
+  static Future<String> _regQueryValueBlobServer(List<int>? blob) async {
+    if (blob == null || blob.length < 16) {
+      return "";
+    }
+    final len = blob[12] | (blob[13] << 8) | (blob[14] << 16) | (blob[15] << 24);
+    if (len <= 2 || 16 + len > blob.length) {
+      return "";
+    }
+    final units = <int>[];
+    for (var i = 16; i + 1 < 16 + len; i += 2) {
+      final u = blob[i] | (blob[i + 1] << 8);
+      if (u == 0) {
+        break;
+      }
+      units.add(u);
+    }
+    return String.fromCharCodes(units);
   }
 
   static Future<String> _regQueryValue(String name) async {
@@ -1372,7 +1419,35 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           bypass: bypass,
         );
         SystemProxyDiagnostics.perConnectionApi = perConn;
-        desktopLog("[mclash] 已按官方 API 写「当前连接」（界面读的那份）: $perConn");
+        if (perConn) {
+          PerConnectionDiagnostics.fallbackUsed = "official";
+          desktopLog("[mclash] 已按官方 API 写「当前连接」（界面读的那份）: 成功");
+        } else {
+          // 官方 API 返回 0（用户机器实测）。它的失败原因只有 GetLastError 知道，
+          // 但无论如何，界面读的那份 `Connections\DefaultConnectionSettings` 没被写。
+          // 兜底：直接写这份 REG_BINARY —— 与 WinINet 无关，是界面真正读的数据，
+          // 也是 Clash Verge 系等工具用过的可靠手段（灵感：Clash Party 只靠官方
+          // API 一步写完，我们在这台机器上退到更底层的一步）。
+          final prev = readDefaultConnectionSettings();
+          final prevCounter = (prev != null && prev.length >= 8)
+              ? (prev[4] | (prev[5] << 8) | (prev[6] << 16) | (prev[7] << 24))
+              : 0;
+          final blob = buildDefaultConnectionSettingsBlob(
+            flags: kProxyTypeDirect | kProxyTypeProxy,
+            server: server,
+            bypass: bypass,
+            counter: prevCounter + 1,
+          );
+          final blobOk = writeDefaultConnectionSettings(blob);
+          PerConnectionDiagnostics.fallbackUsed = blobOk ? "blob" : "none";
+          _systemProxySnapshot.blobOverwritten = blobOk;
+          desktopLog(
+            "[mclash] 官方 API 写「当前连接」失败（GetLastError="
+            "${PerConnectionDiagnostics.lastError} dwOptionError="
+            "${PerConnectionDiagnostics.optionError}）→ 直接写 DefaultConnectionSettings 兜底: "
+            "${blobOk ? "成功" : "失败"}",
+          );
+        }
       } else {
         SystemProxyDiagnostics.perConnectionApi = null;
         desktopLog("[mclash] 跳过每连接 API 写入（usePerConnectionProxyWrite=false）");
@@ -1402,10 +1477,15 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       final connServer = querySystemProxyForConnection();
       final connOn = connectionProxyEnabled();
       final registryOk = await _windowsProxyMatches(option);
+      // 真正的判据：blob 里有没有这个地址（InternetQueryOption 读回会继承全局值，
+      // 那份「ProxyServer/已启用」在这台机器上一直是假象 —— 见诊断报告说明）。
+      final blobNow = readDefaultConnectionSettings();
+      final blobHasServer = defaultConnectionSettingsContains(blobNow, server);
       desktopLog(
         "[mclash] 读回：注册表=${registryOk ? "一致" : "不一致"} / "
-        "界面读的那份 ProxyServer=${connServer.isEmpty ? "(空)" : connServer}"
-        "（代理已启用=$connOn）",
+        "DefaultConnectionSettings 含地址=${blobHasServer ? "是" : "否"
+            }（官方 API 读回的 ProxyServer=${connServer.isEmpty ? "(空)" : connServer}、"
+        "代理已启用=$connOn）",
       );
       if (!registryOk) {
         desktopLog(
@@ -1450,6 +1530,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     snap.connFlags = queryConnectionFlagsForConnection();
     snap.connServer = querySystemProxyForConnection();
     snap.connBypass = querySystemProxyBypassForConnection();
+    snap.connBlob = readDefaultConnectionSettings();
     snap.captured = true;
     desktopLog(
       "[mclash] 已记录用户原有代理配置：注册表 "
@@ -1595,20 +1676,40 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 现在的规则：**只有快照里记着「我们写入之前它是什么」时，才允许动它**。
       // 原本就是直连 → 写回直连；原本配着代理 → 把原值写回去。没有快照 → 一行都不碰。
       if (snap.captured) {
-        final flags = snap.connFlags ?? kProxyTypeDirect;
-        final hadProxy =
-            (flags & kProxyTypeProxy) != 0 && snap.connServer.trim().isNotEmpty;
-        final restored = hadProxy
-            ? restoreSystemProxyForConnection(
-                flags: flags,
-                server: snap.connServer,
-                bypass: snap.connBypass,
-              )
-            : clearSystemProxyForConnection();
-        desktopLog(
-          "[mclash] 清理：「当前连接」那份已还原"
-          "（原本${hadProxy ? "配着 ${snap.connServer}" : "是直连"}）: $restored",
-        );
+        // 优先直接还原 blob（Connections\DefaultConnectionSettings）：
+        // 它才是界面读的真身，而且**不依赖会在这台机器上失败的官方 API**。
+        //   * 写入前就有 blob → 写回原值；
+        //   * 写入前没有、但本进程用 blob 兜底覆盖过 → 写回「直连」；
+        //   * 两者都没有（官方 API 成功的那条路）→ 仍走官方 API 还原。
+        final hadOriginalBlob = snap.connBlob != null;
+        if (snap.blobOverwritten || hadOriginalBlob) {
+          final target = snap.connBlob ??
+              buildDefaultConnectionSettingsBlob(
+                flags: kProxyTypeDirect,
+                server: "",
+                bypass: "",
+              );
+          final ok = writeDefaultConnectionSettings(target);
+          desktopLog(
+            "[mclash] 清理：还原 DefaultConnectionSettings blob"
+            "（写入前${hadOriginalBlob ? "有原值" : "不存在"}）: $ok",
+          );
+        } else {
+          final flags = snap.connFlags ?? kProxyTypeDirect;
+          final hadProxy =
+              (flags & kProxyTypeProxy) != 0 && snap.connServer.trim().isNotEmpty;
+          final restored = hadProxy
+              ? restoreSystemProxyForConnection(
+                  flags: flags,
+                  server: snap.connServer,
+                  bypass: snap.connBypass,
+                )
+              : clearSystemProxyForConnection();
+          desktopLog(
+            "[mclash] 清理：「当前连接」那份已还原"
+            "（原本${hadProxy ? "配着 ${snap.connServer}" : "是直连"}）: $restored",
+          );
+        }
       } else {
         desktopLog(
           "[mclash] 清理：没拿到原始快照，不动「当前连接」那一份"
