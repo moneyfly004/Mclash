@@ -147,6 +147,9 @@ class MclashNodesStore extends ChangeNotifier {
 
     try {
       await MclashNodeAutoPick.selectBestOnConnect(
+        // 把已有延迟缓存交给选路逻辑：**连接后不再让内核整组测速**
+        // （用户实测：连接之后非常卡、根本点不动；日志里内核被自家测速压满）。
+        cachedLatency: latencyByName(),
         onNote: (note) {
           autoPickNote = note;
           notifyListeners();
@@ -172,8 +175,44 @@ class MclashNodesStore extends ChangeNotifier {
       );
       return;
     }
+    // ⚠️ 连接成功后**不再**全量测速。
+    //
+    // 用户实测：「连接之后非常卡，根本点不动」。内核此刻正在服务真实流量，
+    // 再压上几百个 `/delay` 请求（每个都要内核去连一次测速地址）会把内核的 CPU、
+    // 连接表和内存吃满，界面自然点不动；而在 TUN 模式下这些测速流量自己还要
+    // 回到内核，开销再翻一倍。
+    //
+    // 现在只补测**极少数**节点（还没有延迟数据的），够首页显示与自动选路用；
+    // 其余交给用户主动：打开「节点列表」页会自动测速一次，或手动点测速。
+    if (stale.length > kConnectAutoTestLimit) {
+      Log.i(
+        "MclashNodesStore: 连接成功，${stale.length}/${_nodes.length} 个节点需要测速 → "
+        "只补测前 $kConnectAutoTestLimit 个（避免连接后卡顿，其余请在节点列表页测速）",
+      );
+      autoPickNote = "已在后台补测 $kConnectAutoTestLimit 个节点（其余可在节点列表测速）";
+      notifyListeners();
+      await testAll(subset: stale.take(kConnectAutoTestLimit).toList());
+      return;
+    }
     Log.i("MclashNodesStore: 连接成功，只测 ${stale.length}/${_nodes.length} 个需要更新的节点");
     await testAll(subset: stale);
+  }
+
+  /// 连接成功后最多自动补测多少个节点（其余交给用户主动触发）。
+  static const int kConnectAutoTestLimit = 16;
+
+  /// 首次载入（完全没有延迟缓存）时最多自动补测多少个节点。
+  static const int kFirstLoadTestLimit = 32;
+
+  /// name → 延迟（只含可用的），供自动选路用缓存替代「整组测速」。
+  Map<String, int> latencyByName() {
+    final out = <String, int>{};
+    for (final n in _nodes) {
+      if (n.latencyUsable && n.latencyMs > 0) {
+        out[n.name] = n.latencyMs;
+      }
+    }
+    return out;
   }
 
   /// 延迟缓存的新鲜期：在这之内不重复测速（省电、省流量）。
@@ -340,7 +379,15 @@ class MclashNodesStore extends ChangeNotifier {
       notifyListeners();
       Log.i("MclashNodesStore: 载入 ${nodes.length} 个节点，缓存命中 $hit");
       if (autoTestIfNoCache && hit == 0 && nodes.isNotEmpty) {
-        unawaited(testAll());
+        // 首次（没有延迟缓存）只补测一小部分：全量 400 个节点会让界面在
+        // 「刚打开/刚换订阅」时卡住好几分钟，而用户此刻最想干的是点连接。
+        // 其余节点在用户打开「节点列表」时会自动测（那里是用户主动、且看得见进度）。
+        final subset = nodes.take(kFirstLoadTestLimit).toList();
+        Log.i(
+          "MclashNodesStore: 没有延迟缓存 → 先补测 ${subset.length}/${nodes.length} 个"
+          "（其余在节点列表页测速）",
+        );
+        unawaited(testAll(subset: subset));
       }
     } catch (e) {
       _loading = false;
@@ -379,10 +426,19 @@ class MclashNodesStore extends ChangeNotifier {
     _testing = targets.length;
     _testTotal = targets.length;
     notifyListeners();
+    // 进度通知**必须节流**：旧实现每完成一个节点就 `notifyListeners()` 并清空
+    // 派生缓存（国家分组、最优延迟…），400 个节点 = 400 次重新计算 + 400 次界面
+    // 重建。测速期间界面卡死、点不动，主要就是这里 —— 数据本身没变那么多。
+    var lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
     await MclashSpeedTester.instance.testAll(
       targets,
       onProgress: (done, total) {
         _testing = total - done;
+        final now = DateTime.now();
+        if (now.difference(lastNotify) < const Duration(milliseconds: 500)) {
+          return;
+        }
+        lastNotify = now;
         _invalidateDerived();
         notifyListeners();
       },

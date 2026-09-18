@@ -960,8 +960,57 @@ const int _kSmtoNotTimeoutIfNotHung = 0x0008;
 /// 200ms 足够让正常窗口收到消息，卡住的窗口也不会再把我们拖住。
 const int _kBroadcastTimeoutMs = 200;
 
+typedef _PostMessageNative = Int32 Function(
+  IntPtr hWnd,
+  Uint32 msg,
+  UintPtr wParam,
+  IntPtr lParam,
+);
+typedef _PostMessageDart = int Function(
+  int hWnd,
+  int msg,
+  int wParam,
+  int lParam,
+);
+
 _SendMessageTimeoutDart? _sendMessageTimeout;
+_PostMessageDart? _postMessage;
 bool _user32LoadFailed = false;
+
+/// `WM_SETTINGCHANGE` 的 lParam 字符串缓冲（**进程内只分配一次，永不释放**）。
+///
+/// 为什么要常驻：投递式广播（PostMessage）**不等对方处理**，lParam 指针必须在
+/// 窗口真正读到消息时依然有效。如果广播后就 `LocalFree`，接收方读到的是已释放的
+/// 内存（经典崩溃/乱码）。这块只有几十字节，常驻是业界通行做法。
+int _internetSettingsTextPtr = 0;
+
+int _internetSettingsText() {
+  if (_internetSettingsTextPtr != 0) {
+    return _internetSettingsTextPtr;
+  }
+  if (!_loadMore()) {
+    return 0;
+  }
+  _internetSettingsTextPtr = _allocUtf16("InternetSettings");
+  return _internetSettingsTextPtr;
+}
+
+_PostMessageDart? _resolvePostMessage() {
+  if (_postMessage != null) {
+    return _postMessage;
+  }
+  if (_user32LoadFailed || !Platform.isWindows) {
+    return null;
+  }
+  try {
+    final lib = DynamicLibrary.open('user32.dll');
+    _postMessage = lib
+        .lookupFunction<_PostMessageNative, _PostMessageDart>('PostMessageW');
+    return _postMessage;
+  } catch (_) {
+    return null;
+  }
+}
 
 _SendMessageTimeoutDart? _resolveSendMessageTimeout() {
   if (_sendMessageTimeout != null) {
@@ -1021,6 +1070,36 @@ bool broadcastInternetSettingsChanged() {
   }
 }
 
+/// 向所有顶层窗口**投递** `WM_SETTINGCHANGE` / `lParam = "InternetSettings"`。
+///
+/// 与 [broadcastInternetSettingsChanged] 的区别是**不等任何窗口**：`PostMessage`
+/// 把消息放进每个顶层窗口的消息队列就立刻返回。
+///
+/// 为什么必须要这一版（用户实测「连接之后非常卡，根本点不动」）：
+/// 旧路径用的是 `SendMessageTimeout(HWND_BROADCAST, …, SMTO_NOTIMEOUTIFNOTHUNG)`，
+/// 而 `HWND_BROADCAST` 意味着**机器上每个顶层窗口**都要处理这条消息、并且
+/// `NOTIMEOUTIFNOTHUNG` 让「没挂起」的窗口**不受超时限制**（只有挂起的才跳过）。
+/// 结果：浏览器、编辑器、资源管理器…任何一个处理慢一点，调用方就得一起等
+/// —— 用户日志里「写入 → 广播返回」间隔 **8.8 秒**就是这么来的。
+/// 而且「异步版」以前只是把这次**同步**调用丢进一个 `Future`，它仍然跑在
+/// UI 线程上：阻塞一点没少，只是换了个时间点。
+/// 现在改成真正的投递：调用方（UI 线程）零等待。
+bool postInternetSettingsChanged() {
+  final fn = _resolvePostMessage();
+  if (fn == null) {
+    return false;
+  }
+  final text = _internetSettingsText();
+  if (text == 0) {
+    return false;
+  }
+  try {
+    return fn(_kHwndBroadcast, _kWmSettingChange, 0, text) != 0;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// 调用 [broadcastInternetSettingsChanged]，但**不阻塞调用方**。
 ///
 /// 广播的用途只有一个：让 Windows 界面与已经在跑的浏览器重读设置 —— 它**不属于**
@@ -1037,7 +1116,12 @@ bool broadcastInternetSettingsChangedAsync() {
   if (fn == null) {
     return false;
   }
-  // 不 await：调用方继续走自己的路。
+  // 首选投递式（PostMessage）：立刻返回、不等任何窗口 —— 这才是「不阻塞调用方」。
+  if (postInternetSettingsChanged()) {
+    return true;
+  }
+  // 兜底：极少数环境下 PostMessage 不可用才用同步广播，而且丢到微任务里，
+  // 至少不把当前这一帧的 UI 卡住（下面这行内是同步 FFI，务必保持超时很短）。
   unawaited(Future<void>(() {
     try {
       broadcastInternetSettingsChanged();

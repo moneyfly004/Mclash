@@ -42,11 +42,14 @@ class MclashSpeedTester {
 
   /// 并发上限。
   ///
-  /// 以前是 12：411 个节点 × 每个一条新 TCP 连接打到本机内核，连接后被立刻
-  /// 拉起的自动测速会把控制端口的连接表塞满，而真正需要内核响应的东西
-  /// （切节点、读配置、流量订阅）要排在后面。降到 6 对整体耗时几乎没影响
-  /// （瓶颈是慢节点的超时，不是并发度），但对机器友好得多。
-  static const int maxConcurrent = 6;
+  /// 以前是 12，后来 6，现在 3。
+  ///
+  /// 每一次探测都是「内核去连一次测速地址」：12 路并发时，连接后被立刻拉起的
+  /// 自动测速会把内核的 CPU 与连接表塞满，真正需要内核响应的东西（切节点、
+  /// 读配置、流量订阅、界面刷新）全排在后面 —— 用户的原话是「连接之后非常卡，
+  /// 根本点不动」。3 路并发虽然测得慢一些，但**连接后的流畅度**回来了，
+  /// 而且我们本来就有延迟缓存（连接后绝大多数节点不需要重测）。
+  static const int maxConcurrent = 3;
 
   /// 连续这么多次「内核根本没在听」就整批放弃。
   ///
@@ -185,7 +188,9 @@ class MclashSpeedTester {
       // 时刻 333ms ~ 4158ms），单次采样会把瞬时拥塞当成节点质量。只对「>=1.5s 的
       // 慢结果」补一次，代价可忽略（快节点不会多测）。
       final firstMs = r.data ?? -1;
-      if (r.error == null && firstMs >= 1500) {
+      // 只对「明显慢」的结果补测一次（阈值从 1.5s 提到 2.5s）：慢节点本来就多，
+      // 每个都补测等于把请求数翻倍 —— 连接后那几百个请求就是这么来的。
+      if (r.error == null && firstMs >= 2500) {
         final again = await ClashHttpApi.getDelay(
           node.name,
           url: url,
@@ -267,8 +272,9 @@ class MclashSpeedTester {
       return;
     }
     final kernelUp = await kernelAvailable();
+    final swBatch = Stopwatch()..start();
     Log.i(
-      "MclashSpeedTester: 开始测速 ${nodes.length} 个节点"
+      "MclashSpeedTester: 开始测速 ${nodes.length} 个节点（并发 $maxConcurrent）"
       "（${kernelUp ? "走内核 /delay，协议无关" : "内核未运行 → 本机 TCP 粗测"}）",
     );
 
@@ -318,6 +324,13 @@ class MclashSpeedTester {
     if (onProgress != null) {
       onProgress(nodes.length, nodes.length);
     }
+    swBatch.stop();
+    // 一轮测速的规模与耗时如实记下来：用户报「连接后卡顿」时，这两行能直接
+    // 说明测速是不是元凶（例如「开始 411 个节点」就是坏味道）。
+    Log.i(
+      "MclashSpeedTester: 测速结束 ${nodes.length} 个节点，用时 ${swBatch.elapsedMilliseconds} ms"
+      "${_kernelGone ? "（内核中途不可用，已提前中止）" : ""}",
+    );
   }
 
   static Map<String, int> bestLatencyByCountry(Iterable<MclashNode> nodes) {

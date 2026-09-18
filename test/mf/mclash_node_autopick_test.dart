@@ -320,4 +320,105 @@ void main() {
       MclashNodeAutoPick.debugSwitchOverride = null;
     });
   });
+
+  group('连接后不整组测速（连接后卡顿回归）', connectTimeGroupDelayTests);
+}
+
+/// 连接后**不再**让内核整组测速（用户实测「连接之后非常卡，根本点不动」）。
+///
+/// 旧行为：连接成功 → 自动选路 → `ClashHttpApi.getGroupDelay(组名)` —— 那是让
+/// **内核一次性并发测整组**（订阅动辄 300~400 个节点）。内核此刻正在服务真实流量，
+/// 再被自家测速压满，控制和界面请求全部排队，用户点什么都点不动。
+///
+/// 现在的口径：小组照旧整组测；大组优先用延迟缓存；没有缓存时只测极少数候选。
+void connectTimeGroupDelayTests() {
+  late int groupDelayCalls;
+  late List<String> probed;
+
+  setUp(() {
+    groupDelayCalls = 0;
+    probed = [];
+    MclashNodeAutoPick.debugGroupDelayOverride = (group) async {
+      groupDelayCalls++;
+      return {"从来没测过": 1};
+    };
+    MclashNodeAutoPick.debugProbeOverride = (node) async {
+      probed.add(node);
+      return 80;
+    };
+    MclashNodeAutoPick.debugSwitchOverride = (group, node) async => true;
+    MclashNodeAutoPick.debugFixedNodeValue = "";
+  });
+
+  tearDown(() {
+    MclashNodeAutoPick.debugGroupDelayOverride = null;
+    MclashNodeAutoPick.debugProbeOverride = null;
+    MclashNodeAutoPick.debugSwitchOverride = null;
+    MclashNodeAutoPick.debugFixedNodeValue = null;
+  });
+
+  ClashProxiesNode group(String now, List<String> all) => ClashProxiesNode()
+    ..name = "🚀 节点选择"
+    ..type = "Selector"
+    ..now = now
+    ..all = all;
+
+  test('大组（>16 个候选）+ 有延迟缓存 → 一次都不整组测速', () async {
+    final names = [for (var i = 0; i < 40; i++) "节点$i"];
+    MclashNodeAutoPick.debugProxiesOverride = () async => [
+      group("节点0", names),
+      for (final n in names)
+        ClashProxiesNode()
+          ..name = n
+          ..type = "Vless",
+    ];
+
+    final cached = <String, int>{"节点7": 30, "节点8": 300};
+    final picked = await MclashNodeAutoPick.selectBestOnConnect(
+      cachedLatency: cached,
+    );
+
+    expect(
+      groupDelayCalls,
+      0,
+      reason: '整组测速会让内核并发测 40 个节点 —— 连接后卡死的元凶',
+    );
+    expect(picked, "节点7", reason: '应当用缓存里延迟最低的那个');
+  });
+
+  test('大组 + 没有缓存 → 只测少数候选，绝不整组', () async {
+    final names = [for (var i = 0; i < 40; i++) "节点$i"];
+    MclashNodeAutoPick.debugProxiesOverride = () async => [
+      group("节点0", names),
+      for (final n in names)
+        ClashProxiesNode()
+          ..name = n
+          ..type = "Vless",
+    ];
+
+    await MclashNodeAutoPick.selectBestOnConnect(cachedLatency: const {});
+
+    expect(groupDelayCalls, 0);
+    expect(
+      probed.length,
+      lessThanOrEqualTo(8),
+      reason: '最多测 ${MclashNodeAutoPick.probeLimit} 个候选（而不是整组）',
+    );
+  });
+
+  test('小组（≤16 个候选）仍然整组测速（结果最准，内核压力可控）', () async {
+    final names = [for (var i = 0; i < 6; i++) "小组节点$i"];
+    MclashNodeAutoPick.debugProxiesOverride = () async => [
+      group("小组节点0", names),
+      for (final n in names)
+        ClashProxiesNode()
+          ..name = n
+          ..type = "Vless",
+    ];
+
+    await MclashNodeAutoPick.selectBestOnConnect(cachedLatency: const {});
+
+    expect(groupDelayCalls, 1, reason: '小组不受影响，仍走整组测速');
+    expect(probed, isEmpty);
+  });
 }

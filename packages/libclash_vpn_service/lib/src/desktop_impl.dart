@@ -254,7 +254,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   Timer? _kernelWatchdog;
   int _watchdogMisses = 0;
   static const Duration kWatchdogInterval = Duration(seconds: 20);
-  static const int kWatchdogMaxMisses = 3;
+  /// 连续这么多次探测无响应才认定「内核假活」（杀掉并自愈）。
+  ///
+  /// 从 3 提到 4：探测是 20 秒一次、每次最多等 3 秒 —— 而内核在有大批延迟测试
+  /// （内核自己测 300~400 个节点）或大流量时，控制接口短暂变慢是正常的，
+  /// 3 次（60 秒）就杀内核会把「只是忙」误判成「死了」，用户体感就是
+  /// 「用着用着莫名其妙断一下、又自己连回来」。
+  static const int kWatchdogMaxMisses = 4;
 
   int _mixedPort = 0;
 
@@ -712,48 +718,74 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
+  /// 连上之后的「数据通路兜底」：**必须保证至少有一条通路**。
+  ///
+  /// 用户实测的核心问题（Windows）：「连上了，但 Windows 的系统代理是空白」，
+  /// 而且我们界面还显示 TUN 正常 —— 真正的状态是**两条通路都没有**：
+  /// TUN 配置开着（auto/force），但虚拟网卡因为没管理员权限/网卡残留/驱动被拦
+  /// 根本没建起来；而旧实现只在「日志里能匹配到已知失败关键字」时才退到系统代理。
+  /// 关键字对不上（内核换了措辞、或失败信息被挤出日志窗口）→ 什么都不做 →
+  /// 用户既没有 TUN 也没有系统代理：界面空白、网也不通。
+  ///
+  /// 现在的判据是**「有没有证据说明 TUN 真的起来了」**，而不是「有没有证据说明它失败」：
+  ///   * 明确识别到失败 → 兜底；
+  ///   * 配置要 TUN，但日志里连一条「TUN 就绪」都没有 → 视为没起来，兜底；
+  ///   * 有就绪标记 → TUN 在接管，不动系统代理（避免两套机制同时生效）。
   Future<void> _applyDataPathFallback(File logFile) async {
     _systemProxyFallbackActive = false;
-    // 判定窗口从 40 行放大到 200 行：内核启动时会打几百行（节点/geo/规则），
-    // TUN 的失败信息很容易被挤出尾部 40 行 —— 漏判的后果是「TUN 没起来、
-    // 系统代理也没设」= 用户两头空（界面上系统代理空白、网也不通）。
-    final tail = await _tail(logFile, 200);
-    final kind = classifyTunFailure(tail);
+    // 判定窗口放大到 200 行：内核启动时打几百行（节点/geo/规则），40 行很容易
+    // 把 TUN 的关键行挤出去。
+    var tail = await _tail(logFile, 200);
+    var kind = classifyTunFailure(tail);
+    var established = tunLooksEstablished(tail);
+    final tunWanted = _config?.tun_enabled == true;
+
+    // TUN 的建立是异步的：日志可能还没写出来。没有就绪证据时再等一小会儿
+    // （只在这种情况下等，正常连接不受影响），避免把「还没来得及打日志」
+    // 误判成「TUN 没起来」而多写一次系统代理。
+    if (tunWanted && kind == TunStartFailureKind.none && !established) {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      tail = await _tail(logFile, 200);
+      kind = classifyTunFailure(tail);
+      established = tunLooksEstablished(tail);
+    }
+
     tunFailureKind = kind;
-    if (kind == TunStartFailureKind.none) {
-      // 「配置里开了 TUN，但日志里既没有成功标记也没有可识别的失败标记」要如实说出来：
-      // 这正是「TUN 到底起没起来」说不清的机器（也是用户报「系统代理空白」的一类）。
-      final cfg = _config;
-      if (cfg?.tun_enabled == true && !_tunLooksEstablished(tail)) {
-        desktopLog(
-          "[mclash] ⚠️ 配置里开了 TUN，但内核日志里没有可判定的 TUN 结果"
-          "（既无成功标记也无已知失败标记）—— 若界面里也没有系统代理，"
-          "说明两条数据通路都没生效，请把这份日志发出来。",
-        );
-      }
+    final needsFallback =
+        kind != TunStartFailureKind.none || (tunWanted && !established);
+    if (!needsFallback) {
       return;
     }
+    if (kind == TunStartFailureKind.none) {
+      // 没匹配到已知失败，但也没有任何就绪证据 → 按「原因未归类」提示用户，
+      // 而不是假装一切正常（这正是「系统代理空白 + 界面显示 TUN 正常」的来源）。
+      tunFailureKind = TunStartFailureKind.unknown;
+    }
     desktopLog(
-      "[mclash] TUN 启动失败（${kind.name}）→ ${tunFailureHint(kind)}",
+      "[mclash] TUN 未能接管数据通路（${tunFailureKind.name}）"
+      "${established ? "" : "（日志里没有 TUN 就绪标记）"} → 改为兜底系统代理",
     );
     final port = _mixedPort;
     if (port <= 0) {
+      desktopLog("[mclash] 兜底失败：拿不到混合端口");
       return;
     }
     try {
-      final ok = await setSystemProxy(
-        ProxyOption(InternetAddress.loopbackIPv4.address, port, const []),
+      final option = ProxyOption(
+        InternetAddress.loopbackIPv4.address,
+        port,
+        const [],
       );
+      final ok = await setSystemProxy(option);
+      final readBack = ok ? await getSystemProxyEnable(option) : false;
       if (ok) {
-
-        final readBack = await getSystemProxyEnable(
-          ProxyOption(InternetAddress.loopbackIPv4.address, port, const []),
-        );
         _systemProxyFallbackActive = true;
         desktopLog(
-          "[mclash] TUN 不可用（需要管理员权限），已把系统代理指向 "
-          "127.0.0.1:$port（读回校验: ${readBack ? "一致" : "不一致，请检查系统代理设置"}）",
+          "[mclash] TUN 不可用，已把系统代理指向 127.0.0.1:$port"
+          "（读回校验: ${readBack ? "一致" : "不一致，请检查系统代理设置"}）",
         );
+      } else {
+        desktopLog("[mclash] TUN 不可用，且系统代理写入失败（用户将没有数据通路）");
       }
     } catch (e) {
       desktopLog("[mclash] TUN 兜底设系统代理失败: $e");
@@ -1110,16 +1142,27 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     return "";
   }
 
-  /// 日志里有没有「TUN 确实起来了」的痕迹。
-  static bool _tunLooksEstablished(String logText) {
+  /// 日志里有没有「TUN 确实起来了」的**正面**证据。
+  ///
+  /// 只认明确的成功输出（真机日志原文）：
+  ///   * `msg="Tun started"`                    —— TUN 起好了（macOS/Windows 都有）
+  ///   * `Tun adapter listening at ...`         —— 网卡已监听
+  ///   * `use tun name ...`                     —— 网卡名已确定
+  ///
+  /// ⚠️ 刻意**不认** `Start TUN listening ...`：失败时内核打的是
+  /// `Start TUN listening error: ...`，认了就会把失败当成功（而失败判定的另一边
+  /// 是「用户没网」）。同理 `tun name failed` / `error writing to tun device`
+  /// 这类「看起来像失败其实正常」的告警也不算正面证据。
+  @visibleForTesting
+  static bool tunLooksEstablished(String logText) {
     if (logText.isEmpty) {
       return false;
     }
     final lower = logText.toLowerCase();
     for (final marker in const [
+      "tun started",
       "tun adapter listening at",
       "use tun name",
-      "start tun listening",
     ]) {
       if (lower.contains(marker)) {
         return true;

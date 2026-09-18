@@ -1144,9 +1144,27 @@ class VPNService {
     );
   }
 
+  /// LAN 兜底读回的缓存（TTL 内复用）。
+  ///
+  /// 为什么需要：`getSystemProxyEnable()` 在「本地回环那份不匹配」时才会走这里
+  /// （TUN 接管、没设系统代理时**每次**都会走），而它要枚举一次网卡
+  /// （`NetworkInterface.list()`，Windows 上是一次真实的适配器查询，几十到几百 ms）。
+  /// 首页的代理状态轮询 + 15 秒一次的系统代理看守都会调它 —— 不缓存的话，
+  /// 一台开着 TUN 的机器每 15 秒就要白枚举两次网卡，正是「用着用着卡一下」的来源。
+  static ProxyOption? _lanOptionsCache;
+  static DateTime? _lanOptionsCacheAt;
+  static const Duration _lanOptionsTtl = Duration(seconds: 60);
+
   static Future<ProxyOption?> getSystemProxyOptionsLan() async {
     if (!PlatformUtils.isPC()) {
       return null;
+    }
+    final cached = _lanOptionsCache;
+    final at = _lanOptionsCacheAt;
+    if (cached != null &&
+        at != null &&
+        DateTime.now().difference(at) < _lanOptionsTtl) {
+      return cached;
     }
 
     var host = localhost;
@@ -1162,11 +1180,14 @@ class VPNService {
       }
     }
 
-    return ProxyOption(
+    final option = ProxyOption(
       host,
       ClashSettingManager.getMixedPort(),
       SettingManager.getConfig().systemProxyBypassDomain,
     );
+    _lanOptionsCache = option;
+    _lanOptionsCacheAt = DateTime.now();
+    return option;
   }
 
   static Future<ProxyOption> getSystemProxyOptions() async {

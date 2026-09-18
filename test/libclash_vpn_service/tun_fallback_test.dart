@@ -57,4 +57,50 @@ time="2026-09-16T00:45:00.052540000+08:00" level=info msg="Tun started"
       );
     });
   });
+
+  group('TUN 就绪证据（决定「要不要兜底系统代理」）', tunEstablishEvidenceTests);
+}
+
+/// 「TUN 到底起没起来」的判定（第二轮回归）。
+///
+/// 用户实测：「连接之后 Windows 的系统代理是空白」，而界面还显示 TUN 正常 ——
+/// 真实状态是**两条通路都没有**：配置里 tun.enable=true，但虚拟网卡因为没管理员
+/// 权限/网卡残留/驱动被拦根本没建起来；旧的兜底只在「日志里能匹配到已知失败关键字」
+/// 时才退到系统代理，关键字对不上就什么都不做。
+///
+/// 现在的判据是「有没有**正面**证据说明 TUN 在接管」：
+///   * 有 → 不动系统代理（避免两套机制同时生效）；
+///   * 没有 → 兜底写系统代理（宁可有两条通路，也不能一条都没有）。
+/// 这些用例单独放在一个 main 里，避免改动上面已通过的组。
+void tunEstablishEvidenceTests() {
+  test('TUN 正常（Tun started）→ 认作已接管，不去动系统代理', () {
+    const log = '''
+time="2026-09-16T00:45:00.047379000+08:00" level=info msg="Initial configuration complete, total time: 18ms"
+time="2026-09-16T00:45:00.052540000+08:00" level=info msg="Tun started"
+''';
+    expect(DesktopVpnServiceImpl.tunLooksEstablished(log), isTrue);
+  });
+
+  test('TUN 失败（Start TUN listening error）→ 不得认作已接管', () {
+    const log = '''
+time="2026-09-16T00:45:00.052540000+08:00" level=error msg="Start TUN listening error: configure tun interface: Access is denied"
+''';
+    expect(
+      DesktopVpnServiceImpl.tunLooksEstablished(log),
+      isFalse,
+      reason: '把失败当成功 → 不兜底 → 用户既没有 TUN 也没有系统代理（没网）',
+    );
+  });
+
+  test('日志里只有「像失败的正常告警」→ 不算已接管（要兜底）', () {
+    const log = '''
+level=info msg="Auto detect interface: Ethernet"
+level=warn msg="tun name failed, using default"
+''';
+    expect(DesktopVpnServiceImpl.tunLooksEstablished(log), isFalse);
+  });
+
+  test('空日志 → 不算已接管', () {
+    expect(DesktopVpnServiceImpl.tunLooksEstablished(""), isFalse);
+  });
 }

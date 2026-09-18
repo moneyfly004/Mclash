@@ -487,30 +487,48 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                                 unawaited(_updateProxyMode());
                               }
                             }),
-                        child: Row(
-                          children: [
-                            Icon(
-                              v.contains("已生效")
-                                  ? Icons.verified_user_outlined
-                                  : Icons.info_outline,
-                              size: 14,
-                              color: v.contains("已生效")
-                                  ? ThemeDefine.kColorGreenBright
-                                  : ThemeDefine.kColorGrey,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                v,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: ThemeDefine.kColorGrey,
+                        child: Builder(
+                          builder: (_) {
+                            // 用户实测反馈：「系统代理没生效」这件事只有一行灰色小字，
+                            // 很容易被忽略。现在按三态给颜色：
+                            //   绿 = 有通路（系统代理已生效 / TUN 在接管 / 已兜底）
+                            //   橙 = 真的有问题（未生效）→ 点一下就进修复面板
+                            //   灰 = 说明性文案（例如「未设置 —— TUN 强制模式」）
+                            final bad = v.contains("未生效");
+                            final good = v.contains("已生效") ||
+                                v.contains("已用系统代理") ||
+                                v.startsWith("TUN 模式");
+                            final color = bad
+                                ? Colors.orange
+                                : (good
+                                      ? ThemeDefine.kColorGreenBright
+                                      : ThemeDefine.kColorGrey);
+                            return Row(
+                              children: [
+                                Icon(
+                                  bad
+                                      ? Icons.warning_amber_rounded
+                                      : (good
+                                            ? Icons.verified_user_outlined
+                                            : Icons.info_outline),
+                                  size: 14,
+                                  color: color,
                                 ),
-                              ),
-                            ),
-                          ],
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    v,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: color,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
               ),
@@ -970,10 +988,15 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
         _proxyMode.value = enabled
             ? "TUN 未生效（$short）· 已用系统代理 127.0.0.1:$port"
             : "TUN 未生效（$short）· 系统代理未生效";
+      } else if (PlatformUtils.isPC() &&
+          !VPNService.shouldApplySystemProxy()) {
+        // 这是我们**故意**没设（TUN 强制模式 / 用户关了「连接后自动设置系统代理」），
+        // 不能显示成故障：以前这里只写「未生效」，用户就一直以为坏了。
+        _proxyMode.value = "未设置系统代理 —— ${VPNService.systemProxySkipReason()}";
       } else {
         _proxyMode.value = enabled
             ? "系统代理 127.0.0.1:$port · 已生效"
-            : "系统代理未生效 · 点此设置";
+            : "系统代理未生效 · 点这里修复（或改用 TUN）";
       }
     } catch (_) {
       _proxyMode.value = "";
@@ -982,10 +1005,18 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   void _startProxyModeTimer() {
     _timerProxyMode?.cancel();
-    _timerProxyMode = Timer.periodic(const Duration(seconds: 5), (_) {
+    // 15 秒一次（原来 5 秒）：这里每次都要读一次系统代理状态 + 向内核要
+    // 「当前节点/模式」两份数据。5 秒一次在连接后是纯粹的额外负载 ——
+    // 用户实测「连接之后非常卡」，而这几秒一次的轮询在最需要流畅的时候
+    // 又往内核上加请求（内核此刻可能正在被自家测速占着）。
+    _timerProxyMode = Timer.periodic(const Duration(seconds: 15), (_) {
       _updateProxyMode();
       // 没连接就没有内核可回读（也避免在没连的状态下白发请求）
       if (_state != FlutterVpnServiceState.connected) {
+        return;
+      }
+      // 测速进行中：内核正忙，这几秒一次的轮询先让路（测速结束后自然恢复）。
+      if (MclashNodesStore.instance.isTesting) {
         return;
       }
       // 把「当前节点 / 模式」与内核对齐：面板（zashboard）里换节点、切规则-全局，

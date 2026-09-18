@@ -104,6 +104,11 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
         } else {
           _state = "未生效（系统里没有指向 $port 的代理）";
         }
+        // 没生效就把诊断**直接摊开**：用户来这里就是为了解决「系统代理是空白」，
+        // 让他再点一次「诊断详情」才看得到原因，等于把答案藏起来。
+        if (!enable && _diag.trim().isNotEmpty) {
+          _showDiag = true;
+        }
       });
     } catch (err) {
       if (mounted) {

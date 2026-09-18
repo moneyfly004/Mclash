@@ -15,6 +15,79 @@ abstract final class MclashNodeAutoPick {
 
   static const Duration probeTimeout = Duration(seconds: 4);
 
+  /// 超过这个规模就**不做**「整组测速」（用户实测：连接后被内核测速压到点不动）。
+  static const int kGroupDelayLimit = 16;
+
+  /// 从已有延迟缓存里挑出可用的（name → ms）。
+  static Map<String, int> _cachedDelays(
+    List<String> candidates,
+    Map<String, int>? cached,
+  ) {
+    if (cached == null || cached.isEmpty) {
+      return const {};
+    }
+    final out = <String, int>{};
+    for (final name in candidates) {
+      final ms = cached[name];
+      if (ms != null && ms > 0) {
+        out[name] = ms;
+      }
+    }
+    return out;
+  }
+
+  /// 只测少量候选（并发 3），用于「大组 + 没有缓存」的兜底。
+  ///
+  /// 选谁：内核报的当前节点优先（它已经在用，换掉要谨慎），其余按列表顺序取，
+  /// 最多 [probeLimit] 个。绝不整组 —— 这是连接后卡顿的直接来源。
+  static Future<Map<String, int>> _probeFew(
+    List<String> candidates,
+    String current,
+    String url,
+  ) async {
+    final picked = <String>[];
+    if (current.isNotEmpty && candidates.contains(current)) {
+      picked.add(current);
+    }
+    for (final name in candidates) {
+      if (picked.length >= probeLimit) {
+        break;
+      }
+      if (!picked.contains(name) && !MclashPseudoNodes.isPseudo(name)) {
+        picked.add(name);
+      }
+    }
+    final out = <String, int>{};
+    final queue = List.of(picked);
+    Future<void> worker() async {
+      while (queue.isNotEmpty) {
+        final name = queue.removeAt(0);
+        final override = debugProbeOverride;
+        if (override != null) {
+          final ms = await override(name);
+          if (ms > 0) {
+            out[name] = ms;
+          }
+          continue;
+        }
+        try {
+          final r = await ClashHttpApi.getDelay(
+            name,
+            url: url,
+            timeout: probeTimeout,
+          );
+          final ms = r.data ?? -1;
+          if (r.error == null && ms > 0) {
+            out[name] = ms;
+          }
+        } catch (_) {}
+      }
+    }
+
+    await Future.wait([for (var i = 0; i < 3; i++) worker()]);
+    return out;
+  }
+
   static Future<List<ClashProxiesNode>> Function()? debugProxiesOverride;
   static Future<int> Function(String node)? debugProbeOverride;
   static Future<Map<String, int>> Function(String group)? debugGroupDelayOverride;
@@ -79,19 +152,24 @@ abstract final class MclashNodeAutoPick {
 
   static Future<String?> selectBestOnConnect({
     void Function(String note)? onNote,
+    Map<String, int>? cachedLatency,
   }) {
     final running = _pickInflight;
     if (running != null) {
       Log.i("MclashNodeAutoPick: 已有一次选路在进行，复用本次结果");
       return running;
     }
-    final future = _selectBestOnConnectInner(onNote: onNote);
+    final future = _selectBestOnConnectInner(
+      onNote: onNote,
+      cachedLatency: cachedLatency,
+    );
     _pickInflight = future;
     return future.whenComplete(() => _pickInflight = null);
   }
 
   static Future<String?> _selectBestOnConnectInner({
     void Function(String note)? onNote,
+    Map<String, int>? cachedLatency,
   }) async {
     List<ClashProxiesNode>? proxies;
     final override = debugProxiesOverride;
@@ -105,12 +183,13 @@ abstract final class MclashNodeAutoPick {
       }
       proxies = r.data!;
     }
-    return _selectBest(proxies, onNote);
+    return _selectBest(proxies, onNote, cachedLatency);
   }
 
   static Future<String?> _selectBest(
     List<ClashProxiesNode> proxies,
     void Function(String note)? onNote,
+    Map<String, int>? cachedLatency,
   ) async {
     final group = MclashNodeSelector.primarySelector(proxies);
     if (group == null) {
@@ -149,12 +228,39 @@ abstract final class MclashNodeAutoPick {
     }
 
     final url = SettingManager.getConfig().delayTestUrl;
-    final delays = debugGroupDelayOverride != null
-        ? await debugGroupDelayOverride!(group.name)
-        : await ClashHttpApi.getGroupDelay(group.name, url: url);
+    // ⚠️ 这里**不再无条件调用 `ClashHttpApi.getGroupDelay`**。
+    //
+    // 那个接口会让**内核一次性并发测整组**（订阅动辄 300~400 个节点），而它是在
+    // 「连接成功」之后立刻触发的。用户实测的原话是「连接之后非常卡，根本点不动」，
+    // 日志里也能看到连接成功后内核被自家测速压满（控制端口都连不上，测速刷出
+    // 几百行拒绝连接）。连接期间内核正在服务真实流量，不该再被自家测速抢占。
+    //
+    // 现在分三档（越往下越省）：
+    //   1. 小组（≤ kGroupDelayLimit）：仍然整组测速 —— 内核压力可控、结果最准；
+    //   2. 大组但有延迟缓存：**用缓存选最优**，连接后零请求、立即生效；
+    //   3. 大组且没有缓存：只测极少数候选（[probeLimit] 个），绝不整组。
+    Map<String, int> delays;
+    if (candidates.length <= kGroupDelayLimit) {
+      delays = debugGroupDelayOverride != null
+          ? await debugGroupDelayOverride!(group.name)
+          : await ClashHttpApi.getGroupDelay(group.name, url: url);
+    } else {
+      delays = _cachedDelays(candidates, cachedLatency);
+      if (delays.isEmpty) {
+        Log.i(
+          "MclashNodeAutoPick: ${candidates.length} 个候选且没有延迟缓存 → "
+          "只测 $probeLimit 个（不再整组测速，避免连接后卡顿）",
+        );
+        delays = await _probeFew(candidates, group.now, url);
+      } else {
+        Log.i(
+          "MclashNodeAutoPick: ${candidates.length} 个候选，用已有的 "
+          "${delays.length} 条延迟缓存选优（连接后不发请求）",
+        );
+      }
+    }
     if (delays.isEmpty) {
-
-      Log.w("MclashNodeAutoPick: 整组测速无结果，退回可用性检查");
+      Log.w("MclashNodeAutoPick: 没有可用的延迟结果，退回可用性检查");
       return _pick(proxies, onNote);
     }
 
