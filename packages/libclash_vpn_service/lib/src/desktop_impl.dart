@@ -1405,12 +1405,18 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // 非法内容整体丢弃 —— 结果「为 LAN 使用代理服务器」不勾选、地址/端口空白。
       // （虚拟机实测：同一份 flags=3 + 127.0.0.1:27890，带 `<local>` 就空白，
       //   去掉就正常显示。FlClash 的 defaultBypassDomain 也从不含 `<local>`。）
-      // 这里仍过滤一次，是为了兼容老用户已持久化、还带着 `<local>` 的旧配置。
+      //
+      // ⚠️ 也不写 IPv6 项（::1 / fc00::/7 / fe80::/10）：Windows 的
+      // INTERNET_PER_CONN_PROXY_BYPASS 不接受 IPv6 字面量，一传就整次
+      // InternetSetOption 返回 87（ERROR_INVALID_PARAMETER），于是官方 API 失败、
+      // 降级到「只写 flags+server」，bypass 根本不落盘（虚拟机实测）。FlClash 的
+      // defaultBypassDomain 同样不含任何 IPv6 项。
       final bypassItems = <String>[];
       for (final d in option.bypassDomains) {
         final item = d.trim();
         if (item.isNotEmpty &&
             item != "<local>" &&
+            !item.contains("::") &&
             !bypassItems.contains(item)) {
           bypassItems.add(item);
         }

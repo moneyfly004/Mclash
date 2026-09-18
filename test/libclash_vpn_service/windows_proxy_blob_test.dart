@@ -96,4 +96,32 @@ void main() {
       reason: '合法旁路项要保留',
     );
   });
+
+  test('兜底过滤 IPv6：::1 / fc00::/7 会让官方 API 报 87，绝不能写进 bypass', () {
+    final blob = wininet.buildDefaultConnectionSettingsBlob(
+      flags: 0x3,
+      server: '127.0.0.1:17890',
+      bypass: 'localhost;::1;fc00::/7;fe80::/10;127.*',
+    );
+    expect(
+      wininet.defaultConnectionSettingsContains(blob, '::1'),
+      isFalse,
+      reason: 'IPv6 字面量会让 InternetSetOption 返回 87，必须过滤',
+    );
+    expect(
+      wininet.defaultConnectionSettingsContains(blob, 'fc00::/7'),
+      isFalse,
+      reason: 'IPv6 CIDR 同样非法',
+    );
+    expect(
+      wininet.defaultConnectionSettingsContains(blob, 'localhost'),
+      isTrue,
+      reason: '合法旁路项要保留',
+    );
+    expect(
+      wininet.defaultConnectionSettingsContains(blob, '127.*'),
+      isTrue,
+      reason: 'IPv4 通配项要保留',
+    );
+  });
 }

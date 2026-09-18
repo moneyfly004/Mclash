@@ -655,15 +655,18 @@ bool writeSystemProxyForConnection({
     return false;
   }
   final s = server.trim();
-  // 兜底过滤：绝不写 `<local>` 字面量。inetcpl.cpl 的「局域网设置」对话框在解析
-  // DefaultConnectionSettings 的 bypass 字段时，遇到字面 `<local>` 会整体判空 ——
-  // 结果「为 LAN 使用代理服务器」不勾选、地址/端口空白（虚拟机实测）。
-  // 这里在最靠近写入点的底层再滤一次：即使上层（desktop_impl）因老配置残留
-  // 没滤干净，走到这一步也一定能兜住。FlClash 的 bypass 也从不含 `<local>`。
+  // 兜底过滤：绝不写 `<local>` 字面量，也绝不写 IPv6 字面量（::1 / fc00::/7 等）。
+  // - `<local>`：inetcpl.cpl 的「局域网设置」对话框解析 DefaultConnectionSettings
+  //   的 bypass 字段时，遇到字面 `<local>` 会整体判空（对话框空白）。
+  // - IPv6 项：Windows 的 INTERNET_PER_CONN_PROXY_BYPASS 不接受 IPv6 字面量，
+  //   一传就整次 InternetSetOption 返回 87（ERROR_INVALID_PARAMETER）→ 官方 API
+  //   失败降级 → bypass 不落盘。
+  // 这里在最靠近写入点的底层再滤一次：无论上层传什么，走到这一步都安全。
   final b = bypass
       .split(';')
       .map((e) => e.trim())
-      .where((e) => e.isNotEmpty && e.toLowerCase() != '<local>')
+      .where((e) =>
+          e.isNotEmpty && e.toLowerCase() != '<local>' && !e.contains('::'))
       .join(';');
 
   // 目标连接：先是默认/LAN（pszConnection=NULL，对应 DefaultConnectionSettings），
@@ -1501,12 +1504,14 @@ List<int> buildDefaultConnectionSettingsBlob({
   required String bypass,
   int counter = 0,
 }) {
-  // 兜底：blob 的 bypass 字段绝不写 `<local>` 字面量（inetcpl.cpl 会整体判空，
-  // 导致「局域网设置」对话框空白）。这里在纯函数层再滤一次，任何调用方都安全。
+  // 兜底：blob 的 bypass 字段绝不写 `<local>` 字面量（inetcpl.cpl 会整体判空），
+  // 也不写 IPv6 字面量（Windows 的 proxy bypass 不接受，会导致官方 API 报 87）。
+  // 这里在纯函数层再滤一次，任何调用方都安全。
   final cleanBypass = bypass
       .split(';')
       .map((e) => e.trim())
-      .where((e) => e.isNotEmpty && e.toLowerCase() != '<local>')
+      .where((e) =>
+          e.isNotEmpty && e.toLowerCase() != '<local>' && !e.contains('::'))
       .join(';');
   final out = <int>[];
   void dw(int v) {

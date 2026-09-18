@@ -184,7 +184,7 @@ class SettingConfig {
   /// 老版本在桌面端默认 false，用户从没动过它 —— 升级后这个 false 被当成
   /// 「用户要求不要设置系统代理」，于是连上了系统代理一直是空的
   /// （用户反馈：「无论规则还是全局，电脑的系统代理都没有配置」）。
-  static const int kSettingsVersion = 4;
+  static const int kSettingsVersion = 5;
 
   /// 本文件的设置版本（老文件没有这个键 → 0）。
   int settingsVersion = 0;
@@ -337,6 +337,19 @@ class SettingConfig {
       if (systemProxyBypassDomain.length != before) {
         Log.i(
           "SettingConfig: 迁移旁路列表，去掉 <local>（会让局域网设置对话框空白）",
+        );
+      }
+    }
+    if (settingsVersion < 5) {
+      // v5：旁路列表去掉 IPv6 项（::1 / fc00::/7 / fe80::/10）。
+      // Windows 的 INTERNET_PER_CONN_PROXY_BYPASS 不接受 IPv6 字面量，一传就整次
+      // InternetSetOption 返回 87（ERROR_INVALID_PARAMETER）→ 官方 API 失败降级 →
+      // bypass 根本不落盘。FlClash 的 defaultBypassDomain 从不含 IPv6 项。
+      final before = systemProxyBypassDomain.length;
+      systemProxyBypassDomain.removeWhere((e) => e.contains("::"));
+      if (systemProxyBypassDomain.length != before) {
+        Log.i(
+          "SettingConfig: 迁移旁路列表，去掉 IPv6 项（Windows 代理旁路不支持 IPv6）",
         );
       }
     }

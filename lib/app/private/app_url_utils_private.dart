@@ -24,9 +24,6 @@ const List<String> proxyBypassDomainsDefault = [
   "172.31.*",
   "192.168.*",
   "*.local",
-  "::1",
-  "fc00::/7",
-  "fe80::/10",
 ];
 
 abstract final class AppUrlUtilsPrivate {
