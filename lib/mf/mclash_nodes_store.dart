@@ -207,6 +207,18 @@ class MclashNodesStore extends ChangeNotifier {
 
   VoidCallback? onNodeSwitched;
 
+  /// 清掉自动选路提示。
+  ///
+  /// 用户手动切了节点（或在面板里换了节点）之后，旧的「已回到固定节点 xxx」
+  /// 就过期了 —— 留着会和当前节点自相矛盾（用户实测反馈）。
+  void clearAutoPickNote() {
+    if (autoPickNote.isEmpty) {
+      return;
+    }
+    autoPickNote = "";
+    notifyListeners();
+  }
+
   /// 通知「内核里当前选中的节点可能变了」。
   ///
   /// 典型场景：用户在**面板**（zashboard，直接调内核控制接口）里点了另一个节点。

@@ -171,9 +171,9 @@ void main() {
       }
     }
     expect(
-      windows_wininet.querySystemProxyForConnection().contains("$host:${port + 1}"),
+      windows_wininet.connectionProxyEnabled(),
       isFalse,
-      reason: '测试结束必须把临时值清掉',
+      reason: '测试结束必须把当前连接的代理关掉（flags 里不能还留着「走代理」位）',
     );
   });
 
@@ -181,12 +181,19 @@ void main() {
     await FlutterVpnService.setSystemProxy(
       ProxyOption(host, port, const ["<local>", "localhost"]),
     );
-    final override = (await query("ProxyOverride")).replaceAll(" ", "");
+    // reg 输出形如：    ProxyOverride    REG_SZ    <local>;localhost
+    // 取 REG_SZ 之后的那段才是值（以前把 "ProxyOverride REG_SZ" 也当成字段，
+    // 于是第一个分片永远不等于 <local>，断言恒为 0）。
+    final raw = await query("ProxyOverride");
+    final value = raw.contains("REG_SZ")
+        ? raw.split("REG_SZ").last.trim()
+        : raw.trim();
     expect(
-      override.split(";").where((e) => e == "<local>").length,
+      value.split(";").where((e) => e.trim() == "<local>").length,
       1,
-      reason: '默认列表已含 <local>，不能再拼一次：$override',
+      reason: '默认列表已含 <local>，不能再拼一次：$value',
     );
+    expect(value.contains("<local>;<local>"), isFalse, reason: '不能出现重复项：$value');
   });
 
   test('清理后不留残留（下次连接不会被旧值干扰）', () async {

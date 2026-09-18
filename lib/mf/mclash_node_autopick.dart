@@ -21,12 +21,17 @@ abstract final class MclashNodeAutoPick {
   static Future<bool> Function(String group, String node)? debugSwitchOverride;
 
   /// 读取用户固定的节点名（空 = 自动模式）。
-  static String fixedNode() => SettingManager.getConfig().fixedNode.trim();
+  static String fixedNode() =>
+      (debugFixedNodeValue ?? SettingManager.getConfig().fixedNode).trim();
 
   /// 记住/清除固定节点（手动选节点、点国家、点「自动最优」时调用）。
   /// 测试缝：替换「记住固定节点」（真实实现要落盘）。
   @visibleForTesting
   static Future<void> Function(String name)? debugSetFixedNodeOverride;
+
+  /// 测试缝：读取「当前固定的节点」时用的值（测试里不碰设置文件）。
+  @visibleForTesting
+  static String? debugFixedNodeValue;
 
   static Future<void> setFixedNode(String name) async {
     final override = debugSetFixedNodeOverride;

@@ -313,34 +313,31 @@ bool clearSystemProxyForConnection() {
   }
 }
 
-/// 读回「当前连接」里配置的代理服务器（`host:port`）；没配则空串。
+/// 读回「当前连接」里的某个选项（[option] = INTERNET_PER_CONN_*）。
 ///
-/// 这是**和 Windows 界面同一份数据**，所以它为空就说明界面一定显示空白 ——
-/// 用它就能区分「注册表写了但缓存没同步」和「真的没写」。
-String querySystemProxyForConnection() {
+/// 返回：字符串选项 → 字符串；FLAGS → 十进制数字的字符串；失败 → null。
+String? queryConnectionOption(int option, {required bool asString}) {
   if (!_loadMore()) {
-    return "";
+    return null;
   }
   var options = 0;
   var list = 0;
   var size = 0;
+  var apiAllocated = 0;
   try {
     options = _localAlloc!(_kLptr, _optionSize);
     list = _localAlloc!(_kLptr, _listSize);
-    if (options == 0 || list == 0) {
-      return "";
+    size = _localAlloc!(_kLptr, 4);
+    if (options == 0 || list == 0 || size == 0) {
+      return null;
     }
-    _writeDword(options, _kPerConnProxyServer);
+    _writeDword(options, option);
     _writePtr(options + _optionValueOffset, 0);
     _writeDword(list, _listSize);
     _writePtr(list + _listPszConnectionOffset, 0);
     _writeDword(list + _listCountOffset, 1);
     _writeDword(list + _listErrorOffset, 0);
     _writePtr(list + _listOptionsOffset, options);
-    size = _localAlloc!(_kLptr, 4);
-    if (size == 0) {
-      return "";
-    }
     _writeDword(size, _listSize);
     final ok = _queryOption!(
       0,
@@ -349,17 +346,21 @@ String querySystemProxyForConnection() {
       Pointer<Uint32>.fromAddress(size),
     );
     if (ok == 0) {
-      return "";
+      return null;
     }
-    final serverAddr = _readPtr(options + _optionValueOffset);
-    final text = _readUtf16(serverAddr);
-    if (serverAddr != 0) {
-      _localFree?.call(serverAddr); // API 分配的字符串由调用方释放
+    if (asString) {
+      apiAllocated = _readPtr(options + _optionValueOffset);
+      final text = _readUtf16(apiAllocated);
+      return text;
     }
-    return text;
+    return _readPtr(options + _optionValueOffset).toString();
   } catch (_) {
-    return "";
+    return null;
   } finally {
+    // 查询出来的字符串是 API 分配的，必须由调用方释放
+    if (apiAllocated != 0) {
+      _localFree?.call(apiAllocated);
+    }
     if (size != 0) {
       _localFree?.call(size);
     }
@@ -370,4 +371,38 @@ String querySystemProxyForConnection() {
       _localFree?.call(list);
     }
   }
+}
+
+/// 读回「当前连接」里配置的代理服务器（`host:port`）；没配则空串。
+///
+/// 这是**和 Windows 界面同一份数据**，所以它为空就说明界面一定显示空白 ——
+/// 用它就能区分「注册表写了但缓存没同步」和「真的没写」。
+String querySystemProxyForConnection() =>
+    queryConnectionOption(_kPerConnProxyServer, asString: true) ?? "";
+
+/// 读回「当前连接」的 FLAGS（是否启用代理看这里；失败返回 null）。
+///
+/// 注意：清代理时 Windows 的做法是**把 flags 改回直连**，PROXY_SERVER 字符串
+/// 会留在里面（界面里也是这个行为）—— 所以判断「清干净没」要看 flags，
+/// 不能看服务器字符串是否为空。
+int? queryConnectionFlagsForConnection() {
+  final raw = queryConnectionOption(_kPerConnFlags, asString: false);
+  if (raw == null) {
+    return null;
+  }
+  return int.tryParse(raw) ?? _readPtrFromString(raw);
+}
+
+int _readPtrFromString(String raw) {
+  // 兜底：API 返回的是指针地址的十进制字符串（见 queryConnectionOption）
+  return int.tryParse(raw) ?? -1;
+}
+
+/// 当前连接是否**启用了代理**（flags 里含 PROXY_TYPE_PROXY）。
+bool connectionProxyEnabled() {
+  final flags = queryConnectionFlagsForConnection();
+  if (flags == null) {
+    return false;
+  }
+  return (flags & _kProxyTypeProxy) != 0;
 }

@@ -520,16 +520,26 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       return;
     }
     final url = result.data!;
+    // 用户明确要求：**桌面端点面板要用电脑的浏览器打开**（在浏览器里切节点/切规则-全局
+    // 更顺手），手机端仍然应用内打开。所以这里不再给桌面端塞 in-app webview。
     await WebviewHelper.loadUrl(
       context,
       url,
       "board",
       title: tcontext.meta.board,
       inappWebViewOpenExternal: false,
-      // 桌面端以前是**丢给系统浏览器**（点了就像什么都没发生，还得自己切回来）。
-      // flutter_inappwebview 在 Windows/macOS 都支持 → 改成应用内窗口打开。
-      useInappWebViewForPC: true,
+      useInappWebViewForPC: false,
     );
+    if (PlatformUtils.isPC() && mounted) {
+      // 以前「点了像没反应」是因为浏览器在后台打开、用户不知道发生了什么。
+      // 现在明确告诉他：已经用浏览器打开了，而且里面改的会联动回 App。
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 4),
+          content: Text("已在浏览器中打开面板；在里面换节点 / 切规则-全局，App 会自动跟随（约 5 秒内）"),
+        ),
+      );
+    }
     // 面板是直接改内核的（在里面点节点 = 改内核选择），App 侧不会自动知道 ——
     // 关掉面板后立刻让首页重新读一次内核的当前节点，避免显示旧节点。
     MclashNodesStore.instance.notifyCurrentMaybeChanged();

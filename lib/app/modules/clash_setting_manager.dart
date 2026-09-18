@@ -606,6 +606,22 @@ class ClashSettingManager {
     return await ClashHttpApi.setConfigsMode(mode.name);
   }
 
+  /// 内核里的模式变了（面板 / 其它工具改的）→ 以**内核为准**写回 App。
+  ///
+  /// 刻意**不**再写回内核（否则和外部的修改来回打架），只落盘 + 通知界面刷新，
+  /// 首页那排「规则 / 全局 / 直连」就会跟着变成面板里选的模式。
+  static Future<void> applyModeFromKernel(ClashConfigsMode mode) async {
+    if (_setting.Mode == mode.name) {
+      return;
+    }
+    Log.i("ClashSettingManager: 内核模式为 ${mode.name}，同步到 App（面板/外部改动）");
+    _setting.Mode = mode.name;
+    await save();
+    for (var callback in onEventModeChanged) {
+      callback();
+    }
+  }
+
   static ClashConfigsMode getConfigsMode() {
     for (var i = 0; i <= ClashConfigsMode.direct.index; ++i) {
       ClashConfigsMode type = ClashConfigsMode.values[i];

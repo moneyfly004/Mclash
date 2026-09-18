@@ -22,6 +22,7 @@ import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/clash_traffic_watcher.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
+import 'package:mclash/mf/mclash_kernel_sync.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
@@ -869,10 +870,17 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _timerProxyMode?.cancel();
     _timerProxyMode = Timer.periodic(const Duration(seconds: 5), (_) {
       _updateProxyMode();
-      // 顺带把「当前节点」与内核对齐：面板（zashboard）里换节点、或外部工具改了
-      // 内核选择时，App 首页不会自己知道 —— 以前只在切前台/自己切节点时才读一次，
-      // 于是在应用内面板里换完节点返回，首页还显示旧节点。
-      _updateProxyNow();
+      // 没连接就没有内核可回读（也避免在没连的状态下白发请求）
+      if (_state != FlutterVpnServiceState.connected) {
+        return;
+      }
+      // 把「当前节点 / 模式」与内核对齐：面板（zashboard）里换节点、切规则-全局，
+      // 或外部工具改了内核时，App 不会自己知道 —— 以前只在切前台/自己切节点时读一次，
+      // 用户在面板里改完，App 里「看着像没生效」。
+      unawaited(() async {
+        await MclashKernelSync.syncFromKernel();
+        await _updateProxyNow();
+      }());
     });
   }
 
@@ -891,6 +899,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
     unawaited(_updateProxyMode());
     _startProxyModeTimer();
+    // 内核在跑 → 回读一次「当前节点 / 模式」：面板（浏览器里打开的那个）可能刚改过，
+    // 回到前台/重连时先把 App 的状态对齐，再显示。
+    unawaited(MclashKernelSync.syncFromKernel());
     // 起流量监听（内核控制端口 + 密钥）；幂等，重复调用只是刷新一次显示
     ClashTrafficWatcher.instance.start(
       port: ClashSettingManager.getControlPort(),

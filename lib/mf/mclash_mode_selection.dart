@@ -7,6 +7,7 @@ import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
+import 'package:mclash/mf/mclash_nodes_store.dart';
 
 /// 内核内置的 GLOBAL 选择器名。
 ///
@@ -209,6 +210,8 @@ abstract final class MclashNodeSelector {
       lastSelectDeferred = true;
       if (manual) {
         await MclashNodeAutoPick.setFixedNode(nodeName);
+        // 旧的自动选路提示（「已回到固定节点 xxx」）已经过期
+        MclashNodesStore.instance.clearAutoPickNote();
       }
       Log.i("MclashNodeSelector: 内核未运行，已记住节点 [$nodeName]，连接后生效");
       return null;
@@ -223,6 +226,9 @@ abstract final class MclashNodeSelector {
         lastManualPickAt = DateTime.now();
         // 手动选择 = 固定这个节点：下次连接沿用，不再被自动选路改掉
         await MclashNodeAutoPick.setFixedNode(nodeName);
+        // 用户刚切完节点，屏幕上那句「已回到固定节点 xxx」就不再成立了
+        // （用户实测：切完还显示旧节点名，看着像没切成功）。
+        MclashNodesStore.instance.clearAutoPickNote();
       }
       Log.i("MclashNodeSelector: 已把 [$group] 切到 [$nodeName]");
     }
