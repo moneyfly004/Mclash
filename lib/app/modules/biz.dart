@@ -63,8 +63,15 @@ class Biz {
 
   /// 启动清理：把「上次没还原干净的系统代理」恢复原状。
   ///
-  /// 只清**指向本机内核端口**的那一项（[VPNService.getSystemProxyEnable] 就是
-  /// 按 host:port 比对），用户自己的代理设置不会被动。
+  /// ⚠️ 这里以前用 `getSystemProxyEnable()`（就是「注册表里的 ProxyServer 是不是
+  /// `127.0.0.1:<我们设置里的端口>`」）当归属判据 —— 而 Mclash 的默认端口是 7890，
+  /// MoneyFly / Clash Party / Clash Verge 的默认端口也都在 7890 一带：只要用户装了
+  /// 另一款客户端并且它正开着系统代理，Mclash 启动时会**把它当成自己的残留清掉**
+  /// （用户实测：「用了 Mclash 之后，MoneyFly 连上了、Windows 里却不显示
+  /// 127.0.0.1 和端口了」）。
+  ///
+  /// 归属判定现在只由插件负责（注册表里的归属标记 MclashProxyOwner + 端口是否还有
+  /// 人监听）：不是我们写的就一行都不碰，并把原因写进日志与「系统代理」面板的诊断。
   static Future<void> _restoreSystemProxyIfStale() async {
     try {
       if (!VPNService.getSupportSystemProxy()) {
@@ -73,10 +80,6 @@ class Biz {
       if (await VPNService.getStarted()) {
         return; // 内核还活着（例如被系统托盘重启过），代理是有效的
       }
-      if (!await VPNService.getSystemProxyEnable()) {
-        return;
-      }
-      Log.w("Biz: 检测到残留的系统代理（内核未运行）→ 还原，避免整机断网");
       await VPNService.restoreSystemProxy();
     } catch (e) {
       Log.w("Biz: 启动清理系统代理失败（忽略）$e");

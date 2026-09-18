@@ -88,12 +88,19 @@ class VPNService {
       FlutterVpnServiceState state,
       Map<String, String> params,
     ) async {
-      if (getSupportSystemProxy()) {
-        if (state == FlutterVpnServiceState.disconnected) {
-          bool enable = await getSystemProxyEnable();
-          if (enable) {
-            await FlutterVpnService.cleanSystemProxy();
-          }
+      if (getSupportSystemProxy() &&
+          state == FlutterVpnServiceState.disconnected) {
+        // 断开后把系统代理还原（插件侧按「归属」决定动不动，见 restoreSystemProxy）。
+        //
+        // 以前这里先判断 `getSystemProxyEnable()`——那是「注册表里的 ProxyServer
+        // 是不是 127.0.0.1:<我们设置里的端口>」。默认端口 7890 与别的客户端撞车，
+        // 于是 Mclash 一断开就可能把**别人正在用的**系统代理清掉（用户实测的
+        // 跨软件事故）。判据下沉到插件后，先问「这份代理是不是我们写的」，
+        // 不是就一行都不碰。
+        try {
+          await FlutterVpnService.cleanSystemProxy();
+        } catch (err) {
+          Log.w("VPNService: 断开后清理系统代理失败（忽略）${err.toString()}");
         }
       }
 
