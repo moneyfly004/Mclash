@@ -655,7 +655,16 @@ bool writeSystemProxyForConnection({
     return false;
   }
   final s = server.trim();
-  final b = bypass.trim();
+  // 兜底过滤：绝不写 `<local>` 字面量。inetcpl.cpl 的「局域网设置」对话框在解析
+  // DefaultConnectionSettings 的 bypass 字段时，遇到字面 `<local>` 会整体判空 ——
+  // 结果「为 LAN 使用代理服务器」不勾选、地址/端口空白（虚拟机实测）。
+  // 这里在最靠近写入点的底层再滤一次：即使上层（desktop_impl）因老配置残留
+  // 没滤干净，走到这一步也一定能兜住。FlClash 的 bypass 也从不含 `<local>`。
+  final b = bypass
+      .split(';')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty && e.toLowerCase() != '<local>')
+      .join(';');
 
   // 目标连接：先是默认/LAN（pszConnection=NULL，对应 DefaultConnectionSettings），
   // 再枚举所有 RAS（VPN/拨号）连接逐个设置 —— 对齐 FlClash proxy_plugin.cpp：
@@ -1492,6 +1501,13 @@ List<int> buildDefaultConnectionSettingsBlob({
   required String bypass,
   int counter = 0,
 }) {
+  // 兜底：blob 的 bypass 字段绝不写 `<local>` 字面量（inetcpl.cpl 会整体判空，
+  // 导致「局域网设置」对话框空白）。这里在纯函数层再滤一次，任何调用方都安全。
+  final cleanBypass = bypass
+      .split(';')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty && e.toLowerCase() != '<local>')
+      .join(';');
   final out = <int>[];
   void dw(int v) {
     out.add(v & 0xff);
@@ -1516,7 +1532,7 @@ List<int> buildDefaultConnectionSettingsBlob({
   dw(counter);
   dw(flags);
   str(server);
-  str(bypass);
+  str(cleanBypass);
   dw(0); // autoConfigUrlLen = 0（无 auto-config）
   return out;
 }

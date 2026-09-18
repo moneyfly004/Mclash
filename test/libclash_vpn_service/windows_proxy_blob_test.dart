@@ -78,4 +78,22 @@ void main() {
       reason: '必须与 Windows 官方 API 生成的字节完全一致（counter 我们默认 0）',
     );
   });
+
+  test('兜底过滤 <local>：任何调用方都不能把 <local> 写进 bypass', () {
+    final blob = wininet.buildDefaultConnectionSettingsBlob(
+      flags: 0x3,
+      server: '127.0.0.1:17890',
+      bypass: '<local>;localhost;127.*',
+    );
+    expect(
+      wininet.defaultConnectionSettingsContains(blob, '<local>'),
+      isFalse,
+      reason: 'blob 的 bypass 字段里绝不允许出现字面 <local>（会让局域网设置对话框空白）',
+    );
+    expect(
+      wininet.defaultConnectionSettingsContains(blob, 'localhost'),
+      isTrue,
+      reason: '合法旁路项要保留',
+    );
+  });
 }
