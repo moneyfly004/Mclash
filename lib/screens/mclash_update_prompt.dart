@@ -67,6 +67,9 @@ abstract final class MclashUpdatePrompt {
   }
 
   /// 手动检查更新（我的 → 检查更新）。
+  /// 手动「检查更新」的超时：超过就当失败，别让用户对着转圈界面干等。
+  static const Duration kManualCheckTimeout = Duration(seconds: 20);
+
   static Future<void> checkManually(BuildContext context) async {
     if (!context.mounted || _busy) {
       return;
@@ -83,20 +86,35 @@ abstract final class MclashUpdatePrompt {
     if (!context.mounted) {
       return;
     }
-    unawaited(DialogUtils.showLoadingDialog(context, text: "正在检查更新…"));
+    // ⚠️ 这个 loading 弹窗**必须**由这里关掉，而且必须关对 navigator。
+    //
+    // 真实事故（用户实测：「点检查更新就一直转圈、无法返回、只能重启」）：
+    // 它挂在**根** navigator 上（showDialog 默认 useRootNavigator），而旧代码用
+    // `Navigator.of(context).pop()` 去关 —— 主页每个 tab 都套了自己的 Navigator
+    // （MainTabShell），这里拿到的是 tab 内层那个，栈是空的，canPop() 为 false，
+    // pop 被跳过：弹窗既不能点遮罩关闭、又不能返回，只能重启 App。
+    //
+    // 现在：句柄关闭（用弹窗自己的 context）+ `finally` 保证一定会关 +
+    // 超时兜底（网络卡住也不会无限转圈）。
+    final loading = DialogUtils.showLoadingDialogHandle(
+      context,
+      text: "正在检查更新…",
+    );
     MclashUpdateInfo? info;
     var failed = false;
     try {
-      info = await AutoUpdateManager.checkNow();
+      info = await AutoUpdateManager.checkNow().timeout(kManualCheckTimeout);
+    } on TimeoutException {
+      failed = true;
+      Log.w(
+        "MclashUpdatePrompt: 检查更新超时（${kManualCheckTimeout.inSeconds}s），"
+        "按失败处理并关闭弹窗",
+      );
     } catch (e) {
       failed = true;
       Log.w("MclashUpdatePrompt: 检查更新失败 $e");
-    }
-    if (!context.mounted) {
-      return;
-    }
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop(); // 关掉 loading
+    } finally {
+      loading.close(); // 幂等；成功/失败/超时/异常都会走到
     }
     if (!context.mounted) {
       return;

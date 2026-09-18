@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/modules/auto_update_manager.dart';
@@ -196,6 +198,80 @@ void main() {
       [assetUrl],
       reason: "手动更新必须能点到「我的项目里适合本机架构」的那个安装包",
     );
+    await finish(tester);
+  });
+
+  /// 真实 App 的导航结构：主页每个 tab 都套了一层 `Navigator`（MainTabShell），
+  /// 而 `showDialog` 默认把弹窗推在**根** navigator 上。
+  Future<void> pumpNestedHost(
+    WidgetTester tester, {
+    required Future<void> Function(BuildContext context) onTap,
+  }) async {
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Navigator(
+            key: GlobalKey<NavigatorState>(),
+            onGenerateRoute: (_) => MaterialPageRoute(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () => onTap(context),
+                    child: const Text("TAP"),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+  }
+
+  // 用户实测：「点检查更新就一直转圈、无法返回、只能重启」。
+  // 根因：loading 弹窗推在根 navigator 上，旧代码却用 `Navigator.of(context).pop()`
+  // 去关 —— 在 tab 内层 navigator 里 `canPop()` 为 false，pop 被跳过，弹窗
+  // 既不能点遮罩关闭也不能返回。这两个用例在嵌套导航下验证它一定会关掉。
+  testWidgets("嵌套导航（真实 App 结构）：检查更新后 loading 一定会关掉", (tester) async {
+    MclashUpdateCheck.debugLatestOverride = () async => null;
+    await pumpNestedHost(tester, onTap: MclashUpdatePrompt.checkManually);
+    await tester.tap(find.text("TAP"));
+    await tester.pump();
+    expect(
+      find.text("正在检查更新…"),
+      findsOneWidget,
+      reason: '点了就应该有 loading 反馈',
+    );
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.text("正在检查更新…"),
+      findsNothing,
+      reason: '检查完成后 loading 必须关掉（旧实现在嵌套导航下会一直卡住）',
+    );
+    expect(find.textContaining("已是最新版本"), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets("检查卡住（网络无响应）→ 超时后自动关掉 loading 并给失败提示", (tester) async {
+    // 永不完成的检查：模拟网络卡死
+    MclashUpdateCheck.debugLatestOverride =
+        () => Completer<MclashUpdateInfo?>().future;
+    await pumpNestedHost(tester, onTap: MclashUpdatePrompt.checkManually);
+    await tester.tap(find.text("TAP"));
+    await tester.pump();
+    expect(find.text("正在检查更新…"), findsOneWidget);
+
+    await tester.pump(MclashUpdatePrompt.kManualCheckTimeout);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.text("正在检查更新…"),
+      findsNothing,
+      reason: '超时后必须关掉 loading，不能让用户永远转圈',
+    );
+    expect(find.textContaining("检查更新失败"), findsOneWidget);
     await finish(tester);
   });
 

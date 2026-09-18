@@ -6,6 +6,8 @@ import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/widgets/dropdown.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:libclash_vpn_service/vpn_service.dart';
@@ -689,40 +691,71 @@ class DialogUtils {
     }).toList();
   }
 
+  /// 加载弹窗的句柄：**记住推它的那个 navigator**，由调用方负责关闭。
+  ///
+  /// 为什么需要句柄（真实事故）：主页每个 tab 都套了一层 `Navigator`
+  /// （见 `MainTabShell`），而 `showDialog` 默认推在**根** navigator 上。
+  /// 调用方若用 `Navigator.of(context).pop()` 去关，拿到的是 **tab 内层**那个
+  /// navigator —— 它栈里通常是空的，`canPop()` 为 false，于是 pop 被跳过，
+  /// 而 loading 弹窗既不能点遮罩关闭、又不能返回：用户卡在「正在检查更新…」
+  /// 转圈界面，只能重启 App。
+  ///
+  /// 现在：句柄内部用**弹窗自己的 context** 关闭（`mounted` 判断 + 幂等），
+  /// 无论成功、失败、超时还是异常都能保证关掉。
+  static LoadingDialogHandle showLoadingDialogHandle(
+    BuildContext context, {
+    String? text,
+  }) {
+    final handle = LoadingDialogHandle();
+    if (!context.mounted) {
+      return handle;
+    }
+    final tcontext = Translations.of(context);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        routeSettings: const RouteSettings(name: "showLoadingDialog"),
+        barrierDismissible: false,
+        fullscreenDialog: true,
+        builder: (dialogContext) {
+          handle._dialogContext = dialogContext;
+          // 调用方可能在弹窗**还没建好**时就请求关闭（例如检查瞬间完成、
+          // 直接返回缓存结果）：这里补一次延迟关闭，否则弹窗会永远留在最上层。
+          handle._onBuilt();
+          return PopScope(
+            // 允许返回/Esc 退出：手动触发的操作**必须能退出来**。
+            // 万一代码路径出问题（或网络卡住），用户至少能自己关掉这个弹窗，
+            // 而不是只能重启 App。
+            canPop: true,
+            child: SimpleDialog(
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 20),
+                    const RepaintBoundary(child: CircularProgressIndicator()),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 26.0),
+                      child: Text(text ?? tcontext.meta.loading),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ).whenComplete(() => handle._closed = true),
+    );
+    return handle;
+  }
+
+  /// 兼容老调用点：只显示、由调用方自行关闭（新代码请用
+  /// [showLoadingDialogHandle]，用句柄关闭更可靠）。
   static Future<void> showLoadingDialog(
     BuildContext context, {
     String? text,
   }) async {
-    if (!context.mounted) {
-      return;
-    }
-    final tcontext = Translations.of(context);
-    return showDialog(
-      context: context,
-      routeSettings: const RouteSettings(name: "showLoadingDialog"),
-      barrierDismissible: false,
-      fullscreenDialog: true,
-      builder: (context) {
-        return PopScope(
-          canPop: false,
-          child: SimpleDialog(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 20),
-                  const RepaintBoundary(child: CircularProgressIndicator()),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 26.0),
-                    child: Text(text ?? tcontext.meta.loading),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    showLoadingDialogHandle(context, text: text);
   }
 
   static Future<void> showQRContentDialog(
@@ -769,5 +802,75 @@ class DialogUtils {
         );
       },
     );
+  }
+}
+
+/// [DialogUtils.showLoadingDialogHandle] 的关闭句柄。
+///
+/// 关弹窗这件事看着简单，但有两个坑都踩过：
+///   1. 关错 navigator：调用方在 tab 内层 navigator 里 `pop()`，
+///      而弹窗挂在根 navigator 上 → 关不掉（用户卡在转圈界面只能重启）；
+///   2. 关得太早：`showDialog` 是**下一帧**才构建弹窗的，
+///      如果检查瞬间完成、在构建前就调 `close()`，那时还没有弹窗的 context，
+///      直接 pop 会落空 → 弹窗留下来。
+/// 所以这里：用**弹窗自己的 context** 关，并且允许「先请求、后补关」。
+class LoadingDialogHandle {
+  LoadingDialogHandle();
+
+  BuildContext? _dialogContext;
+  bool _closeRequested = false;
+  bool _closed = false;
+
+  /// 弹窗是否已经关掉（被用户返回关掉也算）。
+  bool get isClosed => _closed;
+
+  /// 关闭弹窗。**幂等**，且弹窗还没建好时也安全（会记住请求，建好后立刻补关）。
+  void close() {
+    if (_closeRequested) {
+      return;
+    }
+    _closeRequested = true;
+    _tryPopNow();
+    _scheduleRetry();
+  }
+
+  /// 弹窗刚构建完成时调用（内部使用）。
+  void _onBuilt() => _scheduleRetry();
+
+  /// 下一帧再试一次：覆盖「先请求关闭、后建好弹窗」的时序。
+  void _scheduleRetry() {
+    if (_closed) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_closeRequested && !_closed) {
+        _tryPopNow();
+      }
+    });
+  }
+
+  void _tryPopNow() {
+    if (_closed) {
+      return;
+    }
+    final dialogContext = _dialogContext;
+    if (dialogContext == null || !dialogContext.mounted) {
+      return;
+    }
+    // 先置位再关：避免用户手快连点两次时把下面的页面也关掉
+    _closed = true;
+    // 用弹窗自己的 context 取 navigator 与它所属的 route：
+    //   * 用调用方的 context 会拿到 tab 内层 navigator（关错/关不掉）；
+    //   * 单纯 `Navigator.pop()` 只会弹**栈顶**：如果这期间又压了别的弹窗
+    //     （例如「已是最新版本」提示），pop 会把别人弹掉、loading 反而留在屏幕上
+    //     —— 这个 bug 我在自测里踩到过。
+    // 所以这里精确移除**这个**弹窗 route。
+    final navigator = Navigator.of(dialogContext);
+    final route = ModalRoute.of(dialogContext);
+    if (route != null) {
+      navigator.removeRoute(route);
+    } else {
+      navigator.pop();
+    }
   }
 }
