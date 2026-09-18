@@ -315,6 +315,7 @@ class Translations$meta$zh_CN implements Translations$meta$en {
 	@override String get sendConfirm => '确认发送?';
 	@override String get log => '日志';
 	@override String get coreLog => '核心日志';
+	@override String get appLog => '应用日志';
 	@override String get core => '核心';
 	@override String get help => '帮助';
 	@override String get tutorial => '使用教程';
@@ -653,6 +654,7 @@ extension on TranslationsZhCn {
 			'meta.sendConfirm' => '确认发送?',
 			'meta.log' => '日志',
 			'meta.coreLog' => '核心日志',
+			'meta.appLog' => '应用日志',
 			'meta.core' => '核心',
 			'meta.help' => '帮助',
 			'meta.tutorial' => '使用教程',

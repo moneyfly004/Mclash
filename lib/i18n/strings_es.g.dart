@@ -315,6 +315,7 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String get sendConfirm => '¿Confirmar envío?';
 	@override String get log => 'Registro';
 	@override String get coreLog => 'Registro del Núcleo';
+	@override String get appLog => 'Registro de la app';
 	@override String get core => 'Núcleo';
 	@override String get help => 'Ayuda';
 	@override String get tutorial => 'Tutorial';
@@ -653,6 +654,7 @@ extension on TranslationsEs {
 			'meta.sendConfirm' => '¿Confirmar envío?',
 			'meta.log' => 'Registro',
 			'meta.coreLog' => 'Registro del Núcleo',
+			'meta.appLog' => 'Registro de la app',
 			'meta.core' => 'Núcleo',
 			'meta.help' => 'Ayuda',
 			'meta.tutorial' => 'Tutorial',

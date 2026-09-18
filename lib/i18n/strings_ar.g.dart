@@ -315,6 +315,7 @@ class _Translations$meta$ar implements Translations$meta$en {
 	@override String get sendConfirm => 'تأكيد الإرسال؟';
 	@override String get log => 'سجل';
 	@override String get coreLog => 'سجل النواة';
+	@override String get appLog => 'سجل التطبيق';
 	@override String get core => 'جوهر';
 	@override String get help => 'يساعد';
 	@override String get tutorial => 'درس تعليمي';
@@ -653,6 +654,7 @@ extension on TranslationsAr {
 			'meta.sendConfirm' => 'تأكيد الإرسال؟',
 			'meta.log' => 'سجل',
 			'meta.coreLog' => 'سجل النواة',
+			'meta.appLog' => 'سجل التطبيق',
 			'meta.core' => 'جوهر',
 			'meta.help' => 'يساعد',
 			'meta.tutorial' => 'درس تعليمي',

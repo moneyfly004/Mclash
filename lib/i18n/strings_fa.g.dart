@@ -315,6 +315,7 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get sendConfirm => 'ارسال را تایید کرد؟';
 	@override String get log => 'ورود به سیستم';
 	@override String get coreLog => 'گزارش هسته';
+	@override String get appLog => 'گزارش برنامه';
 	@override String get core => 'هسته';
 	@override String get help => 'کمک کند';
 	@override String get tutorial => 'آموزش';
@@ -653,6 +654,7 @@ extension on TranslationsFa {
 			'meta.sendConfirm' => 'ارسال را تایید کرد؟',
 			'meta.log' => 'ورود به سیستم',
 			'meta.coreLog' => 'گزارش هسته',
+			'meta.appLog' => 'گزارش برنامه',
 			'meta.core' => 'هسته',
 			'meta.help' => 'کمک کند',
 			'meta.tutorial' => 'آموزش',

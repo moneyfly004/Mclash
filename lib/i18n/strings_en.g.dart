@@ -658,6 +658,9 @@ class Translations$meta$en {
 	/// en: 'Core Log'
 	String get coreLog => 'Core Log';
 
+	/// en: 'App log'
+	String get appLog => 'App log';
+
 	/// en: 'Core'
 	String get core => 'Core';
 
@@ -1189,6 +1192,7 @@ extension on Translations {
 			'meta.sendConfirm' => 'Confirm to send?',
 			'meta.log' => 'Log',
 			'meta.coreLog' => 'Core Log',
+			'meta.appLog' => 'App log',
 			'meta.core' => 'Core',
 			'meta.help' => 'Help',
 			'meta.tutorial' => 'Tutorial',

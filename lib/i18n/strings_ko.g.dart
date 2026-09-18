@@ -315,6 +315,7 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String get sendConfirm => '보내기를 확인하시겠습니까?';
 	@override String get log => '로그';
 	@override String get coreLog => '코어 로그';
+	@override String get appLog => '앱 로그';
 	@override String get core => '코어';
 	@override String get help => '도움말';
 	@override String get tutorial => '튜토리얼';
@@ -653,6 +654,7 @@ extension on TranslationsKo {
 			'meta.sendConfirm' => '보내기를 확인하시겠습니까?',
 			'meta.log' => '로그',
 			'meta.coreLog' => '코어 로그',
+			'meta.appLog' => '앱 로그',
 			'meta.core' => '코어',
 			'meta.help' => '도움말',
 			'meta.tutorial' => '튜토리얼',

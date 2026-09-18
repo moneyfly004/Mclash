@@ -315,6 +315,7 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get sendConfirm => 'Подтверждаете передачу?';
 	@override String get log => 'Журнал';
 	@override String get coreLog => 'Журнал ядра';
+	@override String get appLog => 'Журнал приложения';
 	@override String get core => 'Ядро';
 	@override String get help => 'Помощь';
 	@override String get tutorial => 'Руководство';
@@ -653,6 +654,7 @@ extension on TranslationsRu {
 			'meta.sendConfirm' => 'Подтверждаете передачу?',
 			'meta.log' => 'Журнал',
 			'meta.coreLog' => 'Журнал ядра',
+			'meta.appLog' => 'Журнал приложения',
 			'meta.core' => 'Ядро',
 			'meta.help' => 'Помощь',
 			'meta.tutorial' => 'Руководство',

@@ -16,6 +16,64 @@ import 'vpn_service_platform.dart';
 import 'windows_job.dart';
 import 'windows_wininet.dart';
 
+/// 最近一次 Windows 系统代理相关的动作结果（面板里直接显示，方便定位）。
+class SystemProxyDiagnostics {
+  static bool? internetSetOption;
+  static bool? wmSettingChange;
+  static bool? perConnectionApi;
+  static String lastError = "";
+
+  static void reset() {
+    internetSetOption = null;
+    wmSettingChange = null;
+    perConnectionApi = null;
+    lastError = "";
+  }
+
+  /// 给用户/客服看的一份纯文本报告。
+  ///
+  /// 为什么要有它（用户实测）：Windows 上「注册表里明明有 127.0.0.1:端口、
+  /// 浏览器也能上网，但 Internet 选项里一片空白」，而用户手里只有核心日志
+  /// （内核输出），看不到 App 侧到底做了哪几步、每步成没成功 —— 两边都在猜。
+  /// 这个报告把「注册表值 / 每连接设置（界面读的那份）/ 两次广播结果」摊开，
+  /// 在「系统代理」面板里直接可读。
+  static Future<String> report() async {
+    final buf = StringBuffer();
+    buf.writeln("平台: ${Platform.operatingSystem}");
+    if (!Platform.isWindows) {
+      buf.writeln("（本报告主要针对 Windows；macOS 用的是 networksetup，界面即时可见）");
+      return buf.toString();
+    }
+    buf.writeln("注册表 ProxyEnable: ${await _regQueryValue('ProxyEnable')}");
+    buf.writeln("注册表 ProxyServer: ${await _regQueryValue('ProxyServer')}");
+    buf.writeln("界面读的每连接 ProxyServer: ${querySystemProxyForConnection()}");
+    buf.writeln("界面读的每连接 代理已启用: ${connectionProxyEnabled()}");
+    buf.writeln("最后一次 InternetSetOption 广播: $internetSetOption");
+    buf.writeln("最后一次 WM_SETTINGCHANGE 广播: $wmSettingChange");
+    buf.writeln("最后一次每连接官方 API 写入: $perConnectionApi");
+    if (lastError.isNotEmpty) {
+      buf.writeln("最后错误: $lastError");
+    }
+    return buf.toString();
+  }
+
+  static Future<String> _regQueryValue(String name) async {
+    try {
+      const key =
+          r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+      final r = await Process.run("reg", ["query", key, "/v", name]);
+      if (r.exitCode != 0) {
+        return "(不存在)";
+      }
+      final text = r.stdout.toString().trim();
+      final lines = text.split("\n");
+      return lines.isEmpty ? text : lines.last.trim();
+    } catch (e) {
+      return "(查询失败: $e)";
+    }
+  }
+}
+
 /// 桌面端诊断日志的出口。
 ///
 /// 这些行以前只写 `stderr.writeln` —— Windows 上从开始菜单启动的 GUI 程序没有
@@ -1022,14 +1080,17 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // （Connections\DefaultConnectionSettings）—— 那份没更新时界面一直显示空白，
       // 用户看到的就是「注册表里有 127.0.0.1:端口，界面却是空的」。
       // 用官方 API 再设一次「当前连接」的代理，注册表与缓存会一起更新。
+      SystemProxyDiagnostics.perConnectionApi = false;
       final perConn = applySystemProxyForConnection(
         server: "${option.host}:${option.port}",
         bypass: bypass,
       );
+      SystemProxyDiagnostics.perConnectionApi = perConn;
       desktopLog(
         "[mclash] 已按官方 API 设置当前连接的代理（界面/缓存同步）: $perConn",
       );
       final notified = notifySystemProxyChanged();
+      SystemProxyDiagnostics.internetSetOption = notified;
       desktopLog(
         "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
       );
@@ -1043,6 +1104,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         wm = await broadcastInternetSettingsViaPowerShell();
         desktopLog("[mclash] WM_SETTINGCHANGE：FFI 失败，已改用 PowerShell 广播");
       }
+      SystemProxyDiagnostics.wmSettingChange = wm;
       desktopLog("[mclash] 已广播 WM_SETTINGCHANGE(InternetSettings): $wm");
       // 读回校验：调用成功 ≠ 生效（注册表被策略/其它代理软件改回去过）
       if (!await _windowsProxyMatches(option)) {

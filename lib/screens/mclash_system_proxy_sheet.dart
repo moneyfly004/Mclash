@@ -3,6 +3,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:libclash_vpn_service/libclash_vpn_service.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -46,6 +47,8 @@ class _SystemProxySheetBody extends StatefulWidget {
 class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
   final TextEditingController _port = TextEditingController();
   String _state = "读取中…";
+  String _diag = "";
+  bool _showDiag = false;
   bool _busy = false;
   String? _error;
 
@@ -78,10 +81,17 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
       final port = ClashSettingManager.getMixedPort();
       final running = await VPNService.getStarted();
       final enable = await VPNService.getSystemProxyEnable();
+      // 诊断详情：注册表值 / 界面读的那份 / 两次广播结果 —— 用户报「系统代理
+      // 明明设了、界面却空白」时，这里一眼就能看出卡在哪一步（不用跑脚本）。
+      String diag = "";
+      try {
+        diag = await systemProxyDiagnostics();
+      } catch (_) {}
       if (!mounted) {
         return;
       }
       setState(() {
+        _diag = diag;
         _state = !running
             ? "内核未运行（先在主页打开连接开关）"
             : enable
@@ -222,6 +232,50 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
               ),
             ],
           ),
+          // 诊断详情：Windows 上「注册表明明有地址端口、Internet 选项却空白」时，
+          // 这里直接摊开三件事：注册表值、界面实际读的那份值、两次广播的结果。
+          // 以前用户手里只有核心日志（内核输出），App 侧做了哪几步、成没成功
+          // 完全看不到 —— 只能靠猜。
+          if (_diag.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              key: const ValueKey("sysproxy-diag-toggle"),
+              onTap: () => setState(() => _showDiag = !_showDiag),
+              child: Row(
+                children: [
+                  Icon(
+                    _showDiag ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: ThemeDefine.kColorGrey,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    "诊断详情（界面读的到底是不是注册表那份）",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ThemeDefine.kColorGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_showDiag) ...[
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  _diag,
+                  key: const ValueKey("sysproxy-diag-text"),
+                  style: const TextStyle(fontSize: 11, height: 1.5),
+                ),
+              ),
+            ],
+          ],
           const SizedBox(height: 14),
           const Text(
             "混合端口",

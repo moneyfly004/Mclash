@@ -26,3 +26,6 @@ void registerMclashVpnService() {
 void registerDesktopLogSink(void Function(String line)? sink) {
   desktopLogSink = sink;
 }
+
+/// Windows 系统代理的诊断报告（面板里直接显示；见 desktop_impl.dart 的说明）。
+Future<String> systemProxyDiagnostics() => SystemProxyDiagnostics.report();

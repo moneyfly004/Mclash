@@ -342,6 +342,14 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         Icons.settings,
         () => GroupHelper.showClashSettings(context),
       ),
+      // 应用日志（app.log）：**以前根本没有入口** —— 用户想看 App 侧到底做了什么
+      // （连接、系统代理写入与读回校验、订阅同步…）只能看到「核心日志」，
+      // 于是排查问题时永远缺一半信息。现在两个都给了，并在标题里显示文件路径。
+      _settingRow(
+        t.meta.appLog,
+        Icons.article_outlined,
+        _openAppLog,
+      ),
       _settingRow(
         t.meta.coreLog,
         Icons.set_meal,
@@ -584,6 +592,45 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     }
 
     Navigator.of(context).popUntil((r) => r.isFirst);
+  }
+
+  /// 打开**应用日志**（`app.log`）：连接、系统代理写入/读回校验、订阅同步、
+  /// 检查更新等都记在这里（核心日志只有内核自己的输出）。
+  /// 顶部先写出文件完整路径与数据目录，便于用户/客服直接去文件夹里取。
+  Future<void> _openAppLog() async {
+    try {
+      final logPath = await PathUtils.logFilePath();
+      final dir = await PathUtils.profileDir();
+      final f = File(logPath);
+      final exists = await f.exists();
+      final tail = exists
+          ? await FileUtils.readAsStringReverse(logPath, 200 * 1024, false)
+          : null;
+      if (!mounted) {
+        return;
+      }
+      final header =
+          "日志文件：${logPath.isEmpty ? "(未知)" : logPath}\n"
+          "数据目录：${dir.isEmpty ? "(未知)" : dir}\n"
+          "文件状态：${exists ? "存在" : "**不存在**（日志没写成功）"}\n"
+          "--------------------------------\n";
+      final body = tail?.item1 ?? "";
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          settings: RichtextViewScreen.routeSettings(),
+          builder: (_) => FileViewScreen(
+            title: Translations.of(context).meta.appLog,
+            content: header + (body.isEmpty ? "(暂无内容)" : body),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      await DialogUtils.showAlertDialog(context, "读取应用日志失败：$e");
+    }
   }
 
   Future<void> _openCoreLog() async {

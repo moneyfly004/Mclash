@@ -315,6 +315,7 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String get sendConfirm => '送信を確認しますか？';
 	@override String get log => 'ログ';
 	@override String get coreLog => 'コアログ';
+	@override String get appLog => 'アプリログ';
 	@override String get core => 'コア';
 	@override String get help => 'ヘルプ';
 	@override String get tutorial => 'チュートリアル';
@@ -653,6 +654,7 @@ extension on TranslationsJa {
 			'meta.sendConfirm' => '送信を確認しますか？',
 			'meta.log' => 'ログ',
 			'meta.coreLog' => 'コアログ',
+			'meta.appLog' => 'アプリログ',
 			'meta.core' => 'コア',
 			'meta.help' => 'ヘルプ',
 			'meta.tutorial' => 'チュートリアル',
