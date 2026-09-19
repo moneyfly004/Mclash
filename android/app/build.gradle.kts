@@ -86,11 +86,15 @@ android {
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86") }
         }
         named("profile") {
-            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86") }
         }
         named("release") {
-            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
+            // 有发布密钥用正式签名；否则回退 debug 签名（对齐 moneyfly 的做法）。
+            // 以前这里写成 else null → release APK **完全没有签名**（v1/v2/v3 全无），
+            // 华为手机安装时报「解析包出现问题」。debug 签名在 CI 上是固定的
+            // (~/.android/debug.keystore + 固定密码 android)，所以回退它也能覆盖升级。
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             ndk {
                 abiFilters.clear()
                 abiFilters += listOf("armeabi-v7a", "arm64-v8a")
