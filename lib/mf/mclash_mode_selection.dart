@@ -257,36 +257,34 @@ bool isInternalProxyName(String name) =>
 /// （用户反馈：「为什么你这个全局还有 global，而不是选择节点呢？」）。
 ///
 /// 规则：
-///   * 先取链路里**最后一个真实节点**（跳过 GLOBAL 这类内置组名）；
-///   * 只有 DIRECT/REJECT 这类伪目标时，说人话（直连 / 已拦截）；
-///   * 只返回**节点名本身**，不拼接延迟 —— 用户要求主页「当前节点」只显示
-///     切到了哪个节点，名称要和节点列表里的一一对应，不要「(xxx ms)」尾巴。
+///   * 链路顺序是**叶子在前、组在后**（getNowChain 返回 `[真实节点, …, GLOBAL]`），
+///     所以直接取**第一个元素**就是最底层的目标；
+///   * DIRECT/REJECT/PASS 这类伪目标，说人话（直连 / 已拦截 / 跟随规则）；
+///   * 只剩 GLOBAL 这类内置组名时不显示内部名字；
+///   * 返回「节点名 (延迟 ms)」：节点名和延迟**都要显示**，且一一对应。
 String formatCurrentProxyName(
   Iterable<String> chain, {
   int? delayMs,
 }) {
   final names = chain.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-  String? real;
-  for (final n in names.reversed) {
-    if (!isInternalProxyName(n)) {
-      real = n;
-      break;
-    }
+  if (names.isEmpty) {
+    return "";
   }
-  if (real == null) {
-    final last = names.isEmpty ? "" : names.last.toUpperCase();
-    if (last == "DIRECT" || last == "DIRECT-URL") {
-      return "直连（不走代理）";
-    }
-    if (last.startsWith("REJECT")) {
-      return "已拦截";
-    }
-    if (last == "PASS" || last == "COMPATIBLE") {
-      return "跟随规则";
-    }
+  final leaf = names.first;
+  final up = leaf.toUpperCase();
+  if (up == "DIRECT" || up == "DIRECT-URL") {
+    return "直连（不走代理）";
+  }
+  if (up.startsWith("REJECT")) {
+    return "已拦截";
+  }
+  if (up == "PASS" || up == "COMPATIBLE") {
+    return "跟随规则";
+  }
+  if (isInternalProxyName(leaf)) {
     // 只剩内核内置组名（GLOBAL 等）时**不要**把内部名字摊给用户
     // （用户反复反馈：「全局模式不要显示 global 的东西」）。
     return "";
   }
-  return real;
+  return delayMs != null && delayMs > 0 ? "$leaf ($delayMs ms)" : leaf;
 }

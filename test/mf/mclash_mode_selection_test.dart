@@ -164,26 +164,25 @@ void main() {
     });
   });
 
-  group('当前节点的显示文案（回归：全局模式不该把 GLOBAL 摊给用户）', () {
-    test('全局模式：内核报 GLOBAL -> 节点，界面只显示节点名（不附延迟）', () {
+  group('当前节点的显示文案（回归：只显示真实节点名 + 延迟，不摊 GLOBAL/组名）', () {
+    test('全局模式：链路叶子在前，界面显示「节点名 (延迟 ms)」', () {
       expect(
-        formatCurrentProxyName(["GLOBAL", "🇯🇵 日本东京"], delayMs: 345),
-        "🇯🇵 日本东京",
-        reason: '用户要求主页「当前节点」只显示节点名字、名称与节点列表一一对应，'
-            '不要「(345 ms)」尾巴；GLOBAL 是内核内部组名，也不该出现在界面上',
+        formatCurrentProxyName(["🇯🇵 日本东京", "GLOBAL"], delayMs: 345),
+        "🇯🇵 日本东京 (345 ms)",
+        reason: '用户要求节点名和延迟都显示；GLOBAL 是内核内部组名，不该出现',
       );
     });
 
-    test('带真实分组前缀时也只显示节点（参考客户端 MoneyFly 的做法）', () {
+    test('带订阅分组前缀时也只显示叶子节点（不显示「🚀 节点选择」组名）', () {
       expect(
-        formatCurrentProxyName(["🚀 节点选择", "🇭🇰 香港 01"]),
+        formatCurrentProxyName(["🇭🇰 香港 01", "🚀 节点选择"]),
         "🇭🇰 香港 01",
       );
     });
 
     test('直连模式说人话，而不是丢一个 DIRECT 给用户', () {
       expect(formatCurrentProxyName(["DIRECT"]), "直连（不走代理）");
-      expect(formatCurrentProxyName(["GLOBAL", "DIRECT"]), "直连（不走代理）");
+      expect(formatCurrentProxyName(["DIRECT", "GLOBAL"]), "直连（不走代理）");
       expect(formatCurrentProxyName(["REJECT"]), "已拦截");
     });
 
@@ -197,15 +196,20 @@ void main() {
       // 直接显示 "GLOBAL" 正是用户反复反馈的「全局模式还有 global」。
       expect(formatCurrentProxyName(["GLOBAL"]), "");
       expect(formatCurrentProxyName(["global"]), "");
-      expect(formatCurrentProxyName(["GLOBAL", "PASS"]), "跟随规则");
+      expect(formatCurrentProxyName(["PASS", "GLOBAL"]), "跟随规则");
     });
 
-    test('无论有没有延迟数据，都只显示节点名（不附延迟）', () {
-      expect(formatCurrentProxyName(["GLOBAL", "🇸🇬 新加坡"]), "🇸🇬 新加坡");
+    test('延迟有就拼、没有不拼（0 也视为「还没测到」）', () {
+      expect(formatCurrentProxyName(["🇸🇬 新加坡", "GLOBAL"]), "🇸🇬 新加坡");
       expect(
-        formatCurrentProxyName(["GLOBAL", "🇸🇬 新加坡"], delayMs: 123),
+        formatCurrentProxyName(["🇸🇬 新加坡", "GLOBAL"], delayMs: 123),
+        "🇸🇬 新加坡 (123 ms)",
+        reason: '节点名和延迟都要显示',
+      );
+      expect(
+        formatCurrentProxyName(["🇸🇬 新加坡", "GLOBAL"], delayMs: 0),
         "🇸🇬 新加坡",
-        reason: '用户要求只显示节点名，延迟数字一律不拼',
+        reason: '0ms 是「还没测」，不能显示成延迟 0',
       );
     });
   });

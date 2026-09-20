@@ -1104,13 +1104,22 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       if (result.error != null || chain == null || chain.isEmpty) {
         _proxyNow.value = "";
       } else {
-        // 只显示**节点本身**（跳过内核内置的 GLOBAL 等组名）：
-        // 全局模式下内核会把链路报成 "GLOBAL -> 节点"，直接摊给用户看会让人
-        // 以为「选的是 global 而不是节点」（参考客户端就是只显示节点）。
-        _proxyNow.value = formatCurrentProxyName(
-          chain.map((e) => e.name),
-          delayMs: chain.first.delay,
-        );
+        // 链路上「叶子在前、组在后」，第一个 **type 不是策略组** 的节点才是
+        // 真实节点。不能用名字判断 —— 订阅里的「🚀 节点选择」是 Selector 组，
+        // 名字不是内置名，但它是组、不是节点（用户反馈主页显示成了「节点选择」）。
+        ClashProxiesNode? real;
+        for (final n in chain) {
+          if (!ClashProtocolType.GroupToList().contains(n.type)) {
+            real = n;
+            break;
+          }
+        }
+        _proxyNow.value = real == null
+            ? ""
+            : formatCurrentProxyName(
+                [real.name],
+                delayMs: real.delay,
+              );
       }
       _proxyNowUpdating = false;
     } else {
