@@ -99,8 +99,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _kNoTrafficTotal,
   );
   final ValueNotifier<String> _proxyNow = ValueNotifier<String>("");
-
-  final ValueNotifier<String> _proxyMode = ValueNotifier<String>("");
   Timer? _timerProxyMode;
   int _trafficLogTick = 0;
   bool _proxyNowUpdating = false;
@@ -138,7 +136,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _timerConnectToCore?.cancel();
     _timerConnectToCore = null;
     _stopProxyModeTimer();
-    _proxyMode.dispose();
     _trafficSpeed.dispose();
     _trafficTotal.dispose();
     _proxyNow.dispose();
@@ -435,58 +432,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
               ValueListenableBuilder<String>(
                 valueListenable: _trafficTotal,
                 builder: (context, v, _) => _trafficLine("累计流量", v),
-              ),
-              const SizedBox(height: 6),
-              ValueListenableBuilder<String>(
-                valueListenable: _proxyMode,
-                builder: (context, v, _) => v.isEmpty
-                    ? const SizedBox.shrink()
-                    : InkWell(
-                        onTap: () =>
-                            showMclashSystemProxySheet(context).then((_) {
-                              if (mounted) {
-                                unawaited(_updateProxyMode());
-                              }
-                            }),
-                        child: Builder(
-                          builder: (_) {
-                            final bad = v.contains("未生效");
-                            final good = v.contains("已生效") ||
-                                v.contains("已用系统代理") ||
-                                v.startsWith("TUN 模式");
-                            final color = bad
-                                ? Colors.orange
-                                : (good
-                                      ? ThemeDefine.kColorGreenBright
-                                      : ThemeDefine.kColorGrey);
-                            return Row(
-                              children: [
-                                Icon(
-                                  bad
-                                      ? Icons.warning_amber_rounded
-                                      : (good
-                                            ? Icons.verified_user_outlined
-                                            : Icons.info_outline),
-                                  size: 14,
-                                  color: color,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    v,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: color,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
               ),
             ],
             const Divider(height: 22, thickness: 0.3),
@@ -880,45 +825,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
-  Future<void> _updateProxyMode() async {
-    try {
-      final enabled = await VPNService.getSystemProxyEnable();
-      final port = ClashSettingManager.getMixedPort();
-      final tunWanted =
-          PlatformUtils.isPC() && SettingManager.getConfig().tunEnabled;
-      final tunDriving = tunWanted && !VPNService.systemProxyFallbackActive;
-      if (tunDriving) {
-        _proxyMode.value = enabled
-            ? "TUN + 系统代理 127.0.0.1:$port · 均已生效"
-            : "TUN 模式 · 内核接管全部流量（无需系统代理）";
-      } else if (tunWanted) {
-        final short = switch (VPNService.tunFailureKind) {
-          TunStartFailureKind.privilege => "需管理员权限",
-          TunStartFailureKind.adapterBusy => "虚拟网卡被占用",
-          TunStartFailureKind.driver => "网卡驱动被拦截",
-          TunStartFailureKind.unknown => "原因未归类（见连接自检）",
-          TunStartFailureKind.none => "未生效",
-        };
-        _proxyMode.value = enabled
-            ? "TUN 未生效（$short）· 已用系统代理 127.0.0.1:$port"
-            : "TUN 未生效（$short）· 系统代理未生效";
-      } else if (PlatformUtils.isPC() &&
-          !VPNService.shouldApplySystemProxy()) {
-        _proxyMode.value = "未设置系统代理 —— ${VPNService.systemProxySkipReason()}";
-      } else {
-        _proxyMode.value = enabled
-            ? "系统代理 127.0.0.1:$port · 已生效"
-            : "系统代理未生效 · 点这里修复（或改用 TUN）";
-      }
-    } catch (_) {
-      _proxyMode.value = "";
-    }
-  }
-
   void _startProxyModeTimer() {
     _timerProxyMode?.cancel();
     _timerProxyMode = Timer.periodic(const Duration(seconds: 15), (_) {
-      _updateProxyMode();
       if (_state != FlutterVpnServiceState.connected) {
         return;
       }
@@ -956,7 +865,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       if (_state != FlutterVpnServiceState.connected) {
         return;
       }
-      unawaited(_updateProxyMode());
       _startProxyModeTimer();
       unawaited(MclashKernelSync.syncFromKernel());
       const Duration duration = Duration(seconds: 2);
@@ -978,7 +886,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _timerConnectToCore?.cancel();
     _timerConnectToCore = null;
     _stopProxyModeTimer();
-    _proxyMode.value = "";
     ClashTrafficWatcher.instance.stop();
     if (resetUI) {
       _trafficTotal.value = _kNoTrafficTotal;
@@ -995,6 +902,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
         return;
       }
       if (_proxyNowUpdating) {
+        return;
+      }
+      if (ClashSettingManager.getConfigsMode() == ClashConfigsMode.direct) {
+        _proxyNow.value = "DIRECT";
         return;
       }
       _proxyNowUpdating = true;

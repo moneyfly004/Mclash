@@ -4,7 +4,6 @@ import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
-import 'package:mclash/screens/file_view_screen.dart';
 import 'package:mclash/screens/mclash_change_password_screen.dart';
 import 'package:mclash/screens/mclash_orders_screen.dart';
 import 'package:mclash/mf/mclash_update_check.dart';
@@ -201,71 +200,6 @@ void main() {
     );
     expect(find.textContaining("确认退出"), findsOneWidget,
         reason: '确认框要写清后果');
-    await finish(tester);
-  });
-
-  testWidgets('点「运行时配置」：文件缺失时给友好提示（不是报错崩掉）', (tester) async {
-    final seen = <String?>[];
-    mclashRuntimeProfileReader = () async {
-      seen.add("called");
-      return null;
-    };
-
-    await pump(tester);
-    final target = textAnyOf(["运行时配置", "Runtime Profile"]);
-    await scrollTo(tester, target);
-    await tester.tap(target);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(seen, isNotEmpty, reason: '必须真的走到「读运行时配置」这一步');
-    expect(find.byType(SimpleDialog), findsOneWidget);
-    expect(
-      find.textContaining("还没有生成运行时配置"),
-      findsOneWidget,
-      reason: '缺失要给人话解释 + 下一步怎么办，不能把异常直接丢给用户',
-    );
-
-    mclashRuntimeProfileReader = null;
-    await finish(tester);
-  });
-
-  testWidgets('点「运行时配置」：文件为空时同样给友好提示', (tester) async {
-    mclashRuntimeProfileReader = () async => "   \n  ";
-
-    await pump(tester);
-    final target = textAnyOf(["运行时配置", "Runtime Profile"]);
-    await scrollTo(tester, target);
-    await tester.tap(target);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byType(SimpleDialog), findsOneWidget);
-    expect(find.textContaining("运行时配置当前为空"), findsOneWidget);
-
-    mclashRuntimeProfileReader = null;
-    await finish(tester);
-  });
-
-  testWidgets('点「运行时配置」：有内容时打开查看页（不是弹窗）', (tester) async {
-    mclashRuntimeProfileReader = () async => "mixed-port: 7890\n";
-
-    await pump(tester);
-    final target = textAnyOf(["运行时配置", "Runtime Profile"]);
-    await scrollTo(tester, target);
-    await tester.tap(target);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byType(SimpleDialog), findsNothing);
-    expect(find.byType(FileViewScreen), findsOneWidget);
-    expect(
-      tester.widget<FileViewScreen>(find.byType(FileViewScreen)).content,
-      contains("mixed-port: 7890"),
-      reason: '必须把文件真实内容交给查看页，不能打开一个空页面',
-    );
-
-    mclashRuntimeProfileReader = null;
     await finish(tester);
   });
 

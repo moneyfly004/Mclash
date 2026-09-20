@@ -1,15 +1,7 @@
-// Mclash Android 插件 —— Flutter 与 VpnService 之间的桥。
-//
-// 与 Flutter 侧 `libclash_vpn_service` 的 MethodChannel 契约：
-//   Channel: top.moneyfly/vpn_core
-//   Dart → Kotlin:  prepare / start / stop / state / lastStartError /
-//                   getABIs / kernelVersion / fetchKernelLogs /
-//                   getInstalledApps / setExcludeFromRecents / wakeLock /
-//                   getSystemVersion
-//   Kotlin → Dart:  onStateChanged {state, ...}
 package top.moneyfly.vpnservice
 
 import android.app.Activity
+import android.content.Context
 import android.util.Log
 import android.content.Intent
 import androidx.core.content.ContextCompat
@@ -26,14 +18,6 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 
-// 注意 `MethodCallHandler` 是 MethodChannel 的**嵌套接口**
-// （io.flutter.plugin.common.MethodChannel.MethodCallHandler），
-// 顶层并不存在同名类型。写成裸 MethodCallHandler 会得到：
-//   Unresolved reference 'MethodCallHandler'
-//   Argument type mismatch: actual type is 'VpnServicePlugin',
-//       but 'MethodChannel.MethodCallHandler?' was expected
-//   'onMethodCall' overrides nothing
-// 三个报错其实是同一个原因。
 class VpnServicePlugin :
         FlutterPlugin,
         MethodChannel.MethodCallHandler,
@@ -43,11 +27,11 @@ class VpnServicePlugin :
     companion object {
         const val CHANNEL = "top.moneyfly/vpn_core"
         private const val TAG = "VpnServicePlugin"
-        private const val REQUEST_CODE_PREPARE = 0x4D43 // 'MC'
-        private const val REQUEST_CODE_NOTIFICATION = 0x4D44 // 'MD'
+        private const val REQUEST_CODE_PREPARE = 0x4D43
+        private const val REQUEST_CODE_NOTIFICATION = 0x4D44
         private var instance: VpnServicePlugin? = null
 
-        /** 原生侧主动把状态推给 Dart（内核启动完成 / 异常退出时调用） */
+        
         fun notifyState(state: String, extra: Map<String, String> = emptyMap()) {
             val ch = instance?.channel ?: return
             val payload = HashMap<String, Any>(extra)
@@ -65,6 +49,7 @@ class VpnServicePlugin :
         channel = MethodChannel(binding.binaryMessenger, CHANNEL)
         channel.setMethodCallHandler(this)
         MclashVpnService.attachChannel(channel)
+        MclashVpnService.initAppContext(binding.applicationContext)
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
@@ -97,15 +82,12 @@ class VpnServicePlugin :
         }
         val r = pendingResult
         pendingResult = null
-        // RESULT_OK 表示用户已授权；否则视为未授权（Dart 侧据此走引导流程，
-        // 而不是把"用户点了取消"当成崩溃）
         r?.success(resultCode == Activity.RESULT_OK)
         return true
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: MethodChannel.Result) {
         when (call.method) {
-            // ---- VpnService.prepare()：null 表示已授权 ----
             "prepare" -> {
                 val act = activity
                 if (act == null) {
@@ -128,7 +110,7 @@ class VpnServicePlugin :
             "lastStartError" -> result.success(MclashVpnService.lastStartError)
 
             "getABIs" -> result.success(Build.SUPPORTED_ABIS.joinToString(","))
-            "getSystemVersion" -> result.success(Build.VERSION.RELEASE ?: "")
+            "getSystemVersion" -> result.success(Build.VERSION.SDK_INT.toString())
 
             "kernelVersion" -> result.success(MclashVpnService.kernelVersion())
             "fetchKernelLogs" -> {
@@ -151,8 +133,6 @@ class VpnServicePlugin :
                 result.success(null)
             }
 
-            // 通知权限（Android 13+）：前台服务通知需要 POST_NOTIFICATIONS，
-            // 未授权时连接后看不到状态通知（用户会以为"没连上"），也无法从通知栏断开。
             "requestNotificationPermission" -> {
                 result.success(requestNotificationPermission())
             }
@@ -161,13 +141,12 @@ class VpnServicePlugin :
         }
     }
 
-    private fun requireContext() = MclashVpnService.appContext
-            ?: throw IllegalStateException("application context is not ready")
+    private fun requireContext(): Context =
+            MclashVpnService.appContext
+                    ?: activity?.applicationContext
+                    ?: throw IllegalStateException("application context is not ready")
 
-    /**
-     * 请求通知权限（仅 Android 13+ 需要）。返回 true 表示已经有权限或不需要，
-     * false 表示已向用户发起请求（结果不影响连接本身）。
-     */
+    
     private fun requestNotificationPermission(): Boolean {
         val act = activity ?: return true
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {

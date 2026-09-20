@@ -1,20 +1,15 @@
 // ignore_for_file: unused_catch_stack
 
-import 'dart:io';
-
-import 'package:mclash/app/modules/remote_config_manager.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
-import 'package:mclash/app/utils/url_launcher_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/group_item_creator.dart';
 import 'package:mclash/screens/group_item_options.dart';
 import 'package:mclash/screens/group_screen.dart';
 import 'package:mclash/screens/theme_config.dart';
-import 'package:mclash/screens/webview_helper.dart';
 import 'package:mclash/screens/widgets/framework.dart';
 import 'package:flutter/material.dart';
 
@@ -114,7 +109,6 @@ class AboutScreenState extends LasyRenderingState<AboutScreen> {
 
   Future<List<GroupItem>> getGroupOptions() async {
     final tcontext = Translations.of(context);
-    var remoteConfig = RemoteConfigManager.getConfig();
     final coreVersion = AppUtils.getCoreVersion();
     List<GroupItem> groupOptions = [];
 
@@ -141,30 +135,6 @@ class AboutScreenState extends LasyRenderingState<AboutScreen> {
 
     groupOptions.add(GroupItem(options: options));
 
-    if (!Platform.isMacOS && remoteConfig.donate.isNotEmpty) {
-      List<GroupItemOptions> options1 = [
-        GroupItemOptions(
-          pushOptions: GroupItemPushOptions(
-            name: tcontext.meta.donate,
-            onPush: () async {
-              String url = await UrlLauncherUtils.reorganizationUrlWithAnchor(
-                remoteConfig.donate,
-              );
-              if (!mounted) {
-                return;
-              }
-              await WebviewHelper.loadUrl(
-                context,
-                url,
-                "donate",
-                title: tcontext.meta.donate,
-              );
-            },
-          ),
-        ),
-      ];
-      groupOptions.add(GroupItem(options: options1));
-    }
     if (PlatformUtils.isPC()) {
       List<GroupItemOptions> options2 = [
         GroupItemOptions(

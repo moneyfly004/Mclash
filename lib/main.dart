@@ -89,8 +89,8 @@ Future<void> run(List<String> args) async {
         startFailedReason = StartFailedReason.invalidProfile;
         break;
       }
-      String version = await AppUtils.getPackgetVersion();
-      if (buildVersion != version) {
+      String version = await AppUtils.getPackgetVersionName();
+      if (AppUtils.getBuildinVersionName() != version) {
         startFailedReason = StartFailedReason.invalidVersion;
         break;
       }

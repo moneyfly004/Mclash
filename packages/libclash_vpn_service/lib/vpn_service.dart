@@ -79,6 +79,9 @@ class FlutterVpnService {
 
   static Future<String> getABIs() => _p.getABIs();
 
+  static Future<String> fetchKernelLogs({bool incremental = true}) =>
+      _p.fetchKernelLogs(incremental: incremental);
+
   static Future<bool> requestNotificationPermission() =>
       _p.requestNotificationPermission();
 

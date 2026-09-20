@@ -2,7 +2,6 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:mclash/screens/group_helper.dart';
@@ -11,10 +10,9 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/modules/zashboard.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
-import 'package:mclash/app/utils/file_utils.dart';
+import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
-import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
@@ -31,10 +29,8 @@ import 'package:mclash/screens/profiles_board_screen.dart';
 import 'package:mclash/screens/mclash_change_password_screen.dart';
 import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/mclash_tun_setting.dart';
-import 'package:mclash/screens/mclash_diagnostics_screen.dart';
 import 'package:mclash/screens/about_screen.dart';
-import 'package:mclash/screens/file_view_screen.dart';
-import 'package:mclash/screens/richtext_viewer.screen.dart';
+import 'package:mclash/screens/mclash_log_screen.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/webview_helper.dart';
@@ -48,27 +44,11 @@ class MclashProfileScreen extends LasyRenderingStatefulWidget {
   State<MclashProfileScreen> createState() => _MclashProfileScreenState();
 }
 
-@visibleForTesting
-Future<String?> Function()? mclashRuntimeProfileReader;
-
 class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     with WidgetsBindingObserver {
   bool _loading = true;
   Map<String, dynamic>? _dash;
   String? _error;
-
-  Future<String?> _readRuntimeProfile() async {
-    final reader = mclashRuntimeProfileReader;
-    if (reader != null) {
-      return reader();
-    }
-    final path = await PathUtils.serviceCoreRuntimeProfileFilePath();
-    final file = File(path);
-    if (!await file.exists()) {
-      return null;
-    }
-    return file.readAsString();
-  }
 
   @override
   void initState() {
@@ -324,21 +304,11 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         () => GroupHelper.showClashSettings(context),
       ),
       _settingRow(
-        t.meta.appLog,
+        t.meta.log,
         Icons.article_outlined,
-        _openAppLog,
-      ),
-      _settingRow(
-        t.meta.coreLog,
-        Icons.set_meal,
-        _openCoreLog,
+        _openLog,
       ),
 
-      _settingRow(
-        t.meta.runtimeProfile,
-        Icons.file_present,
-        _openRuntimeProfile,
-      ),
       _settingRow(
         t.meta.backupAndSync,
         Icons.cloud_sync_outlined,
@@ -409,11 +379,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         "检查更新",
         Icons.system_update_alt_outlined,
         () => MclashUpdatePrompt.checkManually(context),
-      ),
-      _settingRow(
-        "连接自检",
-        Icons.medical_information_outlined,
-        () => showMclashDiagnostics(context),
+        trailingText: AppUtils.getBuildinVersion(),
       ),
       _settingRow(
         t.meta.about,
@@ -555,83 +521,14 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
-  Future<void> _openAppLog() async {
-    try {
-      final logPath = await PathUtils.logFilePath();
-      final dir = await PathUtils.profileDir();
-      final f = File(logPath);
-      final exists = await f.exists();
-      final tail = exists
-          ? await FileUtils.readAsStringReverse(logPath, 200 * 1024, false)
-          : null;
-      if (!mounted) {
-        return;
-      }
-      final header =
-          "日志文件：${logPath.isEmpty ? "(未知)" : logPath}\n"
-          "数据目录：${dir.isEmpty ? "(未知)" : dir}\n"
-          "文件状态：${exists ? "存在" : "**不存在**（日志没写成功）"}\n"
-          "--------------------------------\n";
-      final body = tail?.item1 ?? "";
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          settings: RichtextViewScreen.routeSettings(),
-          builder: (_) => FileViewScreen(
-            title: Translations.of(context).meta.appLog,
-            content: header + (body.isEmpty ? "(暂无内容)" : body),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      await DialogUtils.showAlertDialog(context, "读取应用日志失败：$e");
-    }
-  }
-
-  Future<void> _openCoreLog() async {
-    try {
-      final errPath = await PathUtils.serviceStdErrorFilePath();
-      final logPath = await PathUtils.serviceLogFilePath();
-      const split = "\n-------------------------------\n";
-      var content = "";
-      final errFile = File(errPath);
-      if (await errFile.exists()) {
-        final e = await errFile.readAsString();
-        if (e.isNotEmpty) {
-          content += split + e;
-        }
-      }
-      final item = await FileUtils.readAsStringReverse(logPath, 50 * 1024, false);
-      if (item != null) {
-        if (content.isNotEmpty) {
-          content += split;
-        }
-        content += item.item1;
-      }
-      if (!mounted) {
-        return;
-      }
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          settings: RichtextViewScreen.routeSettings(),
-          builder: (_) => RichtextViewScreen(
-            title: Translations.of(context).meta.coreLog,
-            file: "",
-            content: content,
-            showAction: true,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      await DialogUtils.showAlertDialog(context, "$e");
-    }
+  Future<void> _openLog() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        settings: MclashLogScreen.routeSettings(),
+        builder: (_) => const MclashLogScreen(),
+      ),
+    );
   }
 
   Future<void> _clearLocalData() async {
@@ -688,53 +585,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       }
       await DialogUtils.showAlertDialog(context, "清除失败：$e");
     }
-  }
-
-  Future<void> _openRuntimeProfile() async {
-    String content;
-    try {
-      final raw = await _readRuntimeProfile();
-      if (raw == null) {
-        if (!mounted) {
-          return;
-        }
-        await DialogUtils.showAlertDialog(
-          context,
-          "还没有生成运行时配置。\n内核成功启动后会写出实际生效的配置，请先在主页连接一次。",
-        );
-        return;
-      }
-      content = raw;
-      if (content.trim().isEmpty) {
-        if (!mounted) {
-          return;
-        }
-        await DialogUtils.showAlertDialog(
-          context,
-          "运行时配置当前为空。\n请在主页连接一次让内核写入配置后再查看。",
-        );
-        return;
-      }
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      await DialogUtils.showAlertDialog(context, "$e");
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        settings: FileViewScreen.routeSettings(),
-        builder: (_) => FileViewScreen(
-          title: Translations.of(context).meta.runtimeProfile,
-          content: content,
-        ),
-      ),
-    );
   }
 
   Widget _buildError() => Padding(

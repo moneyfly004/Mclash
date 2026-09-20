@@ -960,13 +960,6 @@ class VPNService {
     );
   }
 
-  /// LAN 兜底读回的缓存（TTL 内复用）。
-  ///
-  /// 为什么需要：`getSystemProxyEnable()` 在「本地回环那份不匹配」时才会走这里
-  /// （TUN 接管、没设系统代理时**每次**都会走），而它要枚举一次网卡
-  /// （`NetworkInterface.list()`，Windows 上是一次真实的适配器查询，几十到几百 ms）。
-  /// 首页的代理状态轮询 + 15 秒一次的系统代理看守都会调它 —— 不缓存的话，
-  /// 一台开着 TUN 的机器每 15 秒就要白枚举两次网卡，正是「用着用着卡一下」的来源。
   static ProxyOption? _lanOptionsCache;
   static DateTime? _lanOptionsCacheAt;
   static const Duration _lanOptionsTtl = Duration(seconds: 60);
@@ -1013,20 +1006,10 @@ class VPNService {
     return ProxyOption(localhost, mixedPort, bypassDomain);
   }
 
-  /// 确保内核工作目录里存在 geo 数据（country.mmdb / geosite.dat / GeoLite2-ASN.mmdb）。
-  ///
-  /// 桌面端这些文件随安装包落在磁盘上（`assets/rules/`），Android 端它们**在 APK 里**，
-  /// 磁盘上只有 app 启动时写出的 zip（`ClashSettingManager.initGeo` 写的是 zip，
-  /// 而内核要的是解开的 `.dat/.mmdb`）。缺文件时 mihomo 会尝试从 GitHub 下载，
-  /// 国内不可达 → 卡住几十秒后失败，用户看到的就是「核心起不来 / 连不上」。
-  ///
-  /// 这里直接从 asset bundle 把内核需要的三个文件写到工作目录（幂等：已存在且非空就跳过），
-  /// 并把「拷了什么 / 缺了什么」写进日志，保证出问题时日志能明确列出来。
   static Future<List<String>> _ensureGeoDataOnDisk(String workDir) async {
     if (workDir.isEmpty) {
       return const [];
     }
-    // 顺序与 geo_data.dart 的候选名一致（ASN 允许两个文件名）
     const files = <String, List<String>>{
       "country.mmdb": ["assets/rules/country.mmdb"],
       "geosite.dat": ["assets/rules/geosite.dat"],
@@ -1053,7 +1036,6 @@ class VPNService {
           ok = true;
           break;
         } catch (_) {
-          // 换下一个候选资源名
         }
       }
       if (!ok) {
@@ -1064,7 +1046,6 @@ class VPNService {
       Log.i("VPNService: geo 数据已就绪 ${copied.join(", ")} -> $workDir");
     }
     if (missing.isNotEmpty) {
-      // 明确列出来：这是「内核卡在下载 geo」的直接原因
       Log.w("VPNService: geo 数据缺失 ${missing.join(", ")}（内核可能尝试联网下载而卡住）");
     } else {
       Log.i("VPNService: geo 数据齐全（country.mmdb / geosite.dat / GeoLite2-ASN.mmdb）");
@@ -1072,10 +1053,6 @@ class VPNService {
     return missing;
   }
 
-  /// 连接失败时一次性列出关键诊断（用户要求：有问题日志能明确列出来）。
-  ///
-  /// 覆盖安卓/桌面最常见的几类失败：VPN 未授权、配置为空、geo 缺失、
-  /// 端口被占用、内核未就绪。逐条打印，避免"只知道失败、不知道为什么"。
   static void _logConnectDiagnostics(String detail) {
     Log.w("VPNService: 连接失败诊断 —— $detail");
     Log.w("VPNService:   · 工作目录 = ${_lastWorkDir.isEmpty ? "(未知)" : _lastWorkDir}");

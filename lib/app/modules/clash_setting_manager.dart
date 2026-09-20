@@ -553,8 +553,6 @@ class ClashSettingManager {
     _setting.Tun?.AutoRoute = !Platform.isAndroid;
     _setting.Tun?.AutoDetectInterface = Platform.isWindows;
     _setting.Profile = RawProfile.by(StoreSelected: true, StoreFakeIP: true);
-    _setting.Extension?.RuntimeProfileSavePath =
-        await PathUtils.serviceCoreRuntimeProfileFilePath();
   }
 
   @visibleForTesting

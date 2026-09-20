@@ -455,15 +455,12 @@ class RawExtension {
   String? PprofAddr;
   @JsonKey(name: 'proxy-group-replace')
   String? ProxyGroupReplace;
-  @JsonKey(name: 'runtime-profile-save-path')
-  String? RuntimeProfileSavePath;
   RawExtension.by({
     this.AppendRules,
     required this.Ruleset,
     required this.Tun,
     this.PprofAddr,
     this.ProxyGroupReplace,
-    this.RuntimeProfileSavePath,
   });
   RawExtension(
     this.AppendRules,
@@ -471,7 +468,6 @@ class RawExtension {
     this.Tun,
     this.PprofAddr,
     this.ProxyGroupReplace,
-    this.RuntimeProfileSavePath,
   );
   factory RawExtension.fromJson(Map<String, dynamic> json) =>
       _$RawExtensionFromJson(json);

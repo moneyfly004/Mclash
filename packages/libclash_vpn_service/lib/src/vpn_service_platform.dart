@@ -99,6 +99,8 @@ abstract class VpnServicePlatform {
 
   Future<String> getABIs();
 
+  Future<String> fetchKernelLogs({bool incremental = true}) async => "";
+
   Future<bool> requestNotificationPermission() async => true;
 
   Future<String> clashiApiConnections(bool all);

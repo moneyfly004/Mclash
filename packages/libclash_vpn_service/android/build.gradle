@@ -37,48 +37,18 @@ android {
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
-        // 注意：这里**不要**再写 jniLibs.srcDirs += ['libs']。
-        // AAR 里的 .so（libgojni.so）由下面 dependencies 里的 AAR 依赖
-        // 自动带入；再手动指一次会造成同路径原生库被合并两次。
     }
 }
 
 repositories {
-    // ---------------------------------------------------------------------
-    // 内核 AAR 必须走**仓库解析**，不能用 files(...) 直接依赖。
-    //
-    // 踩到的坑：最初写成
-    //     implementation files('libs/libmihomo.aar')
-    // 编译能过，但打到 AAR 这一步直接失败：
-    //     :libclash_vpn_service:bundleDebugAar
-    //     > Direct local .aar file dependencies are not supported when
-    //       building an AAR. The resulting AAR would be broken because the
-    //       classes and Android resources from any local .aar file
-    //       dependencies would not be packaged in the resulting AAR.
-    //
-    // 这是 AGP 的硬性限制（library 模块，即 Flutter 插件，不允许直接依赖
-    // 本地 .aar 文件）—— 而且它挡得对：那种 AAR 打出来是**坏的**，
-    // 上层集成时才炸，更难查。
-    //
-    // 用 flatDir 把同一个文件当成「仓库里的构件」解析即可绕过该限制，
-    // 同时保持 AAR 只存在一份（libs/libmihomo.aar，已在 .gitignore 中）。
-    // ---------------------------------------------------------------------
     flatDir {
         dirs 'libs'
     }
 }
 
 dependencies {
-    // libmihomo.aar：官方 MetaCubeX/mihomo 源码 + gomobile bind（无 fork）。
-    // 由 CI 从 moneyfly004/mihomo-lib 下载，或用 tool/fetch_mihomo_aar.sh 拉取。
-    // 实测内容：classes.jar 含 top.moneyfly.mihomelib.Mihomelib 与 go.*，
-    // jni 下四种 ABI 各一个 libgojni.so，整包 177MB。
-    //
-    // 缺失时不加这个依赖（构建仍能通过，连接会在 Dart 侧给出明确提示），
-    // 这样「没内核」和「内核编译不过」两种状态不会互相掩盖。
     if (file('libs/libmihomo.aar').exists()) {
         implementation(name: 'libmihomo', ext: 'aar')
-        // 通知权限请求用到的 ActivityCompat/ContextCompat（插件模块不继承 app 的依赖）
         implementation("androidx.core:core-ktx:1.13.1")
     } else {
         logger.warn(

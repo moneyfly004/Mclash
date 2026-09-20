@@ -284,15 +284,6 @@ class PathUtils {
     return path.join(filePath, serviceCorePatchFinalFileName());
   }
 
-  static String serviceCoreRuntimeProfileFileName() {
-    return "service_core_runtime_profile.yaml";
-  }
-
-  static Future<String> serviceCoreRuntimeProfileFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, serviceCoreRuntimeProfileFileName());
-  }
-
   static String profilesFileName() {
     return "profiles.json";
   }

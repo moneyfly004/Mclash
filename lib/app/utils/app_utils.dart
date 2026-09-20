@@ -8,12 +8,23 @@ abstract final class AppUtils {
     return "${packageInfo.version}.${packageInfo.buildNumber}";
   }
 
+  static Future<String> getPackgetVersionName() async {
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    return packageInfo.version;
+  }
+
   static String getName() {
     return "Mclash";
   }
 
   static String getBuildinVersion() {
-    return "0.0.22.26";
+    return "0.0.1.1";
+  }
+
+  static String getBuildinVersionName() {
+    final v = getBuildinVersion();
+    final i = v.lastIndexOf('.');
+    return i < 0 ? v : v.substring(0, i);
   }
 
   static String getId() {

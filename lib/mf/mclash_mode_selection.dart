@@ -187,6 +187,7 @@ abstract final class MclashNodeSelector {
         await MclashNodeAutoPick.setFixedNode(nodeName);
         MclashNodesStore.instance.clearAutoPickNote();
       }
+      MclashNodesStore.instance.notifyCurrentMaybeChanged();
       Log.i("MclashNodeSelector: 已把 [$group] 切到 [$nodeName]");
     }
     return err;

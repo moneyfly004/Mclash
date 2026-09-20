@@ -101,7 +101,6 @@ RawExtension _$RawExtensionFromJson(Map<String, dynamic> json) =>
         RawExtensionTun.fromJson(json['tun'] as Map<String, dynamic>),
         json['pprof-addr'] as String?,
         json['proxy-group-replace'] as String?,
-        json['runtime-profile-save-path'] as String?,
       )
       ..ProfileStoreSelectedPrefix =
           json['profile-store-selected-prefix'] as String?;
@@ -114,7 +113,6 @@ Map<String, dynamic> _$RawExtensionToJson(RawExtension instance) =>
       'tun': instance.Tun.toJson(),
       'pprof-addr': instance.PprofAddr,
       'proxy-group-replace': instance.ProxyGroupReplace,
-      'runtime-profile-save-path': instance.RuntimeProfileSavePath,
     };
 
 RawTunnel _$RawTunnelFromJson(Map<String, dynamic> json) => RawTunnel(
