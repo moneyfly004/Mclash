@@ -11,9 +11,9 @@ import 'package:mclash/mf/mclash_pseudo_nodes.dart';
 
 abstract final class MclashNodeAutoPick {
 
-  static const int probeLimit = 8;
+  static const int probeLimit = 16;
 
-  static const Duration probeTimeout = Duration(seconds: 4);
+  static const Duration probeTimeout = Duration(seconds: 3);
 
   /// 超过这个规模就**不做**「整组测速」（用户实测：连接后被内核测速压到点不动）。
   static const int kGroupDelayLimit = 16;

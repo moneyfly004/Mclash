@@ -31,7 +31,7 @@ import 'package:mclash/mf/mclash_node.dart';
 /// 测速之外 —— 那类节点永远没有延迟、永远进不了「自动最优」，首页
 /// 「延迟最低的 6 个国家」也看不到它们。
 class MclashSpeedTester {
-  MclashSpeedTester({this.connectTimeout = const Duration(seconds: 5)});
+  MclashSpeedTester({this.connectTimeout = const Duration(seconds: 3)});
 
   static final MclashSpeedTester instance = MclashSpeedTester();
 
@@ -42,14 +42,10 @@ class MclashSpeedTester {
 
   /// 并发上限。
   ///
-  /// 以前是 12，后来 6，现在 3。
-  ///
-  /// 每一次探测都是「内核去连一次测速地址」：12 路并发时，连接后被立刻拉起的
-  /// 自动测速会把内核的 CPU 与连接表塞满，真正需要内核响应的东西（切节点、
-  /// 读配置、流量订阅、界面刷新）全排在后面 —— 用户的原话是「连接之后非常卡，
-  /// 根本点不动」。3 路并发虽然测得慢一些，但**连接后的流畅度**回来了，
-  /// 而且我们本来就有延迟缓存（连接后绝大多数节点不需要重测）。
-  static const int maxConcurrent = 3;
+  /// 12 路并发会把内核 CPU/连接表塞满（用户实测「连接后点不动」），3 路又太慢
+  /// （400 节点全量测速要 4 分钟+，用户反馈「测速非常缓慢」）。取 6 路折中：
+  /// 显著加快测速，又不至于压垮内核。
+  static const int maxConcurrent = 6;
 
   /// 连续这么多次「内核根本没在听」就整批放弃。
   ///
@@ -57,7 +53,9 @@ class MclashSpeedTester {
   /// 从 16:35:24 到 16:35:30 刷了几百行
   /// `SocketException: 远程计算机拒绝网络连接 (errno = 1225)` —— 每一条都要
   /// 新建连接、失败、写一行同步日志。而结论在**失败第一条**时就已经确定了。
-  static const int fatalStreakLimit = 8;
+  // 8 太敏感：内核短暂繁忙/慢响应时偶发几次「连不上」就被整批中止（用户反馈
+  // 「测速异常中断」）。放宽到 24：内核真的挂了仍会尽快停，但不再被偶发抖动打断。
+  static const int fatalStreakLimit = 24;
 
   /// 上一轮测速中「内核里还没有」的节点数量（供上层决定要不要重载内核）。
   static int missingInKernel = 0;
@@ -73,13 +71,14 @@ class MclashSpeedTester {
   /// 前者不能把 400 个节点全判成离线（那会误导用户去清空订阅）。
   static bool isKernelUnreachable(String message) {
     final m = message.toLowerCase();
+    // 只认「内核控制端口没在听/崩了」的明确信号。`socketexception` 太宽泛，
+    // 节点测速时的临时抖动也会被它命中，累计到阈值就把整批测速误中断。
     return m.contains("远程计算机拒绝网络连接") ||
         m.contains("connection refused") ||
         m.contains("errno = 1225") ||
         m.contains("errno=1225") ||
         m.contains("connection closed before full header was received") ||
-        m.contains("connection reset by peer") ||
-        m.contains("socketexception");
+        m.contains("connection reset by peer");
   }
 
   @visibleForTesting
@@ -184,24 +183,8 @@ class MclashSpeedTester {
     } catch (_) {}
     try {
       var r = await ClashHttpApi.getDelay(node.name, url: url, timeout: timeout);
-      // 慢节点再测一次取较小值：这类订阅节点抖动极大（本机实测同一节点在不同
-      // 时刻 333ms ~ 4158ms），单次采样会把瞬时拥塞当成节点质量。只对「>=1.5s 的
-      // 慢结果」补一次，代价可忽略（快节点不会多测）。
-      final firstMs = r.data ?? -1;
-      // 只对「明显慢」的结果补测一次（阈值从 1.5s 提到 2.5s）：慢节点本来就多，
-      // 每个都补测等于把请求数翻倍 —— 连接后那几百个请求就是这么来的。
-      if (r.error == null && firstMs >= 2500) {
-        final again = await ClashHttpApi.getDelay(
-          node.name,
-          url: url,
-          timeout: timeout,
-        );
-        if (again.error == null &&
-            (again.data ?? -1) > 0 &&
-            (again.data ?? -1) < firstMs) {
-          r = again;
-        }
-      }
+      // 不再对慢节点补测：每个慢节点补测一次等于请求翻倍，是全量测速
+      // 「非常缓慢」的直接来源（用户反馈）。单次采样足够用于排序/选路。
       if (r.error != null) {
         final msg = r.error!.message;
         // 节点不在**当前运行的内核**里（配置档刚换过、内核还没重启）：

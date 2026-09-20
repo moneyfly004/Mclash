@@ -401,7 +401,7 @@ void connectTimeGroupDelayTests() {
     expect(groupDelayCalls, 0);
     expect(
       probed.length,
-      lessThanOrEqualTo(8),
+      lessThanOrEqualTo(MclashNodeAutoPick.probeLimit),
       reason: '最多测 ${MclashNodeAutoPick.probeLimit} 个候选（而不是整组）',
     );
   });
