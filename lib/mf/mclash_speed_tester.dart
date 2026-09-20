@@ -21,6 +21,8 @@ class MclashSpeedTester {
 
   static const int maxConcurrent = 8;
 
+  static const int udpMaxConcurrent = 2;
+
   static const int fatalStreakLimit = 24;
 
   static int missingInKernel = 0;
@@ -35,9 +37,7 @@ class MclashSpeedTester {
     return m.contains("远程计算机拒绝网络连接") ||
         m.contains("connection refused") ||
         m.contains("errno = 1225") ||
-        m.contains("errno=1225") ||
-        m.contains("connection closed before full header was received") ||
-        m.contains("connection reset by peer");
+        m.contains("errno=1225");
   }
 
   @visibleForTesting
@@ -209,14 +209,18 @@ class MclashSpeedTester {
       "（TCP 握手，对齐 MoneyFly；UDP 节点${kernelUp ? "走内核 /delay 兜底" : "跳过"}）",
     );
 
-    final queue = List<int>.generate(nodes.length, (i) => i);
+    final tcpQueue = <int>[];
+    final udpQueue = <int>[];
+    for (var i = 0; i < nodes.length; i++) {
+      (nodes[i].udpOnly ? udpQueue : tcpQueue).add(i);
+    }
     var done = 0;
     var ok = 0;
     missingInKernel = 0;
     _deadStreak = 0;
     _kernelGone = false;
 
-    Future<void> worker() async {
+    Future<void> worker(List<int> queue) async {
       while (queue.isNotEmpty) {
         if (gen != _testGen) {
           break;
@@ -248,8 +252,12 @@ class MclashSpeedTester {
       }
     }
 
-    final count = nodes.length < maxConcurrent ? nodes.length : maxConcurrent;
-    await Future.wait(List.generate(count, (_) => worker()));
+    final tcpCount = tcpQueue.length < maxConcurrent ? tcpQueue.length : maxConcurrent;
+    final udpCount = udpQueue.length < udpMaxConcurrent ? udpQueue.length : udpMaxConcurrent;
+    await Future.wait([
+      for (var i = 0; i < tcpCount; i++) worker(tcpQueue),
+      for (var i = 0; i < udpCount; i++) worker(udpQueue),
+    ]);
     if (onProgress != null) {
       onProgress(nodes.length, nodes.length);
     }

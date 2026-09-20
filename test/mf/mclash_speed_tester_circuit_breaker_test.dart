@@ -16,14 +16,20 @@ void main() {
       isTrue,
     );
     expect(
-      MclashSpeedTester.isKernelUnreachable(
-        "HttpException: Connection closed before full header was received",
-      ),
+      MclashSpeedTester.isKernelUnreachable("SocketException: Connection refused"),
       isTrue,
     );
     expect(
-      MclashSpeedTester.isKernelUnreachable("SocketException: Connection refused"),
-      isTrue,
+      MclashSpeedTester.isKernelUnreachable(
+        "HttpException: Connection closed before full header was received",
+      ),
+      isFalse,
+    );
+    expect(
+      MclashSpeedTester.isKernelUnreachable(
+        "Connection reset by peer",
+      ),
+      isFalse,
     );
     expect(
       MclashSpeedTester.isKernelUnreachable("http statusCode: 400"),
