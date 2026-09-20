@@ -27,7 +27,6 @@ import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
 import 'package:mclash/screens/mclash_node_picker_sheet.dart';
-import 'package:mclash/screens/mclash_system_proxy_sheet.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/segmented_elevated_button.dart';
 import 'package:flutter/material.dart';

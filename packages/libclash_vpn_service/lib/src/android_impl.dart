@@ -204,6 +204,7 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     }
   }
 
+  @override
   Future<String> fetchKernelLogs({bool incremental = true}) async {
     try {
       return await _channel.invokeMethod<String>("fetchKernelLogs", {
