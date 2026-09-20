@@ -160,13 +160,11 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     });
   }
 
-  /// 检查更新回调（dispose 时必须移除，否则每次重建主界面都会多挂一个）。
   void _onUpdateChecked() {
     if (!mounted) {
       return;
     }
     setState(() {});
-    // 有新版本时提示一次（同一版本用户点过「稍后」就不再打扰）
     MclashUpdatePrompt.maybePromptOnLaunch(context);
   }
 
@@ -222,9 +220,6 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     if (!mounted) {
       return;
     }
-    // 只有「连上 / 断开」需要通知外部（托盘图标、桌面小组件）；
-    // 中间态（connecting / reasserting / disconnecting）界面自己会画转圈，
-    // 以前那些空 else-if 分支只是噪音。
     if (state == FlutterVpnServiceState.connected) {
       Biz.vpnStateChanged(true);
     } else if (state == FlutterVpnServiceState.disconnected) {
@@ -277,9 +272,6 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
         child: Column(
           children: [
 
-            // 顶栏：标志缩小靠左上，到期/设备信息条在标志右侧（连接卡**上方**）。
-            // 以前是 18px 居中大标题 + 一整行副标题，把订阅信息挤到连接卡下方，
-            // 用户要滚动/找才能看到「到期时间、设备数」。
             const MclashHomeHeader(),
             Expanded(
               child: Padding(

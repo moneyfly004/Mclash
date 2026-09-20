@@ -2,10 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/mf/mclash_flat_nodes.dart';
 
-/// 「全局模式只显示国家节点」的回归。
-///
-/// 用户反馈原文：「选择全局模式，我不要他显示 global 的东西，我要他只能看到
-/// 国家节点可以选择，不需要看 global。」
 void main() {
   ClashProxiesNode node(String name, {int? delay}) => ClashProxiesNode()
     ..name = name

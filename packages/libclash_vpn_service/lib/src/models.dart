@@ -89,36 +89,21 @@ class ProxyOption {
   };
 }
 
-/// TUN 启动失败的原因分类（与客户端 UI 的提示一一对应）。
 enum TunStartFailureKind {
-  /// 没有失败（含「只有正常告警」的情况）
   none,
 
-  /// 权限不足：Windows 未以管理员运行 / macOS 未以 root 运行
   privilege,
 
-  /// 虚拟网卡已存在或被占用（同名适配器残留）
   adapterBusy,
 
-  /// 虚拟网卡驱动 / DLL 无法加载（多被安全软件拦截）
   driver,
 
-  /// 起来了但原因无法归类
   unknown,
 }
 
 class VpnServiceConfig {
-  /// 是否把 IPv6 流量也纳入隧道。
-  ///
-  /// 默认 false：行为与历史版本完全一致。用户开启 IPv6 后，Android 侧必须
-  /// 给 TUN 加上 IPv6 地址与 `::/0` 路由，否则 IPv6 流量**根本不进隧道**
-  /// （应用优先走 IPv6 时直连出去：既泄漏真实 IP，也可能连不上被墙的站点）。
   bool ipv6 = false;
 
-  /// 本次连接是否启用了 TUN（虚拟网卡）。
-  ///
-  /// 内核侧退出前要用它决定「要不要先通过控制接口把 TUN 拆掉」：
-  /// Windows 上是强杀进程，TUN 的路由/网卡会留在系统里（退出后无法上网）。
   bool tun_enabled = false;
 
   int control_port = 0;
@@ -158,8 +143,6 @@ class VpnServiceConfig {
   VpnServiceConfig();
 
   void fromJson(Map<String, dynamic> map) {
-    // ipv6 / tun_enabled 之前漏在这两个方法外面：调用方设了值，序列化一圈
-    // 就丢了（内核侧要靠 tun_enabled 决定退出前要不要拆 TUN）。
     ipv6 = map["ipv6"] == true;
     tun_enabled = map["tun_enabled"] == true;
     control_port = (map["control_port"] as num?)?.toInt() ?? 0;

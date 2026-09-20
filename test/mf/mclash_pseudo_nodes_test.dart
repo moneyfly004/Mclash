@@ -1,8 +1,6 @@
 import 'package:mclash/mf/mclash_pseudo_nodes.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 用例取自后端 `createInfoNode` / `getErrorNodes` **实际下发的字符串**，
-/// 不是凭空编的 —— 这些名字一旦变动，本测试会立刻失败。
 void main() {
   group('信息节点（createInfoNode）', () {
     for (final n in [
@@ -43,7 +41,7 @@ void main() {
       "🇭🇰 香港 01",
       "美国-洛杉矶-优化",
       "🇸🇬 SG-01",
-      "剩余流量：100GB", // 看起来像信息，但不是后端下发的那几种
+      "剩余流量：100GB", 
     ]) {
       test('$n 不是伪节点', () => expect(MclashPseudoNodes.isPseudo(n), isFalse));
     }

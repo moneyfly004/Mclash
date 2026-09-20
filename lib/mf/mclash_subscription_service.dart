@@ -33,18 +33,12 @@ class MclashSubSyncResult {
 
 abstract final class MclashSubscriptionService {
 
-  /// 订阅自动更新间隔的**默认值**：30 分钟。
-  ///
-  /// 为什么不是一天：套餐节点会被服务端轮换/下线，间隔太长会出现
-  /// 「节点列表是旧的、点了报节点不存在」。一次同步只有几百 KB，
-  /// 30 分钟的开销可以忽略；想省流量可以在「我的 → 应用设置」里改成 6 小时/一天/从不。
   static const Duration kUpdateInterval = Duration(minutes: 30);
 
   static const String kProfileRemark = "账号订阅";
 
   static Future<MclashSubSyncResult>? _inflight;
 
-  /// 界面上可选的自动更新间隔（null = 从不自动更新）。
   static const Map<String, Duration?> intervalChoices = {
     "30 分钟": Duration(minutes: 30),
     "1 小时": Duration(hours: 1),
@@ -56,7 +50,6 @@ abstract final class MclashSubscriptionService {
     "从不": null,
   };
 
-  /// 账号订阅配置档（「我的」里改更新间隔就是改它）。
   static ProfileSetting? accountProfile() {
     for (final p in ProfileManager.getProfiles()) {
       if (p.remark == kProfileRemark) {
@@ -66,7 +59,6 @@ abstract final class MclashSubscriptionService {
     return null;
   }
 
-  /// 当前自动更新间隔；没有账号订阅档时返回默认 24 小时。
   static Duration? accountInterval() {
     final profile = accountProfile();
     if (profile == null) {
@@ -93,27 +85,18 @@ abstract final class MclashSubscriptionService {
     return "${d.inMinutes} 分钟";
   }
 
-  /// 写入自动更新间隔并落盘（返回错误信息，null = 成功）。
-  ///
-  /// 之前「我的 → 更新间隔」不生效的直接原因就是：界面改了内存里的字段却没有
-  /// 对应的持久化入口，重启后回到旧值。
   static Future<String?> setAccountInterval(Duration? interval) async {
     final profile = accountProfile();
     if (profile == null) {
       return "还没有账号订阅配置档，请先登录并同步订阅";
     }
     profile.updateInterval = interval;
-    // 用户显式设置的值优先于机场下发的 profile-update-interval
     profile.updateIntervalPreferByProfile = false;
     await ProfileManager.save();
     Log.i("MclashSubscriptionService: 自动更新间隔已设为 ${intervalLabel(interval)}");
     return null;
   }
 
-  /// 启动/登录时的自动同步：按「生效间隔」判断是否该更新。
-  ///
-  /// 登录是用户的明确动作（token 可能刚换），此时强制同步；普通启动则尊重
-  /// 用户设置的间隔，避免「设了 7 天却每次开 App 都重新下载」。
   static Future<MclashSubSyncResult?> syncOnLaunch({required bool force}) {
     if (force) {
       return sync();
@@ -207,10 +190,6 @@ abstract final class MclashSubscriptionService {
         remark: kProfileRemark,
         updateInterval: kUpdateInterval,
         updateIntervalPreferByProfile: false,
-        // 必须带上设备详情头（x-hwid / x-device-os / x-device-model…）：
-        // 设备**登记**就发生在这次订阅请求里，不带的话面板里的型号/系统是空的
-        // （用户实测反馈「设备管理看不到型号」）。注意：指纹用的是
-        // X-App-Device-Id（Did），跟这些头无关，所以不会因此多算一台设备。
         xhwid: true,
       );
       if (added.error != null) {
@@ -236,16 +215,6 @@ abstract final class MclashSubscriptionService {
     }
   }
 
-  /// 订阅内容变了而内核还在用旧配置跑 → 重连一次。
-  ///
-  /// 内核只在启动时读一次 `config.yaml`，之后磁盘上的配置档被覆盖它**不会**
-  /// 自动重载。不处理的话用户会遇到：
-  ///   * 节点列表已经是新的，内核里还是旧的 → 点新节点报「节点不存在」；
-  ///   * 机场换了落地/密码 → 显示已连接但**没有流量**；
-  ///   * 已下线的节点还在内核里 → 自动选优选到死节点。
-  ///
-  /// 只在「内容真的变了」且「当前连着」时才重连（内容没变就什么都不做），
-  /// 免得每次定时同步都把用户断一次 —— 那反而成了「自动断开」。
   static Future<void> applyToRunningKernel() async {
     try {
       if (!await VPNService.getStarted()) {

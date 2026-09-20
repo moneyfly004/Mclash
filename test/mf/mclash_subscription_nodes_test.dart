@@ -2,24 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_config.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
 
-/// 「节点列表不显示任何节点」的**决定性**回归测试。
-///
-/// ## 被钉住的两件事
-///
-/// 1. **内核没跑时也要有数据**：节点列表 Tab 原来的唯一数据源是运行中的内核
-///    （`GET /proxies`），Mclash 的内核只在用户打开连接开关时才启动 —— 于是
-///    登录后进「节点列表」= 一片空白（组件 `data.isEmpty → SizedBox.shrink()`）。
-///    而订阅其实早就自动同步在本地。`MclashSubscriptionNodes.parse` 就是为这条
-///    路径存在的，必须能真的解析出组与节点。
-///
-/// 2. **组类型必须转成内核 API 的写法**：列表组件用
-///    `ClashProtocolType.GroupToList().contains(node.type)` 判断「这一行是不是
-///    代理组」。YAML 里写的是小写 kebab（`select`/`url-test`），内核 API 返回的是
-///    `Selector`/`URLTest`。若解析时不做转换，**每一行都会被过滤掉** →
-///    列表再次变成空白（数据有了、界面还是空的，最难查的一类 bug）。
-///    所以下面直接把这条不变量断言死。
 void main() {
-  /// 按真实订阅的写法构造（含伪节点、三种组类型、大小写混用）
   const realShapeYaml = '''
 port: 7890
 proxies:
@@ -73,7 +56,6 @@ rules:
       final nodes = MclashSubscriptionNodes.parse(realShapeYaml);
       final groups = nodes.where((n) => n.all.isNotEmpty).toList();
 
-      // 这就是列表组件的判据，逐条断言 —— 转换写错一个字就会全被跳过
       for (final g in groups) {
         expect(
           ClashProtocolType.GroupToList().contains(g.type),

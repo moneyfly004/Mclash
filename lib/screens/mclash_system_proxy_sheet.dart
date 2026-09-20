@@ -10,26 +10,15 @@ import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
 
-/// 测试缝：替换「读取系统代理当前状态」与「设置/关闭」。
-///
-/// 真实实现要读注册表（Windows）/ networksetup（macOS），在 widget 测试里
-/// 既跑不了也不该跑，所以留出口子。
 @visibleForTesting
 Future<String?> Function()? debugSystemProxyStateOverride;
 
 @visibleForTesting
 Future<bool> Function(bool enable)? debugSystemProxyApplyOverride;
 
-/// 测试缝：替换「把新端口写进设置」（真实实现要落盘）。
 @visibleForTesting
 Future<void> Function(int port)? debugSetMixedPortOverride;
 
-/// 「系统代理」面板：**让用户看得见、改得动**。
-///
-/// 用户反馈（Windows）：「连接之后系统代理是空白，无法改变系统代理的 IP 和端口」。
-/// 根因链是「内核实际监听端口」与「应用侧记录的端口」不一致导致设置被跳过或写错，
-/// 已在内核端口同步里修；但**光有日志不够** —— 用户需要一个能直接看到当前生效地址、
-/// 能重设、能换端口的地方。这个面板就是那个出口。
 Future<void> showMclashSystemProxySheet(BuildContext context) {
   return showSheet<void>(
     context: context,
@@ -67,7 +56,6 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
     super.dispose();
   }
 
-  /// 当前生效状态（地址 + 是否真的在系统里生效）。
   Future<void> _refresh() async {
     final override = debugSystemProxyStateOverride;
     if (override != null) {
@@ -81,8 +69,6 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
       final port = ClashSettingManager.getMixedPort();
       final running = await VPNService.getStarted();
       final enable = await VPNService.getSystemProxyEnable();
-      // 诊断详情：注册表值 / 界面读的那份 / 两次广播结果 —— 用户报「系统代理
-      // 明明设了、界面却空白」时，这里一眼就能看出卡在哪一步（不用跑脚本）。
       String diag = "";
       try {
         diag = await systemProxyDiagnostics();
@@ -97,15 +83,10 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
         } else if (enable) {
           _state = "已生效 · ${VPNService.systemProxyHost}:$port";
         } else if (!VPNService.shouldApplySystemProxy()) {
-          // 「连上了、系统代理却是空的」有一类**不是故障**：TUN 强制模式下我们
-          // 故意不碰系统代理（流量走虚拟网卡）。以前这里只显示「未生效」，
-          // 用户会一直以为坏了 —— 现在把真实原因说清楚。
           _state = "未设置系统代理 —— ${VPNService.systemProxySkipReason()}";
         } else {
           _state = "未生效（系统里没有指向 $port 的代理）";
         }
-        // 没生效就把诊断**直接摊开**：用户来这里就是为了解决「系统代理是空白」，
-        // 让他再点一次「诊断详情」才看得到原因，等于把答案藏起来。
         if (!enable && _diag.trim().isNotEmpty) {
           _showDiag = true;
         }
@@ -160,10 +141,6 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
     return VPNService.getSystemProxyEnable();
   }
 
-  /// 改端口：写进设置，并说明「需要重连才生效」。
-  ///
-  /// 这是用户说的「无法改变系统代理的 IP 和端口」的直接出口 —— 内核监听端口
-  /// 由配置决定，改完必须重连（否则系统代理会指向内核没在听的端口）。
   Future<void> _changePort(int value) async {
     if (value <= 0 || value > 65535) {
       setState(() => _error = "端口需在 1–65535 之间");
@@ -244,10 +221,6 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
               ),
             ],
           ),
-          // 诊断详情：Windows 上「注册表明明有地址端口、Internet 选项却空白」时，
-          // 这里直接摊开三件事：注册表值、界面实际读的那份值、两次广播的结果。
-          // 以前用户手里只有核心日志（内核输出），App 侧做了哪几步、成没成功
-          // 完全看不到 —— 只能靠猜。
           if (_diag.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             InkWell(
@@ -348,4 +321,3 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
   }
 }
 
-/// 便于排查：把当前系统代理状态写进日志（Windows 上用户可据此反馈）。

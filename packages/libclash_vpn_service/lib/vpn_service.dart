@@ -18,11 +18,6 @@ class FlutterVpnService {
 
   static VpnServicePlatform get _p => VpnServicePlatform.instance;
 
-  /// 注入 App 资源根目录（安装目录下的 `data`）：内核找 geo 数据时用。
-  ///
-  /// 平台包不能依赖上层的 PathUtils，所以由应用层在启动时注入 —— 以前 app 层直接
-  /// import `src/desktop_impl.dart` 去设 `cfg0AssetsDir`（跨包 import src 是不被
-  /// 推荐的写法），这里给一个公开入口。
   static void setAssetsDir(String dir) => DesktopVpnServiceImpl.cfg0AssetsDir = dir;
 
   static Future<FlutterVpnServiceState> get currentState async {
@@ -74,11 +69,6 @@ class FlutterVpnService {
 
   static Future<void> setAlwaysOn(bool enable) => _p.setAlwaysOn(enable);
 
-  /// 设置系统代理；返回是否**真的写成功**。
-  ///
-  /// 之前这里返回 void，把平台层的成败丢掉了：调用方只能再读回一次，
-  /// 而「写失败」和「写完没生效」是两回事（Windows 上被组策略/其它代理软件
-  /// 覆盖时就是后者）。把结果透出去，调用方才能给出准确提示。
   static Future<bool> setSystemProxy(ProxyOption option) =>
       _p.setSystemProxy(option);
 
@@ -89,7 +79,6 @@ class FlutterVpnService {
 
   static Future<String> getABIs() => _p.getABIs();
 
-  /// 请求通知权限（Android 13+ 前台服务通知）。
   static Future<bool> requestNotificationPermission() =>
       _p.requestNotificationPermission();
 
@@ -97,7 +86,6 @@ class FlutterVpnService {
 
   static bool get systemProxyFallbackActive => _p.systemProxyFallbackActive;
 
-  /// TUN 启动失败的原因（none = 没失败）。
   static TunStartFailureKind get tunFailureKind => _p.tunFailureKind;
 
   static Future<void> firewallAddApp(String path, String name) async {
@@ -153,19 +141,6 @@ class FlutterVpnService {
   static bool get supportSystemProxy =>
       Platform.isWindows || Platform.isMacOS;
 
-  /// 清理孤儿内核（父进程已消失但还在运行的 mihomo），返回被杀掉的 PID。
-  ///
-  /// 桌面端专用：Windows 没有「父死子死」，非正常退出会留下内核继续吃端口。
-  /// Android 的内核是同一个进程里的 libmihomo，不存在这种情况。
-  /// [includeOwn] = true 时，除了孤儿内核，还把**不在当前跟踪中**的、
-  /// 与我们同一份内核路径的 mihomo 一起收掉。
-  ///
-  /// 为什么需要：用户实测「点了连接连不上、重试也连不上」—— 占用控制端口的
-  /// 就是上一次启动留下、父进程（App）还活着因而**不是孤儿**的内核。
-  ///
-  /// [force] = true 时忽略「本次运行已经扫过」的缓存再扫一遍。Windows 上这个
-  /// 扫描要起一次 PowerShell（冷启动 1~3 秒），所以默认只在启动时扫一次；
-  /// 端口真的被占用时（多半就是残留内核占着）才需要 force。
   static Future<List<int>> killStaleKernels({
     bool includeOwn = false,
     bool force = false,

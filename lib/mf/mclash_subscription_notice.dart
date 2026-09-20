@@ -1,50 +1,18 @@
 library;
 
-/// 后端在「订阅不可用」时下发的**提示节点**里携带的信息。
-///
-/// 背景（用户要求的行为）：当客户
-///   * 套餐已到期、或被禁用（`status != active` / `is_active = false`）、
-///   * 或设备数超过上限（拉订阅时当下判定），
-/// 后端会让这次订阅请求**只下发提示节点**（`📢 官网:` / `❌ 原因:` /
-/// `💡 解决:` / `💬 客服:`，节点本体是 `baidu.com:1234` 的死节点），
-/// 并把订阅名改成「订阅已过期 / 订阅已失效 / 设备超限 / 订阅不存在」。
-///
-/// 客户端据此完成三件事：
-///   1. **覆盖本地配置档**（下载校验通过 → 原子替换，旧的真实节点被抹掉）；
-///   2. **节点列表归零**（提示节点被 [MclashPseudoNodes] 过滤掉，自动选节点无候选）；
-///   3. **禁止连接**（本文件解析出的状态会进入账号门禁，任何连接入口都会被拦住）。
-///
-/// 生产实测（只读）：`GET /api/v1/client/subscribe?token=<不存在>&type=clash` 返回
-/// ```yaml
-/// name: 订阅不存在
-/// proxies:
-///   - {name: "📢 官网: https://new.moneyfly.top", server: baidu.com, port: 1234, type: ss, ...}
-///   - {name: "❌ 原因: 订阅不存在", ...}
-///   - {name: "💡 解决: 请检查订阅地址是否正确", ...}
-///   - {name: "💬 客服: …", ...}
-/// ```
 enum MclashNoticeState {
-  /// 还没看过配置档 / 配置档里没有任何 proxies。
   unknown,
 
-  /// 有真实节点 → 订阅可用。
   ok,
 
-  /// `订阅不存在`（token 失效或订阅被删除）
   notFound,
 
-  /// `订阅已过期`
   expired,
 
-  /// `订阅已失效`（被禁用 / status 非 active）
   inactive,
 
-  /// `设备数量超限`
   deviceOverLimit,
 
-  /// 后端有 `❌ 原因:` 但原因不是上面几种（例如新增的
-  /// 「服务暂时不可用」）。**同样禁止连接** —— 配置档里确实一个真实节点都没有，
-  /// 放行只会让用户以为连上了；区别只是提示文案要如实转述后端的话。
   other,
 }
 
@@ -62,19 +30,14 @@ class MclashSubscriptionNotice {
 
   final MclashNoticeState state;
 
-  /// `❌ 原因:` 后面的原文（例如「订阅已过期」）。
   final String reason;
 
-  /// `💡 解决:` 后面的原文（例如「请前往官网续费 (过期时间: 2026-01-01)」）。
   final String solution;
 
-  /// `📢 官网:` 后面的站点地址。
   final String site;
 
-  /// `💬 客服:` 后面的联系方式。
   final String support;
 
-  /// `⏰ 到期:` 里的到期日期（可用订阅也会带）。
   final String expire;
 
   final int deviceUsed;
@@ -86,7 +49,6 @@ class MclashSubscriptionNotice {
     state: MclashNoticeState.ok,
   );
 
-  /// 是否应当**禁止连接**。
   bool get blocked =>
       state == MclashNoticeState.notFound ||
       state == MclashNoticeState.expired ||
@@ -94,7 +56,6 @@ class MclashSubscriptionNotice {
       state == MclashNoticeState.deviceOverLimit ||
       state == MclashNoticeState.other;
 
-  /// 「订阅已过期」这类短语，与后端下发的订阅名保持一致。
   String get title {
     switch (state) {
       case MclashNoticeState.notFound:
@@ -136,10 +97,6 @@ class MclashSubscriptionNotice {
   static const String _kExpirePrefix = "⏰ 到期:";
   static const String _kDevicePrefix = "📱 设备:";
 
-  /// 从配置档 `proxies` 的名字列表里还原出后端想说的话。
-  ///
-  /// 名字列表里只要存在**真实节点**就是 ok —— 老版本会在正常订阅前面插
-  /// 信息节点（📢/⏰/📱），不能因为看到提示节点就判定订阅不可用。
   static MclashSubscriptionNotice parse(Iterable<String> proxyNames) {
     final names = proxyNames.where((n) => n.isNotEmpty).toList();
     if (names.isEmpty) {
@@ -190,7 +147,6 @@ class MclashSubscriptionNotice {
       hasRealNode = true;
     }
 
-    // 「当前设备 3/2，请在官网删除不使用的设备」里也带设备数
     final dm = RegExp(r"当前设备\s*(\d+)\s*/\s*(\d+)").firstMatch(solution);
     if (dm != null) {
       used = int.tryParse(dm.group(1)!) ?? used;
@@ -241,11 +197,9 @@ class MclashSubscriptionNotice {
     if (reason.contains("不存在")) {
       return MclashNoticeState.notFound;
     }
-    // 有明确的「原因」但没有真实节点 → 一律视为不可用（如实转述后端文案）。
     return MclashNoticeState.other;
   }
 
-  /// 给用户看的完整说明（原因 + 解决 + 客服 + 官网）。
   String get fullText {
     final parts = <String>[];
     if (reason.isNotEmpty) {

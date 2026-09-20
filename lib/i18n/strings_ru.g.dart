@@ -1,19 +1,12 @@
-///
-/// Generated file. Do not edit.
-///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
-// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
-// Path: <root>
 class TranslationsRu with BaseTranslations<AppLocale, Translations> implements Translations {
-	/// You can call this constructor and build your own translation instance of this locale.
-	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsRu({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -25,11 +18,9 @@ class TranslationsRu with BaseTranslations<AppLocale, Translations> implements T
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
-	/// Metadata for the translations of <ru>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
-	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsRu _root = this; // ignore: unused_field
@@ -37,7 +28,6 @@ class TranslationsRu with BaseTranslations<AppLocale, Translations> implements T
 	@override 
 	TranslationsRu $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsRu(meta: meta ?? this.$meta);
 
-	// Translations
 	@override late final _Translations$BackupAndSyncWebdavScreen$ru BackupAndSyncWebdavScreen = _Translations$BackupAndSyncWebdavScreen$ru._(_root);
 	@override late final _Translations$LaunchFailedScreen$ru LaunchFailedScreen = _Translations$LaunchFailedScreen$ru._(_root);
 	@override late final _Translations$PerAppAndroidScreen$ru PerAppAndroidScreen = _Translations$PerAppAndroidScreen$ru._(_root);
@@ -69,26 +59,22 @@ class TranslationsRu with BaseTranslations<AppLocale, Translations> implements T
 	};
 }
 
-// Path: BackupAndSyncWebdavScreen
 class _Translations$BackupAndSyncWebdavScreen$ru implements Translations$BackupAndSyncWebdavScreen$en {
 	_Translations$BackupAndSyncWebdavScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get webdavServerUrl => 'Адрес сервера';
 	@override String get webdavRequired => 'Не может быть пустым';
 	@override String get webdavLoginFailed => 'Ошибка входа:';
 	@override String get webdavListFailed => 'Не удалось получить список файлов:';
 }
 
-// Path: LaunchFailedScreen
 class _Translations$LaunchFailedScreen$ru implements Translations$LaunchFailedScreen$en {
 	_Translations$LaunchFailedScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get invalidProcess => 'Не удалось запустить приложение [Неверное имя процесса], переустановите приложение в отдельную папку';
 	@override String get invalidProfile => 'Не удалось запустить приложение [Не удалось получить доступ к профилю], переустановите приложение';
 	@override String get invalidVersion => 'Не удалось запустить приложение [Неверная версия], переустановите приложение';
@@ -96,36 +82,30 @@ class _Translations$LaunchFailedScreen$ru implements Translations$LaunchFailedSc
 	@override String get invalidInstallPath => 'Путь установки недействителен, переустановите его по допустимому пути';
 }
 
-// Path: PerAppAndroidScreen
 class _Translations$PerAppAndroidScreen$ru implements Translations$PerAppAndroidScreen$en {
 	_Translations$PerAppAndroidScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get title => 'Проксируемые приложения';
 	@override String get whiteListMode => 'Режим белого списка';
 	@override String get whiteListModeTip => 'Если включено: перенаправляются через прокси-сервер только те приложения, которые были отмечены. Если выключено: перенаправляются через прокси-сервер только те приложения, которые не были отмечены.';
 }
 
-// Path: UserAgreementScreen
 class _Translations$UserAgreementScreen$ru implements Translations$UserAgreementScreen$en {
 	_Translations$UserAgreementScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get privacyFirst => 'Ваша конфиденциальность превыше всего';
 	@override String get agreeAndContinue => 'Принять и продолжить';
 }
 
-// Path: NetCheckScreen
 class _Translations$NetCheckScreen$ru implements Translations$NetCheckScreen$en {
 	_Translations$NetCheckScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get enterDomain => 'Введите доменное имя';
 	@override String get checking => 'Проверка...';
 	@override String aQueryFailed({required Object p}) => 'Ошибка запроса A: ${p}';
@@ -142,25 +122,21 @@ class _Translations$NetCheckScreen$ru implements Translations$NetCheckScreen$en 
 	@override String get routeTableSection => '4. Таблица маршрутов';
 }
 
-// Path: VersionUpdateScreen
 class _Translations$VersionUpdateScreen$ru implements Translations$VersionUpdateScreen$en {
 	_Translations$VersionUpdateScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String versionReady({required Object p}) => 'Новая версия [${p}] доступна';
 	@override String get update => 'Перезапустить';
 	@override String get cancel => 'Не сейчас';
 }
 
-// Path: loginScreen
 class _Translations$loginScreen$ru implements Translations$loginScreen$en {
 	_Translations$loginScreen$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get login => 'Вход';
 	@override String get register => 'Зарегистрировать аккаунт';
 	@override String get forgotPassword => 'Забыли пароль';
@@ -171,23 +147,19 @@ class _Translations$loginScreen$ru implements Translations$loginScreen$en {
 	@override String get password => 'Пароль';
 }
 
-// Path: main
 class _Translations$main$ru implements Translations$main$en {
 	_Translations$main$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override late final _Translations$main$tray$ru tray = _Translations$main$tray$ru._(_root);
 }
 
-// Path: meta
 class _Translations$meta$ru implements Translations$meta$en {
 	_Translations$meta$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get enable => 'Включить';
 	@override String get disable => 'Запретить';
 	@override String get open => 'Открыть';
@@ -375,13 +347,11 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get tabMe => 'Профиль';
 }
 
-// Path: permission
 class _Translations$permission$ru implements Translations$permission$en {
 	_Translations$permission$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get camera => 'Камера';
 	@override String get screen => 'Запись экрана';
 	@override String get appQuery => 'Получить список приложений';
@@ -389,25 +359,21 @@ class _Translations$permission$ru implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => 'Пожалуйста, включите разрешение [${p}]';
 }
 
-// Path: tls
 class _Translations$tls$ru implements Translations$tls$en {
 	_Translations$tls$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get certificate => 'Сертификат';
 	@override String get privateKey => 'Закрытый ключ';
 	@override String get customTrustCert => 'Индивидуальные сертификаты';
 }
 
-// Path: tun
 class _Translations$tun$ru implements Translations$tun$en {
 	_Translations$tun$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get stack => 'Сетевой стек';
 	@override String get inet4Address => 'Диапазон IPv4-адресов';
 	@override String get dnsHijack => 'Перехват DNS';
@@ -419,13 +385,11 @@ class _Translations$tun$ru implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => 'Домены, которым разрешено обходить HTTP-прокси';
 }
 
-// Path: dns
 class _Translations$dns$ru implements Translations$dns$en {
 	_Translations$dns$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get listen => 'Аудиторское обращение';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'Fallback';
@@ -445,44 +409,33 @@ class _Translations$dns$ru implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIpCode';
 }
 
-// Path: sniffer
 class _Translations$sniffer$ru implements Translations$sniffer$en {
 	_Translations$sniffer$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get overrideDest => 'Переназначить';
 }
 
-// Path: profilePatchMode
 class _Translations$profilePatchMode$ru implements Translations$profilePatchMode$en {
 	_Translations$profilePatchMode$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get currentSelected => 'Текущий сервер';
 	@override String get overwrite => 'Встроенная функция переопределения';
 	@override String get noOverwrite => 'Встроенный - не перезаписывается';
 }
 
-// Path: main.tray
 class _Translations$main$tray$ru implements Translations$main$tray$en {
 	_Translations$main$tray$ru._(this._root);
 
 	final TranslationsRu _root; // ignore: unused_field
 
-	// Translations
 	@override String get menuOpen => 'Открыть';
 	@override String get menuExit => 'Выйти';
 }
 
-/// The flat map containing all translations for locale <ru>.
-/// Only for edge cases! For simple maps, use the map function of this library.
-///
-/// The Dart AOT compiler has issues with very large switch statements,
-/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsRu {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {

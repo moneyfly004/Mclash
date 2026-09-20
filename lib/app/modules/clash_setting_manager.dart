@@ -45,10 +45,6 @@ class ClashSettingManager {
 
   static Future<void> initGeo() async {
     final homePath = await PathUtils.profileDir();
-    // country.mmdb / geosite.dat 由 `assets/rules/` 直接提供（见 pubspec 里的说明），
-    // 内核还需要的 ASN 库在这里落一份到 profile 目录，供内核侧按目录查找时直接命中。
-    // （原实现还会落 geoip.zip / geosite.zip —— 那两个 zip 从来没有被解压过，
-    //  内核按固定文件名找 country.mmdb/geosite.dat，zip 纯属冗余，已删除。）
     const fileNameList = ["ASN.mmdb"];
 
     try {
@@ -96,9 +92,6 @@ class ClashSettingManager {
     );
   }
 
-  /// TUN 是否启用：**只**看用户选择（Android 上的 VpnService 本身就是 TUN，恒开）。
-  ///
-  /// 「关闭」= 不建虚拟网卡（只走系统代理）；「自动 / 强制」= 建虚拟网卡。
   static bool tunEnabledByUser() {
     if (Platform.isAndroid) {
       return true;
@@ -106,10 +99,6 @@ class ClashSettingManager {
     return SettingManager.getConfig().tunEnabled;
   }
 
-  /// 每一轮生成内核配置前，把 TUN 开关同步到设置里。
-  ///
-  /// 不这样做的话，老安装的 `service_core_setting` 里存着 `tun.enable: true`
-  /// （旧默认值），用户关掉开关也没用 —— 内核配置里还是 TUN。
   static void syncTunSwitch() {
     _setting.Tun ??= defaultTun();
     _setting.Tun?.Enable = tunEnabledByUser();
@@ -296,11 +285,6 @@ class ClashSettingManager {
     );
   }
 
-  /// 剔除 mihomo 已删除的配置键（否则内核每次启动都会打一行 error）。
-  ///
-  /// 目前只有 `global-client-fingerprint`：mihomo 1.19 删掉了这个全局键，
-  /// 官方建议改为在**每个节点**上写 `client-fingerprint`（订阅下发的节点已经带了）。
-  /// 老安装的设置文件里还留着它，加载时清掉，save() 会把 null 键剔除。
   static void stripDeprecatedKeys(RawConfig setting) {
     if (setting.GlobalClientFingerprint != null) {
       Log.i("ClashSettingManager: 移除已废弃的 global-client-fingerprint（mihomo 已删除该键，指纹改由节点自带的 client-fingerprint 决定）");
@@ -321,12 +305,6 @@ class ClashSettingManager {
       TLS: defaultTLS(),
       Tun: defaultTun(),
       Extension: defaultExtension(),
-      // 不再写 `global-client-fingerprint`：mihomo 1.19 已经**删除**这个键，
-      // 每次启动都会打一行 error（用户贴的 service_core.log 里就有）：
-      //   The `global-client-fingerprint` configuration is removed,
-      //   please set `client-fingerprint` directly on the proxy instead
-      // 现在按官方建议：指纹由**每个节点**自己的 `client-fingerprint` 决定
-      // （订阅/面板下发的节点里已经带了 `client-fingerprint: chrome`）。
       DisableKeepAlive: false,
       KeepAliveIdle: 30,
       KeepAliveInterval: 30,
@@ -539,11 +517,6 @@ class ClashSettingManager {
       return;
     }
     _setting = setting;
-    // 清理已废弃的配置键：mihomo 1.19 删除了 `global-client-fingerprint`，
-    // 老安装的设置文件里还留着它，内核每次启动都会报
-    //   The `global-client-fingerprint` configuration is removed, …
-    // 这里置空（save() 会把 null 键剔掉），下次写配置就不再出现；
-    // 指纹改为由每个节点自己的 `client-fingerprint` 决定（订阅里已经带了）。
     stripDeprecatedKeys(_setting);
     _setting.MixedPort ??= 7890;
     _setting.DNS ??= defaultDNS();
@@ -584,7 +557,6 @@ class ClashSettingManager {
         await PathUtils.serviceCoreRuntimeProfileFilePath();
   }
 
-  /// 测试缝：直接设定当前模式（真实设置要落盘，测试不该碰文件）。
   @visibleForTesting
   static void debugSetMode(String mode) {
     _setting.Mode = mode;
@@ -606,10 +578,6 @@ class ClashSettingManager {
     return await ClashHttpApi.setConfigsMode(mode.name);
   }
 
-  /// 内核里的模式变了（面板 / 其它工具改的）→ 以**内核为准**写回 App。
-  ///
-  /// 刻意**不**再写回内核（否则和外部的修改来回打架），只落盘 + 通知界面刷新，
-  /// 首页那排「规则 / 全局 / 直连」就会跟着变成面板里选的模式。
   static Future<void> applyModeFromKernel(ClashConfigsMode mode) async {
     if (_setting.Mode == mode.name) {
       return;
@@ -654,7 +622,6 @@ class ClashSettingManager {
     return _setting.MixedPort ?? 7890;
   }
 
-  /// 改控制端口（Clash API）。被别的代理软件占用时由 VPNService 调用。
   static Future<void> setControlPort(int port) async {
     if (port <= 0 || getControlPort() == port) {
       return;

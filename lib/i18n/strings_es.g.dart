@@ -1,19 +1,12 @@
-///
-/// Generated file. Do not edit.
-///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
-// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
-// Path: <root>
 class TranslationsEs with BaseTranslations<AppLocale, Translations> implements Translations {
-	/// You can call this constructor and build your own translation instance of this locale.
-	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsEs({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -25,11 +18,9 @@ class TranslationsEs with BaseTranslations<AppLocale, Translations> implements T
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
-	/// Metadata for the translations of <es>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
-	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsEs _root = this; // ignore: unused_field
@@ -37,7 +28,6 @@ class TranslationsEs with BaseTranslations<AppLocale, Translations> implements T
 	@override 
 	TranslationsEs $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsEs(meta: meta ?? this.$meta);
 
-	// Translations
 	@override late final _Translations$BackupAndSyncWebdavScreen$es BackupAndSyncWebdavScreen = _Translations$BackupAndSyncWebdavScreen$es._(_root);
 	@override late final _Translations$LaunchFailedScreen$es LaunchFailedScreen = _Translations$LaunchFailedScreen$es._(_root);
 	@override late final _Translations$PerAppAndroidScreen$es PerAppAndroidScreen = _Translations$PerAppAndroidScreen$es._(_root);
@@ -69,26 +59,22 @@ class TranslationsEs with BaseTranslations<AppLocale, Translations> implements T
 	};
 }
 
-// Path: BackupAndSyncWebdavScreen
 class _Translations$BackupAndSyncWebdavScreen$es implements Translations$BackupAndSyncWebdavScreen$en {
 	_Translations$BackupAndSyncWebdavScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get webdavServerUrl => 'URL del Servidor';
 	@override String get webdavRequired => 'No puede estar vacío';
 	@override String get webdavLoginFailed => 'Fallo al iniciar sesión:';
 	@override String get webdavListFailed => 'Fallo al obtener la lista de archivos:';
 }
 
-// Path: LaunchFailedScreen
 class _Translations$LaunchFailedScreen$es implements Translations$LaunchFailedScreen$en {
 	_Translations$LaunchFailedScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get invalidProcess => 'La aplicación no pudo iniciarse [Nombre de proceso no válido], por favor reinstale la aplicación en un directorio separado';
 	@override String get invalidProfile => 'La aplicación no pudo iniciarse [Fallo al acceder al perfil], por favor reinstale la aplicación';
 	@override String get invalidVersion => 'La aplicación no pudo iniciarse [Versión no válida], por favor reinstale la aplicación';
@@ -96,48 +82,40 @@ class _Translations$LaunchFailedScreen$es implements Translations$LaunchFailedSc
 	@override String get invalidInstallPath => 'La ruta de instalación no es válida, por favor reinstálela en una ruta válida';
 }
 
-// Path: PerAppAndroidScreen
 class _Translations$PerAppAndroidScreen$es implements Translations$PerAppAndroidScreen$en {
 	_Translations$PerAppAndroidScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get title => 'Proxy por Aplicación';
 	@override String get whiteListMode => 'Modo Lista Blanca';
 	@override String get whiteListModeTip => 'Cuando está habilitado: solo las aplicaciones marcadas son proxies; cuando no está habilitado: solo las aplicaciones no marcadas son proxies';
 }
 
-// Path: UserAgreementScreen
 class _Translations$UserAgreementScreen$es implements Translations$UserAgreementScreen$en {
 	_Translations$UserAgreementScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get privacyFirst => 'Su Privacidad es lo Primero';
 	@override String get agreeAndContinue => 'Aceptar y Continuar';
 }
 
-// Path: VersionUpdateScreen
 class _Translations$VersionUpdateScreen$es implements Translations$VersionUpdateScreen$en {
 	_Translations$VersionUpdateScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String versionReady({required Object p}) => 'La nueva versión [${p}] está lista';
 	@override String get update => 'Reiniciar para Actualizar';
 	@override String get cancel => 'Ahora no';
 }
 
-// Path: NetCheckScreen
 class _Translations$NetCheckScreen$es implements Translations$NetCheckScreen$en {
 	_Translations$NetCheckScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get enterDomain => 'Por favor, introduzca un dominio';
 	@override String get checking => 'Comprobando...';
 	@override String aQueryFailed({required Object p}) => 'Fallo en la consulta A: ${p}';
@@ -154,13 +132,11 @@ class _Translations$NetCheckScreen$es implements Translations$NetCheckScreen$en 
 	@override String get routeTableSection => '4. Tabla de Rutas';
 }
 
-// Path: loginScreen
 class _Translations$loginScreen$es implements Translations$loginScreen$en {
 	_Translations$loginScreen$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get login => 'Iniciar sesión';
 	@override String get register => 'Registrar cuenta';
 	@override String get forgotPassword => 'Olvidé mi contraseña';
@@ -171,23 +147,19 @@ class _Translations$loginScreen$es implements Translations$loginScreen$en {
 	@override String get password => 'Contraseña';
 }
 
-// Path: main
 class _Translations$main$es implements Translations$main$en {
 	_Translations$main$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override late final _Translations$main$tray$es tray = _Translations$main$tray$es._(_root);
 }
 
-// Path: meta
 class _Translations$meta$es implements Translations$meta$en {
 	_Translations$meta$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get enable => 'Habilitar';
 	@override String get disable => 'Deshabilitar';
 	@override String get open => 'Abrir';
@@ -375,13 +347,11 @@ class _Translations$meta$es implements Translations$meta$en {
 	@override String get tabMe => 'Yo';
 }
 
-// Path: permission
 class _Translations$permission$es implements Translations$permission$en {
 	_Translations$permission$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get camera => 'Cámara';
 	@override String get screen => 'Grabación de Pantalla';
 	@override String get appQuery => 'Obtener Lista de Aplicaciones';
@@ -389,25 +359,21 @@ class _Translations$permission$es implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => 'Por favor, active el permiso de [${p}]';
 }
 
-// Path: tls
 class _Translations$tls$es implements Translations$tls$en {
 	_Translations$tls$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get certificate => 'Certificado';
 	@override String get privateKey => 'Clave Privada';
 	@override String get customTrustCert => 'Certificados Personalizados';
 }
 
-// Path: tun
 class _Translations$tun$es implements Translations$tun$en {
 	_Translations$tun$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get stack => 'Pila de red';
 	@override String get inet4Address => 'Dirección de Puerta de Enlace IPv4';
 	@override String get dnsHijack => 'Secuestro de DNS';
@@ -419,13 +385,11 @@ class _Translations$tun$es implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => 'Dominios permitidos para omitir el proxy HTTP';
 }
 
-// Path: dns
 class _Translations$dns$es implements Translations$dns$en {
 	_Translations$dns$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get listen => 'Escuchar';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'Fallback';
@@ -445,44 +409,33 @@ class _Translations$dns$es implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIpCode';
 }
 
-// Path: sniffer
 class _Translations$sniffer$es implements Translations$sniffer$en {
 	_Translations$sniffer$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get overrideDest => 'Sobrescribir';
 }
 
-// Path: profilePatchMode
 class _Translations$profilePatchMode$es implements Translations$profilePatchMode$en {
 	_Translations$profilePatchMode$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get currentSelected => 'Seleccionado Actual';
 	@override String get overwrite => 'Sobrescritura Integrada';
 	@override String get noOverwrite => 'Integrado - sin sobrescritura';
 }
 
-// Path: main.tray
 class _Translations$main$tray$es implements Translations$main$tray$en {
 	_Translations$main$tray$es._(this._root);
 
 	final TranslationsEs _root; // ignore: unused_field
 
-	// Translations
 	@override String get menuOpen => 'Abrir';
 	@override String get menuExit => 'Salir';
 }
 
-/// The flat map containing all translations for locale <es>.
-/// Only for edge cases! For simple maps, use the map function of this library.
-///
-/// The Dart AOT compiler has issues with very large switch statements,
-/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsEs {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {

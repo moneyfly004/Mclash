@@ -8,10 +8,6 @@ import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
 
-/// 用户报的三个问题，逐条钉住：
-///   1. 「无法同时增加设备数量也同时增加时间」→ 一张面板两组选择，一起算价；
-///   2. 「获取价格失败」→ 打开面板就算价（旧实现不发起算价，价格停在 ¥0.00）；
-///   3. 「支付的问题」→ 余额支付要**真的扣款**，而不是弹个二维码让人干等。
 void main() {
   setUp(() {
     MclashAccountService.instance.debugSetData({
@@ -85,7 +81,6 @@ void main() {
     );
     expect(find.textContaining("应付 ¥71.10"), findsOneWidget);
 
-    // 同时选「+5 台」和「+90 天」
     await tester.tap(find.byKey(const ValueKey("upgrade-devices-5")));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tap(find.byKey(const ValueKey("upgrade-days-90")));
@@ -293,7 +288,6 @@ void main() {
   });
 
   testWidgets('安卓：支付宝二维码面板提供「打开支付宝支付」，且唤起的是 alipays:// 深链', (tester) async {
-    // 用户要求：安卓端选支付宝时，要能直接跳到支付宝 App 付款。
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     final launches = <String>[];
     debugLaunchOverride = (target, external) async {

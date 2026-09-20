@@ -2,13 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/desktop_impl.dart';
 import 'package:libclash_vpn_service/src/models.dart';
 
-/// TUN 失败判定与**分类**的回归（照搬参考实现的结论，再补我们实测到的串）。
-///
-/// 用户反馈：「开启 tun 模式也没有建立虚拟网卡，看不出来 tun 模式的作用」。
-/// 除了「桌面端需要管理员权限」这个前提，判定本身也要经得起推敲：
-///   * 判松了 → 把**正常告警**当失败（多网卡/Hyper-V 机器上 TUN 明明是好的），
-///     于是白写一个系统代理，界面还谎报「TUN 未生效」；
-///   * 判严了 → 真失败也不吭声，用户看到「点了没反应 + 上不了网」。
 void main() {
   group('致命串（真失败）', () {
     test('mihomo 的启动失败出口能识别', () {
@@ -102,8 +95,6 @@ void main() {
   });
 
   test('提示是可执行的，不是一句万能的「请以管理员身份运行」', () {
-    // 文案按平台不同（macOS 是 root，Windows 是「以管理员身份运行」），
-    // 但都必须给出**具体动作**，而不是万能句。
     expect(
       DesktopVpnServiceImpl.tunFailureHint(TunStartFailureKind.privilege),
       anyOf(contains("以管理员身份运行"), contains("root")),

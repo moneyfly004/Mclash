@@ -53,19 +53,19 @@ class NetworkUtils {
     final int a = raw[0];
     final int b = raw[1];
 
-    if (a == 0) return false; // 0.0.0.0/8
-    if (a == 10) return false; // 10.0.0.0/8
-    if (a == 127) return false; // 127.0.0.0/8
-    if (a == 169 && b == 254) return false; // 169.254.0.0/16
-    if (a == 172 && b >= 16 && b <= 31) return false; // 172.16.0.0/12
-    if (a == 192 && b == 168) return false; // 192.168.0.0/16
-    if (a == 100 && b >= 64 && b <= 127) return false; // 100.64.0.0/10
-    if (a == 192 && b == 0 && raw[2] == 0) return false; // 192.0.0.0/24
-    if (a == 192 && b == 0 && raw[2] == 2) return false; // 192.0.2.0/24
-    if (a == 198 && (b == 18 || b == 19)) return false; // 198.18.0.0/15
-    if (a == 198 && b == 51 && raw[2] == 100) return false; // 198.51.100.0/24
-    if (a == 203 && b == 0 && raw[2] == 113) return false; // 203.0.113.0/24
-    if (a >= 224) return false; // 224.0.0.0/4 and reserved
+    if (a == 0) return false; 
+    if (a == 10) return false; 
+    if (a == 127) return false; 
+    if (a == 169 && b == 254) return false; 
+    if (a == 172 && b >= 16 && b <= 31) return false; 
+    if (a == 192 && b == 168) return false; 
+    if (a == 100 && b >= 64 && b <= 127) return false; 
+    if (a == 192 && b == 0 && raw[2] == 0) return false; 
+    if (a == 192 && b == 0 && raw[2] == 2) return false; 
+    if (a == 198 && (b == 18 || b == 19)) return false; 
+    if (a == 198 && b == 51 && raw[2] == 100) return false; 
+    if (a == 203 && b == 0 && raw[2] == 113) return false; 
+    if (a >= 224) return false; 
     if (a == 255 && b == 255 && raw[2] == 255 && raw[3] == 255) {
       return false;
     }
@@ -86,7 +86,7 @@ class NetworkUtils {
       }
     }
     if (isAllZero) {
-      return false; // ::/128
+      return false; 
     }
 
     bool isLoopback = true;
@@ -97,35 +97,35 @@ class NetworkUtils {
       }
     }
     if (isLoopback && raw[15] == 1) {
-      return false; // ::1/128
+      return false; 
     }
 
     if (_hasPrefix(raw, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff], 96)) {
-      return false; // ::ffff:0:0/96 IPv4-mapped IPv6 addresses
+      return false; 
     }
     if (_hasPrefix(raw, [0x00, 0x64, 0xff, 0x9b], 96)) {
-      return false; // 64:ff9b::/96 IPv4/IPv6 translation
+      return false; 
     }
     if (_hasPrefix(raw, [0x00, 0x64, 0xff, 0x9b, 0x00, 0x01], 48)) {
-      return false; // 64:ff9b:1::/48 local-use translation
+      return false; 
     }
     if (_hasPrefix(raw, [0x01, 0x00, 0, 0, 0, 0, 0, 0], 64)) {
-      return false; // 100::/64 discard-only prefix
+      return false; 
     }
-    if (_hasPrefix(raw, [0xfc], 7)) return false; // fc00::/7
-    if (_hasPrefix(raw, [0xfe, 0x80], 10)) return false; // fe80::/10
-    if (_hasPrefix(raw, [0xff], 8)) return false; // ff00::/8
+    if (_hasPrefix(raw, [0xfc], 7)) return false; 
+    if (_hasPrefix(raw, [0xfe, 0x80], 10)) return false; 
+    if (_hasPrefix(raw, [0xff], 8)) return false; 
     if (_hasPrefix(raw, [0x20, 0x01, 0x00, 0x00], 32)) {
-      return false; // 2001::/32 special-purpose range, including Teredo
+      return false; 
     }
     if (_hasPrefix(raw, [0x20, 0x01, 0x00, 0x02, 0x00, 0x00], 48)) {
-      return false; // 2001:2::/48 benchmarking
+      return false; 
     }
     if (_hasPrefix(raw, [0x20, 0x01, 0x0d, 0xb8], 32)) {
-      return false; // 2001:db8::/32 documentation range
+      return false; 
     }
     if (_hasPrefix(raw, [0x20, 0x02], 16)) {
-      return false; // 2002::/16 6to4
+      return false; 
     }
 
     return true;

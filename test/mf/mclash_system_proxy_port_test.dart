@@ -2,12 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/desktop_impl.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 
-/// 「内核实际监听端口 → 应用侧 → 系统代理」这条链的回归。
-///
-/// 用户反馈（Windows）：连上之后系统代理是空白，也改不动。
-/// 根因：内核在 mixed-port 为 0 或被占用时会**自己换一个空闲端口**，
-/// 而应用侧仍记着旧值（甚至 0）；照着旧值去设系统代理，要么被跳过
-/// （Windows 代理设置页一片空白），要么写到一个没人监听的端口上。
 void main() {
   group('系统代理端口决策（内核为准）', () {
     test('内核报了端口 → 用内核的（这是事实）', () {

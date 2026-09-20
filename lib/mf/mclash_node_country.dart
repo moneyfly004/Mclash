@@ -155,27 +155,10 @@ class MclashNodeCountry {
         .toList();
   }
 
-  /// 子串别名匹配（中文、英文全称）。
-  ///
-  /// 按别名长度**从长到短**扫描：`united kingdom` 必须先于 `uk` 命中，
-  /// 否则 `uk` 会先匹配到 `united`（不，`uk` 不是 `united` 的子串）——
-  /// 真正要防的是 `south africa` 与 `africa`、`united states` 与 `states`
-  /// 这类前缀包含关系。长优先是通用解法。
   static String? _matchSubstringAlias(String lower) {
     final aliases = _kNameAliases.keys.toList()
       ..sort((a, b) => b.length.compareTo(a.length));
     for (final alias in aliases) {
-      // ASCII 缩写已在上一步按**词元**处理过；这里只处理长度 ≥ 3 的别名，
-      // 避免 `us` / `in` 这类两字母串在这里被子串匹配到英文单词里
-      // （`russia` 里就有 `us`）。
-      //
-      // ⚠️ 但这个「长度」必须按**字节语义**看：原来的
-      // `alias.length < 3` 会把**两字中文国名**（美国 / 日本 / 香港 / 台湾 /
-      // 韩国 / 泰国 / 英国 / 法国 / 德国 …）一起跳过 —— 它们是 UTF-16 下长度 2，
-      // 却完全不可能出现在英文单词里。实测后果：296 个节点里 **240 个（81%）
-      // 被归到「其他」**，「按国家筛选」直接失效。
-      //
-      // 所以只对 **ASCII** 别名保留长度门槛；含非 ASCII 的别名一律参与子串匹配。
       if (alias.length < 3 && _isAscii(alias)) {
         continue;
       }
@@ -186,7 +169,6 @@ class MclashNodeCountry {
     return null;
   }
 
-  /// 别名是否全为 ASCII（用于决定要不要施加「长度 ≥ 3」的门槛）
   static bool _isAscii(String s) {
     for (final unit in s.codeUnits) {
       if (unit > 0x7F) {
@@ -196,7 +178,6 @@ class MclashNodeCountry {
     return true;
   }
 
-  /// 中文显示名（只收录 [_kNameAliases] 里出现的代码）。
   static const Map<String, String> _kDisplayNames = <String, String>{
     'HK': '香港', 'TW': '台湾', 'MO': '澳门', 'CN': '中国',
     'JP': '日本', 'KR': '韩国',
@@ -215,7 +196,6 @@ class MclashNodeCountry {
     'IN': '印度', 'PK': '巴基斯坦',
   };
 
-  /// 快捷区胶囊的稳定排序（大中华区与周边优先，符合本产品用户分布）。
   static const List<String> _kDisplayOrder = <String>[
     'HK', 'TW', 'JP', 'SG', 'US', 'KR', 'MO', 'CN',
     'MY', 'TH', 'VN', 'PH', 'ID', 'KH',

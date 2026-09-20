@@ -78,10 +78,6 @@ class MclashSubscriptionCard extends StatelessWidget {
   }
 }
 
-/// 主页「快速筛选国家」：**延迟最低的 6 个国家，两排**。
-///
-/// 点一个国家不只是筛选列表，而是**真的切到该国最快的节点** —— 用户点国家
-/// 的本意就是「我要走这个国家」，只筛选不切换等于没反应。
 class MclashQuickCountries extends StatelessWidget {
   const MclashQuickCountries({super.key});
 
@@ -124,9 +120,6 @@ class MclashQuickCountries extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // 「自动最优」：解除国家限制，让内核/自动选路挑最快节点
-                // （参考客户端 MoneyFly 的快捷栏就有这一项，用户按国家点几下
-                //   之后需要一个「回到自动」的出口）。
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: ActionChip(
@@ -136,7 +129,6 @@ class MclashQuickCountries extends StatelessWidget {
                     onPressed: () => _onTapAutoBest(context),
                   ),
                 ),
-                // 两排：每排 3 个（共 6 个，延迟最低的优先）
                 for (var row = 0; row < 2; row++)
                   Padding(
                     padding: EdgeInsets.only(top: row == 0 ? 0 : 8),
@@ -218,9 +210,7 @@ class MclashQuickCountries extends StatelessWidget {
     );
   }
 
-  /// 「自动最优」：让自动选路挑一个最快节点，并留在主页。
   Future<void> _onTapAutoBest(BuildContext context) async {
-    // 「自动最优」= 解除固定，回到自动选路（参考客户端的「自动最优」同义）
     await MclashNodeAutoPick.setFixedNode("");
     final note = await MclashNodeAutoPick.selectBestOnConnect();
     if (!context.mounted) {
@@ -236,10 +226,6 @@ class MclashQuickCountries extends StatelessWidget {
     MclashNodesStore store,
     String code,
   ) async {
-    // 只做「切到该国最快节点」这一件事，并且**留在主页**：
-    // 用户反馈点国家会跳到节点列表整页，他想要的是主页自己的独立选项。
-    // （也不再顺手改节点列表的筛选条件 —— 那属于「节点列表」页自己的状态，
-    //   主页点一下却让另一个页面变样子，同样是意外行为。）
     final node = store.preferredNodeOfCountry(code);
     if (node == null) {
       return;
@@ -321,9 +307,6 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
   if (!acc.isBlocked) {
     return true;
   }
-  // 判定可能来自启动时回填的旧缓存 —— 直接用它会出真实事故：
-  // 用户在官网续费/删设备之后，客户端还按旧数据把人拦住，连都连不上。
-  // 所以真拦之前先复核一次（拿到最新数据后仍受限才拦）。
   final kind = await acc.verifyBeforeConnect();
   if (kind == MclashBlockKind.none) {
     Log.i("mclashCheckAccountGate: 复核后账号已恢复正常，放行连接");
@@ -337,22 +320,11 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
 }
 
 
-/// 主页顶栏：**标志缩小靠左上，到期/设备信息条放在标志右侧、连接卡上方**。
-///
-/// 用户实测反馈：
-///   * 「主页上 Mclash 的标志太大」——原来是 18px 居中大字 + 一行副标题，占掉整行；
-///   * 「到期设备的信息应该放在连接按钮上方、标志右侧」——原来那张卡在连接卡**下方**；
-///   * 「卡片数据没同步」——卡片取的就是账号服务的数据（后端口径），
-///     这里补一条**新鲜度**提示，过期时点一下立刻刷新，避免「看着像没更新」。
-///
-/// 点信息条 → 设备管理（当前设备列表、删除旧记录都在那里）。
 class MclashHomeHeader extends StatelessWidget {
   const MclashHomeHeader({super.key});
 
-  /// 数据超过这个时长就提示「点击刷新」。
   static const Duration kStaleAfter = Duration(minutes: 5);
 
-  /// 新鲜度文案（纯函数，便于测试）。[cachedAt] 为空 = 还没成功拉过。
   static String freshnessText(DateTime? cachedAt, {DateTime? now}) {
     if (cachedAt == null) {
       return "尚未同步 · 点击刷新";
@@ -394,12 +366,10 @@ class MclashHomeHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 窄屏（手机）折行：标志一行，信息条紧随其下，仍然在连接卡之前
               LayoutBuilder(
                 builder: (context, c) {
                   final brand = _brand();
                   if (c.maxWidth < 300) {
-                    // 极窄（小屏手机竖屏）：标志一行，信息条整条移到下一行
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -409,11 +379,6 @@ class MclashHomeHeader extends StatelessWidget {
                       ],
                     );
                   }
-                  // 注意：**不能用 Row + Spacer + Flexible** —— Spacer 与 Flexible
-                  // 都是 flex，会把剩余空间对半分，信息条只拿到一半 → 文字被省略号
-                  // 截断（用户实测「到期时间/设备使用情况显示不完整、被遮挡」）。
-                  // Wrap + spaceBetween：放得下就两端对齐，放不下就整条换行，
-                  // 而且每个子项都按**自身需要的宽度**布局，不会压缩文字。
                   return Wrap(
                     alignment: WrapAlignment.spaceBetween,
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -462,7 +427,6 @@ class MclashHomeHeader extends StatelessWidget {
     );
   }
 
-  /// 左侧标志：真实 logo（24px）+ 应用名（15px）+ 一行 10.5px 副标题。
   Widget _brand() {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -500,14 +464,12 @@ class MclashHomeHeader extends StatelessWidget {
     );
   }
 
-  /// 右侧信息条：到期时间 + 设备数；点一下进设备管理。
   Widget _subscriptionPill(
     BuildContext context, {
     required MclashAccountInfo info,
     required bool blocked,
     required String blockedTitle,
   }) {
-    // 「设备 2/50」这种紧凑写法（deviceText 是 "2 / 50"，多两个空格更容易被挤掉）
     final used = info.deviceUsed;
     final limit = info.deviceLimit;
     final deviceText = (used != null || limit != null)
@@ -551,10 +513,6 @@ class MclashHomeHeader extends StatelessWidget {
               color: blocked ? Colors.red : ThemeDefine.kColorBlue,
             ),
             const SizedBox(width: 5),
-            // 只在**真的放不下**时才允许省略：外层已经换成 Wrap（不再和 Spacer
-            // 抢宽度），所以正常窗口里永远是完整显示；这个 Flexible+ellipsis 只是
-            // 极端窄屏下的兜底，避免整行溢出（用户反馈过「显示不完整」，也绝不能
-            // 反过来变成红黄条溢出）。
             Flexible(
               child: Text(
                 text,

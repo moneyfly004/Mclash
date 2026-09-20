@@ -8,28 +8,6 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_node.dart';
 
-/// 节点测速。**内核支持的每一种协议都必须成立。**
-///
-/// ## 两条路径
-///
-/// 1. **内核 API（首选，协议无关）**：`GET /proxies/{name}/delay?url=…`
-///    —— 由内核按节点**自己的协议**真正发一次 HTTP 请求再返回耗时。
-///    只要是内核能承载的协议都能测：`ss` / `ssr` / `vmess` / `vless` / `trojan` /
-///    `hysteria` / `hysteria2` / `tuic` / `wireguard` / `snell` / `ssh` /
-///    `http` / `socks5` / `anytls` / `mieru` …（含纯 UDP 的那几种）。
-///    它还顺带识别「端口通、但密码/UUID 错或节点已下线」的死节点
-///    —— 这是 TCP 握手永远识别不了的。
-///
-/// 2. **本机 TCP 粗测（仅内核不可用时兜底）**：`Socket.connect(server, port)`。
-///    只能证明那个端口能握手：
-///      * 对**纯 UDP 协议**（hysteria / hysteria2 / tuic / wireguard）**完全无效**，
-///        所以这些协议在内核不可用时保持「延迟未知」而不是编一个数字；
-///      * 对 CDN 前置的 TCP 节点，测到的是**边缘节点**的延迟，不是代理延迟。
-///    因此它标出来的值一律 `measuredByKernel = false`，UI 需要如实区分。
-///
-/// 历史问题（本次修复）：旧实现**只用** TCP 粗测，并且把纯 UDP 协议直接排除在
-/// 测速之外 —— 那类节点永远没有延迟、永远进不了「自动最优」，首页
-/// 「延迟最低的 6 个国家」也看不到它们。
 class MclashSpeedTester {
   MclashSpeedTester({this.connectTimeout = const Duration(seconds: 3)});
 
@@ -37,49 +15,23 @@ class MclashSpeedTester {
 
   final Duration connectTimeout;
 
-  /// 测速代次：新一轮测速一开始就自增，让上一轮在跑的尽快收尾（其结果作废）。
-  /// 参考 MoneyFly 的 `_speedTestGen` —— 否则「连接后的自动补测」和「用户手动
-  /// 全量测速」撞上时，旧的一轮还会继续跑、继续压内核，用户看到的就是
-  /// 「点了测速又像被自动停止/结果被覆盖」。
   int _testGen = 0;
 
-  /// TCP 粗测的采样次数（取中位数，抗抖动）。
   static const int probeCount = 3;
 
-  /// 并发上限。
-  ///
-  /// 之前为了「连接后不压刚启动的内核」压到 3，结果 300 个节点要测 12 秒
-  /// （用户反馈「测速非常慢」）。真正的连接卡死根因是 prepareConfig 竞态
-  /// （已修复），不是测速并发。参考 MoneyFly 用 16 路也稳定，这里取 8：
-  /// 明显提速，又给内核留余量。
   static const int maxConcurrent = 8;
 
-  /// 连续这么多次「内核根本没在听」就整批放弃。
-  ///
-  /// 用户日志里最刺眼的一段就是这个：内核 16:35:22 已经停了，测速还在继续，
-  /// 从 16:35:24 到 16:35:30 刷了几百行
-  /// `SocketException: 远程计算机拒绝网络连接 (errno = 1225)` —— 每一条都要
-  /// 新建连接、失败、写一行同步日志。而结论在**失败第一条**时就已经确定了。
-  // 8 太敏感：内核短暂繁忙/慢响应时偶发几次「连不上」就被整批中止（用户反馈
-  // 「测速异常中断」）。放宽到 24：内核真的挂了仍会尽快停，但不再被偶发抖动打断。
   static const int fatalStreakLimit = 24;
 
-  /// 上一轮测速中「内核里还没有」的节点数量（供上层决定要不要重载内核）。
   static int missingInKernel = 0;
 
-  /// 本轮的「内核不在了」连续计数（跨 worker 共享，所以放在实例字段上）。
+  static int lastSuccessCount = 0;
+
   int _deadStreak = 0;
   bool _kernelGone = false;
 
-  /// 这条错误是不是「内核压根没在监听」。
-  ///
-  /// 这类错误重试没有意义（对方连不上就是连不上），而且一旦出现就说明整批测速
-  /// 的前提已经崩了。区分它和「节点不通」很重要：后者要如实标记节点离线，
-  /// 前者不能把 400 个节点全判成离线（那会误导用户去清空订阅）。
   static bool isKernelUnreachable(String message) {
     final m = message.toLowerCase();
-    // 只认「内核控制端口没在听/崩了」的明确信号。`socketexception` 太宽泛，
-    // 节点测速时的临时抖动也会被它命中，累计到阈值就把整批测速误中断。
     return m.contains("远程计算机拒绝网络连接") ||
         m.contains("connection refused") ||
         m.contains("errno = 1225") ||
@@ -91,28 +43,21 @@ class MclashSpeedTester {
   @visibleForTesting
   static Future<int> Function(MclashNode node)? debugProbeOverride;
 
-  /// 测试缝：内核是否可用（真实实现是一次轻量的 `/configs` 探测）。
   @visibleForTesting
   static Future<bool> Function()? debugKernelAvailableOverride;
 
-  /// 测试缝：内核的按节点延迟测试（真实实现是 `/proxies/{name}/delay`）。
   @visibleForTesting
   static Future<int> Function(MclashNode node)? debugKernelDelayOverride;
 
-  /// 内核连通性缓存：一次批量测速只探一次，避免每个节点都打一次 `/configs`。
   bool? _kernelUp;
   DateTime? _kernelCheckedAt;
   static const Duration _kernelProbeTtl = Duration(seconds: 5);
 
-  /// 丢掉「内核是否可用」的缓存，下一次测速重新探一次。
-  ///
-  /// 连接/断开之后内核状态会变，缓存留着会让结果慢半拍。
   void resetKernelCache() {
     _kernelUp = null;
     _kernelCheckedAt = null;
   }
 
-  /// 内核（控制 API）现在能不能用。
   Future<bool> kernelAvailable() async {
     final override = debugKernelAvailableOverride;
     if (override != null) {
@@ -126,7 +71,6 @@ class MclashSpeedTester {
       return up;
     }
     var ok = false;
-    // 控制端口没注册就是「内核没在跑」，别去发无意义的请求。
     if (ClashHttpApi.getControlPort?.call() != null) {
       try {
         final r = await ClashHttpApi.getConfigs();
@@ -140,31 +84,41 @@ class MclashSpeedTester {
     return ok;
   }
 
-  /// 测一个节点，返回毫秒（-1 = 测不出来 / 不可用）。
-  ///
-  /// 内核在跑 → 走内核（所有协议都支持）；内核没跑 → TCP 粗测兜底。
   Future<int> testOne(MclashNode node, {bool? kernelUp}) async {
     if (node.name.isEmpty || node.server.isEmpty || node.port <= 0) {
       return -1;
     }
 
-    final up = kernelUp ?? await kernelAvailable();
-    if (up) {
-      // 内核可用时**必须**以内核结果为准：TCP 兜底在这时会给出
-      // 「端口通就当作在线」的假结论，比没有结论更糟。
-      final probe = debugKernelDelayOverride ?? _probeViaKernel;
-      final ms = await probe(node);
-      node.testedByKernel = true;
-      node.measuredByKernel = ms >= 0;
-      return ms;
-    }
-
     node.testedByKernel = false;
     node.measuredByKernel = false;
-    // 内核不可用：纯 UDP 协议连端口都握不上手，如实保持未知，不编数字。
-    if (node.udpOnly) {
+
+    final preferKernel = SettingManager.getConfig().speedTestMode ==
+        SettingConfig.kSpeedTestModeKernel;
+
+    if (preferKernel) {
+      final up = kernelUp ?? await kernelAvailable();
+      if (up) {
+        final probe = debugKernelDelayOverride ?? _probeViaKernel;
+        final ms = await probe(node);
+        node.testedByKernel = true;
+        node.measuredByKernel = ms >= 0;
+        return ms;
+      }
+      if (node.udpOnly) {
+        return -1;
+      }
+    } else if (node.udpOnly) {
+      final up = kernelUp ?? await kernelAvailable();
+      if (up) {
+        final probe = debugKernelDelayOverride ?? _probeViaKernel;
+        final ms = await probe(node);
+        node.testedByKernel = true;
+        node.measuredByKernel = ms >= 0;
+        return ms;
+      }
       return -1;
     }
+
     final override = debugProbeOverride;
     if (override != null) {
       return override(node);
@@ -172,10 +126,6 @@ class MclashSpeedTester {
     return _probeViaTcp(node);
   }
 
-  /// 内核的 `/proxies/{name}/delay`。返回 -1 表示这个节点确实不通/不在内核里。
-  ///
-  /// 用**用户设置里那个测速地址与超时**（与节点列表里手动测速同一口径），
-  /// 否则两处结果会对不上。
   Future<int> _probeViaKernel(MclashNode node) async {
     var url = "https://www.gstatic.com/generate_204";
     var timeout = connectTimeout;
@@ -190,21 +140,15 @@ class MclashSpeedTester {
     } catch (_) {}
     try {
       var r = await ClashHttpApi.getDelay(node.name, url: url, timeout: timeout);
-      // 不再对慢节点补测：每个慢节点补测一次等于请求翻倍，是全量测速
-      // 「非常缓慢」的直接来源（用户反馈）。单次采样足够用于排序/选路。
       if (r.error != null) {
         final msg = r.error!.message;
-        // 节点不在**当前运行的内核**里（配置档刚换过、内核还没重启）：
-        // 这不能判成「节点挂了」，只能算「这次没测到」。
         if (msg.contains("404") || msg.toLowerCase().contains("not found")) {
           node.missingInKernel = true;
           Log.i("MclashSpeedTester: 内核里还没有节点 [${node.name}]，本次跳过");
         } else if (isKernelUnreachable(msg)) {
-          // 控制端口连不上 = 内核已经不在（用户断开、内核崩了）。这时**不要**
-          // 给节点标离线：结论是「这批没测成」，不是「这批节点都挂了」。
           node.missingInKernel = true;
           _deadStreak++;
-          if (_deadStreak == fatalStreakLimit) {
+          if (_deadStreak >= fatalStreakLimit) {
             _kernelGone = true;
             Log.w(
               "MclashSpeedTester: 控制端口连续 $fatalStreakLimit 次连不上"
@@ -225,7 +169,6 @@ class MclashSpeedTester {
     }
   }
 
-  /// 本机 TCP 握手粗测（中位数）。
   Future<int> _probeViaTcp(MclashNode node) async {
     final samples = <int>[];
     for (var i = 0; i < probeCount; i++) {
@@ -249,9 +192,6 @@ class MclashSpeedTester {
     return samples[samples.length ~/ 2];
   }
 
-  /// 批量测速（带并发上限与进度回调）。
-  ///
-  /// **不再按 `udpOnly` 过滤节点**：内核在跑时所有协议都能测。
   Future<void> testAll(
     List<MclashNode> nodes, {
     void Function(int done, int total)? onProgress,
@@ -261,33 +201,29 @@ class MclashSpeedTester {
     if (nodes.isEmpty) {
       return;
     }
-    // 新一轮测速开始：代次 +1，让上一轮还在跑的 worker 尽快收尾（结果作废）。
     final gen = ++_testGen;
     final kernelUp = await kernelAvailable();
     final swBatch = Stopwatch()..start();
     Log.i(
       "MclashSpeedTester: 开始测速 ${nodes.length} 个节点（并发 $maxConcurrent）"
-      "（${kernelUp ? "走内核 /delay，协议无关" : "内核未运行 → 本机 TCP 粗测"}）",
+      "（TCP 握手，对齐 MoneyFly；UDP 节点${kernelUp ? "走内核 /delay 兜底" : "跳过"}）",
     );
 
     final queue = List<int>.generate(nodes.length, (i) => i);
     var done = 0;
-    /// 本次测速里「内核还没有」的节点数量（>0 说明内核配置落后于订阅）。
+    var ok = 0;
     missingInKernel = 0;
     _deadStreak = 0;
     _kernelGone = false;
 
     Future<void> worker() async {
       while (queue.isNotEmpty) {
-        // 被新一轮测速取代：立即收尾，不再发新的探测请求。
         if (gen != _testGen) {
           break;
         }
         if (shouldStop != null && shouldStop()) {
           break;
         }
-        // 内核已经不在了（连续多次连接被拒）：剩下的节点一个都测不了，
-        // 继续跑只会制造几百行「拒绝连接」的日志。整批停。
         if (_kernelGone) {
           break;
         }
@@ -297,14 +233,11 @@ class MclashSpeedTester {
         n.latencyMs = ms;
         if (ms > 0) {
           n.online = true;
+          ok++;
         } else if (n.missingInKernel) {
-          // 内核里根本没这个节点（订阅刚换、内核还在跑旧配置）→
-          // **不是节点挂了**，别标成离线/超时，交给上层去重载内核。
           n.online = true;
           missingInKernel++;
         } else if (n.udpOnly && !kernelUp) {
-          // 内核没跑 + 纯 UDP 协议：**测不了 ≠ 离线**，
-          // 否则一堆其实能用的节点会被标成挂了。
           n.online = true;
         } else {
           n.online = false;
@@ -321,11 +254,11 @@ class MclashSpeedTester {
       onProgress(nodes.length, nodes.length);
     }
     swBatch.stop();
-    // 一轮测速的规模与耗时如实记下来：用户报「连接后卡顿」时，这两行能直接
-    // 说明测速是不是元凶（例如「开始 411 个节点」就是坏味道）。
+    lastSuccessCount = ok;
     Log.i(
       "MclashSpeedTester: 测速结束 ${nodes.length} 个节点，用时 ${swBatch.elapsedMilliseconds} ms"
-      "${_kernelGone ? "（内核中途不可用，已提前中止）" : ""}",
+      "（成功 $ok / 失败 ${nodes.length - ok}"
+      "${_kernelGone ? "，内核中途不可用已提前中止" : ""}）",
     );
   }
 

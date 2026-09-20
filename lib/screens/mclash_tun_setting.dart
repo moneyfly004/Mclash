@@ -10,37 +10,21 @@ import 'package:mclash/screens/group_helper.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 
-/// 「我的 → TUN 虚拟网卡」：三态选择（关闭 / 自动 / 强制）。
-///
-/// 语义与我的参考实现（moneyfly 桌面版）完全对齐 —— 这套分档是用户真正需要的：
-///   * **关闭（默认）**：仅系统代理。轻量、不改路由表；只有遵守系统代理的程序
-///     走代理，UDP / 游戏 / 自带代理设置的程序不生效；
-///   * **自动**：TUN + 系统代理（双保险）。TUN 起来就靠它接管全部流量，
-///     万一没起来（没权限等）系统代理还在，不会「连上了却上不了网」；
-///   * **强制**：仅 TUN。所有流量（含 UDP）都进虚拟网卡，不再改系统代理。
-///
-/// 桌面端 TUN 需要管理员权限（Windows 建 wintun、macOS 建 utun）—— 这一点
-/// 在选中的那一刻就告诉用户，并直接给「以管理员身份重启」的入口，
-/// 而不是等他发现「开了没反应」。
 abstract final class MclashTunSetting {
-  /// 正在应用切换（会重连）；连点两次不该触发两次重连。
   static bool _applying = false;
 
-  /// 界面上的名字。
   static String label(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto => "自动",
     SettingConfig.kTunModeForce => "强制",
     _ => "关闭",
   };
 
-  /// 一行说明（放在「我的」那一行的副标题）。
   static String description(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto => "TUN + 系统代理（双保险）：全部流量走虚拟网卡，含 UDP",
     SettingConfig.kTunModeForce => "仅 TUN：全部流量走虚拟网卡，不再改系统代理",
     _ => "仅系统代理：浏览器等遵守系统代理的程序生效，UDP/游戏不走代理",
   };
 
-  /// 选项列表里的详细说明。
   static String optionDesc(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto =>
       "建虚拟网卡接管全部流量（含 UDP、游戏）；同时保留系统代理作为兜底。"
@@ -52,10 +36,8 @@ abstract final class MclashTunSetting {
         "只有遵守系统代理的程序走代理；UDP 流量与自带代理设置的程序不走。",
   };
 
-  /// 当前是否满足 TUN 的前置条件（桌面端需要管理员权限）。
   static bool prerequisitesMet() => VPNService.tunPrerequisitesMet();
 
-  /// 打开选择面板。
   static Future<void> show(BuildContext context) async {
     final current = SettingManager.getConfig().tunMode;
     final selected = await showModalBottomSheet<String>(
@@ -73,7 +55,6 @@ abstract final class MclashTunSetting {
     await _apply(context, selected);
   }
 
-  /// 应用选择：落盘 → 需要时重连 → 提示。
   static Future<void> _apply(BuildContext context, String mode) async {
     if (!context.mounted || _applying) {
       return;
@@ -90,7 +71,6 @@ abstract final class MclashTunSetting {
     if (!context.mounted) {
       return;
     }
-    // 桌面端选 auto/force 但没管理员权限：先把原因和出路说清楚
     final needsAdmin =
         mode != SettingConfig.kTunModeOff &&
         PlatformUtils.isPC() &&
@@ -125,7 +105,6 @@ abstract final class MclashTunSetting {
     SettingManager.save();
     Log.i("MclashTunSetting: TUN 模式 → $mode（${description(mode)}）");
 
-    // TUN 是内核启动参数：已连接时重连一次让它按新配置起来
     final connected = await VPNService.getStarted();
     if (connected) {
       final err = await VPNService.restart(const Duration(seconds: 60));
@@ -241,8 +220,6 @@ class _TunModeSheet extends StatelessWidget {
                   : null,
               onTap: () => Navigator.of(context).pop(mode),
             ),
-          // 高级参数（地址 / 栈 / MTU / 自动路由 / DNS 劫持 …）仍在
-        // 「我的 → 核心设置 → TUN」里，这里给一个直达入口。
         ListTile(
           key: const ValueKey("tun-advanced"),
           dense: true,

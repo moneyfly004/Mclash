@@ -48,11 +48,6 @@ class ProxyHttpOverrides extends HttpOverrides {
 }
 
 class HomeScreenWidgetPart1 extends StatefulWidget {
-  /// 测试缝：替换「真的去连 / 真的去断」那一步。
-  ///
-  /// widget 测试里不能真的起内核（会写注册表 / 跑 networksetup / 找 mihomo），
-  /// 而「点击后界面立刻有反馈」这件事必须能被测到 —— 给它一个挂得住的口子，
-  /// 测试就能断言「VPNService 还没返回时，界面已经在转圈了」。
   @visibleForTesting
   static Future<bool> Function(String from)? debugStartOverride;
 
@@ -73,16 +68,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   final FocusNode _focusNodeConnect = FocusNode();
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
 
-  /// 本地「刚点了连接/断开」的乐观标记。
-  ///
-  /// 为什么需要（用户实测：「点击连接好大一会才有反应」）：从手指点到
-  /// **插件真正发出 connecting 事件**之间，还有一串真实存在的等待 ——
-  /// 串行闸门排队、端口探测、防火墙规则、配置落盘、内核启动……
-  /// 这段时间旧实现的界面**一点变化都没有**（开关弹回原位、文案不变），
-  /// 用户只能反复点。现在点击的瞬间先本地给出反馈，真实状态事件到达后交还给它。
-  ///
-  /// 注意：它只影响显示，不参与任何逻辑判定（[VPNService] 的状态才是事实）；
-  /// 收到 connected/disconnected 就立刻清掉，避免出现「一直转圈」。
   FlutterVpnServiceState? _pendingState;
 
   void _setPending(FlutterVpnServiceState s) {
@@ -115,10 +100,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   );
   final ValueNotifier<String> _proxyNow = ValueNotifier<String>("");
 
-  /// 当前「怎么走的代理」：系统代理已生效 / 未生效 / TUN。
-  ///
-  /// 用户反馈「连上之后系统代理没变，也不知道 App 到底怎么代理的」。
-  /// 光靠日志解释不了，首页必须**直接显示**出来，并且点一下就能去修。
   final ValueNotifier<String> _proxyMode = ValueNotifier<String>("");
   Timer? _timerProxyMode;
   int _trafficLogTick = 0;
@@ -152,8 +133,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   @override
   void dispose() {
-    // 这两个定时器必须在这里取消：周期性状态检查（2s）会一直跑下去并持有
-    // 已销毁的 State（测试里直接暴露成 "Pending timers"）。
     _timerStateChecker?.cancel();
     _timerStateChecker = null;
     _timerConnectToCore?.cancel();
@@ -230,15 +209,11 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   @override
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
-    // 乐观反馈优先：刚点下去的那一瞬间就按「正在连接/正在断开」显示，
-    // 而不是等插件的状态事件（中间还有一段真实等待，见 _pendingState 的说明）。
     final shownState = _pendingState ?? _state;
     bool connected = shownState == FlutterVpnServiceState.connected;
     final connecting = shownState == FlutterVpnServiceState.connecting ||
         shownState == FlutterVpnServiceState.reasserting;
     final disconnecting = shownState == FlutterVpnServiceState.disconnecting;
-    // 开关位置也要跟着乐观值走：连接期间保持「开」，否则 Switch 会先弹回原位，
-    // 看起来就像「点了没反应」。
     final switchOn = _pendingState == FlutterVpnServiceState.connecting ||
         (_pendingState == null && connected);
 
@@ -251,8 +226,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             const SizedBox(height: 16),
             Row(
               children: [
-                // 连接中/断开中显示转圈动画：以前连接过程没有任何反馈，
-                // 用户点完开关看不出"正在连"，会以为没反应。
                 connecting || disconnecting
                     ? const SizedBox(
                         width: 14,
@@ -308,9 +281,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                     onChanged: MclashAccountService.instance.isBlocked
                         ? null
                         : (bool value) async {
-                            // 点下去的**第一件事**就是给反馈：门禁复核/串行闸门/
-                            // 端口探测这些都可能在后面排队，不能让用户对着
-                            // 毫无变化的界面等（见 _pendingState 的说明）。
                             _setPending(
                               value
                                   ? FlutterVpnServiceState.connecting
@@ -333,13 +303,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             ),
             const SizedBox(height: 12),
 
-            // 节点切换入口。
-            //
-            // 用户反馈：「连接按钮下方的节点切换不够明显」。旧样子是一行灰字 +
-            // 一个灰色箭头，看着像静态文本，没人知道能点。现在做成**明确的按钮行**：
-            //   * 左侧「当前节点」小标题 + 节点名（可换行省略）；
-            //   * 右侧一个实心「切换」按钮（图标 + 文字），颜色与连接状态呼应；
-            //   * 整行可点，且带边框/底色，一眼看出是可操作控件。
             InkWell(
               key: const ValueKey("home-node-row"),
               borderRadius: BorderRadius.circular(10),
@@ -395,7 +358,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // 明确的「切换」按钮：以前只有一个灰箭头，用户不知道能点
                     Container(
                       key: const ValueKey("home-node-switch-button"),
                       padding: const EdgeInsets.symmetric(
@@ -475,7 +437,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                 builder: (context, v, _) => _trafficLine("累计流量", v),
               ),
               const SizedBox(height: 6),
-              // 「到底怎么走的代理」——直接写在首页，别让用户猜
               ValueListenableBuilder<String>(
                 valueListenable: _proxyMode,
                 builder: (context, v, _) => v.isEmpty
@@ -489,11 +450,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                             }),
                         child: Builder(
                           builder: (_) {
-                            // 用户实测反馈：「系统代理没生效」这件事只有一行灰色小字，
-                            // 很容易被忽略。现在按三态给颜色：
-                            //   绿 = 有通路（系统代理已生效 / TUN 在接管 / 已兜底）
-                            //   橙 = 真的有问题（未生效）→ 点一下就进修复面板
-                            //   灰 = 说明性文案（例如「未设置 —— TUN 强制模式」）
                             final bad = v.contains("未生效");
                             final good = v.contains("已生效") ||
                                 v.contains("已用系统代理") ||
@@ -635,8 +591,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> stop() async {
-    // 打点 + 乐观反馈：断开这条路上有「撤系统代理」「拆 TUN」「杀内核」三段真实等待，
-    // 旧实现是用户点完之后界面静止好几秒。日志里这两行能直接看出慢在哪一段。
     final sw = Stopwatch()..start();
     _setPending(FlutterVpnServiceState.disconnecting);
     try {
@@ -652,8 +606,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
-  /// 兜底：VPNService 已经回到稳定状态，但本地乐观标记还挂着（状态事件没等到/丢了一次）
-  /// → 清掉，否则界面会一直转圈。
   void _clearPendingIfSettled() {
     final s = _state;
     if (s == FlutterVpnServiceState.connecting ||
@@ -674,9 +626,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       }
       return await _startInner();
     } finally {
-      // 这一行是「点击连接很久才有反应」的定位依据：它包含门禁复核、串行闸门排队、
-      // 端口探测、防火墙规则、配置落盘与内核启动等待。配合插件侧的
-      // `[perf] 连接：内核就绪用时 …`（不含前面这些）就能算出各段占比。
       Log.i(
         "[perf] 连接($from)：从点击到 VPNService.start 返回 ${sw.elapsedMilliseconds} ms",
       );
@@ -685,17 +634,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<bool> _startInner() async {
-    // 每一处连接入口都先过账户门禁：托盘菜单、快捷键、桌面小组件都会直接调到这里，
-    // 只在开关的 onChanged 里判断会漏（用户会用托盘连接）。
     if (!await mclashCheckAccountGate(context)) {
       return false;
     }
     if (ProfileManager.getCurrent() == null) {
-      // 还没有配置档（首次登录 / 刚安装 / 启动时还没加载完）→ 先同步再**继续连接**。
-      //
-      // 用户反馈的「我已经点了连接，它却让我再点一次」就是这里：旧实现在同步成功后
-      // 只弹一句「订阅已同步，请再次点击连接。」然后 return —— 用户点了一次开关却
-      // 什么都没发生，只能再点第二次。既然用户已经表达了「我要连」，同步完就接着连。
       if (!mounted) {
         return false;
       }
@@ -708,7 +650,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
         return false;
       }
       setState(() {});
-      // 同步期间列表可能还在加载：再等一小会儿，别把「刚好没加载完」当成失败
       for (var i = 0;
           i < 10 && result?.status == MclashSubSyncStatus.ok &&
               ProfileManager.getCurrent() == null;
@@ -807,9 +748,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     FlutterVpnServiceState state,
     Map<String, String> params,
   ) async {
-    // 真实状态一到，乐观标记就必须让位 —— **而且要在这行去重 return 之前**处理：
-    // 例如「点连接 → 立刻失败回到 disconnected」时 `_state` 本来就是 disconnected，
-    // 若在 return 之后才清，乐观标记会永远留着，界面一直转圈。
     final hadPending = _pendingState != null;
     if (state == FlutterVpnServiceState.connected ||
         state == FlutterVpnServiceState.disconnected) {
@@ -899,9 +837,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   void _startStateCheckTimer() {
-    // 2 秒一次：连接/断开状态的主通道是**内核与原生侧推过来的事件**
-    // （VPNService.onEventStateChanged / 原生 notifyState），这个定时器只是
-    // 兜底对账。1 秒一次纯属多余唤醒（手机上是实打实的耗电），2 秒足够。
     const Duration duration = Duration(seconds: 2);
     _timerStateChecker ??= Timer.periodic(duration, (timer) async {
       if (!Platform.isMacOS) {
@@ -920,12 +855,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
-  /// 刷新首页的「实时速度 / 累计流量」。
-  ///
-  /// 数据来源是 [ClashTrafficWatcher]（内核 `/traffic` 的 WebSocket 推送）。
-  /// 旧实现每秒发一次普通 GET 再 `jsonDecode` 整段响应 —— 而 `/traffic` 推的是
-  /// **多行 JSON 流**，解析必然抛异常并被吞掉，于是这两行永远停在 0
-  /// （用户反馈的「上传/下载、总流量没有任何变化」就是这个）。
   Future<void> _updateConnections() async {
     final traffic = ClashTrafficWatcher.instance;
     final speed =
@@ -941,8 +870,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _trafficTotal.value = total;
     _trafficSpeed.value = speed;
 
-    // 每 ~10 秒留一条流量日志：用户反馈「流量不动」时，日志里能直接看出
-    // 是「内核没推数据」还是「界面没刷新」，不用再靠猜。
     _trafficLogTick++;
     if (_trafficLogTick % 10 == 0) {
       Log.i(
@@ -953,21 +880,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
-  /// 判断并显示当前数据通路，直接回答「我到底是怎么被代理的」。
-  ///
-  /// 两种可能：
-  ///   * **TUN 模式**：内核创建虚拟网卡接管全部流量，此时**不需要**系统代理，
-  ///     Windows 的「设置 → 代理」保持原样是正常的（用户反馈的
-  ///     「系统代理没改却可以上网」就是这种情况）；
-  ///   * **系统代理**：TUN 起不来（Windows/macOS 需要管理员权限）时退而设置
-  ///     系统代理，此时必须能在系统里看到 `127.0.0.1:<port>`。
   Future<void> _updateProxyMode() async {
     try {
       final enabled = await VPNService.getSystemProxyEnable();
       final port = ClashSettingManager.getMixedPort();
-      // TUN 是否**真的**在接管：开关打开 + 内核没有回退到系统代理。
-      // 只看 systemProxyFallbackActive 是不够的 —— TUN 关掉时它同样是 false，
-      // 那样会把「系统代理」错报成「TUN 模式」（TUN 变成可开关之后的新坑）。
       final tunWanted =
           PlatformUtils.isPC() && SettingManager.getConfig().tunEnabled;
       final tunDriving = tunWanted && !VPNService.systemProxyFallbackActive;
@@ -976,8 +892,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             ? "TUN + 系统代理 127.0.0.1:$port · 均已生效"
             : "TUN 模式 · 内核接管全部流量（无需系统代理）";
       } else if (tunWanted) {
-        // 想用 TUN 但没起来（桌面端需要管理员权限）→ 如实说明原因与当前通路。
-        // 原因用内核侧的**分类结果**（权限 / 网卡残留 / 驱动被拦），不是一句万能话。
         final short = switch (VPNService.tunFailureKind) {
           TunStartFailureKind.privilege => "需管理员权限",
           TunStartFailureKind.adapterBusy => "虚拟网卡被占用",
@@ -990,8 +904,6 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             : "TUN 未生效（$short）· 系统代理未生效";
       } else if (PlatformUtils.isPC() &&
           !VPNService.shouldApplySystemProxy()) {
-        // 这是我们**故意**没设（TUN 强制模式 / 用户关了「连接后自动设置系统代理」），
-        // 不能显示成故障：以前这里只写「未生效」，用户就一直以为坏了。
         _proxyMode.value = "未设置系统代理 —— ${VPNService.systemProxySkipReason()}";
       } else {
         _proxyMode.value = enabled
@@ -1005,23 +917,14 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   void _startProxyModeTimer() {
     _timerProxyMode?.cancel();
-    // 15 秒一次（原来 5 秒）：这里每次都要读一次系统代理状态 + 向内核要
-    // 「当前节点/模式」两份数据。5 秒一次在连接后是纯粹的额外负载 ——
-    // 用户实测「连接之后非常卡」，而这几秒一次的轮询在最需要流畅的时候
-    // 又往内核上加请求（内核此刻可能正在被自家测速占着）。
     _timerProxyMode = Timer.periodic(const Duration(seconds: 15), (_) {
       _updateProxyMode();
-      // 没连接就没有内核可回读（也避免在没连的状态下白发请求）
       if (_state != FlutterVpnServiceState.connected) {
         return;
       }
-      // 测速进行中：内核正忙，这几秒一次的轮询先让路（测速结束后自然恢复）。
       if (MclashNodesStore.instance.isTesting) {
         return;
       }
-      // 把「当前节点 / 模式」与内核对齐：面板（zashboard）里换节点、切规则-全局，
-      // 或外部工具改了内核时，App 不会自己知道 —— 以前只在切前台/自己切节点时读一次，
-      // 用户在面板里改完，App 里「看着像没生效」。
       unawaited(() async {
         await MclashKernelSync.syncFromKernel();
         await _updateProxyNow();
@@ -1042,18 +945,12 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     if (AppLifecycleStateNofity.isPaused()) {
       return;
     }
-    // 连接后**立即**只做最轻量的事：起流量监听 + 读一次流量数字。
-    // 其余（读内核模式/节点、起各种轮询定时器）延后 3 秒；自动测速延后到
-    // 10 秒（见 MclashNodesStore._onConnected）—— 参考 MoneyFly：连接成功
-    // 不堆一堆任务，且错峰，否则刚就绪的内核瞬间被自家一堆 HTTP 请求压满，
-    // 表现就是「一连上就卡死」。
     ClashTrafficWatcher.instance.start(
       port: ClashSettingManager.getControlPort(),
       secret: ClashSettingManager.getConfig().Secret ?? "",
     );
     await _updateConnections();
 
-    // 内核稳定后再把「读模式/节点 + 轮询定时器」挂起来。
     unawaited(() async {
       await Future<void>.delayed(const Duration(seconds: 3));
       if (_state != FlutterVpnServiceState.connected) {
@@ -1061,10 +958,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       }
       unawaited(_updateProxyMode());
       _startProxyModeTimer();
-      // 面板（浏览器里打开的那个）可能刚改过节点/模式 → 回读一次对齐。
       unawaited(MclashKernelSync.syncFromKernel());
-      // 2 秒刷新一次界面：流量数字本身是 ClashTrafficWatcher 每 3 秒从内核推来的，
-      // 以前 1 秒刷一次只是把同一份数据重复渲染一遍（多出来的唤醒没有收益）。
       const Duration duration = Duration(seconds: 2);
       _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
         if (AppLifecycleStateNofity.isPaused()) {
@@ -1108,16 +1002,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       final result = await ClashHttpApi.getNowProxy(
         ClashSettingManager.getConfig().Mode ?? ClashConfigsMode.rule.name,
       );
-      // data 允许为 null（模式为空、组还没就绪等）—— 旧代码在这里 `data!` 会抛
-      // 「Null check operator used on a null value」，而这个方法每 15 秒被定时器
-      // 调一次，等于周期性丢异常。
       final chain = result.data;
       if (result.error != null || chain == null || chain.isEmpty) {
         _proxyNow.value = "";
       } else {
-        // 链路上「叶子在前、组在后」，第一个 **type 不是策略组** 的节点才是
-        // 真实节点。不能用名字判断 —— 订阅里的「🚀 节点选择」是 Selector 组，
-        // 名字不是内置名，但它是组、不是节点（用户反馈主页显示成了「节点选择」）。
         final groupTypes = ClashProtocolType.GroupToList();
         ClashProxiesNode? real;
         for (final n in chain) {
@@ -1126,11 +1014,14 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             break;
           }
         }
+        final ownDelay = real == null
+            ? null
+            : MclashNodesStore.instance.latencyByName()[real.name];
         _proxyNow.value = real == null
             ? ""
             : formatCurrentProxyName(
                 [real.name],
-                delayMs: real.delay,
+                delayMs: ownDelay ?? real.delay,
               );
       }
       _proxyNowUpdating = false;

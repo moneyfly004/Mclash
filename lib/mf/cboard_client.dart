@@ -92,12 +92,6 @@ class CBoardSession {
   }
 }
 
-/// 会话存储。**是否落盘由登录窗口的「保存账号信息」决定。**
-///
-///   * 勾选（`remember == true`）→ 会话写进磁盘，下次打开自动登录；
-///   * 不勾选 → 会话**只留在内存**里（本次运行照常用），磁盘上不写任何东西，
-///     下次打开就停在登录窗口。同时会把上一次可能残留的会话清掉，
-///     否则「取消勾选」对老会话不生效。
 abstract final class CBoardSessionStore {
   static const _key = 'mclash.cboard.session.v1';
 
@@ -105,11 +99,9 @@ abstract final class CBoardSessionStore {
 
   static CBoardSession? get cached => _cached;
 
-  /// 测试缝：替换「是否记住账号」的来源（真实实现读设置）。
   @visibleForTesting
   static bool Function()? rememberOverride;
 
-  /// 测试缝：替换落盘层（真实实现写 SecureStorage），便于断言「到底写没写」。
   @visibleForTesting
   static Future<void> Function(String key, String value)? debugWriteOverride;
 
@@ -132,7 +124,6 @@ abstract final class CBoardSessionStore {
 
   static Future<CBoardSession?> load() async {
     if (_cached != null) return _cached;
-    // 不记住账号 → 磁盘上的旧会话一律不认，并顺手删掉
     if (!remember) {
       await _write('');
       return null;
@@ -156,7 +147,6 @@ abstract final class CBoardSessionStore {
         return;
       }
       if (!remember) {
-        // 只留在内存：本次运行照常用，但下次打开不会自动登录
         return;
       }
       await _write(jsonEncode(s.toJson()));
@@ -208,13 +198,6 @@ class CBoardClient {
     return h;
   }
 
-  /// 写请求的串行闸门。
-  ///
-  /// 为什么必须串行：服务端的 CSRF 中间件**每次校验成功都会轮换 token**
-  /// （实测：先用 tokenA 成功 POST 一次，紧接着带 tokenA 再 POST → 40300
-  /// 「CSRF token 无效或已过期」）。App 里存在并发写请求（改数量时的
-  /// 「取消草稿单 + 重新算价」、支付与取消交叉），并发时总有一个拿着刚被
-  /// 作废的 token 失败 —— 用户侧就是支付点了没反应 / 取消订单没反应。
   static Future<void> _writeLock = Future<void>.value();
 
   Future<CBoardResponse<dynamic>> request(
@@ -238,7 +221,6 @@ class CBoardClient {
         retryCsrf: retryCsrf,
       );
     }
-    // 排队执行：保证「取 token → 发请求」之间不会插入另一个写请求
     final prev = _writeLock;
     final gate = Completer<void>();
     _writeLock = gate.future;
@@ -339,7 +321,6 @@ class CBoardClient {
     }
 
     if (r.isCsrfFailure && mutating && retryCsrf) {
-      // token 作废了 → 立刻重新取一个再试一次（此时没有并发写请求在跑）
       Log.w("CBoardClient: CSRF token 已过期，重新获取后重试一次 $method $path");
       return _requestInner(method, path,
           body: body,
@@ -526,22 +507,8 @@ class CBoardClient {
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
-  /// 设备/时长增量升级：算价与下单（**实测的服务端契约**）。
-  ///
-  /// 路由与参数名是逐条探出来的，写错就是「价格获取失败 / 支付不了」：
-  ///   * 路由是 `/orders/upgrade`（`/orders/upgrade-devices` 在服务端 404）；
-  ///   * 参数是 `add_devices` / `add_days`（`additional_*` 一律 400 参数错误）。
-  ///
-  /// 另外：后端**不认** `preview_only`，算价请求也会落一笔待支付订单。所以
-  /// 调用方不要「先算价再下单」，而应把这笔算价返回的订单当草稿订单直接用；
-  /// 见 `MclashDeviceUpgrade`（改数量前先取消上一笔，退出时也取消）。
   static const String kUpgradeOrderPath = '/orders/upgrade';
 
-  /// 算价（后端会建一笔 pending 草稿订单，所以调用方要负责取消旧的）。
-  ///
-  /// 字段口径（实测后端）：续期用 **`extend_months`**；`add_days` 后端**不认**
-  /// —— 以前客户端只发 add_days，于是「增加天数」金额不变、到期时间也不变，
-  /// 用户花了钱没续上。现在按天换算成月（30 天 = 1 个月，向上取整）再发。
   Future<Map<String, dynamic>> previewDeviceUpgrade({
     required int addDevices,
     int addDays = 0,
@@ -567,7 +534,6 @@ class CBoardClient {
       kUpgradeOrderPath,
       body: {
         'add_devices': addDevices,
-        // 与算价一致：后端续期字段是 extend_months（add_days 会被忽略）
         if (addDays > 0) 'extend_months': (addDays + 29) ~/ 30,
         'add_days': addDays,
         'payment_method': method.isEmpty ? null : method,

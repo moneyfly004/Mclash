@@ -6,12 +6,6 @@ import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 
-/// 主页改版（用户报的三个问题，逐条钉住）：
-///   1. 「主页上 Mclash 的标志太大，可以放左上角」→ 顶栏标志缩到 15px 且左对齐；
-///   2. 「到期设备的信息应该在连接按钮上方、标志右侧」→ 信息条进顶栏（连接卡之前），
-///      不再是连接卡下方那张整行卡片；
-///   3. 「卡片数据没同步」→ 数据取账号服务（后端口径），并给出新鲜度提示，
-///      过期时点一下立即刷新。
 void main() {
   Map<String, dynamic> dash(int limit, {String expire = "2028-06-25"}) => {
     "username": "454487210",
@@ -101,15 +95,11 @@ void main() {
 
   testWidgets('新鲜度提示：数据够新时不提「刷新」，过期时提示可刷新', (tester) async {
     await pumpHeader(tester);
-    // debugSetData 不写 cachedAt → 视为「尚未同步」，提示可刷新
     expect(find.byKey(const ValueKey("home-freshness")), findsOneWidget);
     expect(find.textContaining("刷新"), findsWidgets);
     await finish(tester);
   });
 
-  // 用户反馈：「主页右上角的到期时间显示不完整，设备使用情况也不完整，被遮挡了」。
-  // 根因是 Row + Spacer + Flexible 把剩余空间对半分，信息条只拿到一半宽度 →
-  // 文字被省略号截断。这里用真实几何断言钉住：任何窗口宽度下都要**完整**显示。
   group('信息条不截断（真实几何）', () {
     Future<void> pumpAt(WidgetTester tester, double width) async {
       tester.view.physicalSize = Size(width * 3, 900 * 3);
@@ -118,9 +108,6 @@ void main() {
       await pumpHeader(tester);
     }
 
-    // 说明：`flutter test` 用的是等宽测试字体（每个字形都是 1em 方块），
-    // 比真机字体宽约 1.7 倍 —— 因此这里的 420px 大约相当于真机 250px，
-    // 已经比任何真机窗口都窄。前三个宽度断言「一个字符都不能少」。
     for (final width in <double>[900, 700, 520, 420]) {
       testWidgets('宽 ${width.toInt()}px：到期/设备完整显示且不出屏', (tester) async {
         await pumpAt(tester, width);
@@ -133,7 +120,6 @@ void main() {
         expect(find.textContaining("到期 2028-06-25"), findsOneWidget);
         expect(find.textContaining("设备 1/50"), findsOneWidget);
 
-        // 文本实际渲染宽度 == 它需要的宽度 → 没有被压缩/截断
         for (final finder in [
           find.textContaining("到期 2028-06-25"),
           find.textContaining("设备 1/50"),
@@ -153,7 +139,6 @@ void main() {
       });
     }
 
-    // 极端窄屏（比任何真机都窄）：宁可省略，也不能溢出红黄条
     for (final width in <double>[360, 320]) {
       testWidgets('宽 ${width.toInt()}px：不溢出（兜底允许省略）', (tester) async {
         await pumpAt(tester, width);

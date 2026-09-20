@@ -2,21 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/desktop_impl.dart' as desktop_impl;
 import 'package:libclash_vpn_service/src/windows_wininet.dart' as wininet;
 
-/// 「清理系统代理」为什么不能写坏**别的客户端**的设置（跨平台回归）。
-///
-/// 用户实测的事故：用了 Mclash 之后，MoneyFly 连上、Windows 里却不显示
-/// 127.0.0.1 和端口（注册表里有值、也能上网，界面是空白）。根因是 Windows
-/// 界面读的是「每连接」那份缓存（`Connections\DefaultConnectionSettings`），
-/// 而 MoneyFly / Clash Party / Clash Verge **只写注册表**，从不碰这份缓存 ——
-/// 我们清理时无条件把缓存写成「直连」，等于把别人的代理从界面上抹掉了。
-///
-/// 修法是：只有快照里记着「我们写入之前它是什么」时才动那份缓存。
-/// 这里把那条判定钉死（纯逻辑，不需要真机）。
 void main() {
   group('每连接缓存的还原判定', () {
     test('原本是直连 → 才允许写回直连', () {
-      // clearSystemProxyForConnection 会写「直连」；restore 在「原本没代理」时
-      // 应该选它。
       expect(
         wininet.restoreFlagsDecideForTest(flags: wininet.kProxyTypeDirect, server: ""),
         "clear",
@@ -41,8 +29,6 @@ void main() {
     });
 
     test('flags 读不到（null）→ 按直连处理，且不会写坏别的客户端', () {
-      // 读不到 flags 的机器上，界面本来也没显示过我们的值 —— 写直连不会让
-      // 界面「从有变无」，这是这个默认值安全的原因。
       expect(
         wininet.restoreFlagsDecideForTest(flags: null, server: ""),
         "clear",
@@ -62,8 +48,6 @@ void main() {
 
   group('ProxyEnable 原始值的判定', () {
     test('0x1 / 1 都算开（reg.exe 与 FFI 两条路径的输出格式不同）', () {
-      // reg query 给的是 "0x1"；我们用 RegQueryValueEx 读回来再格式化，同样给
-      // "0x1"。但历史日志里见过 "1" 的形式，两种都必须认。
       expect(desktop_impl.SystemProxySnapshot.isEnabledRaw("0x1"), isTrue);
       expect(desktop_impl.SystemProxySnapshot.isEnabledRaw("1"), isTrue);
       expect(desktop_impl.SystemProxySnapshot.isEnabledRaw("0x0"), isFalse);

@@ -5,11 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:mclash/mf/mclash_connection_diagnostics.dart';
 import 'package:mclash/screens/theme_config.dart';
 
-/// 「连接自检」页：把当前**到底走的哪条通路、为什么没生效**摊开。
-///
-/// 用户报的「连上了系统代理却是空的 / 开了 TUN 没看到虚拟网卡」这类问题，
-/// 只看界面永远说不清。这一页把所有事实（设置值 / 内核真实生效值 / 系统代理
-/// 读写 / TUN 与虚拟网卡 / 内核日志尾部）收成一段文本，可一键复制发出来。
 class MclashDiagnosticsScreen extends StatefulWidget {
   static RouteSettings routeSettings() {
     return const RouteSettings(name: "MclashDiagnosticsScreen");
@@ -38,7 +33,6 @@ class _MclashDiagnosticsScreenState extends State<MclashDiagnosticsScreen> {
     try {
       text = await MclashConnectionDiagnostics.collect();
     } catch (e) {
-      // 自检本身失败也要给结论，不能一直转圈
       text = "自检失败：$e\n\n请把这句话发给客服，并附上应用日志。";
     }
     if (!mounted) {
@@ -96,7 +90,6 @@ class _MclashDiagnosticsScreenState extends State<MclashDiagnosticsScreen> {
   }
 }
 
-/// 「我的」页上的入口（不可用时给出提示，而不是点了没反应）。
 Future<void> showMclashDiagnostics(BuildContext context) async {
   await Navigator.push(
     context,

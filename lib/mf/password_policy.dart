@@ -18,6 +18,5 @@ class PasswordPolicy {
     return null;
   }
 
-  /// 弱密码提示（仅用于 UI 展示强度，不参与校验）。
   static String hint() => "至少 $kMinLength 位，且同时包含字母和数字";
 }

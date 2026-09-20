@@ -68,12 +68,6 @@ class GroupHelper {
     if (!versionCheck.newVersion || versionCheck.version.isEmpty) {
       return;
     }
-    // 统一走「更新提示」里的安装流程（同一个入口，行为一致）：
-    //   * 后台已经下好 → 直接进安装页；
-    //   * 还没下好 → 催一次后台下载，仍不行就给**本项目 GitHub 上适合本机架构**
-    //     的安装包地址。
-    // 这里**不再**用远端配置里的 download 地址：那是别的客户端的下载页，
-    // 点进去拿到的包装不上（架构/客户端都不对）。
     await MclashUpdatePrompt.installNow(
       context,
       version: versionCheck.version,
@@ -128,8 +122,6 @@ class GroupHelper {
         ),
         GroupItemOptions(
           pushOptions: GroupItemPushOptions(
-            // 菜单项以前叫「导入/导出」，现在只剩导出（导入已按产品要求移除），
-            // 文案必须跟着改 —— 否则用户点进去找不到「导入」会以为是 bug。
             name: tcontext.meta.export,
             onPush: () async {
               onTapImportExport(context);
@@ -313,8 +305,6 @@ class GroupHelper {
     }
 
     if (uri.host == AppSchemeActions.syncDownloadAction()) {
-      // 「从对端拉一份备份回来并恢复本机」这条路径已按产品要求移除：
-      // 恢复只能靠登录账号重新同步订阅，不允许从外部把数据塞进来。
       DialogUtils.showAlertDialog(
         context,
         tcontext.sendOrReceiveNotMatch(p: tcontext.meta.send),
@@ -439,7 +429,6 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("importAndExport"),
         builder: (context) => GroupScreen(
-          // 只剩「导出备份」：导入（从文件 / 从 URL 恢复）已按产品要求移除
           title: tcontext.meta.export,
           getOptions: getOptions,
         ),
@@ -875,11 +864,26 @@ class GroupHelper {
 
       List<GroupItemOptions> options2 = [
         GroupItemOptions(
+          stringPickerOptions: GroupItemStringPickerOptions(
+            name: "测速方式",
+            selected: setting.speedTestMode == SettingConfig.kSpeedTestModeKernel
+                ? "内核测速"
+                : "TCP 测速",
+            strings: const ["TCP 测速", "内核测速"],
+            textWidthPercent: 0.35,
+            onPicker: (String? selected) async {
+              if (selected == null) {
+                return;
+              }
+              setting.speedTestMode = selected == "内核测速"
+                  ? SettingConfig.kSpeedTestModeKernel
+                  : SettingConfig.kSpeedTestModeTcp;
+            },
+          ),
+        ),
+        GroupItemOptions(
           textFormFieldOptions: GroupItemTextFieldOptions(
             name: tcontext.meta.delayTestUrl,
-            // 说清楚这个数字是什么：经该节点**完整走一次 HTTP 请求**的耗时
-            // （含 DNS/握手/请求），不是纯 ping；用 https 会再多一次 TLS 握手，
-            // 数字自然更大（本机实测同一节点 HTTP 333ms / HTTPS 2923ms）。
             tips: "经该节点完整走一次 HTTP 请求的耗时（非 ping）\n"
                 "默认用明文 http 的 204 空响应；换成 https 会多一次 TLS 握手，数字更大",
             text: setting.delayTestUrl,
@@ -999,10 +1003,6 @@ class GroupHelper {
             },
           ),
         ),
-        // 「连接后自动设置系统代理」「绕过域名」「系统代理状态」都是 PC 专属能力：
-        // Android 没有可供 App 修改的系统代理（它走 VpnService 的 TUN），
-        // 以前这些开关在手机上也照常显示，点了毫无作用 —— 用户看到的就是
-        // 「这个设置改不动」。所以在移动端直接不显示。
         if (VPNService.getSupportSystemProxy()) ...[
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
@@ -1555,7 +1555,6 @@ class GroupHelper {
               profile != null && profile.overwriteProxyGroups
                   ? profile.proxyGroups
                   : null,
-              // 见 VPNService._prepareConfig：appendRules 的 iOS 来源已删除。
               null,
             );
             if (!context.mounted) {
@@ -1664,8 +1663,6 @@ class GroupHelper {
       var extensions = setting.Extension!;
       final tunStacks = ClashTunStack.toList();
       List<GroupItemOptions> options = [
-        // TUN 模式（关闭 / 自动 / 强制）——这一页是 TUN 的**归属页**，
-        // 所以三态选择放在最上面（参考实现也是把 TUN 放在核心设置里）。
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
             name: "TUN 模式",
@@ -1681,8 +1678,6 @@ class GroupHelper {
               };
               SettingManager.getConfig().tunMode = mode;
               SettingManager.save();
-              // 内核侧每次生成配置都会按这个模式重写 tun.enable，这里同步一下，
-              // 免得界面上的「覆写/参数」看起来还停留在旧状态。
               ClashSettingManager.syncTunSwitch();
               Log.i("核心设置: TUN 模式 → $mode");
               setstate?.call();
@@ -1701,9 +1696,6 @@ class GroupHelper {
             },
           ),
         ),
-        // 注：「启用」不再单独给开关 —— 它由上面的 TUN 模式决定
-        //（关闭=不建卡；自动/强制=建卡）。两个开关同时存在必然打架：
-        // 内核侧每次生成配置都会按模式重写 enable，用户在这里改的值会被悄悄覆盖。
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
             name: "${tcontext.meta.enable}（由 TUN 模式决定）",

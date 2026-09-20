@@ -45,7 +45,6 @@ abstract final class HttpUtils {
     try {
       HttpClientRequest request = await client.headUrl(uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, "*/*");
-      // 稳定设备标识（后端据此统计设备数；不带就会按 UA 版本各算一台新设备）
       await applyDeviceIdentityHeaders(request);
       if (xhwid) {
         final hwidHeaders = await HwidUtils.getHwidHeaders();
@@ -134,7 +133,6 @@ abstract final class HttpUtils {
     try {
       HttpClientRequest request = await client.getUrl(uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, "*/*");
-      // 稳定设备标识（后端据此统计设备数；不带就会按 UA 版本各算一台新设备）
       await applyDeviceIdentityHeaders(request);
       if (xhwid) {
         final hwidHeaders = await HwidUtils.getHwidHeaders();
@@ -272,20 +270,12 @@ abstract final class HttpUtils {
     }
   }
 
-  /// 同一条「请求失败」日志的去重窗口。
-  ///
-  /// 用户日志里最烦人的一段是测速打到一个已经停掉的内核：411 个节点 × 每条
-  /// 一次失败，`http GetRequest ... exception: 远程计算机拒绝网络连接` 刷了
-  /// 几百行，把真正的诊断行（系统代理写入结果、内核启动失败原因）全埋了 ——
-  /// 而 `Log.i` 是**同步写盘**，这几百行本身就是卡顿的一部分。
-  /// 同一目标 + 同一错误在窗口内只记第一次，窗口结束时补一行「共抑制 N 条」。
   static const Duration _logDedupeWindow = Duration(seconds: 10);
   static String _lastLogKey = "";
   static DateTime? _lastLogAt;
   static int _suppressed = 0;
 
   static void _logRequestFailure(String url, Object err) {
-    // 键里带上错误内容：同一个 URL 换了种错法（超时 → 拒绝连接）必须记下来。
     final key = "$url|${err.runtimeType}";
     final now = DateTime.now();
     final at = _lastLogAt;
@@ -697,13 +687,6 @@ abstract final class HttpUtils {
 }
 
 
-/// 订阅请求统一带上**稳定的设备标识**。
-///
-/// 为什么必须带：后端（/Users/apple/v2 的 subscription.go）按设备指纹统计设备数，
-/// 优先用 `X-App-Device-Id`（或 `x-hwid`），拿不到才退回「UA 特征」——而 UA 里
-/// 带版本号（`Mclash/0.0.7 platform/macos mihomo/...`），于是**每发一个版本
-/// 就会在后台多出一台"新设备"**，设备数量与设备列表都不准。
-/// 这里用持久化的 Did 作标识，同一台机器升级/换 IP 都算同一台设备。
 Future<void> applyDeviceIdentityHeaders(HttpClientRequest request) async {
   try {
     final did = await Did.getDid();

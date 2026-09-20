@@ -371,8 +371,6 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
         ),
       );
     }
-    // 全局模式：**只列国家节点**，不列策略组、不列内核内置的 GLOBAL。
-    // （用户要求：「选择全局模式，不要显示 global 的东西，只能看到国家节点可以选择」。）
     final globalMode =
         ClashSettingManager.getConfigsMode() == ClashConfigsMode.global;
     return Column(
@@ -433,9 +431,6 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
   Future<List<ClashProxiesNode>> _getProxiesFromKernel() async {
     var result = await ClashHttpApi.getProxies();
     if (result.error == null) {
-      // 隐藏内核**内置**的 GLOBAL 组：它是 mode=global 时的内部路由目标，
-      // 由 App 自动指向用户选中的节点，不该作为「一个组」摊在用户面前
-      // （参考客户端同样不展示它；用户反馈「为什么全局还有 global」）。
       return result.data!
           .where((n) => !isInternalProxyName(n.name))
           .toList();

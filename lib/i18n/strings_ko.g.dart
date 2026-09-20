@@ -1,19 +1,12 @@
-///
-/// Generated file. Do not edit.
-///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
-// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
-// Path: <root>
 class TranslationsKo with BaseTranslations<AppLocale, Translations> implements Translations {
-	/// You can call this constructor and build your own translation instance of this locale.
-	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsKo({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -25,11 +18,9 @@ class TranslationsKo with BaseTranslations<AppLocale, Translations> implements T
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
-	/// Metadata for the translations of <ko>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
-	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsKo _root = this; // ignore: unused_field
@@ -37,7 +28,6 @@ class TranslationsKo with BaseTranslations<AppLocale, Translations> implements T
 	@override 
 	TranslationsKo $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsKo(meta: meta ?? this.$meta);
 
-	// Translations
 	@override late final _Translations$BackupAndSyncWebdavScreen$ko BackupAndSyncWebdavScreen = _Translations$BackupAndSyncWebdavScreen$ko._(_root);
 	@override late final _Translations$LaunchFailedScreen$ko LaunchFailedScreen = _Translations$LaunchFailedScreen$ko._(_root);
 	@override late final _Translations$PerAppAndroidScreen$ko PerAppAndroidScreen = _Translations$PerAppAndroidScreen$ko._(_root);
@@ -69,26 +59,22 @@ class TranslationsKo with BaseTranslations<AppLocale, Translations> implements T
 	};
 }
 
-// Path: BackupAndSyncWebdavScreen
 class _Translations$BackupAndSyncWebdavScreen$ko implements Translations$BackupAndSyncWebdavScreen$en {
 	_Translations$BackupAndSyncWebdavScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get webdavServerUrl => '서버 URL';
 	@override String get webdavRequired => '비워둘 수 없습니다';
 	@override String get webdavLoginFailed => '로그인 실패:';
 	@override String get webdavListFailed => '파일 목록을 가져오지 못했습니다:';
 }
 
-// Path: LaunchFailedScreen
 class _Translations$LaunchFailedScreen$ko implements Translations$LaunchFailedScreen$en {
 	_Translations$LaunchFailedScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get invalidProcess => '앱 시작 실패 [유효하지 않은 프로세스 이름], 앱을 별도의 디렉토리에 다시 설치하십시오';
 	@override String get invalidProfile => '앱 시작 실패 [프로필 액세스 실패], 앱을 다시 설치하십시오';
 	@override String get invalidVersion => '앱 시작 실패 [유효하지 않은 버전], 앱을 다시 설치하십시오';
@@ -96,36 +82,30 @@ class _Translations$LaunchFailedScreen$ko implements Translations$LaunchFailedSc
 	@override String get invalidInstallPath => '설치 경로가 유효하지 않습니다. 유효한 경로에 다시 설치하십시오';
 }
 
-// Path: PerAppAndroidScreen
 class _Translations$PerAppAndroidScreen$ko implements Translations$PerAppAndroidScreen$en {
 	_Translations$PerAppAndroidScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get title => '앱별 프록시';
 	@override String get whiteListMode => '화이트리스트 모드';
 	@override String get whiteListModeTip => '활성화 시: 체크된 앱만 프록시됩니다. 비활성화 시: 체크되지 않은 앱만 프록시됩니다';
 }
 
-// Path: UserAgreementScreen
 class _Translations$UserAgreementScreen$ko implements Translations$UserAgreementScreen$en {
 	_Translations$UserAgreementScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get privacyFirst => '개인 정보 보호 우선';
 	@override String get agreeAndContinue => '동의 및 계속';
 }
 
-// Path: NetCheckScreen
 class _Translations$NetCheckScreen$ko implements Translations$NetCheckScreen$en {
 	_Translations$NetCheckScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get enterDomain => '도메인 이름을 입력하세요';
 	@override String get checking => '점검 중...';
 	@override String aQueryFailed({required Object p}) => 'A 쿼리 실패: ${p}';
@@ -142,25 +122,21 @@ class _Translations$NetCheckScreen$ko implements Translations$NetCheckScreen$en 
 	@override String get routeTableSection => '4. 라우팅 테이블';
 }
 
-// Path: VersionUpdateScreen
 class _Translations$VersionUpdateScreen$ko implements Translations$VersionUpdateScreen$en {
 	_Translations$VersionUpdateScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String versionReady({required Object p}) => '새 버전 [${p}]이 준비되었습니다';
 	@override String get update => '업데이트를 위해 재시작';
 	@override String get cancel => '나중에';
 }
 
-// Path: loginScreen
 class _Translations$loginScreen$ko implements Translations$loginScreen$en {
 	_Translations$loginScreen$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get login => '로그인';
 	@override String get register => '계정 가입';
 	@override String get forgotPassword => '비밀번호 찾기';
@@ -171,23 +147,19 @@ class _Translations$loginScreen$ko implements Translations$loginScreen$en {
 	@override String get password => '비밀번호';
 }
 
-// Path: main
 class _Translations$main$ko implements Translations$main$en {
 	_Translations$main$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override late final _Translations$main$tray$ko tray = _Translations$main$tray$ko._(_root);
 }
 
-// Path: meta
 class _Translations$meta$ko implements Translations$meta$en {
 	_Translations$meta$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get enable => '활성화';
 	@override String get disable => '비활성화';
 	@override String get open => '열기';
@@ -375,13 +347,11 @@ class _Translations$meta$ko implements Translations$meta$en {
 	@override String get tabMe => '내 정보';
 }
 
-// Path: permission
 class _Translations$permission$ko implements Translations$permission$en {
 	_Translations$permission$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get camera => '카메라';
 	@override String get screen => '화면 녹화';
 	@override String get appQuery => '애플리케이션 목록 가져오기';
@@ -389,25 +359,21 @@ class _Translations$permission$ko implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => '[${p}] 권한을 켜주십시오';
 }
 
-// Path: tls
 class _Translations$tls$ko implements Translations$tls$en {
 	_Translations$tls$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get certificate => '인증서';
 	@override String get privateKey => '개인 키';
 	@override String get customTrustCert => '사용자 정의 인증서';
 }
 
-// Path: tun
 class _Translations$tun$ko implements Translations$tun$en {
 	_Translations$tun$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get stack => '네트워크 스택';
 	@override String get inet4Address => 'IPv4 주소 범위';
 	@override String get dnsHijack => 'DNS 하이제킹';
@@ -419,13 +385,11 @@ class _Translations$tun$ko implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => 'HTTP 프록시를 우회하도록 허용된 도메인';
 }
 
-// Path: dns
 class _Translations$dns$ko implements Translations$dns$en {
 	_Translations$dns$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get listen => '청취 연설';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => '폴백(Fallback)';
@@ -445,44 +409,33 @@ class _Translations$dns$ko implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIpCode';
 }
 
-// Path: sniffer
 class _Translations$sniffer$ko implements Translations$sniffer$en {
 	_Translations$sniffer$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get overrideDest => '덮어쓰기';
 }
 
-// Path: profilePatchMode
 class _Translations$profilePatchMode$ko implements Translations$profilePatchMode$en {
 	_Translations$profilePatchMode$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get currentSelected => '현재 선택됨';
 	@override String get overwrite => '내장 - 덮어쓰기';
 	@override String get noOverwrite => '내장 - 덮어쓰지 않음';
 }
 
-// Path: main.tray
 class _Translations$main$tray$ko implements Translations$main$tray$en {
 	_Translations$main$tray$ko._(this._root);
 
 	final TranslationsKo _root; // ignore: unused_field
 
-	// Translations
 	@override String get menuOpen => '열기';
 	@override String get menuExit => '종료';
 }
 
-/// The flat map containing all translations for locale <ko>.
-/// Only for edge cases! For simple maps, use the map function of this library.
-///
-/// The Dart AOT compiler has issues with very large switch statements,
-/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsKo {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {

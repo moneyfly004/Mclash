@@ -56,11 +56,6 @@ class ProxyScreenProxiesNodeWidget extends StatefulWidget {
   });
   final List<ClashProxiesNode> nodes;
 
-  /// **扁平节点模式**（全局模式用）：不展示策略组，直接列出真实节点让用户选。
-  ///
-  /// 用户要求：「全局模式我不要看到 global / 组名，只能看到国家节点可以选择」。
-  /// 全局模式下所有流量都由内核 GLOBAL 决定，策略组没有意义 —— 列出来只会
-  /// 让人以为「选了组里的节点就会生效」。
   final bool flatNodes;
 
   final bool kernelOffline;
@@ -112,7 +107,6 @@ class _ProxyScreenProxiesNodeWidget
       if (!widget.flatNodes) {
         return _nodes;
       }
-      // 扁平模式：只要真实节点，按延迟升序（延迟最低的排最前）
       return flatSelectableNodes(_nodes);
     }
     final out = MclashNodeFilter.select<ClashProxiesNode>(
@@ -162,7 +156,6 @@ class _ProxyScreenProxiesNodeWidget
       if (!_filtering) {
 
         if (widget.flatNodes) {
-          // 扁平模式里只列真实节点（策略组不列）
           if (ClashProtocolType.GroupToList().contains(node.type)) {
             continue;
           }
@@ -331,10 +324,6 @@ class _ProxyScreenProxiesNodeWidget
     );
   }
 
-  /// 扁平模式（全局模式）：直接切到该节点。
-  ///
-  /// 走 [MclashNodeSelector] 而不是写某个组 —— 全局模式下真正生效的是内核
-  /// GLOBAL，写策略组等于没切（这正是「切了全局、选了节点却没反应」的根因）。
   Future<void> _selectFlatNode(ClashProxiesNode node) async {
     final err = await MclashNodeSelector.select(node.name);
     if (!mounted) {

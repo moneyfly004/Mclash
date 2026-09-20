@@ -319,8 +319,6 @@ class _ProfilesBoardScreenWidget extends State<ProfilesBoardScreenWidget> {
             }
           },
         ),
-        // 「复制订阅地址」「二维码」已按产品要求移除：订阅地址不外露 = 与外发
-        // 分享保持一致的口径（拿到地址的人可以直接用，会绕过设备/防合租控制）。
       ],
 
       ListTile(

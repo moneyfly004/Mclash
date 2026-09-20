@@ -4,32 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/libclash_vpn_service.dart';
 import 'package:path/path.dart' as p;
 
-/// 「核心启动不起来」的**决定性**回归测试。
-///
-/// ## 被钉住的 bug
-///
-/// 用户报告：「无法连接，核心启动不起来」。实测根因在真内核日志里：
-///
-///     level=info  msg="Start initial configuration in progress"
-///     level=info  msg="Can't find MMDB, start download"     ← 卡死在这里
-///     （20s 后仍无 API 响应；上层 60s 超时）
-///
-/// mihomo 以 `-d <work_dir>` 启动后，按**固定文件名**在 `-d` 目录里找分流数据
-/// （country.mmdb / geosite.dat）。找不到时它**不是降级而是去 GitHub 下载**，
-/// 国内不可达 → 永不就绪。
-///
-/// 而随包内置的数据（`assets/rules/country.mmdb`、`geosite.dat`）虽然已经被
-/// `tool/fetch_geodata.sh` 下载到仓库里，却因为两个原因没进内核目录：
-///
-///   1. `pubspec.yaml` **没有声明** `assets/rules/` → 文件从未进入 flutter_assets；
-///   2. 落盘逻辑只找 `<work_dir>/assets/rules` 与 `<work_dir>/rules`，
-///      而 Flutter 声明的资源真实落点是 `<work_dir>/flutter_assets/assets/rules/`。
-///
-/// 下面直接对落盘逻辑做端到端断言（真读文件、真拷贝），不依赖原生插件：
-///   * 内置数据必须在**真实落点**被找到并拷进 `-d` 目录；
-///   * 一套数据的不同文件名（`ASN.mmdb` → `GeoLite2-ASN.mmdb`）要能对上；
-///   * 已经在位的文件不重复拷贝（内核重启不该反复写 8MB）；
-///   * 缺文件时**必须**把缺失清单返回出来（否则又变回没有归因的 60s 超时）。
 void main() {
   late Directory tmp;
   late String workDir;
@@ -45,7 +19,6 @@ void main() {
     } catch (_) {}
   });
 
-  /// 造一个"安装包内置资源"的真实布局：<work>/flutter_assets/assets/rules/...
   Future<File> putBundledAsset(String relPath, String content) async {
     final f = File(p.join(tmp.path, "work", "flutter_assets", "assets", relPath));
     await f.parent.create(recursive: true);
@@ -71,7 +44,6 @@ void main() {
         await File(p.join(workDir, "geosite.dat")).readAsString(),
         "GEOSITE-BYTES",
       );
-      // mihomo 要的名字与随包文件名不同，必须映射
       expect(
         await File(p.join(workDir, "GeoLite2-ASN.mmdb")).readAsString(),
         "ASN-BYTES",
@@ -133,10 +105,6 @@ void main() {
   });
 
   test('工作目录可写位置 + 资源在安装目录：依然能找到（Windows 真实布局）', () async {
-    // Windows 上 App 装在 Program Files（只读），内核工作目录被换到
-    // %APPDATA%\mclash\mclash；而 country.mmdb / geosite.dat / ASN.mmdb
-    // 仍只在安装目录的 data\flutter_assets\assets\{rules,datas} 下。
-    // 不把安装目录纳入查找来源，geo 就会"找不到" → 内核去 GitHub 下载 → 卡死。
     final root = await Directory.systemTemp.createTemp("geo_win_install");
     final work = await Directory.systemTemp.createTemp("geo_win_work");
     final rules = Directory(
@@ -149,7 +117,6 @@ void main() {
     await datas.create(recursive: true);
     await File(p.join(rules.path, "country.mmdb")).writeAsString("mmdb");
     await File(p.join(rules.path, "geosite.dat")).writeAsString("dat");
-    // 注意：ASN 在另一个子目录（分包布局）
     await File(p.join(datas.path, "ASN.mmdb")).writeAsString("asn");
 
     final installRoot = p.join(root.path, "data");

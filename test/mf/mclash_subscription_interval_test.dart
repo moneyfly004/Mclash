@@ -2,12 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 
-/// 「我的」里设置的**订阅自动更新间隔不生效**的回归。
-///
-/// 之前的两个问题：
-///   1. 界面改了内存字段却没有落盘入口，重启就回到旧值；
-///   2. 自动更新判断散落在多处，各处判定不一致（尤其启动时无条件同步，
-///      让「7 天更新一次」这个设置看起来完全没用）。
 void main() {
   ProfileSetting accountProfile({
     Duration? interval,

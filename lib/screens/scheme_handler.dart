@@ -54,11 +54,6 @@ class SchemeHandler {
     return ReturnResultError("unsupport scheme: ${uri.scheme}");
   }
 
-  /// `clash://install-config?url=…` / `mclash://install-config?url=…`
-  ///
-  /// **一次性导入订阅配置的能力已按产品要求整体移除**：客户端只允许
-  /// 「登录账号 → 自动同步订阅」这一条路径，不接受任何外部链接塞进来的配置。
-  /// 这里如实拒绝并告诉用户该怎么做 —— 静默忽略会让用户以为是链接坏了。
   static Future<ReturnResultError?> _rejectInstallConfig(
     BuildContext context,
   ) async {

@@ -34,10 +34,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   @override
   void initState() {
     super.initState();
-    // 面板改了「设备上限 / 到期时间」后要立刻能看到：
-    //   * 打开本页补一次账号刷新（不必等 5 分钟定时器）；
-    //   * 并监听账号服务 —— 以前这里只读一次快照，账号更新了界面也不重建，
-    //     用户看到的就是「后台改了，软件没更新」。
     MclashAccountService.instance.addListener(_onAccountChanged);
     unawaited(MclashAccountService.instance.refreshIfStale());
     _load();
@@ -55,7 +51,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     }
   }
 
-  /// 右上角刷新：设备列表与账号信息（设备上限/到期时间）一起刷新。
   Future<void> _refreshAll() async {
     await Future.wait([
       _load(),
@@ -191,8 +186,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
               ],
             ),
             const Divider(height: 24, thickness: 0.3),
-            // 一个入口搞定：以前分成「加设备数」「加时长」两个入口，用户想同时
-            // 加台数和天数就做不到（必须分两次下单、付两次钱）。
             _upgradeRow(
               Icons.add_circle_outline,
               "升级设备数 / 延长时长",
@@ -223,10 +216,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     onTap: onTap,
   );
 
-  /// 升级面板：**设备台数与天数是同一张面板里的两组选择**。
-  ///
-  /// 旧实现分两张面板，用户没法「既加台数又加时长」；而且面板打开时**不发起
-  /// 算价**，价格停在 ¥0.00、按钮禁用 —— 用户看到的就是「获取价格失败 / 付不了款」。
   Future<void> _showUpgradeSheet() async {
     var addDevices = 0;
     var addDays = 0;
@@ -245,7 +234,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             Future<void> refreshQuote() async {
-              // 两项都选 0 时没有意义，不算价（也不建草稿订单）
               if (addDevices <= 0 && addDays <= 0) {
                 setSheetState(() {
                   quote = const {};
@@ -286,7 +274,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
             }
 
             if (quote.isEmpty && quoteError == null && !quoting) {
-              // 首帧就开算（默认 +1 台），避免用户看到 ¥0.00 的空面板
               addDevices = addDevices == 0 && addDays == 0 ? 1 : addDevices;
               WidgetsBinding.instance.addPostFrameCallback(
                 (_) => refreshQuote(),
@@ -296,8 +283,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
             final amount = MclashDeviceUpgrade.amountOf(quote);
             final orderNo = (quote["order_no"] ?? "").toString();
             final canPay = !quoting && quoteError == null && amount > 0;
-            // 「升级后」的结果必须显示出来：以前只显示金额，用户看不到设备数/到期
-            // 时间有没有变 —— 「增加天数」被后端忽略的问题就是因为看不见才没被发现。
             final newLimit = MclashDeviceUpgrade.newDeviceLimitOf(quote);
             final newExpire = MclashDeviceUpgrade.newExpireTimeOf(quote);
 
@@ -355,8 +340,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                   Wrap(
                     spacing: 8,
                     children: [
-                      // 面板按下单口径是「月」，这里按天展示但换算成月发送
-                      // （30→1、90→3、180→6、365→12），文案里把月数写出来。
                       for (final n in [0, 30, 90, 180, 365])
                         ChoiceChip(
                           key: ValueKey("upgrade-days-$n"),
@@ -462,7 +445,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     ).whenComplete(MclashDeviceUpgrade.cancelDraft);
   }
 
-  /// 算价失败的原因翻译成人话（`参数错误` 这种原文对用户毫无帮助）。
   static String _friendlyQuoteError(
     Object e, {
     required int addDevices,
@@ -471,7 +453,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     final text = e.toString();
     if (text.contains("参数错误") || text.contains("40000")) {
       if (addDevices <= 0 && addDays > 0) {
-        // 面板旧版本要求 add_devices ≥ 1，因此「只延长时间」会被拒
         return "面板暂不支持「只延长时间」：请把「增加台数」选成 1 台及以上再试"
             "（或联系客服开通）。";
       }
@@ -483,10 +464,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     return text;
   }
 
-  /// 用算价时那笔草稿订单去支付。
-  ///
-  /// 不再「重新下单」：后端算价就已经建单，重新下单会在订单列表里多出一笔。
-  /// 最近一次算价得到的订单 id（非余额支付时用它对后端发起支付）。
   int _lastQuoteOrderId = 0;
 
   Future<void> _submitUpgrade(
@@ -503,7 +480,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       await DialogUtils.showAlertDialog(context, "订单信息不完整，请点「重新算价」再试");
       return;
     }
-    // 用户要求：**让客户自己选支付方式**（以前这里直接走余额）。
     final method = await _pickPayMethod(amount);
     if (method == null || !mounted) {
       return;
@@ -512,8 +488,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     if (!mounted) {
       return;
     }
-    // 支付前确认这笔草稿订单还能付（后端 30 分钟就过期；被取消/过期都会让它失效）。
-    // 以前没有这一步，用户挑通道挑久了点支付只会看到「订单不存在或状态不正确」。
     var payOrderNo = orderNo;
     var payAmount = amount;
     final fresh = await MclashDeviceUpgrade.refreshIfUnpayable(
@@ -539,12 +513,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     if (!mounted) {
       return;
     }
-    // 关键：进入支付流程 → 草稿订单**上锁**。
-    // 紧接着下面就会关掉算价面板，而面板关闭时挂着 cancelDraft()
-    // （以前没上锁 → 刚建的订单被立刻取消 → 支付报「订单不存在或状态不正确」）。
     MclashDeviceUpgrade.beginPayment();
-    // 关掉支付方式面板：这里用的是面板自己的 context，
-    // 所以要按**它**的 mounted 判断（外层 State 的 mounted 管不到它）。
     if (sheetContext.mounted) {
       Navigator.of(sheetContext).pop();
     }
@@ -563,7 +532,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
           ) ==
           true;
     } else {
-      // 非余额：向后端发起支付拿二维码/收银台链接，再按通道决定交互
       final methodId = (method["id"] as num?)?.toInt() ?? 0;
       var orderId = _lastQuoteOrderId;
       if (methodId <= 0 || orderId <= 0) {
@@ -580,8 +548,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
           isMobile: Platform.isAndroid,
         );
       } catch (e) {
-        // 兜底：订单在「确认」到「发起支付」之间失效（例如刚好过期），
-        // 自动按同样配置重新算一笔再发起一次，不让用户自己去猜要点「重新算价」。
         if (!_looksLikeDeadOrder(e)) {
           rethrow;
         }
@@ -632,8 +598,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     }
 
     } catch (e) {
-      // **不再静默失败**：以前发起支付/取消抛异常时这里没有 try/catch，
-      // 异常被 Flutter 吞掉，用户看到的就是「点了支付没反应」。
       Log.w("设备管理: 支付流程失败 $e");
       if (mounted) {
         await DialogUtils.showAlertDialog(
@@ -643,7 +607,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       }
       return;
     } finally {
-      // 无论成功失败都要解锁，否则后续的草稿单清理会被永久跳过
       MclashDeviceUpgrade.endPayment(keepOrder: ok);
     }
 
@@ -651,7 +614,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       await MclashAccountService.instance.refresh();
       await _load();
     } else {
-      // 用户放弃支付 → 把这笔草稿订单取消掉，别在他订单列表里留 pending
       unawaited(MclashDeviceUpgrade.cancelDraft());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -661,7 +623,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     }
   }
 
-  /// 订单是否已经失效（后端 40400「订单不存在或状态不正确」）。
   static bool _looksLikeDeadOrder(Object e) {
     final text = e.toString();
     return text.contains("订单不存在") ||
@@ -669,10 +630,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         text.contains("40400");
   }
 
-  /// 把技术错误翻译成用户能懂的一句话（CSRF/网络/过期各不同）。
   static String _friendlyPayError(Object e) => MclashPay.friendlyError(e);
 
-  /// 让用户选择支付方式（余额 + 后端下发的通道）。
   Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {
     final info = MclashAccountInfo(
       MclashAccountService.instance.dashboard,
@@ -694,7 +653,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       return null;
     }
     final usable = <Map<String, dynamic>>[
-      // 余额排在第一位（后端允许时才给），并标出余额是否够付
       if (balanceEnabled) {"id": -1, "key": "balance", "name": "余额支付"},
       ...methods.where((m) => !MclashPay.isBalance(MclashPay.payTypeOf(m))),
     ];
@@ -707,7 +665,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     if (usable.length == 1 &&
         MclashPay.isBalance(MclashPay.payTypeOf(usable.first)) &&
         balance < amount) {
-      // 没有其它通道又余额不足：引导充值
       final go = await DialogUtils.showConfirmDialog(
         context,
         "余额不足（¥${balance.toStringAsFixed(2)}，需付 ¥${amount.toStringAsFixed(2)}）。\n是否先去充值？",
@@ -738,7 +695,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
               ),
             ),
             const SizedBox(height: 12),
-            // 点一项即选定并关闭（支付方式的"选择"不需要二次确认）
             for (final m in usable)
               ListTile(
                 key: ValueKey("pay-method-${MclashPay.payTypeOf(m)}"),
@@ -779,9 +735,6 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         ? d["device_name"].toString()
         : (d["os_name"]?.toString() ?? "未知设备");
     final model = "${d["os_name"] ?? ""} · ${d["device_model"] ?? ""}";
-    // 后端字段是 `is_online`（不是 `online`）—— 只读 `online` 会让**每台设备
-    // 都显示离线**，包括正在打心跳的本机（用户实测反馈）。判定口径见
-    // MclashDeviceView（纯函数，有测试钉住）。
     final online = MclashDeviceView.isOnline(d);
     final ip = d["ip_address"]?.toString() ?? "";
     final loc = MclashDeviceView.locationOf(d);

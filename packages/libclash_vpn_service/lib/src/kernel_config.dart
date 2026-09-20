@@ -9,20 +9,6 @@ import 'package:yaml/yaml.dart';
 
 import 'models.dart';
 
-/// 内核最终配置的生成（**桌面与 Android 共用同一套实现**）。
-///
-/// 为什么要抽出来：Android 侧的旧实现 `android_impl._resolvedConfigYaml()` 只要
-/// 发现 `core_path_patch` / `core_path_patch_final` 非空就**直接返回空字符串**；
-/// 而 app 层在连接时必然会设置 `core_path_patch_final`（见 VPNService._prepareConfig），
-/// 于是交给内核的配置**恒为空**：
-///   * Kotlin 侧 `MclashVpnService` 把「空配置」判定为无配置启动 → 走幽灵连接
-///     分支（前台通知挂 1.5 秒然后 stopSelf）；
-///   * Dart 侧只会看到 state=disconnected，报「内核启动失败（原生侧未返回具体原因）」。
-/// 用户侧表现就是「安卓点连接没反应 / 内核起不来」。
-///
-/// 这里把桌面端一直在用的逻辑（读基础 YAML → 深合并 patch → 注入
-/// external-controller/secret → 去掉重复入站端口 → 保证混合端口可用）抽成共用实现，
-/// 两端行为一致，也便于单测覆盖（不依赖任何平台 API）。
 class KernelConfigResult {
   KernelConfigResult({
     required this.yaml,
@@ -31,33 +17,19 @@ class KernelConfigResult {
     this.notes = const [],
   });
 
-  /// 内核要读的完整 YAML 文本。
   final String yaml;
 
-  /// 内核工作目录（`-d`）。
   final String workDir;
 
-  /// 实际使用的混合端口（可能因被占用而改过）。
   final int mixedPort;
 
-  /// 生成过程说明（写日志用，便于「有问题时日志能明确列出来」）。
   final List<String> notes;
 }
 
-/// 在**后台 isolate** 里生成内核配置。
-///
-/// 为什么（用户实测）：「点连接会卡顿、软件短暂卡死，断开也一样」。
-/// `buildKernelConfig` 要做 `loadYaml`（订阅 400+ 节点、配置档 400+ KB）
-/// + 深合并 + `dumpYaml`，全程跑在**主 isolate**上 —— 实测 30~100ms，
-/// 真机 release 上更久，正好是用户能感知到的「卡一下」。
-/// 这里把它整体挪到后台 isolate，主线程只等结果。
-///
-/// 返回的对象由 `Isolate.exit` 直接转移，不需要序列化开销。
 Future<KernelConfigResult> buildKernelConfigOffThread(
   VpnServiceConfig cfg, {
   bool checkPort = true,
 }) {
-  // 只把需要的字段带过去，避免把整个配置对象（及其它引用）传进新 isolate。
   final core = cfg.core_path;
   final patch = cfg.core_path_patch;
   final patchFinal = cfg.core_path_patch_final;
@@ -76,10 +48,6 @@ Future<KernelConfigResult> buildKernelConfigOffThread(
   });
 }
 
-/// 生成内核最终配置。
-///
-/// [checkPort] 为 true 时探测混合端口是否被占用（被占用就换一个空闲端口，
-/// 避免「内核起来了但端口冲突 → 系统代理指向没人监听的端口」）。
 Future<KernelConfigResult> buildKernelConfig(
   VpnServiceConfig cfg, {
   bool checkPort = true,
@@ -143,8 +111,6 @@ Future<KernelConfigResult> buildKernelConfig(
     notes.add("配置里没有 mixed-port（订阅没写、patch 也没给）→ 补上 $mixedPort");
   }
 
-  // 订阅自带的入站端口必须去掉：与 App 的 mixed-port 同时存在会抢同一个端口，
-  // 结果是内核只监听了其中一个（历史事故：IPv6-only 绑定 + 局域网 IP 代理）。
   for (final k in ["port", "socks-port", "redir-port", "tproxy-port"]) {
     config.remove(k);
   }
@@ -155,16 +121,6 @@ Future<KernelConfigResult> buildKernelConfig(
     mixedPort = picked;
   }
 
-  // **必须无条件写回 mixed-port。**
-  //
-  // 真实事故（本机实测）：配置里没有 mixed-port 时内核**照常启动**、
-  // 控制 API 也通，但**一个入站监听都不开** ——
-  //   * 实测日志只有 `RESTful API listening at ...`，没有
-  //     `Mixed(http+socks) proxy listening at ...`，7890 上没有任何监听；
-  //   * 上层 `_waitReady()` 要求「控制 API + 混合端口都能连」→ 60 秒超时 →
-  //     用户看到的是「内核启动超时（可能被安全软件拦截）」——**完全误导**。
-  // 旧实现只在「端口被占用」时才写这个键，等于把「有没有入站监听」寄托在
-  // 订阅或 patch 恰好写了 mixed-port 上，非常脆弱（patch 缺失/被清掉就会中招）。
   config["mixed-port"] = mixedPort;
 
   final yaml = dumpYaml(config);

@@ -9,12 +9,6 @@ import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 
-/// 主页「快速筛选国家」的两条产品要求 + 一条交互要求：
-///
-///   1. 只显示**延迟最低的 6 个国家**（以前铺开所有国家，占掉大半屏）；
-///   2. **两排**（每排 3 个）；
-///   3. 点国家要**真的切到该国最快的节点** —— 用户点国家的本意是「我要走这个
-///      国家」，只筛选不切换等于没反应（全局模式下还要写内核 GLOBAL）。
 void main() {
   final sample = <MclashNode>[
     MclashNode(name: "🇭🇰 香港 01", type: "ss", server: "1.1.1.1", port: 443)
@@ -48,8 +42,6 @@ void main() {
   setUp(() {
     MclashNodesStore.instance.debugResetLoadState();
     MclashNodesStore.instance.debugSetNodes(sample, loading: false);
-    // 主页上的快捷操作**不应该**把用户甩到别的标签页（用户反馈的原话：
-    // 点国家会跳到节点列表整页）。这里用控制器记录是否被切过标签。
     tabSwitches = [];
     MainTabController(tabSwitches.add);
   });
@@ -79,13 +71,11 @@ void main() {
     await pump(tester);
 
     for (final code in ["HK", "JP", "SG", "US", "KR", "TW"]) {
-      // TW 没有节点，下面单独断言；这里先确认前五个 + 第 6 个槽位有内容
       if (code == "TW") {
         continue;
       }
       expect(chip(code), findsOneWidget, reason: "$code 是延迟最低的六个之一");
     }
-    // 6 个国家（只有 7 个国家有节点 → 第 6 个是德国，英国被挤掉）
     var count = 0;
     for (final code in ["HK", "JP", "SG", "US", "KR", "DE", "GB"]) {
       if (chip(code).evaluate().isNotEmpty) {
@@ -121,7 +111,6 @@ void main() {
     expect(centers[4].dy, closeTo(secondRowY, 1), reason: '后 3 个在第二排');
     expect(centers[5].dy, closeTo(secondRowY, 1));
     expect(secondRowY, greaterThan(firstRowY), reason: '确实是两排（第二排在下面）');
-    // 同一排内横向递增
     expect(centers[1].dx, greaterThan(centers[0].dx));
     expect(centers[2].dx, greaterThan(centers[1].dx));
 

@@ -3,14 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/widgets/mclash_page_header.dart';
 
-/// 用户反馈：「我的页面会出现 UI 抖动的问题，帮我固定位置」。
-///
-/// 根因：标题栏右侧那个位置在「加载中 = 20×20 转圈」和「加载完 = 44×44 刷新图标」
-/// 之间切换，一次刷新高度差 24px，整页内容跟着上下跳。
-///
-/// 这里直接钉住共用标题栏的**尺寸契约**：加载态、完成态、以及根本没有刷新按钮，
-/// 三种情况下标题栏高度必须完全一致，下面的内容位置也不能动。
-/// （之前页面各写一份时没人能测这条，所以回归测试只能靠肉眼。）
 void main() {
   Future<void> pumpHeader(
     WidgetTester tester, {
@@ -28,7 +20,6 @@ void main() {
                   loading: loading,
                   onRefresh: onRefresh,
                 ),
-                // 标题栏下面的内容：它的位置就是「有没有抖动」的判据
                 const Card(
                   key: ValueKey("below"),
                   child: SizedBox(height: 100, width: double.infinity),

@@ -2,10 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_sort.dart';
 
-/// 「选择节点」按延迟排序的回归。
-///
-/// 用户反馈原文：「主页当中的连接按钮下面的节点切换，没有按照延迟排序，
-/// 延迟最低的要放最前面。」
 void main() {
   MclashNode node(String name, int latencyMs) =>
       MclashNode(name: name, type: "vless", server: "1.1.1.1", port: 443)
@@ -47,7 +43,6 @@ void main() {
     final first = sortNodesByLatency(input).map((n) => n.name).toList();
     final second = sortNodesByLatency(input).map((n) => n.name).toList();
     expect(first, second, reason: "同样的输入必须给出同样的顺序");
-    // 都没有延迟时按名字兜底（可预期）
     expect(first, ["🇦🇷 阿根廷 01", "🇧🇷 巴西 01", "🇨🇱 智利 01"]);
   });
 

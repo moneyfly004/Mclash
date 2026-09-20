@@ -1,10 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_payment.dart';
 
-/// 用户要求：支付方式要能自己选，并且不同通道交互不同 ——
-///   支付宝二维码 → 弹二维码（安卓可唤起支付宝 App）
-///   码支付/收银台 → 打开浏览器支付
-/// 这个文件钉住「拿到后端返回的载荷后，界面该做什么」的判断。
 void main() {
   group('支付载荷分类', () {
     test('余额：直接扣款，不弹二维码', () {
@@ -26,7 +22,6 @@ void main() {
     });
 
     test('后端真实通道 codepay_alipay → 一律打开浏览器（哪怕返回的是支付宝链接）', () {
-      // 实测 /payment/methods 返回：alipay / codepay_alipay（无 name 字段）
       expect(
         MclashPay.classify("https://pay.example.com/x", payType: "codepay_alipay"),
         MclashPayChannel.cashierUrl,
@@ -87,8 +82,6 @@ void main() {
       expect(MclashPay.classify("   "), MclashPayChannel.qr);
     });
 
-    // 后端 `payment_mode` 比「链接长什么样」更可靠：收银台网页和二维码都是
-    // http(s) 链接，光看形态必然猜错（用户实测：支付宝被当成收银台弹了浏览器）。
     test('payment_mode=qrcode：即使链接是 http 也按二维码在软件内出码', () {
       final c = MclashPay.classify(
         "https://pay.example.com/order/abc",

@@ -3,12 +3,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/kernel_config.dart';
 
-/// 端口占用检测的回归。
-///
-/// 真实事故：内核入站监听绑的是 `*:7890`（所有网卡 + IPv6），而检测只 bind 了
-/// `127.0.0.1:7890` —— 别的实例已经占着 `*:7890` 时回环仍然绑得上，于是我们判定
-/// 「端口空闲」，内核起来后报 `Start Mixed(http+socks) server error: bind: address
-/// already in use`，用户看到的是「连上了却没有入站监听 / 系统代理指向没人听的端口」。
 void main() {
   test('通配地址被占用时，必须判定为「不可用」', () async {
     final squatter = await ServerSocket.bind(InternetAddress.anyIPv4, 0);

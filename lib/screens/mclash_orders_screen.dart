@@ -86,15 +86,6 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
     );
   }
 
-  /// 「继续支付」：**重新发起一次支付**，而不是拿空二维码糊弄用户。
-  ///
-  /// 旧实现的两个真问题（用户实测「点了没反应 / 没有二维码」）：
-  ///   1. `/orders/{no}/status` 只返回金额/套餐/状态，**没有** payment_method 与
-  ///      qr_code —— 于是这里 `payWithBalance` 永远 false、二维码永远是空字符串，
-  ///      面板打开就是一个空框；
-  ///   2. 整个流程没有 try/catch，CSRF 过期等异常被吞掉 → 点击毫无反应。
-  /// 现在：让用户选支付方式（余额 + 后端下发的通道），余额走余额支付，
-  /// 其它通道用 `POST /payment` 重新拿一次支付链接/二维码。
   Future<void> _resumePayment(Map<String, dynamic> o, double amount) async {
     final orderNo = o["order_no"]?.toString() ?? "";
     final orderId = (o["id"] as num?)?.toInt() ?? 0;
@@ -167,7 +158,6 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
     }
   }
 
-  /// 支付方式选择（与设备管理同一套：余额 + 后端下发通道）。
   Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {
     List<Map<String, dynamic>> methods = const [];
     try {
@@ -299,7 +289,6 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () async {
-                        // 以前这里异常被吞掉 → 用户点「取消订单」毫无反应
                         try {
                           await MclashApi.cancelOrder(orderNo);
                           await _load();

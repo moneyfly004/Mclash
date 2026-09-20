@@ -31,7 +31,6 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
   @override
   void initState() {
     super.initState();
-    // 上次登录用的邮箱（只记邮箱、不存密码）：不勾选保存也预填，少输一次
     final last = SettingManager.getConfig().lastAccountEmail;
     if (last.isNotEmpty) {
       _email.text = last;
@@ -43,18 +42,12 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
     });
   }
 
-  /// 勾选/取消「保存账号信息」。
-  ///
-  /// 勾选 = 会话落盘 → 下次打开自动登录；
-  /// 取消 = 会话只留在内存 → 下次打开停在登录窗口。
-  /// 取消时立即清掉磁盘上的旧会话，否则对已登录过的用户不生效。
   Future<void> _setRemember(bool value) async {
     setState(() => _remember = value);
     SettingManager.getConfig().rememberAccount = value;
     SettingManager.save();
     if (!value) {
       await CBoardSessionStore.clear();
-      // 「保存账号信息」不勾 = 什么都不留（连上次登录的邮箱也清掉）
       SettingManager.getConfig().lastAccountEmail = "";
       SettingManager.save();
     }
@@ -271,7 +264,6 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
     });
     try {
       await MclashApi.login(email, _password.text);
-      // 勾选了保存才记邮箱（**绝不存密码**）：不勾就什么都不留
       SettingManager.getConfig().lastAccountEmail = _remember ? email : "";
       SettingManager.save();
     } catch (e) {

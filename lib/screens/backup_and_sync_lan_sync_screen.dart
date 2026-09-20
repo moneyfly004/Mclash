@@ -139,9 +139,6 @@ class _BackupAndSyncLanSyncScreenState
         httpRequest.response.statusCode = HttpStatus.ok;
         httpRequest.response.close();
       });
-      // 只保留「发送」方向：本机把备份**给出去**，对端随时来取。
-      // 「接收」（对端把 zip 上传到本机、本机立刻恢复）已按产品要求移除 ——
-      // 恢复只能靠登录账号重新同步订阅，不允许从外部把数据塞回来。
       _onRouting("/${AppSchemeActions.syncDownloadAction()}", "GET", (
         HttpRequest httpRequest,
       ) async {

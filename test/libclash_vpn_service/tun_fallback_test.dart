@@ -1,28 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/libclash_vpn_service.dart';
 
-/// 「已连接但上不了网」的回归测试：TUN 不可用时必须能**判出来**。
-///
-/// ## 背景（实测证据）
-///
-/// Mclash 的内核配置默认开 TUN（`tun.enable=true`、`auto-route=true`），但桌面端
-/// 是以普通权限直接跑 mihomo 子进程的。macOS 上创建 utun 必须 root，内核只会记
-/// 一行错然后照常提供 mixed 端口 —— 真内核日志（/tmp 实测）：
-///
-///     level=info  msg="Initial configuration complete, total time: 18ms"
-///     level=error msg="Start Mixed(http+socks) server error: listen tcp :17890:
-///                      bind: address already in use"
-///     level=error msg="Start TUN listening error: configure tun interface:
-///                      Connect: operation not permitted"
-///
-/// 此时系统代理默认是关的（`auto_set_system_proxy=false`），于是界面显示「已连接」
-/// 而流量没有出口。兜底逻辑（`DesktopVpnServiceImpl._applyDataPathFallback`）就是
-/// 靠这里的判据决定「要不要自动接管系统代理」，判错任一侧后果都很直接：
-///
-///   * 漏判 → 用户看到「已连接」却上不了网（本 bug）
-///   * 误判 → 明明 TUN 正常，却去改用户的系统代理设置
-///
-/// 所以用真实日志原文把判据钉住。
 void main() {
   group('TUN 不可用判据（回归：已连接但上不了网）', () {
     test('真实内核日志里 TUN 失败的那一行必须被判为不可用', () {
@@ -61,17 +39,6 @@ time="2026-09-16T00:45:00.052540000+08:00" level=info msg="Tun started"
   group('TUN 就绪证据（决定「要不要兜底系统代理」）', tunEstablishEvidenceTests);
 }
 
-/// 「TUN 到底起没起来」的判定（第二轮回归）。
-///
-/// 用户实测：「连接之后 Windows 的系统代理是空白」，而界面还显示 TUN 正常 ——
-/// 真实状态是**两条通路都没有**：配置里 tun.enable=true，但虚拟网卡因为没管理员
-/// 权限/网卡残留/驱动被拦根本没建起来；旧的兜底只在「日志里能匹配到已知失败关键字」
-/// 时才退到系统代理，关键字对不上就什么都不做。
-///
-/// 现在的判据是「有没有**正面**证据说明 TUN 在接管」：
-///   * 有 → 不动系统代理（避免两套机制同时生效）；
-///   * 没有 → 兜底写系统代理（宁可有两条通路，也不能一条都没有）。
-/// 这些用例单独放在一个 main 里，避免改动上面已通过的组。
 void tunEstablishEvidenceTests() {
   test('TUN 正常（Tun started）→ 认作已接管，不去动系统代理', () {
     const log = '''

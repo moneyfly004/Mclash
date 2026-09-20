@@ -48,10 +48,6 @@ class MclashProfileScreen extends LasyRenderingStatefulWidget {
   State<MclashProfileScreen> createState() => _MclashProfileScreenState();
 }
 
-/// 测试缝：返回 null 表示「运行时配置文件不存在」。
-///
-/// 运行时配置由内核启动后写出，测试环境没有内核，所以用这个口子覆盖
-/// 「文件不存在 / 文件为空 / 有内容」三条分支。
 @visibleForTesting
 Future<String?> Function()? mclashRuntimeProfileReader;
 
@@ -78,7 +74,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 账号服务更新（面板改了设备上限/到期时间、余额变动…）时重建本页
     MclashAccountService.instance.addListener(_onAccountChanged);
     _load();
   }
@@ -100,17 +95,10 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
 
     if (state == AppLifecycleState.resumed) {
-      // 静默刷新：切回前台不该让整页跳一下
       _load(silent: true);
     }
   }
 
-  /// 拉取账号信息。
-  ///
-  /// [silent] = 已经有数据时的静默刷新：**不**点亮转圈、**不**插入错误卡。
-  /// 为什么：以前每次进页面 / 切回前台 / 点刷新都会 `_loading = true → false`，
-  /// 头部在「转圈(20px)」和「刷新图标(44px)」之间切换，整页随之上下跳（UI 抖动）；
-  /// 网络抖一下还会多出一张错误卡，把下面的卡片全顶下去。
   Future<void> _load({bool silent = false}) async {
     if (!mounted) {
       return;
@@ -118,8 +106,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     final hadData = _dash != null;
     setState(() {
       _loading = !silent && !hadData;
-      // 注意：这里**不清** _error。清掉会让「错误卡」在刷新期间消失、刷新完又出现，
-      // 页面高度来回变（也是抖动的一种）。它只在新数据到达或新错误到来时更新。
     });
     try {
       Map<String, dynamic>? dash;
@@ -128,8 +114,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           Log.w("profile: dashboard failed $e");
           return null;
         }),
-        // 本页的订阅信息（到期时间/设备数）取的是账号服务里的快照，
-        // 只刷自己的 dashboard 会让它一直是旧的 —— 一起刷新，界面才不会「不更新」。
         MclashAccountService.instance.refresh(),
       ]);
       if (!mounted) {
@@ -140,11 +124,8 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           _dash = dash;
           _error = null;
         } else if (!hadData) {
-          // 账号接口失败时**不能**留一片空白：给出原因和「点右上角刷新重试」的提示
-          // （用户实测：支付失败之后回到「我的」页面一片空白，不知道发生了什么）。
           _error = "账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。";
         } else {
-          // 已经有旧数据：保留它、不插错误卡 —— 否则卡片会被顶下去再弹回来
           Log.w("profile: 刷新失败，保留上一次的数据");
         }
         _loading = false;
@@ -342,9 +323,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         Icons.settings,
         () => GroupHelper.showClashSettings(context),
       ),
-      // 应用日志（app.log）：**以前根本没有入口** —— 用户想看 App 侧到底做了什么
-      // （连接、系统代理写入与读回校验、订阅同步…）只能看到「核心日志」，
-      // 于是排查问题时永远缺一半信息。现在两个都给了，并在标题里显示文件路径。
       _settingRow(
         t.meta.appLog,
         Icons.article_outlined,
@@ -367,8 +345,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         () => GroupHelper.showBackupAndSync(context),
       ),
 
-      // 卸载前清数据：macOS/Windows 上「删除 App」不会删掉
-      // ~/Library/Application Support/... 里的订阅与会话，必须给用户一个出口。
       if (PlatformUtils.isPC())
         _settingRow(
           "清除本地数据（卸载前使用）",
@@ -417,10 +393,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           () => GroupHelper.newVersionUpdate(context),
           iconColor: Colors.red,
         ),
-      // TUN 虚拟网卡：桌面端的网络模式选择（关闭 / 自动 / 强制）。
-      // 参考实现把它放在「设置 → 代理与分流」里；我们放在「我的 → 应用设置」。
-      // 安卓不显示：那里的 VpnService 本身就是隧道，不是用户可选项
-      // （显示了就是个点了没用的假开关）。
       if (PlatformUtils.isPC())
         _settingRow(
           "TUN 虚拟网卡",
@@ -433,13 +405,11 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
             SettingManager.getConfig().tunMode,
           ),
         ),
-      // 常驻的「检查更新」：手动查一次，有新版本就提示并给下载/安装入口
       _settingRow(
         "检查更新",
         Icons.system_update_alt_outlined,
         () => MclashUpdatePrompt.checkManually(context),
       ),
-      // 连接自检：把「走的哪条通路 / 为什么没生效」摊开，可一键复制
       _settingRow(
         "连接自检",
         Icons.medical_information_outlined,
@@ -499,8 +469,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       );
       return;
     }
-    // 面板是内核数据的可视化界面（zashboard）：内核没跑时它只有空壳，
-    // 用户会以为「面板坏了」。先如实说清，再决定要不要继续。
     if (!await VPNService.getStarted()) {
       if (!mounted) {
         return;
@@ -528,8 +496,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       return;
     }
     final url = result.data!;
-    // 用户明确要求：**桌面端点面板要用电脑的浏览器打开**（在浏览器里切节点/切规则-全局
-    // 更顺手），手机端仍然应用内打开。所以这里不再给桌面端塞 in-app webview。
     await WebviewHelper.loadUrl(
       context,
       url,
@@ -539,8 +505,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       useInappWebViewForPC: false,
     );
     if (PlatformUtils.isPC() && mounted) {
-      // 以前「点了像没反应」是因为浏览器在后台打开、用户不知道发生了什么。
-      // 现在明确告诉他：已经用浏览器打开了，而且里面改的会联动回 App。
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           duration: Duration(seconds: 4),
@@ -548,8 +512,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         ),
       );
     }
-    // 面板是直接改内核的（在里面点节点 = 改内核选择），App 侧不会自动知道 ——
-    // 关掉面板后立刻让首页重新读一次内核的当前节点，避免显示旧节点。
     MclashNodesStore.instance.notifyCurrentMaybeChanged();
     if (PlatformUtils.isMobile()) {
       await Zashboard.stop();
@@ -584,7 +546,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     try {
       await MclashApi.logout();
     } catch (_) {}
-    // 退出登录后停止在线心跳（面板会按 3 分钟无心跳判为离线）
     MclashHeartbeatService.instance.stop();
     SettingManager.save();
     if (!mounted) {
@@ -594,9 +555,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
-  /// 打开**应用日志**（`app.log`）：连接、系统代理写入/读回校验、订阅同步、
-  /// 检查更新等都记在这里（核心日志只有内核自己的输出）。
-  /// 顶部先写出文件完整路径与数据目录，便于用户/客服直接去文件夹里取。
   Future<void> _openAppLog() async {
     try {
       final logPath = await PathUtils.logFilePath();
@@ -676,9 +634,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     }
   }
 
-  /// 清除本地数据（含订阅配置档、登录会话、缓存与日志）。
-  ///
-  /// 两步确认：第一次说明会删什么，第二次要求再次确认 —— 这是不可撤销操作。
   Future<void> _clearLocalData() async {
     final items = MclashDataCleaner.items.map((e) => "· $e").join("\n");
     final dataDir = await MclashDataCleaner.dataDir();
@@ -704,8 +659,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     }
 
     try {
-      // 顺序：先断开（顺带还原系统代理）、再关掉开机自启、最后清数据 ——
-      // 否则清完数据后 App 还会以「上次的连接/自启状态」留在系统里。
       await VPNService.stop();
       await VPNService.restoreSystemProxy();
     } catch (e) {
@@ -784,7 +737,6 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     );
   }
 
-  /// 出错时给一条**带重试按钮**的提示，而不是只留一行红字（或一片空白）。
   Widget _buildError() => Padding(
     padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
     child: Card(

@@ -4,9 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_data_cleaner.dart';
 import 'package:path/path.dart' as path;
 
-/// 「卸载必须把之前的配置文件也删掉」的回归。
-///
-/// 全部在临时目录里做，**绝不碰真实用户数据**（`debugDataDirOverride`）。
 void main() {
   late Directory tmp;
 
@@ -23,7 +20,6 @@ void main() {
   });
 
   Future<void> seed() async {
-    // 真实数据目录的关键落点
     await File(path.join(tmp.path, "profiles.json")).writeAsString("{}");
     await File(path.join(tmp.path, "setting.json")).writeAsString("{}");
     await File(path.join(tmp.path, "session.secure")).writeAsString("token");
@@ -61,8 +57,6 @@ void main() {
   });
 
   test('启动时清掉已删除功能的遗留文件（provider 子系统的两个 json）', () async {
-    // 「第三方机场 provider」整体删除后，这两个文件没有任何代码读写；
-    // 老安装里还躺着（board_sessions.json 甚至含第三方登录 token）。
     await File(path.join(tmp.path, "providers.json")).writeAsString("[]");
     await File(
       path.join(tmp.path, "board_sessions.json"),
@@ -81,7 +75,6 @@ void main() {
       reason: '只删遗留文件，不能顺手动别人的数据',
     );
 
-    // 幂等：再跑一次不该报错，也不该删到别的文件
     expect(await MclashDataCleaner.removeLegacyFiles(), 0);
     expect(await File(path.join(tmp.path, "setting.json")).exists(), isTrue);
   });

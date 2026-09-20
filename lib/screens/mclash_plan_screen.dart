@@ -40,8 +40,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
   @override
   void initState() {
     super.initState();
-    // 套餐页要显示「当前套餐 / 到期时间 / 设备数」，这些来自账号服务：
-    // 打开页面补一次刷新，并在服务更新时重建（否则面板改完这里还是旧的）。
     MclashAccountService.instance.addListener(_onAccountChanged);
     unawaited(MclashAccountService.instance.refreshIfStale());
     _load();
@@ -59,7 +57,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     }
   }
 
-  /// [silent] = 已经有数据时的静默刷新：不点亮转圈，页面不跳。
   Future<void> _load({bool silent = false}) async {
     if (!mounted) {
       return;
@@ -67,7 +64,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     final hadData = _plans.isNotEmpty;
     setState(() {
       _loading = !silent && !hadData;
-      // 不清 _error：避免错误提示闪一下又回来（页面高度来回变）
     });
     try {
       Map<String, dynamic>? sub;
@@ -415,8 +411,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
 
       String payUrl = "";
       if (payType == "balance") {
-        // 余额支付由支付面板自己发起（面板里能看到「正在扣款 / 扣款失败原因」）。
-        // 旧实现先在这里静默扣款、再弹一个「扫码支付」二维码，用户完全看不懂。
         if (!mounted) {
           return;
         }
@@ -444,8 +438,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         if (!mounted) {
           return;
         }
-        // 按通道决定交互：支付宝二维码弹二维码（手机可唤起 App）、
-        // 码支付/收银台链接开浏览器（用户要求）。后端给了 payment_mode 时以它为准。
         final channel = MclashPay.classify(
           payUrl,
           payType: payType,
@@ -475,8 +467,6 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     }
   }
 
-  /// 用户没付成就把订单取消掉：否则订单列表里会堆一堆 pending 订单
-  /// （用户实测：支付失败几次之后，列表里多了 3 笔 200 元的未付款订单）。
   Future<void> _cancelDraftOrder(String orderNo) async {
     try {
       await MclashApi.cancelOrder(orderNo);

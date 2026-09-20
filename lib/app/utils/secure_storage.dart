@@ -7,8 +7,6 @@ import 'package:mclash/app/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 
 class SecureStorage {
-  /// 惰性创建：桌面端永远不会走到它（桌面走文件），
-  /// 于是「安装即弹钥匙串」在桌面端从根上不可能发生。
   static FlutterSecureStorage? _storageInstance;
   static FlutterSecureStorage get _storage =>
       _storageInstance ??= _initStorage();
@@ -80,10 +78,6 @@ class SecureStorage {
   }
 
   static FlutterSecureStorage _initStorage() {
-    // Android 上必须显式开启 EncryptedSharedPreferences —— 这是
-    // flutter_secure_storage 提供的「加密存储」开关，关掉会退回明文。
-    // 插件标记它弃用是因为 Google 弃用了 Jetpack Security 库，但插件尚无
-    // 等价的替代参数，所以在有替代方案之前保留（迁移时插件会自动迁移数据）。
     AndroidOptions getAndroidOptions() => const AndroidOptions(
       // ignore: deprecated_member_use
       encryptedSharedPreferences: true,

@@ -11,14 +11,6 @@ import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
 
-/// 「点击连接/断开之后，界面到底什么时候才有反应」的回归。
-///
-/// 用户实测：「点击连接好大一会才有反应」「关闭的时候也一样」。
-/// 根因是旧实现只在**插件的状态事件**到达时才刷新界面，而那之前还有一串真实等待
-/// （门禁复核、串行闸门排队、端口探测、防火墙规则、配置落盘、内核启动）。
-/// 现在点击瞬间先给乐观反馈 —— 这几条测试钉住它，并且钉住两个容易写错的地方：
-///   1. 真实状态一到就必须让位（否则一直转圈）；
-///   2. 连接失败回到 disconnected 时也必须让位（那个分支以前会提前 return）。
 void main() {
   setUp(() {
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
@@ -54,7 +46,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   }
 
-  /// 首页那个连接开关（`Switch.adaptive` 在 macOS/iOS 上会渲染成 Cupertino 版本）。
   Finder connectSwitch() {
     final cupertino = find.byType(CupertinoSwitch);
     if (cupertino.evaluate().isNotEmpty) {
@@ -64,7 +55,6 @@ void main() {
   }
 
   testWidgets('点连接：VPNService 还没返回，界面就已经显示「正在连接…」', (tester) async {
-    // 挂住真实的连接动作，模拟「后面还有一段等待」
     final gate = Completer<bool>();
     HomeScreenWidgetPart1.debugStartOverride = (from) => gate.future;
 
@@ -72,7 +62,7 @@ void main() {
     expect(find.text("点击开关连接"), findsOneWidget);
 
     await tester.tap(connectSwitch());
-    await tester.pump(); // 只推进一帧：这就是「用户点下去的那一瞬间」
+    await tester.pump(); 
 
     expect(
       find.text("正在连接…"),
@@ -81,7 +71,6 @@ void main() {
           '否则用户感受就是「点了半天没反应」（旧的报障）',
     );
 
-    // 连接失败（VPNService 返回 false 且状态回到 disconnected）→ 反馈必须收掉
     gate.complete(false);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
@@ -99,8 +88,6 @@ void main() {
 
     await pumpHome(tester);
 
-    // 先让首页认为「已连接」（真实链路由插件事件驱动，这里直接广播那个事件），
-    // 否则开关处于关闭态，点它触发的是「连接」而不是「断开」。
     for (final cb in List.of(VPNService.onEventStateChanged)) {
       cb(FlutterVpnServiceState.connected, const {});
     }

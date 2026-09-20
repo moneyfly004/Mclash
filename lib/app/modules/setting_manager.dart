@@ -121,12 +121,6 @@ class SettingConfig {
 
   static const String kDefaultBoardUrl = "";
   static const int kDefaultBoardPort = 7066;
-  /// 默认测速地址：**明文 HTTP** 的 204 空响应。
-  ///
-  /// 为什么不用 https：内核的 `/proxies/{name}/delay` 量的是「经这个节点完整走完
-  /// 一次 HTTP 请求」的耗时，HTTPS 会额外加一次 TLS 握手（本机实测同一节点：
-  /// HTTP 333ms / HTTPS 2923ms）。用 HTTPS 会让所有节点数字虚高，用户以为
-  /// 「测速有问题」。要更严苛的测试可以在「应用设置 → 测速地址」自己改回 HTTPS。
   static const String kDefaultDelayTestUrl =
       "http://www.gstatic.com/generate_204";
   String languageTag = "";
@@ -142,11 +136,6 @@ class SettingConfig {
   bool autoDownloadUpdatePkg = true;
   bool autoConnectAfterLaunch = false;
 
-  /// 用户**固定**的节点名（手动选过节点或国家后记住）。
-  ///
-  /// 空 = 自动模式：连接后自动选延迟最低的节点。
-  /// 非空 = 固定模式：每次连接都沿用这个节点；只有它探测不可用、或用户点了
-  /// 「自动最优」时才改变（参考客户端 MoneyFly 的 lastSelectedTag 行为）。
   String fixedNode = "";
   bool autoSetSystemProxy = getAutoSetSystemProxyDefault();
   List<String> systemProxyBypassDomain = proxyBypassDomainsDefault.toList();
@@ -156,6 +145,9 @@ class SettingConfig {
   int boardLocalPort = kDefaultBoardPort;
   String delayTestUrl = kDefaultDelayTestUrl;
   int delayTestTimeout = 5000;
+  static const String kSpeedTestModeTcp = "tcp";
+  static const String kSpeedTestModeKernel = "kernel";
+  String speedTestMode = kSpeedTestModeTcp;
   bool hideDockIcon = false;
   bool showTrayTraffic = false;
   bool excludeFromRecent = false;
@@ -163,53 +155,25 @@ class SettingConfig {
   bool autoConnectAtBoot = false;
   bool hideVpn = false;
 
-  /// 登录窗口的「保存账号信息」。
-  ///
-  /// true  → 会话落盘，下次打开软件直接自动登录；
-  /// false → 会话只留在内存里，下次打开**停在登录窗口**（不自动登录）。
-  /// 默认 true：与升级前的行为一致（老用户不会被突然要求重新登录）。
   bool rememberAccount = true;
 
-  /// 上次登录用的邮箱（**只记邮箱，绝不存密码**）：不勾选保存时也预填，
-  /// 用户只需再输一次密码。
   String lastAccountEmail = "";
 
-  /// 用户点过「稍后」的更新版本号：同一个版本不再反复弹提示。
   String dismissedUpdateVersion = "";
 
-  /// 设置结构版本号。
-  ///
-  /// 用途：旧版本写进文件的**默认值**看起来和「用户的选择」一模一样，
-  /// 只能靠版本号区分。当前处理的是 `auto_set_system_proxy`：
-  /// 老版本在桌面端默认 false，用户从没动过它 —— 升级后这个 false 被当成
-  /// 「用户要求不要设置系统代理」，于是连上了系统代理一直是空的
-  /// （用户反馈：「无论规则还是全局，电脑的系统代理都没有配置」）。
   static const int kSettingsVersion = 5;
 
-  /// 本文件的设置版本（老文件没有这个键 → 0）。
   int settingsVersion = 0;
 
-  /// TUN 模式（虚拟网卡）：**关闭 / 自动 / 强制**，默认关闭。
-  ///
-  /// 取值与我的参考实现（moneyfly 桌面版）完全一致，因为这套语义被验证过：
-  ///   * `off`   —— 仅系统代理（默认）：轻量、不改路由表，但只有遵守系统代理的
-  ///                程序走代理（UDP / 游戏 / 自带代理设置的程序不生效）；
-  ///   * `auto`  —— TUN + 系统代理（双保险）：TUN 起来就靠它，万一没起来还能上网；
-  ///   * `force` —— 仅 TUN：所有流量（含 UDP）都进虚拟网卡，不再改系统代理。
-  ///
-  /// 桌面端 TUN 需要管理员权限（Windows 建 wintun / macOS 建 utun）。
-  /// Android 侧忽略这个值：那里的 VpnService 本身就是 TUN，关不掉。
   static const String kTunModeOff = "off";
   static const String kTunModeAuto = "auto";
   static const String kTunModeForce = "force";
 
   String tunMode = kTunModeOff;
 
-  /// 是否需要 TUN（auto / force 都是）。
   bool get tunEnabled =>
       tunMode == kTunModeAuto || tunMode == kTunModeForce;
 
-  /// TUN 是否**独占**数据通路（force：不再改系统代理）。
   bool get tunOnly => tunMode == kTunModeForce;
 
   Map<String, dynamic> toJson() => {
@@ -232,6 +196,7 @@ class SettingConfig {
     'board_port': boardLocalPort,
     'delay_test_url': delayTestUrl,
     'delay_test_url_timeout': delayTestTimeout,
+    'speed_test_mode': speedTestMode,
     'hide_dock_icon': hideDockIcon,
     'show_tray_traffic': showTrayTraffic,
     'exclude_from_recent': excludeFromRecent,
@@ -277,7 +242,6 @@ class SettingConfig {
         map["dismissed_update_version"]?.toString() ?? "";
     final rawTun = map["tun_mode"];
     if (rawTun is bool) {
-      // 老版本是 bool：true → auto（TUN + 系统代理，保底能上网）
       tunMode = rawTun ? kTunModeAuto : kTunModeOff;
     } else {
       final text = rawTun?.toString() ?? kTunModeOff;
@@ -293,6 +257,10 @@ class SettingConfig {
     boardLocalPort = map["board_port"] ?? kDefaultBoardPort;
     delayTestUrl = map["delay_test_url"] ?? kDefaultDelayTestUrl;
     delayTestTimeout = map["delay_test_url_timeout"] ?? 5000;
+    final rawSpeedMode = map["speed_test_mode"]?.toString();
+    speedTestMode = rawSpeedMode == kSpeedTestModeKernel
+        ? kSpeedTestModeKernel
+        : kSpeedTestModeTcp;
     hideDockIcon = map["hide_dock_icon"] ?? false;
     showTrayTraffic = map["show_tray_traffic"] ?? false;
     excludeFromRecent = map["exclude_from_recent"] ?? false;
@@ -301,25 +269,17 @@ class SettingConfig {
     hideVpn = map["hide_vpn"] ?? false;
   }
 
-  /// 测试缝：桌面平台判定（真实实现 = PlatformUtils.isPC()）。
-  ///
-  /// 为什么要有它：CI 跑在 Linux 上，而 Linux 不是产品平台（isPC 只认
-  /// Windows/macOS），迁移逻辑在那种主机上「不该生效」—— 断言必须能确定性地
-  /// 覆盖两种平台，而不是跟着 CI 主机变。
   @visibleForTesting
   static bool Function()? debugIsDesktopOverride;
 
   static bool get settingsIsDesktop =>
       debugIsDesktopOverride?.call() ?? PlatformUtils.isPC();
 
-  /// 老设置文件的一次性迁移（幂等：迁完把版本号写成当前值）。
   void _migrate() {
     if (settingsVersion >= kSettingsVersion) {
       return;
     }
     if (settingsVersion < 3) {
-      // v3：测速地址从 https://…generate_204 改成 http://…generate_204。
-      // 老安装里存的是 https（数字虚高），迁移一次；用户自己改过别的地址就不动。
       const legacyHttps = "https://www.gstatic.com/generate_204";
       if (delayTestUrl.trim() == legacyHttps) {
         delayTestUrl = kDefaultDelayTestUrl;
@@ -327,11 +287,6 @@ class SettingConfig {
       }
     }
     if (settingsVersion < 4) {
-      // v4：旁路列表去掉 `<local>` 字面量。inetcpl.cpl 的「局域网设置」对话框
-      // 解析 DefaultConnectionSettings 的 bypass 字段时，遇到字面 `<local>` 会
-      // 整体判空 —— 结果「为 LAN 使用代理服务器」不勾选、地址/端口空白
-      // （虚拟机实测：同一份 flags=3 + 127.0.0.1:27890，带 `<local>` 就空白，
-      //   去掉就正常显示）。FlClash 的 defaultBypassDomain 也从不含 `<local>`。
       final before = systemProxyBypassDomain.length;
       systemProxyBypassDomain.removeWhere((e) => e.trim() == "<local>");
       if (systemProxyBypassDomain.length != before) {
@@ -341,10 +296,6 @@ class SettingConfig {
       }
     }
     if (settingsVersion < 5) {
-      // v5：旁路列表去掉 IPv6 项（::1 / fc00::/7 / fe80::/10）。
-      // Windows 的 INTERNET_PER_CONN_PROXY_BYPASS 不接受 IPv6 字面量，一传就整次
-      // InternetSetOption 返回 87（ERROR_INVALID_PARAMETER）→ 官方 API 失败降级 →
-      // bypass 根本不落盘。FlClash 的 defaultBypassDomain 从不含 IPv6 项。
       final before = systemProxyBypassDomain.length;
       systemProxyBypassDomain.removeWhere((e) => e.contains("::"));
       if (systemProxyBypassDomain.length != before) {
@@ -354,9 +305,6 @@ class SettingConfig {
       }
     }
     if (settingsVersion < 2) {
-      // 桌面端：老默认值是 false，而用户从没在界面上关过它 —— 升级后
-      // 「连上了系统代理却一直是空的」。这里按平台默认重置一次（PC = 开）；
-      // 用户自己关掉之后版本号已是最新，不会再被改回来。
       if (settingsIsDesktop && !autoSetSystemProxy) {
         autoSetSystemProxy = true;
         Log.i(
@@ -391,12 +339,6 @@ class SettingConfig {
     return config;
   }
 
-  /// 桌面端默认 **开启**「连接后自动设置系统代理」。
-  ///
-  /// 用户反馈「Windows 连上之后系统代理没变，也不知道 App 到底怎么走的代理」。
-  /// 桌面 VPN 客户端的预期行为就是连接后把系统代理指到内核的混合端口
-  /// （TUN 需要管理员权限，很多机器上根本起不来，这时系统代理是唯一的通路）。
-  /// 默认关掉会让人以为「代理没生效」；要关的人可以在应用设置里关。
   static bool getAutoSetSystemProxyDefault() {
     if (PlatformUtils.isPC()) {
       return true;

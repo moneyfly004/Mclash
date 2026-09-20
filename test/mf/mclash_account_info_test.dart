@@ -1,27 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 
-/// 账号/订阅字段口径的回归测试。
-///
-/// ## 被钉住的 bug
-///
-/// 主页订阅卡、「我的」页、准入闸门三处各自 `map["membership"]` /
-/// `map["remaining_days"]` 地猜字段名，而**后端真实返回**是：
-///
-///   GET /users/dashboard-info → username, balance, has_subscription,
-///        device_count, node_online, node_total, order_count, level_name,
-///        subscription{ id, package_id, device_limit, current_devices,
-///                      is_active, status, expire_time }
-///   GET /user/subscribe      → package_name, days_remaining, expire_at,
-///        expire_time, device_limit, current_devices, is_active, status, token_clash_url…
-///
-/// 代码读的 `membership` / `remaining_days` / `online_devices` /
-/// `total_devices` / `subscription_status` **一个都不存在** → 期时间、剩余天数、
-/// 设备数全变「—」，用户看到的就是「登录了却看不到账号状态」。
-///
-/// 下面用**真实账号抓下来的字段**（值做了替换）钉死映射，防止再漂移。
 void main() {
-  /// 真实 /users/dashboard-info 的形状
   Map<String, dynamic> realDashboard() => {
     "username": "454487210",
     "balance": 100000.87,
@@ -43,7 +23,6 @@ void main() {
     },
   };
 
-  /// 真实 /user/subscribe 的形状
   Map<String, dynamic> realSubscription() => {
     "id": 2,
     "package_id": 6,
@@ -131,8 +110,6 @@ void main() {
     });
 
     test('两处都没有 is_active 时退回 status', () {
-      // 注意：dashboard 内嵌的 subscription 里也有 is_active，所以「模拟后端不返回
-      // is_active」必须两处都去掉，否则命中内嵌值（这本身就是刻意的兜底顺序）。
       Map<String, dynamic> dashNoActive() {
         final d = realDashboard();
         (d["subscription"] as Map).remove("is_active");

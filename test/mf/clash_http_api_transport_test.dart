@@ -4,19 +4,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 
-/// 内核控制接口的**传输层**契约（流畅度 + 并发回归）。
-///
-/// 背景：控制接口是本机回环、同一个内核，但旧实现每个请求都新建一个 `HttpClient`
-/// —— 每次都要握手、每次都要创建一整套连接管理器。而一轮测速就是几百次
-/// `/proxies/{name}/delay`，再叠加每 15 秒的几轮轮询：这些「重新握手」的账最后都
-/// 记在用户感受的「连接后卡顿」上。
-///
-/// 同时 `/proxies` 会返回**全部节点**（真实订阅 300~400 个、几百 KB JSON），
-/// 而首页在同一个 15 秒周期里会因三个不同目的各拉一次 —— 每次都要重新下载 +
-/// 在主 isolate 上 jsonDecode。这里把它合并成一次并做 1.5 秒短缓存。
-///
-/// 用真实的本地 HTTP 服务器来验证（不是 mock）：请求数、以及是否复用了同一条
-/// TCP 连接，都能直接观测到。
 void main() {
   late HttpServer server;
   late int port;
@@ -26,7 +13,6 @@ void main() {
   late Set<int> clientPorts;
 
   setUp(() async {
-    // flutter_test 默认把 HttpClient 换成「一律 400」的假实现，这里要真实网络。
     HttpOverrides.global = null;
     proxiesHits = 0;
     providerHits = 0;
@@ -36,8 +22,6 @@ void main() {
     port = server.port;
     server.listen((req) async {
       clientPorts.add(req.connectionInfo?.remotePort ?? 0);
-      // 显式声明保持连接：不写的话，Windows 上服务端更倾向于响应后关连接，
-      // 从而把「客户端是否复用连接」这件事测成平台差异。
       req.response.persistentConnection = true;
       final path = req.uri.path;
       if (path == '/proxies' && req.method == 'GET') {
@@ -145,12 +129,8 @@ void main() {
     ClashHttpApi.invalidateProxiesCache();
     await ClashHttpApi.getProxies();
 
-    // 跨平台稳定的部分：缓存失效后确实重新请求了两次（正确性契约）。
     expect(proxiesHits, 2);
 
-    // 连接复用属于**性能**优化，Dart 在 Windows 上对回环 keep-alive 的复用策略
-    // 与 POSIX 不同（实测：本机 macOS 复用成 1 条连接，Windows runner 是 2 条）。
-    // 这里如实分平台断言，而不是把平台差异当成失败 —— 也不能因此假装复用成立。
     if (!Platform.isWindows) {
       expect(
         clientPorts.length,
@@ -159,8 +139,6 @@ void main() {
             '旧实现每个请求新建 HttpClient → 这里会是两个不同的端口',
       );
     } else {
-      // 即便底层连接被重建，共享 HttpClient 仍然省掉了「每个请求新建客户端 +
-      // 连接管理器」的开销；这里只保证不复用也不会出错。
       expect(clientPorts.length, lessThanOrEqualTo(2));
     }
   });
@@ -173,11 +151,9 @@ void main() {
   });
 
   test('内核连接失效（重启）时自动重试一次并恢复', () async {
-    // 先建立连接池
     await ClashHttpApi.getProxies();
     expect(proxiesHits, 1);
 
-    // 模拟「内核重启」：服务端把已有连接全部掐断
     await server.close(force: true);
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
     server.listen((req) async {

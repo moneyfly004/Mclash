@@ -2,16 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 
-/// 「连接后自动挑一个真能用的节点」的选择逻辑测试（**不依赖网络与内核**）。
-///
-/// ## 背景（实测同一份订阅）
-///
-///   * `RedMouse-香港-A1`：TCP 连通、延迟正常，但 `google`/`youtube` 全失败；
-///   * `日本东京(YouTube,…)` / `美国线路1` / `新加坡优质(…)`：同时 200/302。
-///
-/// 内核的 url-test 组也按**延迟**挑，一样会踩到这类节点 —— 用户看到的是
-/// 「已连接、baidu 能开、google 打不开」，在他眼里就是「这软件不能用」。
-/// 所以连接后要按**真实探活**挑节点。这里把选择规则逐条钉死。
 void main() {
   late List<String> probed;
   late List<(String group, String node)> switched;
@@ -22,7 +12,7 @@ void main() {
     MclashNodeAutoPick.debugProxiesOverride = null;
     MclashNodeAutoPick.debugProbeOverride = (node) async {
       probed.add(node);
-      return node == "好节点" ? 60 : -1; // 只有"好节点"可用
+      return node == "好节点" ? 60 : -1; 
     };
     MclashNodeAutoPick.debugSwitchOverride = (group, node) async {
       switched.add((group, node));
@@ -100,7 +90,6 @@ void main() {
     final picked = await MclashNodeAutoPick.ensureUsable();
 
     expect(picked, isNull);
-    // 1 次探当前节点 + 上限次候选
     expect(probed.length, lessThanOrEqualTo(MclashNodeAutoPick.probeLimit + 1));
   });
 
@@ -201,10 +190,10 @@ void main() {
         selGroup("当前", ["当前", "DIRECT", "REJECT", "📢 官网: x", "死节点", "可用节点"]),
       ];
       MclashNodeAutoPick.debugGroupDelayOverride = (g) async => {
-        "DIRECT": 1, // 直连当然"最快"，但绝不能当节点选
+        "DIRECT": 1, 
         "REJECT": 1,
         "📢 官网: x": 1,
-        "死节点": 0, // 测不通
+        "死节点": 0, 
         "可用节点": 260,
       };
       MclashNodeAutoPick.debugSwitchOverride = (g, n) async {
@@ -235,7 +224,7 @@ void main() {
       MclashNodeAutoPick.debugProxiesOverride = () async => [
         selGroup("坏节点", ["坏节点", "好节点"]),
       ];
-      MclashNodeAutoPick.debugGroupDelayOverride = (g) async => {}; // 整组测速失败
+      MclashNodeAutoPick.debugGroupDelayOverride = (g) async => {}; 
       MclashNodeAutoPick.debugProbeOverride = (n) async => n == "好节点" ? 60 : -1;
       MclashNodeAutoPick.debugSwitchOverride = (g, n) async => true;
 
@@ -324,13 +313,6 @@ void main() {
   group('连接后不整组测速（连接后卡顿回归）', connectTimeGroupDelayTests);
 }
 
-/// 连接后**不再**让内核整组测速（用户实测「连接之后非常卡，根本点不动」）。
-///
-/// 旧行为：连接成功 → 自动选路 → `ClashHttpApi.getGroupDelay(组名)` —— 那是让
-/// **内核一次性并发测整组**（订阅动辄 300~400 个节点）。内核此刻正在服务真实流量，
-/// 再被自家测速压满，控制和界面请求全部排队，用户点什么都点不动。
-///
-/// 现在的口径：小组照旧整组测；大组优先用延迟缓存；没有缓存时只测极少数候选。
 void connectTimeGroupDelayTests() {
   late int groupDelayCalls;
   late List<String> probed;

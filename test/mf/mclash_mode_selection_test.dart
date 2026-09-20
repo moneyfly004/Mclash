@@ -5,11 +5,6 @@ import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 
-/// 「切到全局模式就上不了外网」的回归。
-///
-/// 真实成因：订阅配置里没有 GLOBAL 组，mihomo 自己造一个并**默认指向 DIRECT**；
-/// 而全局模式下所有流量都由 GLOBAL 决定 —— 于是用户一切到全局就全部直连。
-/// 这里覆盖「什么时候该把 GLOBAL 接到真实节点」这个判断。
 void main() {
   String remembered = '';
 
@@ -139,7 +134,6 @@ void main() {
     });
 
     test('内核没跑时：把选择记住（连接后生效），不再报错', () async {
-      // 以前这里直接返回「内核未运行」，用户点「切换」选完节点什么都留不下。
       MclashNodeSelector.debugProxiesOverride = () async => [];
       MclashNodeSelector.debugSetNodeOverride = (g, n) async =>
           ReturnResultError("should-not-be-called");
@@ -192,8 +186,6 @@ void main() {
     });
 
     test('链路上只剩内核内置组名时返回空串，**绝不**显示 GLOBAL', () {
-      // 全局模式下内核可能把链路报成只有 GLOBAL（还没选出节点时）——
-      // 直接显示 "GLOBAL" 正是用户反复反馈的「全局模式还有 global」。
       expect(formatCurrentProxyName(["GLOBAL"]), "");
       expect(formatCurrentProxyName(["global"]), "");
       expect(formatCurrentProxyName(["PASS", "GLOBAL"]), "跟随规则");

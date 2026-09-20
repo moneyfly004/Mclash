@@ -11,10 +11,6 @@ const Map<String, List<String>> kGeoFiles = {
   "GeoLite2-ASN.mmdb": ["ASN.mmdb", "GeoLite2-ASN.mmdb"],
 };
 
-/// 搜索候选目录（顺序即优先级）：工作目录 → 应用支持目录 → 额外的资源根。
-///
-/// 每个**文件**独立查找（允许 country.mmdb 在 `rules/`、ASN.mmdb 在 `datas/`
-/// 这种分包布局），只要有一个候选目录里有同名文件就算找到。
 List<String> geoSourceDirs(
   String workDir,
   String supportDir, {
@@ -35,7 +31,6 @@ List<String> geoSourceDirs(
       root,
     ]);
   }
-  // 去重且保序
   final seen = <String>{};
   return [for (final d in dirs) if (seen.add(d)) d];
 }

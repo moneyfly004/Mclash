@@ -1,5 +1,6 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -195,9 +196,6 @@ class ClashProxies {
         }
       });
 
-      // name → node 索引：组延迟计算 / GLOBAL 排序 / provider 去重都要按名字
-      // 查节点。旧实现每次都 O(n) 线性查找，400 个节点 → O(n²)，连接后解析
-      // /proxies 时把主线程卡住（用户实测「连接之后点不动」）。
       final byName = <String, ClashProxiesNode>{
         for (final n in proxies) n.name: n,
       };
@@ -227,7 +225,6 @@ class ClashProxies {
 
     final p = map['providers'];
     if (p is Map) {
-      // 去重用 Set，避免对每个 provider 节点都 indexWhere O(n) 线性查找。
       final existing = <String>{for (final n in proxies) n.name};
       p.forEach((key, value) {
         final p = value['proxies'];
@@ -246,9 +243,6 @@ class ClashProxies {
     }
   }
 
-  /// 组延迟：沿 `now` 链路递归到最底层节点，取其延迟。
-  ///
-  /// 用 [byName] 索引做 O(1) 查找；[visiting] 防止组之间循环引用造成死循环。
   int? updateGroupDelayIndexed(
     ClashProxiesNode node,
     Map<String, ClashProxiesNode> byName,
@@ -258,7 +252,6 @@ class ClashProxies {
       return node.delay;
     }
     if (!visiting.add(node.name)) {
-      // 循环引用（罕见）：按现状返回，避免死循环。
       return node.delay;
     }
     final next = byName[node.now];
@@ -286,15 +279,6 @@ class ClashHttpApi {
     return headers;
   }
 
-  // ======================================================================
-  // 控制接口的传输层：**复用连接 + 合并并发请求**
-  // ======================================================================
-  //
-  // 旧实现每个请求都 `HttpClient()` 新建一个客户端：每次都要建立连接、每次都要
-  // 创建一整套连接管理器（含定时器与事件循环任务），用完就丢。而控制接口是
-  // **本机回环、同一个内核**：一轮测速几百次 `/proxies/{name}/delay`、每 15 秒
-  // 几次轮询、切节点/切模式各一次 —— 全都在为「重新握手」付钱。
-  // 用户反馈的「连接之后非常卡、点不动」里，这是持续背景负载的一份。
   static HttpClient? _client;
 
   static HttpClient _sharedClient() {
@@ -304,18 +288,12 @@ class ClashHttpApi {
     }
     final created = HttpClient()
       ..connectionTimeout = const Duration(seconds: 3)
-      // 回环长连接到同一个内核：保持 20 秒，测速/轮询都能复用。
       ..idleTimeout = const Duration(seconds: 20)
       ..maxConnectionsPerHost = 8;
     _client = created;
     return created;
   }
 
-  /// 丢掉连接池。
-  ///
-  /// 什么时候必须调用：内核重启（stop/start）之后，池子里的连接全部指向已经消失的
-  /// 进程 —— 不丢就会看到「Connection closed before full header was received」。
-  /// 也用于测试与内核端口变更。
   static void resetControlConnection() {
     final c = _client;
     _client = null;
@@ -324,10 +302,6 @@ class ClashHttpApi {
     } catch (_) {}
   }
 
-  /// 对内核控制接口发一次请求（自动重试一次）。
-  ///
-  /// 重试的理由：唯一会「莫名失败一次」的场景就是内核刚重启、池子里的连接已失效。
-  /// 丢掉连接池重试一次即可恢复 —— 否则上层会把它当成节点不通/内核不响应。
   static Future<ReturnResult<Tuple2<int, String>>> controlRequest(
     String method,
     String path, {
@@ -357,32 +331,25 @@ class ClashHttpApi {
         return ReturnResult(data: Tuple2(resp.statusCode, text));
       } catch (err) {
         lastError = err;
+        if (err is TimeoutException) {
+          break;
+        }
         resetControlConnection();
       }
     }
     return ReturnResult(error: ReturnResultError("$lastError"));
   }
 
-  // ---- /proxies 的合并与短缓存 ----
-  //
-  // 为什么需要：`/proxies` 返回**全部节点**（真实订阅 300~400 个，几百 KB JSON），
-  // 而它被三个地方在同一个 15 秒周期里各拉一次（首页当前节点、内核状态同步、
-  // 面板跟随），每次都要重新下载 + 在主 isolate 上 jsonDecode。
-  // 现在：并发调用合并成一次请求，结果缓存 1.5 秒；写操作（切节点/切模式）会主动失效。
   static Future<ReturnResult<List<ClashProxiesNode>>>? _proxiesInflight;
   static ReturnResult<List<ClashProxiesNode>>? _proxiesCache;
   static DateTime? _proxiesAt;
   static const Duration _proxiesTtl = Duration(milliseconds: 1500);
 
-  /// 让下一次 [getProxies] 重新请求（切节点/切模式/内核重启后调用）。
   static void invalidateProxiesCache() {
     _proxiesCache = null;
     _proxiesAt = null;
   }
 
-  // /configs 同样会被多个地方在连接后同时读（内核同步、测速前的内核探测），
-  // 之前没有缓存，连接瞬间会并发好几个 /configs 请求。加 1 秒缓存 + in-flight
-  // 合并，避免把刚就绪的内核打满。
   static Future<ReturnResult<ClashConfigs>>? _configsInflight;
   static ReturnResult<ClashConfigs>? _configsCache;
   static DateTime? _configsAt;
@@ -439,7 +406,6 @@ class ClashHttpApi {
     }
   }
 
-  /// 测试缝：替换真实的内核延迟请求（单测里没有内核）。
   @visibleForTesting
   static Future<ReturnResult<int>> Function(String node, String url, Duration timeout)?
       debugDelayOverride;
@@ -511,7 +477,6 @@ class ClashHttpApi {
   static Future<ReturnResult<List<ClashProxiesNode>>> getProxies({
     bool force = false,
   }) {
-    // 1.5 秒内的并发/连续调用共用一次请求与一次解析（见 _proxiesTtl 的说明）。
     if (!force) {
       final cached = _proxiesCache;
       final at = _proxiesAt;
@@ -634,7 +599,6 @@ class ClashHttpApi {
       body: body,
     );
     if (result.error == null) {
-      // 刚改了当前节点 → 之前缓存的 /proxies 立刻过期，别让界面/选路读到旧值。
       invalidateProxiesCache();
     }
     return result.error;
@@ -681,7 +645,6 @@ class ClashHttpApi {
       timeout: const Duration(seconds: 2),
     );
     if (result.error == null) {
-      // 模式变了 → GLOBAL/选择组会不同，缓存的 /proxies 与 /configs 都不再可信。
       invalidateProxiesCache();
       invalidateConfigsCache();
     }

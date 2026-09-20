@@ -5,18 +5,6 @@ import 'package:mclash/mf/mclash_node_country.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
 
-/// 节点列表（平铺 + 免内核测速 + 国家分组）的回归测试。
-///
-/// ## 钉住的三件事
-///
-/// 1. **国家识别**：Mclash 原本的 `_matchSubstringAlias` 用 `alias.length < 3`
-///    过滤别名，本意是防 `us` 误命中 `russia`，却把**两字中文国名**
-///    （美国/日本/香港/台湾/韩国…）一起丢了 —— 实测你这份订阅 296 个节点里
-///    **240 个（81%）被归到「其他」**，按国家筛选直接失效。修复后 21 个国家分组、
-///    只剩 1 个「其他」。
-/// 2. **节点解析**：要从订阅配置档里连 `server`/`port` 一起取出来，
-///    否则本地 TCP 测速没有目标（内核没跑时列表就只能空着）。
-/// 3. **测速口径**：UDP-only 协议不能判离线；0ms / >5000ms 不可信。
 void main() {
   group('国家识别（回归：81% 节点被归到「其他」）', () {
     test('两字中文国名必须识别（这就是当初失效的那类）', () {
@@ -72,7 +60,6 @@ proxy-groups:
       final us = nodes.firstWhere((n) => n.countryCode == "US");
       expect(us.server, "192.220.55.137");
       expect(us.port, 443);
-      // 组不是节点：节点列表要的是能连的节点本身
       expect(nodes.any((n) => n.name.contains("节点选择")), isFalse);
     });
 
@@ -89,8 +76,6 @@ proxy-groups:
     });
 
     test('与策略组同名的条目不算节点（点了也切不了）', () {
-      // 有些面板会把「组」也塞进 proxies；列出来用户点了没反应，
-      // 看起来就像软件坏了 —— 直接按非节点跳过。
       const weird = '''
 proxies:
   - {name: "🚀 节点选择", server: 1.1.1.1, port: 443, type: vless, uuid: x}
@@ -166,40 +151,41 @@ proxy-groups:
       MclashSpeedTester.debugKernelAvailableOverride = null;
     });
 
-    test('每一种协议都要有测速路径（内核路径对协议无差别）', () async {
-      // 「节点全不全」的回归：凡是内核能承载的协议，都必须走同一条
-      // /proxies/{name}/delay 路径，不允许有协议被无声跳过。
+    test('每一种协议都要有测速路径（TCP 走握手、UDP 走内核 /delay）', () async {
       MclashSpeedTester.debugKernelAvailableOverride = () async => true;
-      final asked = <String>[];
+      final tcpAsked = <String>[];
+      final udpAsked = <String>[];
       MclashSpeedTester.debugKernelDelayOverride = (n) async {
-        asked.add(n.type);
+        udpAsked.add(n.type);
         return 66;
       };
       MclashSpeedTester.debugProbeOverride = (n) async {
-        throw StateError("内核可用时不该走 TCP");
+        tcpAsked.add(n.type);
+        return 77;
       };
       final nodes = [
         for (final t in MclashNode.kSupportedTypes)
           MclashNode(name: "n-$t", type: t, server: "1.1.1.1", port: 443),
       ];
       await MclashSpeedTester().testAll(nodes);
+      expect({...tcpAsked, ...udpAsked}, MclashNode.kSupportedTypes);
+      expect(nodes.every((n) => n.latencyMs > 0), isTrue);
       expect(
-        asked.toSet(),
-        MclashNode.kSupportedTypes,
-        reason: '每个受支持协议都必须被真的测过一遍',
+        nodes.where((n) => n.udpOnly).every((n) => n.measuredByKernel),
+        isTrue,
+        reason: 'UDP 节点必须走内核 /delay（TCP 握手测不了它们）',
       );
-      expect(nodes.every((n) => n.latencyMs == 66), isTrue);
-      expect(nodes.every((n) => n.measuredByKernel), isTrue);
+      expect(
+        nodes.where((n) => !n.udpOnly).every((n) => !n.measuredByKernel),
+        isTrue,
+        reason: 'TCP 节点走 TCP 握手，不是内核 /delay',
+      );
       MclashSpeedTester.debugProbeOverride = null;
       MclashSpeedTester.debugKernelDelayOverride = null;
       MclashSpeedTester.debugKernelAvailableOverride = null;
     });
 
     test('节点列表的测速闸门不能把任何真实协议挡在外面', () {
-      // 节点列表用 canDelayTest(type) 决定"这一行能不能测"：
-      //   可测 = type 不在 ClashProtocolType.toList()（那些是组与内置出站），
-      //          或者恰好是 Direct。
-      // 所以**真实协议名绝不能被塞进那个枚举**，否则整类节点会静默失去测速入口。
       final groupAndBuiltin = ClashProtocolType.toList()
           .map((e) => e.toLowerCase())
           .toSet();

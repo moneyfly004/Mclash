@@ -49,12 +49,9 @@ List<String> processArgs = [];
 StartFailedReason? startFailedReason;
 String? startFailedReasonDesc;
 
-/// 全局 Navigator key：窗口关闭时的确认弹窗需要在没有页面 context 的地方
-/// 也能弹出来（托盘/窗口事件里没有可用的 BuildContext）。
 final GlobalKey<NavigatorState> mclashNavigatorKey =
     GlobalKey<NavigatorState>();
 
-/// 「关闭窗口时的选择」是否已经问过并记住（见 [_maybeAskCloseAction]）。
 const String kCloseActionAskedKey = 'closeActionAsked';
 const String kCloseActionQuitKey = 'closeActionQuit';
 
@@ -198,9 +195,6 @@ Future<void> run(List<String> args) async {
   }
 
   registerMclashVpnService();
-  // 桌面端（mihomo 子进程 + 系统代理）的诊断以前只写 stderr：Windows 上从开始菜单
-  // 启动的 GUI 程序没有控制台，那些行全部丢失 —— 用户报「系统代理没生效/界面空白」时
-  // 我们拿不到任何线索。这里接到应用日志，Windows 上也能直接查。
   registerDesktopLogSink((line) => Log.i(line));
 
   runApp(TranslationProvider(child: const MyApp()));
@@ -430,9 +424,6 @@ class MyAppState extends State<MyApp>
   @override
   void onWindowClose() async {
     Log.d("onWindowClose");
-    // 关闭窗口**不等于**退出应用：旧实现无条件 hide()，用户以为「关掉软件了」，
-    // 但 mclash.exe 与内核都还在跑、系统代理也还在生效 —— 这正是
-    // 「退出软件了内核还在运行 / 还能上网」的来源。首次关闭时问清楚并记住。
     if (await _shouldQuitOnWindowClose()) {
       await _quit();
       return;
@@ -442,7 +433,6 @@ class MyAppState extends State<MyApp>
     AppLifecycleStateNofity.statePaused("close");
   }
 
-  /// 返回 true 表示「关窗口 = 完全退出」。首次询问，之后按记住的选择执行。
   Future<bool> _shouldQuitOnWindowClose() async {
     try {
       final asked = await LocalStorage.read(kCloseActionAskedKey);
@@ -453,7 +443,6 @@ class MyAppState extends State<MyApp>
       if (ctx == null || !ctx.mounted) {
         return false;
       }
-      // 确定 = 最小化到托盘（保持连接）；取消 = 完全退出（并停止内核）。
       final minimize = await DialogUtils.showConfirmDialog(
         ctx,
         "关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n"
@@ -562,9 +551,6 @@ class MyAppState extends State<MyApp>
     } catch (err) {
       Log.w("quit: _uninit exception ${err.toString()}");
     }
-    // 兜底：`_uninit()` 里的任何一步抛异常（窗口/托盘/其它模块），都不能让
-    // 内核留下来继续跑 —— 那会变成「软件退了，内核还在，网还能上」。
-    // stop() 本身是幂等的（内核已停时直接返回），重复调用安全。
     try {
       await VPNService.uninit();
     } catch (err) {
@@ -641,8 +627,6 @@ class MyAppState extends State<MyApp>
     ];
     _menu = Menu(items: items);
     await trayManager.setContextMenu(_menu!);
-    // bringAppToFront 在 Windows 上是「弹托盘菜单时把窗口提到最前」，
-    // 正是我们要的行为；官方弃用是因为它只在 Windows 生效，尚无替代项。
     // ignore: deprecated_member_use
     await trayManager.popUpContextMenu(bringAppToFront: true);
   }

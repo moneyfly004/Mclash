@@ -172,8 +172,6 @@ class MclashApi {
     }
   }
 
-  /// 后端是否允许余额支付（`/payment/methods` 的 `balance_enabled`）。
-  /// 取不到时按"允许"处理（不因为一次网络抖动就把余额选项藏掉）。
   static Future<bool> paymentBalanceEnabled() async {
     try {
       final raw = await paymentMethodsRaw();

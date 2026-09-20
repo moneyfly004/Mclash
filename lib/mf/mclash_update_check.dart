@@ -7,37 +7,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:mclash/app/utils/log.dart';
 
-/// 更新来源：**本项目自己的 GitHub Releases**。
-///
-/// 为什么不用原来的「远端配置里的更新接口」：那个接口返回的是**别的客户端**
-/// （Clash Meta for Android / Clash Party…）的版本，条目里没有 `platform`/`abis`，
-/// 客户端筛完是空的 —— 用户侧表现就是「永远检测不到新版本」。
-///
-/// 换成 GitHub Releases 之后，安装包名字本身就带平台与架构
-/// （`Mclash-android-arm64-v8a-0.0.1.apk` / `Mclash-setup-0.0.1.exe` /
-/// `Mclash-macos-arm64-0.0.1.dmg`），因此可以**精确挑到适合本机架构的那个包**，
-/// 不会把 Intel 的包装到 Apple 芯片上（内核架构不匹配会启动即崩）。
 abstract final class MclashUpdateCheck {
   MclashUpdateCheck._();
 
-  /// 本项目仓库（发布即更新源）。
   static const String repo = "moneyfly004/Mclash";
 
   static const String _apiBase = "https://api.github.com";
 
-  /// 直连不通时可用的本机代理端口（由调用方传入 `VPNService.getPortsByPrefer`）：
-  /// 有些网络环境直连 GitHub 是断的，走应用自己的代理才通。
   static List<int?> _ports = const [];
 
-  /// 测试缝：替换整段「查最新 release」逻辑（单测不打网络）。
   @visibleForTesting
   static Future<MclashUpdateInfo?> Function()? debugLatestOverride;
 
-  /// 拉取最新 release 里属于本机平台/架构的那个安装包。
-  ///
-  /// [platform] 缺省用 `Platform.operatingSystem`（android / windows / macos）。
-  /// [arch] 缺省用 [currentArch]。
-  /// 返回 null 表示：没有 release、没有匹配的安装包、或版本不比当前新。
   static Future<MclashUpdateInfo?> latest({
     String? platform,
     String? arch,
@@ -93,7 +74,6 @@ abstract final class MclashUpdateCheck {
     );
   }
 
-  /// 本机架构标识（与发布产物名字里的架构段一致）。
   static String currentArch() {
     try {
       final abi = Abi.current();
@@ -118,15 +98,6 @@ abstract final class MclashUpdateCheck {
     }
   }
 
-  /// **纯函数**：从 release 的资产名里挑出适合 [platform] / [arch] 的安装包。
-  ///
-  /// 命名约定（见 release.yml）：
-  ///   * android：`Mclash-android-<abi>-<ver>.apk`
-  ///   * windows：`Mclash-setup-<ver>.exe`（x64）
-  ///   * macos  ：`Mclash-macos-<arch>-<ver>.dmg`（arch = arm64 / x64 / universal）
-  ///
-  /// 挑不到就返回 null —— **绝不退而求其次挑一个架构不符的包**：
-  /// 架构不符的安装包（尤其 macOS 的 Intel 版内核）装上会直接起不来。
   static String? pickAssetName(
     List<String> names, {
     required String platform,
@@ -157,7 +128,6 @@ abstract final class MclashUpdateCheck {
       if (arch.isEmpty) {
         return null;
       }
-      // 先精确匹配本机架构，再退到 universal（两者都能跑当前机器）
       for (final n in names) {
         if (has(n, ".dmg") && n.contains("-macos-$arch-")) {
           return n;
@@ -173,11 +143,6 @@ abstract final class MclashUpdateCheck {
     return null;
   }
 
-  /// 版本比较：**按数值逐段比，短的一方补 0**。
-  ///
-  /// 不能用字符串比较：`0.0.10` 在字符串序里小于 `0.0.9`，
-  /// 会导致「明明有新版本却提示已是最新」。（原来的 `VersionCompareUtils`
-  /// 只在段数相同时按数值比，段数不同时退化成字符串比较。）
   static int compareVersions(String a, String b) {
     final pa = normalizeVersion(a).split(".").map(int.tryParse).toList();
     final pb = normalizeVersion(b).split(".").map(int.tryParse).toList();
@@ -192,7 +157,6 @@ abstract final class MclashUpdateCheck {
     return 0;
   }
 
-  /// `v0.0.1` / `0.0.1+1` / 空白 → `0.0.1`。
   static String normalizeVersion(String raw) {
     var v = raw.trim();
     if (v.startsWith("v") || v.startsWith("V")) {
@@ -209,9 +173,6 @@ abstract final class MclashUpdateCheck {
     return v.trim();
   }
 
-  /// 从 `SHA256SUMS-<platform>.txt` 里取安装包的校验值（缺失则空字符串）。
-  ///
-  /// 有它就顺带把「下载完整性」也校验了（`AutoUpdateManager.download()` 会用）。
   static Future<String> _fetchSha256(
     List<Map<String, dynamic>> assets,
     String assetName,
@@ -279,7 +240,6 @@ abstract final class MclashUpdateCheck {
     }
   }
 
-  /// 取一个 URL：**先直连，直连失败再依次走本机代理端口**。
   static Future<String> _get(String url) async {
     Object? lastError;
     for (final port in <int?>[null, ..._ports]) {
@@ -332,7 +292,6 @@ class MclashUpdateInfo {
 
   final String tag;
 
-  /// 归一化后的版本（去掉 `v` 前缀），例如 `0.0.1`。
   final String version;
   final String notes;
   final String assetName;

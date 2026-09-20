@@ -9,10 +9,6 @@ class DevelopmentFilter extends LogFilter {
 
 class FileLogOutput extends LogOutput {
 
-  /// `MCLASH_LOG_STDERR=1` 启动时把日志同时打到 stderr。
-  ///
-  /// 诊断用：日志文件写不进去时（磁盘满 / 权限 / 路径异常）这是唯一还能看到
-  /// 运行时信息的通道，不影响正常启动。
   final bool _mirrorToStderr =
       Platform.environment["MCLASH_LOG_STDERR"] == "1";
 
@@ -55,10 +51,6 @@ class FileLogOutput extends LogOutput {
     }
   }
 
-  /// 绕过级别过滤直接写一行（启动标记、生效级别这类**必须留下**的信息）。
-  ///
-  /// 用同步写：异步写一旦重入或与关闭竞争就会静默丢行，日志这种东西宁可
-  /// 慢一点也不能丢。
   void writeRaw(String line) {
     if (_mirrorToStderr) {
       stderr.writeln(line);

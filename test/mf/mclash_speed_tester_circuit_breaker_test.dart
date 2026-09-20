@@ -4,22 +4,11 @@ import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
 
-/// 「断开后测速还在打一个已经死掉的内核」的回归。
-///
-/// 用户日志里的真实片段（内核 16:35:22 已经停了）：
-///
-///   16:35:24 ~ 16:35:30  几百行
-///   `http GetRequest http://127.0.0.1:9090/proxies/.../delay?...
-///    exception: SocketException: 远程计算机拒绝网络连接 (errno = 1225)`
-///
-/// 每一条都是一次新建连接 + 一次同步写盘。而结论在**第一条失败**时就已经
-/// 确定了：控制端口连不上 = 内核不在了，剩下 400 个节点一个也测不了。
 void main() {
   MclashNode node(String name) =>
-      MclashNode(name: name, type: "ss", server: "1.1.1.1", port: 443);
+      MclashNode(name: name, type: "hysteria2", server: "1.1.1.1", port: 443);
 
   test('控制端口连不上时的错误要能被识别为「内核不在了」', () {
-    // 这些字符串都来自用户日志（Windows 中文/英文两种系统语言）
     expect(
       MclashSpeedTester.isKernelUnreachable(
         "SocketException: 远程计算机拒绝网络连接。 (OS Error: 远程计算机拒绝网络连接。, errno = 1225)",
@@ -36,7 +25,6 @@ void main() {
       MclashSpeedTester.isKernelUnreachable("SocketException: Connection refused"),
       isTrue,
     );
-    // 「节点不通」不能被当成「内核不在」——那会把整批节点误判成离线
     expect(
       MclashSpeedTester.isKernelUnreachable("http statusCode: 400"),
       isFalse,
@@ -99,7 +87,6 @@ void main() {
     MclashSpeedTester.debugKernelAvailableOverride = () async => true;
     ClashHttpApi.debugDelayOverride = (n, url, timeout) async {
       probed++;
-      // 前几个失败、之后恢复：连续计数必须被清零
       if (probed <= 3) {
         return ReturnResult(
           error: ReturnResultError("SocketException: Connection refused"),

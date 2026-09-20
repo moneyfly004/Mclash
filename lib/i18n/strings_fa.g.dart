@@ -1,19 +1,12 @@
-///
-/// Generated file. Do not edit.
-///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
-// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
-// Path: <root>
 class TranslationsFa with BaseTranslations<AppLocale, Translations> implements Translations {
-	/// You can call this constructor and build your own translation instance of this locale.
-	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsFa({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -25,11 +18,9 @@ class TranslationsFa with BaseTranslations<AppLocale, Translations> implements T
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
-	/// Metadata for the translations of <fa>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
-	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsFa _root = this; // ignore: unused_field
@@ -37,7 +28,6 @@ class TranslationsFa with BaseTranslations<AppLocale, Translations> implements T
 	@override 
 	TranslationsFa $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsFa(meta: meta ?? this.$meta);
 
-	// Translations
 	@override late final _Translations$BackupAndSyncWebdavScreen$fa BackupAndSyncWebdavScreen = _Translations$BackupAndSyncWebdavScreen$fa._(_root);
 	@override late final _Translations$LaunchFailedScreen$fa LaunchFailedScreen = _Translations$LaunchFailedScreen$fa._(_root);
 	@override late final _Translations$PerAppAndroidScreen$fa PerAppAndroidScreen = _Translations$PerAppAndroidScreen$fa._(_root);
@@ -69,26 +59,22 @@ class TranslationsFa with BaseTranslations<AppLocale, Translations> implements T
 	};
 }
 
-// Path: BackupAndSyncWebdavScreen
 class _Translations$BackupAndSyncWebdavScreen$fa implements Translations$BackupAndSyncWebdavScreen$en {
 	_Translations$BackupAndSyncWebdavScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get webdavServerUrl => 'آدرس URL سرور';
 	@override String get webdavRequired => 'نمی‌تواند خالی باشد';
 	@override String get webdavLoginFailed => 'ورود ناموفق بود:';
 	@override String get webdavListFailed => 'دریافت لیست فایل ناموفق بود:';
 }
 
-// Path: LaunchFailedScreen
 class _Translations$LaunchFailedScreen$fa implements Translations$LaunchFailedScreen$en {
 	_Translations$LaunchFailedScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get invalidProcess => 'اجرای نرم‌افزار ناموفق بود [نام‌ اجرایی پروسه نامعتبر]، لطفا مجدد نرم‌افزار را در دایرکتوری دیگری نصب کنید';
 	@override String get invalidProfile => 'اجرای نرم‌افزار ناموفق بود [دسترسی به پروفایل ناموفق بود]، لطفا مجدد نرم افزار را نصب کنید';
 	@override String get invalidVersion => 'اجرای نرم‌افزار ناموفق بود [ورژن نامعتبر]، لطفا مجدد نرم‌افزار را نصب کنید';
@@ -96,36 +82,30 @@ class _Translations$LaunchFailedScreen$fa implements Translations$LaunchFailedSc
 	@override String get invalidInstallPath => 'مسیر نصب نامعتبر است، لطفا مجدد در مسیر معتبر نصب کنید';
 }
 
-// Path: PerAppAndroidScreen
 class _Translations$PerAppAndroidScreen$fa implements Translations$PerAppAndroidScreen$en {
 	_Translations$PerAppAndroidScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get title => 'پروکسی به‌تفکیک برنامه';
 	@override String get whiteListMode => 'حالت لیست سفید';
 	@override String get whiteListModeTip => 'وقتی فعال باشد: فقط برنامه‌هایی که انتخاب شده‌اند پروکسی می‌شوند؛ وقتی فعال نباشد: فقط برنامه‌هایی که انتخاب نشده‌اند پروکسی می‌شوند';
 }
 
-// Path: UserAgreementScreen
 class _Translations$UserAgreementScreen$fa implements Translations$UserAgreementScreen$en {
 	_Translations$UserAgreementScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get privacyFirst => 'حریم‌خصوصی شما اولویت دارد';
 	@override String get agreeAndContinue => 'پذیرفتن و ادامه';
 }
 
-// Path: NetCheckScreen
 class _Translations$NetCheckScreen$fa implements Translations$NetCheckScreen$en {
 	_Translations$NetCheckScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get enterDomain => 'لطفاً نام دامنه را وارد کنید';
 	@override String get checking => 'در حال بررسی...';
 	@override String aQueryFailed({required Object p}) => 'خطا در پرس‌وجوی A: ${p}';
@@ -142,25 +122,21 @@ class _Translations$NetCheckScreen$fa implements Translations$NetCheckScreen$en 
 	@override String get routeTableSection => '4. جدول مسیریابی';
 }
 
-// Path: VersionUpdateScreen
 class _Translations$VersionUpdateScreen$fa implements Translations$VersionUpdateScreen$en {
 	_Translations$VersionUpdateScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String versionReady({required Object p}) => 'نسخه جدید [${p}] آماده است';
 	@override String get update => 'راه‌اندازی مجدد برای به‌روزرسانی';
 	@override String get cancel => 'الان‌ نه';
 }
 
-// Path: loginScreen
 class _Translations$loginScreen$fa implements Translations$loginScreen$en {
 	_Translations$loginScreen$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get login => 'ورود';
 	@override String get register => 'ایجاد حساب';
 	@override String get forgotPassword => 'فراموشی رمز عبور';
@@ -171,23 +147,19 @@ class _Translations$loginScreen$fa implements Translations$loginScreen$en {
 	@override String get password => 'رمز عبور';
 }
 
-// Path: main
 class _Translations$main$fa implements Translations$main$en {
 	_Translations$main$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override late final _Translations$main$tray$fa tray = _Translations$main$tray$fa._(_root);
 }
 
-// Path: meta
 class _Translations$meta$fa implements Translations$meta$en {
 	_Translations$meta$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get enable => 'فعال‌سازی';
 	@override String get disable => 'غیرفعال';
 	@override String get open => 'باز کن';
@@ -375,13 +347,11 @@ class _Translations$meta$fa implements Translations$meta$en {
 	@override String get tabMe => 'من';
 }
 
-// Path: permission
 class _Translations$permission$fa implements Translations$permission$en {
 	_Translations$permission$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get camera => 'دوربین';
 	@override String get screen => 'ضبط صفحه';
 	@override String get appQuery => 'Get Application List';
@@ -389,25 +359,21 @@ class _Translations$permission$fa implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => 'لطفاً مجوز [${p}] را فعال کنید';
 }
 
-// Path: tls
 class _Translations$tls$fa implements Translations$tls$en {
 	_Translations$tls$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get certificate => 'گواهی';
 	@override String get privateKey => 'کلید خصوصی';
 	@override String get customTrustCert => 'گواهی های سفارشی';
 }
 
-// Path: tun
 class _Translations$tun$fa implements Translations$tun$en {
 	_Translations$tun$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get stack => 'پشته شبکه';
 	@override String get inet4Address => 'محدوده آدرس IPv4';
 	@override String get dnsHijack => 'ربودن DNS';
@@ -419,13 +385,11 @@ class _Translations$tun$fa implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => 'دامنه ها مجاز به دور زدن پروکسی HTTP هستند';
 }
 
-// Path: dns
 class _Translations$dns$fa implements Translations$dns$en {
 	_Translations$dns$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get listen => 'آدرس گوش دادن';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'Fallback';
@@ -445,44 +409,33 @@ class _Translations$dns$fa implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIpCode';
 }
 
-// Path: sniffer
 class _Translations$sniffer$fa implements Translations$sniffer$en {
 	_Translations$sniffer$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get overrideDest => 'پوشش';
 }
 
-// Path: profilePatchMode
 class _Translations$profilePatchMode$fa implements Translations$profilePatchMode$en {
 	_Translations$profilePatchMode$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get currentSelected => 'فعلی انتخاب شده';
 	@override String get overwrite => 'Overwrite داخلی';
 	@override String get noOverwrite => 'داخلی - رونویسی نشده است';
 }
 
-// Path: main.tray
 class _Translations$main$tray$fa implements Translations$main$tray$en {
 	_Translations$main$tray$fa._(this._root);
 
 	final TranslationsFa _root; // ignore: unused_field
 
-	// Translations
 	@override String get menuOpen => 'بازکردن';
 	@override String get menuExit => 'بستن';
 }
 
-/// The flat map containing all translations for locale <fa>.
-/// Only for edge cases! For simple maps, use the map function of this library.
-///
-/// The Dart AOT compiler has issues with very large switch statements,
-/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsFa {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {

@@ -15,23 +15,13 @@ import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 
-/// 连接自检：把「到底走的哪条通路、为什么没生效」一次讲清楚。
-///
-/// 为什么需要它：用户侧的现象是「连上了，但系统代理是空的 / 开了 TUN 没看到
-/// 虚拟网卡」—— 这类问题只看界面永远说不清，而远程排查又没有机器可看。
-/// 这里把所有相关事实（设置值、内核真实生效值、系统代理读写、TUN 状态、内核
-/// 日志尾部）收集成一段可复制的文本：用户点一下「复制」，我就能按事实定位。
 abstract final class MclashConnectionDiagnostics {
-  /// 测试缝：替换内核配置读取（单测里没有真实内核）。
   static Future<Map<String, dynamic>?> Function()? debugKernelConfigOverride;
 
-  /// 测试缝：替换系统代理读取。
   static Future<String> Function()? debugSystemProxyOverride;
 
-  /// 测试缝：替换虚拟网卡列表读取。
   static Future<List<String>> Function()? debugNetInterfacesOverride;
 
-  /// 收集诊断文本。
   static Future<String> collect() async {
     final sb = StringBuffer();
     void line(String s) => sb.writeln(s);
@@ -45,7 +35,6 @@ abstract final class MclashConnectionDiagnostics {
     line("管理员权限: ${VPNService.isRunAsAdmin() ? "是" : "否"}");
     line("");
 
-    // ── 设置（用户的选择） ──
     final setting = SettingManager.getConfig();
     line("-- 设置 --");
     line("TUN 模式(tun_mode): ${setting.tunMode}" "（off=仅系统代理 / auto=TUN+系统代理 / force=仅 TUN）");
@@ -60,7 +49,6 @@ abstract final class MclashConnectionDiagnostics {
     line("控制端口: ${_safe(() => ClashSettingManager.getControlPort())}");
     line("");
 
-    // ── 预期通路 ──
     line("-- 预期数据通路 --");
     final skip = VPNService.systemProxySkipReason();
     line(
@@ -77,7 +65,6 @@ abstract final class MclashConnectionDiagnostics {
     line("TUN 兜底(内核侧失败后改用系统代理): ${VPNService.systemProxyFallbackActive}");
     line("");
 
-    // ── 内核状态 ──
     line("-- 内核 --");
     try {
       final state = await VPNService.getState();
@@ -106,13 +93,11 @@ abstract final class MclashConnectionDiagnostics {
     line("虚拟网卡: ${_describeTunInterface(interfaces)}");
     line("");
 
-    // ── 系统代理 ──
     line("-- 系统代理 --");
     line("目标: 127.0.0.1:$mixedPort（本机回环 + 混合端口）");
     line("读回: ${await _systemProxyText()}");
     line("");
 
-    // ── 账号/订阅（门禁会拦住连接，也可能让节点列表为空） ──
     line("-- 账号/订阅 --");
     final acc = MclashAccountService.instance;
     line(
@@ -122,7 +107,6 @@ abstract final class MclashConnectionDiagnostics {
     line("订阅门禁提示: ${acc.blockKind.name}");
     line("");
 
-    // ── 日志尾部（内核 + 应用） ──
     line("-- 内核日志尾部 --");
     line(await _tailPath(() => PathUtils.serviceLogFilePath(), 40));
     line("-- 内核错误日志尾部 --");
@@ -131,7 +115,6 @@ abstract final class MclashConnectionDiagnostics {
     return sb.toString();
   }
 
-  /// 任何一项取值失败都不影响整页自检。
   static String _safe(Object? Function() read) {
     try {
       final v = read();
@@ -197,15 +180,12 @@ abstract final class MclashConnectionDiagnostics {
     }
     try {
       if (Platform.isWindows) {
-        // Windows：wintun 适配器就叫 Mclash，netsh 能直接列出来
         final r = await Process.run("netsh", ["interface", "show", "interface"]);
         return const LineSplitter()
             .convert("${r.stdout}")
             .where((l) => l.trim().isNotEmpty)
             .toList();
       }
-      // macOS / Linux：内核建的是 utun*（不受配置里 device 影响），
-      // 所以要连**地址**一起看 —— 我们自己的 TUN 用 172.19.0.1/30。
       final r = await Process.run("ifconfig", []);
       return const LineSplitter()
           .convert("${r.stdout}")
@@ -216,11 +196,6 @@ abstract final class MclashConnectionDiagnostics {
     }
   }
 
-  /// 把网卡列表翻译成一句「TUN 到底建没建起来」。
-  ///
-  /// 以前只找名字里带 mclash/wintun 的行，而 macOS 上内核的虚拟网卡叫 utunN，
-  /// 于是**TUN 明明在工作也一律报「未发现」**——自检就成了误导。
-  /// 现在按平台识别：Windows 认名字，macOS/Linux 认 utun + 我们自己的隧道地址。
   static String _describeTunInterface(List<String> interfaces) {
     if (!PlatformUtils.isPC()) {
       return "该平台没有 TUN 虚拟网卡（仅桌面端有）";
@@ -233,7 +208,6 @@ abstract final class MclashConnectionDiagnostics {
       );
       return hits.isEmpty ? "未发现（没有建起来）" : hits.join(" / ");
     }
-    // macOS / Linux：找 utun 段里带隧道地址（172.19.0.1）或 utun 本身的接口
     final buffer = StringBuffer();
     String? current;
     for (final raw in interfaces) {
@@ -254,7 +228,6 @@ abstract final class MclashConnectionDiagnostics {
     return text.isEmpty ? "未发现（没有建起来）" : text.replaceAll("\n", " / ");
   }
 
-  /// 取路径时也可能失败（例如平台通道不可用）—— 自检本身不允许因此崩掉。
   static Future<String> _tailPath(
     Future<String> Function() path,
     int lines,
@@ -283,7 +256,6 @@ abstract final class MclashConnectionDiagnostics {
     }
   }
 
-  /// 诊断时间点的「设置摘要」，写日志用。
   static String summary() {
     final setting = SettingManager.getConfig();
     return "tun_mode=${setting.tunMode} auto_set_system_proxy="

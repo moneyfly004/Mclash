@@ -2,19 +2,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// **产品要求锁：客户只能「登录账号 → 自动同步订阅」，不允许手动导入配置。**
-///
-/// 这条要求以前被违反过（URL/文件/剪贴板/扫码导入、第三方机场登录、
-/// `clash://install-config` 一次性导入都还在），所以这里不靠「记得别再写回去」，
-/// 而是直接在源码层面钉死：
-///   * 那些导入界面文件不允许存在；
-///   * 那些界面的类型名不允许在 `lib/` 里出现（防止换个文件名复活）；
-///   * `ProfileManager.addRemote`（导入一份远程配置）只允许被**账号订阅同步**调用；
-///   * `ProfileManager.addLocal`（导入本地配置文件）这个 API 本身不允许存在；
-///   * 外部链接触发的一次性导入（`install-config`）必须是「明确拒绝」。
-///
-/// 一旦有人把这些能力加回来，本测试立刻红 —— 这是 CI 的测试步骤，
-/// 不依赖人工评审。
 void main() {
   final libDir = Directory("lib");
 
@@ -82,8 +69,6 @@ void main() {
           callers.add(f.path);
         }
       }
-      // Windows 上 path 分隔符是 \ —— 必须先归一化再比较（CI 的 Windows runner
-      // 就因为这个判过一次红）
       final normalized = callers
           .map((p) => p.replaceAll(r"\", "/"))
           .where((p) => !p.endsWith("app/modules/profile_manager.dart"))
@@ -139,7 +124,6 @@ void main() {
         isFalse,
         reason: '补丁列表页不允许再有「+ 导入」入口（补丁里写 proxies 会替换内核节点）',
       );
-      // ProfilePatchManager 的导入 API 也要一并移除（只删界面等于随时能加回来）
       final mgr = read("lib/app/modules/profile_patch_manager.dart");
       expect(mgr.contains("Future<ReturnResult<String>> addRemote("), isFalse);
       expect(mgr.contains("Future<ReturnResultError?> addLocal("), isFalse);
@@ -163,7 +147,6 @@ void main() {
         isTrue,
         reason: '导出备份必须保留',
       );
-      // 云端/局域网的「下载并恢复」按钮也必须消失
       for (final path in [
         "lib/screens/backup_and_sync_webdav_screen.dart",
         "lib/screens/backup_and_sync_icloud_screen.dart",
@@ -203,7 +186,6 @@ void main() {
         isFalse,
         reason: 'board_service（V2board/Xboard/SSPanel 面板客户端）应随第三方登录一起删除',
       );
-      // 它唯一的存在意义就是「登录第三方机场 → 导入别人的订阅」
       final pubspec = read("pubspec.yaml");
       expect(pubspec.contains("board_service"), isFalse);
       final profile = read("lib/app/modules/profile_manager.dart");

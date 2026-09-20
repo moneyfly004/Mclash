@@ -12,6 +12,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
+import 'package:mclash/mf/mclash_speed_tester.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/proxy_board_screen.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -39,10 +40,6 @@ class _MclashNodesListScreenState
   String _filter = "";
   String? _countryFilter;
 
-  /// 正在单独测速的节点 server 标识（点击行尾延迟触发）。
-  ///
-  /// 非空时表示「单节点测速」进行中，此时只有这个节点显示转圈，
-  /// 其余未测节点不再跟着一起转（那是「全部测速」的语义）。
   String? _singleTestTarget;
 
   bool _sortByLatency = true;
@@ -70,11 +67,6 @@ class _MclashNodesListScreenState
 
   bool _syncing = false;
 
-  /// 手动更新订阅（用户要求：节点列表上方要有这个按钮）。
-  ///
-  /// 正常情况下订阅是自动同步的（登录/冷启动/回前台），这里给一个显式的出口：
-  /// 用户在节点页发现"节点不对/太少"时，最自然的动作就是点一下更新，
-  /// 而不是退出去找设置。
   Future<void> _refreshSubscription() async {
     if (_syncing) {
       return;
@@ -125,20 +117,28 @@ class _MclashNodesListScreenState
 
   Future<void> _load() => MclashNodesStore.instance.load();
 
-  Future<void> runSpeedTest() {
+  Future<void> runSpeedTest() async {
     final filtered = _filter.trim().isNotEmpty || _countryFilter != null;
-    return MclashNodesStore.instance.testAll(
-      subset: filtered ? _visibleNodes() : null,
-    );
+    final subset = filtered ? _visibleNodes() : null;
+    final total = subset?.length ?? _nodes.length;
+    await MclashNodesStore.instance.testAll(subset: subset);
+    if (!mounted) {
+      return;
+    }
+    final ok = MclashSpeedTester.lastSuccessCount;
+    final fail = total - ok;
+    if (total > 3 && fail > 0 && fail * 3 >= total) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("测速完成：$ok 个可用，$fail 个连不上（可能已下线）"),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
-  /// 点击行尾延迟区域：只测这一个节点。
-  ///
-  /// 用户要求「没有延迟时点它就能单独测这个节点」，与「点整行 = 启用节点」分开：
-  /// 这里仅驱动测速，不改变当前选中节点。
   Future<void> _testSingleNode(MclashNode n) async {
     if (_singleTestTarget != null) {
-      // 已经有一个单测在跑，避免并发点出一堆单测互相覆盖。
       return;
     }
     setState(() => _singleTestTarget = n.server);
@@ -154,7 +154,6 @@ class _MclashNodesListScreenState
   List<MclashNode> _visibleNodes() {
     final kw = _filter.trim().toLowerCase();
     return _nodes.where((n) {
-      // 内核内置的伪目标（GLOBAL/DIRECT/REJECT…）不是节点，别摊给用户看
       if (isInternalProxyName(n.name)) {
         return false;
       }
@@ -174,9 +173,6 @@ class _MclashNodesListScreenState
 
     final group = await _primaryGroupName();
     if (group == null) {
-      // 内核没跑：记住这个节点（固定节点），连接时生效 ——
-      // 以前只弹一句「请先打开连接开关」，用户选了半天却什么都没留下。
-      // 注意这里用 rememberSelection（不查内核），否则会白等一次超时、界面没反馈。
       await MclashNodeSelector.rememberSelection(node.name);
       if (!mounted) {
         return;
@@ -205,10 +201,6 @@ class _MclashNodesListScreenState
     ).showSnackBar(SnackBar(content: Text("已切换到 ${node.name}")));
   }
 
-  /// 当前模式下该写哪个选择器（全局模式 = 内核 GLOBAL）。
-  ///
-  /// 不再自己挑「第一个 Selector」：全局模式下真正生效的是 GLOBAL，
-  /// 写主选择组等于没切 —— 这正是「切了全局/选了国家没反应」的根因。
   Future<String?> _primaryGroupName() async {
     final override = MclashNodesListScreen.debugPrimaryGroupOverride;
     if (override != null) {
@@ -380,14 +372,6 @@ class _MclashNodesListScreenState
     if (grouped.isEmpty) {
       return _empty("没有匹配的节点。");
     }
-    // 扁平化成「表头 / 节点」两种行，交给 ListView.builder **按需构建**。
-    //
-    // 为什么必须这么做（流畅度）：旧实现是 `ListView(children: [...])` ——
-    // 一次性构建**全部**节点行。真实订阅 300~400 个节点时，打开这个页面要同时
-    // 建 400 个 ListTile（每个都带 InkWell/Text/图标），而且在等一次搜索、点一次
-    // 折叠、或测速进度每 500ms 通知一次界面时，**400 项全部重建**。
-    // 用户感受到的就是「打开节点列表卡一下、搜一下就卡住」。
-    // 现在只有视口内的十几行会被构建与重建。
     final rows = <_NodeListRow>[];
     for (final g in grouped) {
       rows.add(_NodeListRow.header(g));
@@ -443,9 +427,6 @@ class _MclashNodesListScreenState
       map.putIfAbsent(n.countryCode ?? "XX", () => []).add(n);
     }
     final groups = map.entries.map((e) {
-      // 默认就按延迟升序（与主页弹层同一套排序：延迟低的在前，没测到的靠后）。
-      // 注意不能原地 `list.clear()..addAll(...)` —— list 就是 e.value 本身，
-      // 先清空再读它就得到空列表（之前就是这么把整组节点弄没的）。
       final list = _sortByLatency ? sortNodesByLatency(e.value) : e.value;
       final best = list
           .where((n) => n.latencyUsable)
@@ -515,8 +496,6 @@ class _MclashNodesListScreenState
   }
 
   Widget _nodeRow(MclashNode n) {
-    // 单测进行中：只让「正在被单测」的那个节点转圈；
-    // 全部测速（_singleTestTarget == null）才让所有待测节点一起转。
     final bool single = _singleTestTarget != null;
     final bool testing = single
         ? (n.server == _singleTestTarget && !n.latencyUsable)
@@ -534,9 +513,6 @@ class _MclashNodesListScreenState
         n.udpOnly ? "${n.type} · UDP" : n.type,
         style: const TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
       ),
-      // 行尾两段各司其职：
-      //   · 延迟区 → 点击只测这一个节点（用户要求「没有延迟点它就单独测」）
-      //   · 整行（onTap）→ 启用/选中该节点
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -561,10 +537,7 @@ class _MclashNodesListScreenState
                     Flexible(
                       child: Text(
                         n.latencyUsable
-                            // ≈ = 内核没在跑时的本机 TCP 粗估（不是真实代理延迟）
-                            ? "${n.measuredByKernel ? "" : "≈"}${n.latencyMs}ms"
-                            // 「内核里还没有这个节点」要和「真的超时」分开说：
-                            // 前者是订阅更新后内核还没重载，等重载完再测就有结果。
+                            ? "${n.latencyMs}ms"
                             : (n.missingInKernel
                                   ? "未测到（待重载内核）"
                                   : (n.online ? "—" : "超时")),
@@ -642,10 +615,6 @@ abstract final class MclashNodeCountryLabels {
       code == "XX" ? 9999 : MclashNodeCountry.sortWeight(code);
 }
 
-/// 节点列表里的一行：要么是国家分组表头，要么是一个节点。
-///
-/// 有了它才能把「分组 + 展开状态」拍平成一维列表交给 `ListView.builder`
-/// 按需构建（见 _buildBody 的说明）。
 class _NodeListRow {
   _NodeListRow.header(this.group) : node = null;
   _NodeListRow.node(this.node) : group = null;

@@ -95,12 +95,10 @@ abstract class VpnServicePlatform {
 
   bool get systemProxyFallbackActive => false;
 
-  /// TUN 启动失败的原因（none = 没失败）。
   TunStartFailureKind get tunFailureKind => TunStartFailureKind.none;
 
   Future<String> getABIs();
 
-  /// 请求通知权限（Android 13+ 前台服务通知需要）。返回 true=已有权限或无需请求。
   Future<bool> requestNotificationPermission() async => true;
 
   Future<String> clashiApiConnections(bool all);
@@ -108,11 +106,6 @@ abstract class VpnServicePlatform {
   Future<String> clashiApiTraffic();
 }
 
-/// 应用数据目录的进程内缓存。
-///
-/// 这个目录在一次运行里不会变，但调用点极多（内核配置/日志/错误文件/工作目录…
-/// 每次连接与断开加起来十几次），而每次都要走一次平台通道 + 目录存在性检查。
-/// 缓存后只在第一次真正查询。
 String? _appSupportDirCache;
 
 Future<String> getApplicationSupportDir() async {

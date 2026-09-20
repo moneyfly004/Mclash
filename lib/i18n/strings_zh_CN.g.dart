@@ -1,19 +1,12 @@
-///
-/// Generated file. Do not edit.
-///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
-// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
-// Path: <root>
 class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements Translations {
-	/// You can call this constructor and build your own translation instance of this locale.
-	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsZhCn({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -25,11 +18,9 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
-	/// Metadata for the translations of <zh-CN>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
-	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsZhCn _root = this; // ignore: unused_field
@@ -37,7 +28,6 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 	@override 
 	TranslationsZhCn $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsZhCn(meta: meta ?? this.$meta);
 
-	// Translations
 	@override late final Translations$BackupAndSyncWebdavScreen$zh_CN BackupAndSyncWebdavScreen = Translations$BackupAndSyncWebdavScreen$zh_CN.internal(_root);
 	@override late final Translations$LaunchFailedScreen$zh_CN LaunchFailedScreen = Translations$LaunchFailedScreen$zh_CN.internal(_root);
 	@override late final Translations$PerAppAndroidScreen$zh_CN PerAppAndroidScreen = Translations$PerAppAndroidScreen$zh_CN.internal(_root);
@@ -69,26 +59,22 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 	};
 }
 
-// Path: BackupAndSyncWebdavScreen
 class Translations$BackupAndSyncWebdavScreen$zh_CN implements Translations$BackupAndSyncWebdavScreen$en {
 	Translations$BackupAndSyncWebdavScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get webdavServerUrl => '服务器地址';
 	@override String get webdavRequired => '不能为空';
 	@override String get webdavLoginFailed => '登录失败:';
 	@override String get webdavListFailed => '获取文件列表失败:';
 }
 
-// Path: LaunchFailedScreen
 class Translations$LaunchFailedScreen$zh_CN implements Translations$LaunchFailedScreen$en {
 	Translations$LaunchFailedScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get invalidProcess => '应用启动失败[无效的进程名称],请重新安装应用到独立目录';
 	@override String get invalidProfile => '应用启动失败[访问配置文件失败],请重新安装应用';
 	@override String get invalidVersion => '应用启动失败[无效版本],请重新安装应用';
@@ -96,36 +82,30 @@ class Translations$LaunchFailedScreen$zh_CN implements Translations$LaunchFailed
 	@override String get invalidInstallPath => '无效的安装路径,请重新安装到有效路径';
 }
 
-// Path: PerAppAndroidScreen
 class Translations$PerAppAndroidScreen$zh_CN implements Translations$PerAppAndroidScreen$en {
 	Translations$PerAppAndroidScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get title => '分应用代理';
 	@override String get whiteListMode => '白名单模式';
 	@override String get whiteListModeTip => '启用后:仅代理已勾选的App;未启用:仅代理未勾选的App';
 }
 
-// Path: UserAgreementScreen
 class Translations$UserAgreementScreen$zh_CN implements Translations$UserAgreementScreen$en {
 	Translations$UserAgreementScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get privacyFirst => '您的隐私很重要';
 	@override String get agreeAndContinue => '接受并继续';
 }
 
-// Path: NetCheckScreen
 class Translations$NetCheckScreen$zh_CN implements Translations$NetCheckScreen$en {
 	Translations$NetCheckScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get enterDomain => '请输入域名';
 	@override String get checking => '检测中...';
 	@override String aQueryFailed({required Object p}) => 'A 查询失败: ${p}';
@@ -142,25 +122,21 @@ class Translations$NetCheckScreen$zh_CN implements Translations$NetCheckScreen$e
 	@override String get routeTableSection => '4. 路由表';
 }
 
-// Path: VersionUpdateScreen
 class Translations$VersionUpdateScreen$zh_CN implements Translations$VersionUpdateScreen$en {
 	Translations$VersionUpdateScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String versionReady({required Object p}) => '新版本[${p}]已就绪';
 	@override String get update => '重启更新';
 	@override String get cancel => '暂不更新';
 }
 
-// Path: loginScreen
 class Translations$loginScreen$zh_CN implements Translations$loginScreen$en {
 	Translations$loginScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get login => '登录';
 	@override String get register => '注册账号';
 	@override String get forgotPassword => '忘记密码';
@@ -171,23 +147,19 @@ class Translations$loginScreen$zh_CN implements Translations$loginScreen$en {
 	@override String get password => '密码';
 }
 
-// Path: main
 class Translations$main$zh_CN implements Translations$main$en {
 	Translations$main$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override late final Translations$main$tray$zh_CN tray = Translations$main$tray$zh_CN.internal(_root);
 }
 
-// Path: meta
 class Translations$meta$zh_CN implements Translations$meta$en {
 	Translations$meta$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get enable => '启用';
 	@override String get disable => '禁用';
 	@override String get open => '打开';
@@ -375,13 +347,11 @@ class Translations$meta$zh_CN implements Translations$meta$en {
 	@override String get tabMe => '我的';
 }
 
-// Path: permission
 class Translations$permission$zh_CN implements Translations$permission$en {
 	Translations$permission$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get camera => '摄像头';
 	@override String get screen => '屏幕录制';
 	@override String get appQuery => '获取应用列表';
@@ -389,25 +359,21 @@ class Translations$permission$zh_CN implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => '请开启[${p}]权限';
 }
 
-// Path: tls
 class Translations$tls$zh_CN implements Translations$tls$en {
 	Translations$tls$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get certificate => '证书';
 	@override String get privateKey => '私钥';
 	@override String get customTrustCert => '自定义证书';
 }
 
-// Path: tun
 class Translations$tun$zh_CN implements Translations$tun$en {
 	Translations$tun$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get stack => '网络栈';
 	@override String get inet4Address => 'IPv4地址段';
 	@override String get dnsHijack => 'DNS劫持';
@@ -419,13 +385,11 @@ class Translations$tun$zh_CN implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => '允许绕过HTTP代理的域名';
 }
 
-// Path: dns
 class Translations$dns$zh_CN implements Translations$dns$en {
 	Translations$dns$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get listen => '监听地址';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'Fallback';
@@ -445,44 +409,33 @@ class Translations$dns$zh_CN implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIp 代码';
 }
 
-// Path: sniffer
 class Translations$sniffer$zh_CN implements Translations$sniffer$en {
 	Translations$sniffer$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get overrideDest => '覆盖';
 }
 
-// Path: profilePatchMode
 class Translations$profilePatchMode$zh_CN implements Translations$profilePatchMode$en {
 	Translations$profilePatchMode$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get currentSelected => '当前选择';
 	@override String get overwrite => '内置-覆写';
 	@override String get noOverwrite => '内置-不覆写';
 }
 
-// Path: main.tray
 class Translations$main$tray$zh_CN implements Translations$main$tray$en {
 	Translations$main$tray$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
-	// Translations
 	@override String get menuOpen => '打开';
 	@override String get menuExit => '退出';
 }
 
-/// The flat map containing all translations for locale <zh-CN>.
-/// Only for edge cases! For simple maps, use the map function of this library.
-///
-/// The Dart AOT compiler has issues with very large switch statements,
-/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsZhCn {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {

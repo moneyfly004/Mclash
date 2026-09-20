@@ -9,24 +9,9 @@ import 'package:mclash/mf/mclash_update_check.dart';
 import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/version_update_screen.dart';
 
-/// 「检查更新 → 提示 → 下载/安装」这条链路的**行为**验证。
-///
-/// 用户的要求原文：
-///   * 「如果有新版本，软件要有提示」；
-///   * 「确实需要手动更新，要能点击下载，指定到我的对应项目的软件新版本，
-///      适合他的架构安装包」；
-///   * 后台无感更新（下载好之后点「立即更新」直接装）。
-///
-/// 覆盖：
-///   1. 有新版本 → 弹提示；同一版本用户点过「稍后」→ 不再弹；
-///   2. 弹窗里点「稍后」→ **记进设置**（重启也不打扰）；
-///   3. 安装包已在后台下好 → 「立即更新」直接进安装页；
-///   4. 还没下好 → 给**下载页**入口，且地址就是「适合本机架构」的那个安装包；
-///   5. 手动「检查更新」→ 已是最新 / 发现新版本，两种结论都要如实说。
 void main() {
   late List<String> openedUrls;
 
-  /// 把「有新版本」这个状态直接摆好（真实链路里是后台检查写进去的）。
   void setNewVersion(String version, {String url = ""}) {
     AutoUpdateManager.getVersionCheck()
       ..newVersion = true
@@ -42,7 +27,6 @@ void main() {
     };
     MclashUpdatePrompt.debugWaitInstallerLimit = Duration.zero;
     MclashUpdateCheck.debugLatestOverride = null;
-    // 默认「还没下好」：真实 checkReplace 要问 path_provider（测试环境不装插件）
     AutoUpdateManager.debugCheckReplaceOverride = () async => null;
     SettingManager.getConfig().dismissedUpdateVersion = "";
     SettingManager.getConfig().autoDownloadUpdatePkg = false;
@@ -62,7 +46,6 @@ void main() {
     AutoUpdateManager.getVersionCheck().clear();
   });
 
-  /// 一个最小宿主页面：按钮 = 触发点（等同真实 App 的启动/我的页入口）。
   Future<void> pumpHost(
     WidgetTester tester, {
     required Future<void> Function(BuildContext context) onTap,
@@ -86,8 +69,6 @@ void main() {
     await tester.pump();
   }
 
-  /// 收尾：跑完挂起的定时器 → 卸载组件树触发 dispose
-  /// （LasyRendering 的 dispose 会排一个 1ms 定时器，不跑完框架会判「Pending timers」）。
   Future<void> finish(WidgetTester tester) async {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpWidget(const SizedBox.shrink());
@@ -96,13 +77,11 @@ void main() {
 
   Future<void> tapTrigger(WidgetTester tester) async {
     await tester.tap(find.text("TAP"));
-    // 300ms 覆盖 AutoUpdateManager._notify 的延迟
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
 
   testWidgets("有新版本 → 提示；没有新版本 → 不打扰", (tester) async {
-    // ① 没有新版本：不该弹
     await pumpHost(
       tester,
       onTap: MclashUpdatePrompt.maybePromptOnLaunch,
@@ -110,7 +89,6 @@ void main() {
     await tapTrigger(tester);
     expect(find.textContaining("发现新版本"), findsNothing);
 
-    // ② 有新版本：必须弹
     setNewVersion("9.9.9");
     await tapTrigger(tester);
     expect(
@@ -119,7 +97,6 @@ void main() {
       reason: "检测到新版本必须有提示",
     );
 
-    // 关掉弹窗收尾
     await tester.tap(find.text("稍后"));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -142,7 +119,6 @@ void main() {
       reason: "点过「稍后」的版本要落进设置，重启后也不再弹",
     );
 
-    // 再触发一次：安静
     await tapTrigger(tester);
     expect(find.text("发现新版本 9.9.9"), findsNothing);
     await finish(tester);
@@ -183,13 +159,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    // 等不到后台下载（测试里上限 0）→ 弹确认，点确定打开下载页
     expect(find.textContaining("安装包还没下载完成"), findsOneWidget);
     final confirmButtons = find.descendant(
       of: find.byType(SimpleDialog),
       matching: find.byType(ElevatedButton),
     );
-    await tester.tap(confirmButtons.last); // 取消 | 确定
+    await tester.tap(confirmButtons.last); 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -201,8 +176,6 @@ void main() {
     await finish(tester);
   });
 
-  /// 真实 App 的导航结构：主页每个 tab 都套了一层 `Navigator`（MainTabShell），
-  /// 而 `showDialog` 默认把弹窗推在**根** navigator 上。
   Future<void> pumpNestedHost(
     WidgetTester tester, {
     required Future<void> Function(BuildContext context) onTap,
@@ -229,10 +202,6 @@ void main() {
     await tester.pump();
   }
 
-  // 用户实测：「点检查更新就一直转圈、无法返回、只能重启」。
-  // 根因：loading 弹窗推在根 navigator 上，旧代码却用 `Navigator.of(context).pop()`
-  // 去关 —— 在 tab 内层 navigator 里 `canPop()` 为 false，pop 被跳过，弹窗
-  // 既不能点遮罩关闭也不能返回。这两个用例在嵌套导航下验证它一定会关掉。
   testWidgets("嵌套导航（真实 App 结构）：检查更新后 loading 一定会关掉", (tester) async {
     MclashUpdateCheck.debugLatestOverride = () async => null;
     await pumpNestedHost(tester, onTap: MclashUpdatePrompt.checkManually);
@@ -256,7 +225,6 @@ void main() {
   });
 
   testWidgets("检查卡住（网络无响应）→ 超时后自动关掉 loading 并给失败提示", (tester) async {
-    // 永不完成的检查：模拟网络卡死
     MclashUpdateCheck.debugLatestOverride =
         () => Completer<MclashUpdateInfo?>().future;
     await pumpNestedHost(tester, onTap: MclashUpdatePrompt.checkManually);

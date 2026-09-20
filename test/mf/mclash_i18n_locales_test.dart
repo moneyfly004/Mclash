@@ -4,11 +4,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/i18n/strings.g.dart';
 
-/// 语言列表的回归。
-///
-/// 用户反馈：「软件语言少了很多」。根因是 `t.locales[tag]` 这种**动态 map 查找**——
-/// 静态分析看不到它的使用，于是「清理未使用的文案」时把一个语言的显示名删掉，
-/// 界面上那一项就塌了（9 种语言只剩 4 种）。这类键必须由测试守住，不能靠人眼。
 void main() {
   test('i18n 源文件里 locales(map) 覆盖全部 9 种语言', () {
     final dir = Directory("lib/i18n");
@@ -47,7 +42,6 @@ void main() {
         .where((f) => f.path.endsWith(".g.dart"))
         .where((f) => !f.path.endsWith("strings.g.dart"))
         .toList();
-    // 每个 AppLocale 对应一个生成文件（strings.g.dart 是聚合文件，已排除）
     expect(generated.length, greaterThanOrEqualTo(AppLocale.values.length));
 
     for (final f in generated) {

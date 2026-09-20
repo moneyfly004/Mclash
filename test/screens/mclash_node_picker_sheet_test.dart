@@ -10,13 +10,6 @@ import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
 import 'package:mclash/screens/mclash_node_picker_sheet.dart';
 
-/// 主页「独立节点选择器」的回归。
-///
-/// 用户反馈：主页点当前节点那一行会跳到「节点列表」整页，他想要的是主页自己的
-/// 选项。所以这里钉住三件事：
-///   1. 点节点行 → 打开就地弹层，**不切标签页**；
-///   2. 弹层里点节点 → 真的切换（全局模式下写内核 GLOBAL）并关闭；
-///   3. 搜索 / 国家筛选在弹层内生效（不必跳页也能找到节点）。
 void main() {
   final sample = <MclashNode>[
     MclashNode(name: "🇭🇰 香港 01", type: "ss", server: "1.1.1.1", port: 443)
@@ -97,7 +90,6 @@ void main() {
 
     await pumpSheet(tester, current: "🇭🇰 香港 01");
     expect(find.text("选择节点"), findsOneWidget);
-    // 用户明确要求「不要看到 global」：界面里不该出现任何 global/GLOBAL 字样
     expect(find.text("全局模式"), findsNothing);
     expect(find.textContaining("GLOBAL"), findsNothing);
     expect(find.text("按延迟排序"), findsOneWidget, reason: '让排序规则可见、可预期');
@@ -201,8 +193,6 @@ void main() {
   testWidgets('UDP 节点如实标注（不编延迟，用紧凑标签不占一行）', (tester) async {
     await pumpSheet(tester);
 
-    // 纯 UDP 协议（hysteria2/tuic/wireguard）在内核起来之前测不了。
-    // 现在的呈现是**右侧一个小标签**（原来的两行副标题太占地方、弹层更挤）。
     expect(find.text("UDP"), findsWidgets);
     expect(find.text("—"), findsWidgets, reason: '没测过就该显示占位符，而不是 0ms');
 

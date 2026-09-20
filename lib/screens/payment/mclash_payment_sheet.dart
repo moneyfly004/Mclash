@@ -12,22 +12,12 @@ import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// 测试缝：替换真实的余额支付（widget 测试没有网络）。返回错误信息 = 失败。
 @visibleForTesting
 Future<String?> Function(String orderNo)? debugBalancePayOverride;
 
-/// 测试缝：替换「唤起支付 App / 打开浏览器」，返回是否成功。
 @visibleForTesting
 Future<bool> Function(String target, bool external)? debugLaunchOverride;
 
-/// 支付面板，返回 `true` 表示支付成功。
-///
-/// 覆盖三种真实交互（用户要求）：
-///   * **余额支付** —— 面板里直接扣款（旧实现只显示二维码，选余额也在转圈）；
-///   * **扫码支付** —— 展示二维码（支付宝当面付 / 微信 NATIVE / USDT 地址码）；
-///     手机端额外给「打开支付宝」按钮，`qr.alipay.com` 会包成 `alipays://` 深链
-///     直接唤起支付宝 App（参考客户端同款做法）；
-///   * **码支付收银台** —— 后端返回的是 http(s) 收银台链接时**打开浏览器**支付。
 Future<bool?> showMclashPaymentSheet(
   BuildContext context, {
   required String orderNo,
@@ -105,7 +95,6 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
       _timer = Timer.periodic(_interval, (_) => _poll());
       _poll();
       if (widget.openInBrowser) {
-        // 码支付收银台：进面板就把浏览器打开（用户要求：码支付弹到浏览器支付）
         WidgetsBinding.instance.addPostFrameCallback((_) => _openExternal());
       }
     }
@@ -126,7 +115,6 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
     super.dispose();
   }
 
-  /// 从支付宝/浏览器切回 App 时立刻查一次（不必等下个轮询周期）。
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !widget.payWithBalance) {
@@ -199,7 +187,6 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
     } catch (_) {}
   }
 
-  /// 唤起支付 App / 打开浏览器。
   Future<void> _openExternal() async {
     if (_launching) {
       return;
@@ -247,11 +234,6 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
     }
   }
 
-  /// 是否显示「在浏览器中打开 / 打开支付宝」按钮。
-  ///
-  /// 收银台网页（码支付/易支付）在**所有平台**都要有这个按钮：以前桌面端只有
-  /// 「进面板自动打开一次」，浏览器没起来（或被用户关掉）就再也没有入口了 ——
-  /// 用户看到的就是「点了支付没反应」。
   bool get _showLaunchButton {
     if (widget.payWithBalance) {
       return false;

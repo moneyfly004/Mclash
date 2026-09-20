@@ -3,19 +3,6 @@ import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
 import 'package:mclash/mf/mclash_subscription_notice.dart';
 
-/// 「客户到期 / 被禁用 / 设备超过限制 → 禁止连接 + 覆盖配置档 + 只加载失效节点」
-/// 这条产品行为的客户端侧回归测试。
-///
-/// 用**后端真实下发**的字符串钉死（生产环境只读实测过，见
-/// `MclashSubscriptionNotice` 的文档注释）：
-/// ```yaml
-/// name: 订阅不存在
-/// proxies:
-///   - {name: "📢 官网: https://new.moneyfly.top", ...}
-///   - {name: "❌ 原因: 订阅不存在", ...}
-///   - {name: "💡 解决: 请检查订阅地址是否正确", ...}
-///   - {name: "💬 客服: 2562866992@qq.com | QQ:2562866992", ...}
-/// ```
 void main() {
   const site = "📢 官网: https://new.moneyfly.top";
   const support = "💬 客服: 2562866992@qq.com | QQ:2562866992";
@@ -96,7 +83,6 @@ void main() {
     });
 
     test('后端给了原因但不在已知几种（例如「服务暂时不可用」）→ 照样禁止连接，如实转述', () {
-      // 配置档里确实一个真实节点都没有，放行只会让用户以为连上了。
       final n = MclashSubscriptionNotice.parse([
         "❌ 原因: 服务暂时不可用",
         "💡 解决: 请稍后重试；若持续出现请截图联系客服",
@@ -127,7 +113,6 @@ proxy-groups:
       final notice = MclashSubscriptionNodes.parseNotice(yaml);
       expect(notice.state, MclashNoticeState.expired);
       expect(notice.blocked, isTrue);
-      // 提示节点全部被过滤 → 自动选节点没有候选 → 连不上
       expect(MclashSubscriptionNodes.parseNodes(yaml), isEmpty);
     });
 
@@ -151,9 +136,6 @@ proxies:
     });
 
     test('账号接口没有数据时，也能靠订阅下发状态拦住（含设备超限）', () {
-      // 真实场景：设备超限是「拉订阅那一刻」由后端判定的；而账号接口
-      // （/dashboard、/user/subscribe）可能还没返回、或干脆请求失败。
-      // 这时唯一可信的信号就是刚下载下来的这份订阅本身。
       acc.debugSetData(null, null);
       acc.debugClearPayloadNotice();
       expect(
@@ -172,7 +154,6 @@ proxies:
       );
       expect(acc.blockKind, MclashBlockKind.deviceFull);
       expect(acc.isBlocked, isTrue);
-      // 原因/解决/客服/官网 都用后端下发的原文
       expect(acc.blockText, contains("3/2"));
       expect(acc.blockText, contains("2562866992@qq.com"));
       expect(acc.blockText, contains("new.moneyfly.top"));
@@ -190,7 +171,6 @@ proxies:
       check("订阅已过期", MclashBlockKind.expired);
       check("订阅已失效", MclashBlockKind.subscriptionDisabled);
       check("订阅不存在", MclashBlockKind.noSubscription);
-      // 服务端暂时不可用：不能谎报成「套餐已被禁用」（付费客户会以为套餐出问题）
       check("服务暂时不可用", MclashBlockKind.serverUnavailable);
     });
 

@@ -1,19 +1,12 @@
-///
-/// Generated file. Do not edit.
-///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
-// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
-// Path: <root>
 class TranslationsJa with BaseTranslations<AppLocale, Translations> implements Translations {
-	/// You can call this constructor and build your own translation instance of this locale.
-	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsJa({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -25,11 +18,9 @@ class TranslationsJa with BaseTranslations<AppLocale, Translations> implements T
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
-	/// Metadata for the translations of <ja>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
-	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsJa _root = this; // ignore: unused_field
@@ -37,7 +28,6 @@ class TranslationsJa with BaseTranslations<AppLocale, Translations> implements T
 	@override 
 	TranslationsJa $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsJa(meta: meta ?? this.$meta);
 
-	// Translations
 	@override late final _Translations$BackupAndSyncWebdavScreen$ja BackupAndSyncWebdavScreen = _Translations$BackupAndSyncWebdavScreen$ja._(_root);
 	@override late final _Translations$LaunchFailedScreen$ja LaunchFailedScreen = _Translations$LaunchFailedScreen$ja._(_root);
 	@override late final _Translations$PerAppAndroidScreen$ja PerAppAndroidScreen = _Translations$PerAppAndroidScreen$ja._(_root);
@@ -69,26 +59,22 @@ class TranslationsJa with BaseTranslations<AppLocale, Translations> implements T
 	};
 }
 
-// Path: BackupAndSyncWebdavScreen
 class _Translations$BackupAndSyncWebdavScreen$ja implements Translations$BackupAndSyncWebdavScreen$en {
 	_Translations$BackupAndSyncWebdavScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get webdavServerUrl => 'サーバーURL';
 	@override String get webdavRequired => '空にすることはできません';
 	@override String get webdavLoginFailed => 'ログインに失敗しました:';
 	@override String get webdavListFailed => 'ファイルリストの取得に失敗しました:';
 }
 
-// Path: LaunchFailedScreen
 class _Translations$LaunchFailedScreen$ja implements Translations$LaunchFailedScreen$en {
 	_Translations$LaunchFailedScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get invalidProcess => 'アプリの起動に失敗しました [無効なプロセス名]。アプリを別のディレクトリに再インストールしてください';
 	@override String get invalidProfile => 'アプリの起動に失敗しました [プロファイルへのアクセスに失敗]。アプリを再インストールしてください';
 	@override String get invalidVersion => 'アプリの起動に失敗しました [無効なバージョン]。アプリを再インストールしてください';
@@ -96,36 +82,30 @@ class _Translations$LaunchFailedScreen$ja implements Translations$LaunchFailedSc
 	@override String get invalidInstallPath => 'インストールパスが無効です。有効なパスに再インストールしてください';
 }
 
-// Path: PerAppAndroidScreen
 class _Translations$PerAppAndroidScreen$ja implements Translations$PerAppAndroidScreen$en {
 	_Translations$PerAppAndroidScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get title => 'アプリごとのプロキシ';
 	@override String get whiteListMode => 'ホワイトリストモード';
 	@override String get whiteListModeTip => '有効な場合：チェックされたアプリのみがプロキシされます。無効な場合：チェックされていないアプリのみがプロキシされます';
 }
 
-// Path: UserAgreementScreen
 class _Translations$UserAgreementScreen$ja implements Translations$UserAgreementScreen$en {
 	_Translations$UserAgreementScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get privacyFirst => 'プライバシーを第一に';
 	@override String get agreeAndContinue => '同意して続行';
 }
 
-// Path: NetCheckScreen
 class _Translations$NetCheckScreen$ja implements Translations$NetCheckScreen$en {
 	_Translations$NetCheckScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get enterDomain => 'ドメイン名を入力してください';
 	@override String get checking => '確認中...';
 	@override String aQueryFailed({required Object p}) => 'Aレコード照会失敗: ${p}';
@@ -142,25 +122,21 @@ class _Translations$NetCheckScreen$ja implements Translations$NetCheckScreen$en 
 	@override String get routeTableSection => '4. ルートテーブル';
 }
 
-// Path: VersionUpdateScreen
 class _Translations$VersionUpdateScreen$ja implements Translations$VersionUpdateScreen$en {
 	_Translations$VersionUpdateScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String versionReady({required Object p}) => '新しいバージョン [${p}] の準備ができました';
 	@override String get update => '再起動して更新';
 	@override String get cancel => '今はしない';
 }
 
-// Path: loginScreen
 class _Translations$loginScreen$ja implements Translations$loginScreen$en {
 	_Translations$loginScreen$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get login => 'ログイン';
 	@override String get register => 'アカウント登録';
 	@override String get forgotPassword => 'パスワードを忘れた';
@@ -171,23 +147,19 @@ class _Translations$loginScreen$ja implements Translations$loginScreen$en {
 	@override String get password => 'パスワード';
 }
 
-// Path: main
 class _Translations$main$ja implements Translations$main$en {
 	_Translations$main$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override late final _Translations$main$tray$ja tray = _Translations$main$tray$ja._(_root);
 }
 
-// Path: meta
 class _Translations$meta$ja implements Translations$meta$en {
 	_Translations$meta$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get enable => '有効';
 	@override String get disable => '無効';
 	@override String get open => '開く';
@@ -375,13 +347,11 @@ class _Translations$meta$ja implements Translations$meta$en {
 	@override String get tabMe => 'マイ';
 }
 
-// Path: permission
 class _Translations$permission$ja implements Translations$permission$en {
 	_Translations$permission$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get camera => 'カメラ';
 	@override String get screen => '画面録画';
 	@override String get appQuery => 'アプリケーションリストを取得';
@@ -389,25 +359,21 @@ class _Translations$permission$ja implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => '[${p}] 権限をオンにしてください';
 }
 
-// Path: tls
 class _Translations$tls$ja implements Translations$tls$en {
 	_Translations$tls$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get certificate => '証明書';
 	@override String get privateKey => '秘密鍵';
 	@override String get customTrustCert => 'カスタム証明書';
 }
 
-// Path: tun
 class _Translations$tun$ja implements Translations$tun$en {
 	_Translations$tun$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get stack => 'ネットワークスタック';
 	@override String get inet4Address => 'IPv4アドレス範囲';
 	@override String get dnsHijack => 'DNSハイジャック';
@@ -419,13 +385,11 @@ class _Translations$tun$ja implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => 'HTTPプロキシをバイパスすることを許可するドメイン';
 }
 
-// Path: dns
 class _Translations$dns$ja implements Translations$dns$en {
 	_Translations$dns$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get listen => 'リスニングアドレス';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'フォールバック';
@@ -445,44 +409,33 @@ class _Translations$dns$ja implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIpCode';
 }
 
-// Path: sniffer
 class _Translations$sniffer$ja implements Translations$sniffer$en {
 	_Translations$sniffer$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get overrideDest => '上書き';
 }
 
-// Path: profilePatchMode
 class _Translations$profilePatchMode$ja implements Translations$profilePatchMode$en {
 	_Translations$profilePatchMode$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get currentSelected => '現在選択中';
 	@override String get overwrite => '内蔵 - 上書き';
 	@override String get noOverwrite => '内蔵 - 上書きなし';
 }
 
-// Path: main.tray
 class _Translations$main$tray$ja implements Translations$main$tray$en {
 	_Translations$main$tray$ja._(this._root);
 
 	final TranslationsJa _root; // ignore: unused_field
 
-	// Translations
 	@override String get menuOpen => '開く';
 	@override String get menuExit => '終了';
 }
 
-/// The flat map containing all translations for locale <ja>.
-/// Only for edge cases! For simple maps, use the map function of this library.
-///
-/// The Dart AOT compiler has issues with very large switch statements,
-/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsJa {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {

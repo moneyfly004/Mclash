@@ -56,12 +56,6 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     return null;
   }
 
-  /// 生成交给内核的**完整配置**。
-  ///
-  /// ⚠️ 这里曾经是「只要设置了 patch 就返回空字符串」，而 app 层连接时必然会设置
-  /// `core_path_patch_final` —— 于是内核收到的配置恒为空，Kotlin 侧按"空配置"
-  /// 走幽灵连接分支直接停服务，用户看到的就是「安卓点连接没反应 / 内核起不来」。
-  /// 现在与桌面端共用 [buildKernelConfig]（基础 YAML + 深合并 patch + 注入控制端口）。
   Future<String> _resolvedConfigYaml(VpnServiceConfig cfg) async {
     final result = await buildKernelConfig(cfg);
     for (final note in result.notes) {

@@ -4,14 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:libclash_vpn_service/src/desktop_impl.dart' as desktop_impl;
 import 'package:libclash_vpn_service/src/windows_wininet.dart' as wininet;
 
-/// 系统代理的「归属判定」与「桌面日志」回归（**跨平台**，CI 的 Linux runner 也跑）。
-///
-/// 这两块各对应一次真实用户事故：
-///   * 归属判定错了 → Mclash 启动时把**别的客户端**（MoneyFly / Clash Party）
-///     正在用的系统代理当成自己的残留清掉（用户实测：「用了 Mclash 之后，
-///     MoneyFly 连上了、Windows 里却不显示 127.0.0.1 和端口了」）。
-///   * desktopLog 写成自己调自己 → 一行日志被写几百上千次（用户实测日志刷屏），
-///     而 Log 是**同步写磁盘**，于是连接/断开直接卡顿。
 void main() {
   group('desktopLog 绝不递归', () {
     test('一次调用只写一行（曾经递归到栈溢出，一行变几百行）', () {
@@ -34,7 +26,6 @@ void main() {
             '实测一次调用会写 11585 行并撞一次栈溢出 —— 日志刷屏 + 同步写盘卡顿',
       );
       expect(lines.single, contains("撤系统代理"));
-      // 递归时单次调用要 400µs 以上（还要吃掉一次 StackOverflowError）
       expect(
         sw.elapsedMilliseconds,
         lessThan(50),

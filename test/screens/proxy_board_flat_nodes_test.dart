@@ -6,14 +6,6 @@ import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/screens/proxy_board_screen_widgets.dart';
 
-/// 「全局模式只能看到国家节点」在**仪表盘列表**上的回归。
-///
-/// 用户反馈原文：「选择全局模式，我不要他显示 global 的东西，我要他只能看到
-/// 国家节点可以选择，不需要看 global。」
-///
-/// 仪表盘默认展示的是**策略组卡片**（🚀 节点选择 / ♯ 自动选择 …），全局模式下
-/// 那些组没有意义（真正生效的是内核 GLOBAL），而且它们会让用户以为「点组里的
-/// 节点就切了」。所以全局模式下一律走扁平节点模式：只列真实节点 + 按延迟排序。
 void main() {
   late List<String> writes;
 
@@ -32,7 +24,6 @@ void main() {
 
   setUp(() {
     writes = [];
-    // 扁平模式只在「全局模式」下出现：选中节点要写内核 GLOBAL
     ClashSettingManager.debugSetMode("global");
     MclashNodeSelector.debugSetNodeOverride = (g, n) async {
       writes.add("$g->$n");

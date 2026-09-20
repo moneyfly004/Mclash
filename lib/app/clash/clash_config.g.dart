@@ -1,10 +1,6 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'clash_config.dart';
 
-// **************************************************************************
-// JsonSerializableGenerator
-// **************************************************************************
 
 RawExtensionTunHttpProxy _$RawExtensionTunHttpProxyFromJson(
   Map<String, dynamic> json,

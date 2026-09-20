@@ -240,8 +240,6 @@ class _BackupAndSyncWebdavScreenState
                               ],
                             ),
                           ),
-                          // 「下载并恢复本机数据」按钮已按产品要求移除：
-                          // 恢复只能靠登录账号重新同步订阅，不允许从云端把数据塞回来。
                           const SizedBox(width: 10),
                           InkWell(
                             onTap: () {

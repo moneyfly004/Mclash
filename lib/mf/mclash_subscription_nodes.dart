@@ -58,12 +58,6 @@ abstract final class MclashSubscriptionNodes {
     return parse(text);
   }
 
-  /// 在**后台 isolate** 里解析节点列表。
-  ///
-  /// 为什么（用户实测「点连接会卡顿、软件短暂卡死」）：订阅配置档 400+ KB、
-  /// 400+ 节点，`loadYaml` 全程在主 isolate 上跑，而连接成功时（以及切档/同步后）
-  /// 都会重新解析一遍 —— 正好卡在用户刚点完开关的那一刻。搬到后台 isolate 后，
-  /// 主线程只管显示结果。
   static Future<List<MclashNode>> parseNodesOffThread(String yamlText) =>
       Isolate.run(() => parseNodes(yamlText));
 
@@ -82,8 +76,6 @@ abstract final class MclashSubscriptionNodes {
     if (proxies is! YamlList) {
       return [];
     }
-    // 防御：万一订阅把「策略组名字」也塞进了 proxies（有些面板会这么干），
-    // 那不是节点，用户点了也切不了 —— 直接不列出来。
     final groupNames = _groupNames(doc);
     final out = <MclashNode>[];
     final allNames = <String>[];
@@ -99,8 +91,6 @@ abstract final class MclashSubscriptionNodes {
         Log.w("MclashSubscriptionNodes: [$name] 与策略组同名，按非节点跳过");
         continue;
       }
-      // 所有名字都要留给「订阅是否被后端判为不可用」的解析用：
-      // 后端在到期/禁用/设备超限时只会下发提示节点（没有真实节点）。
       allNames.add(name);
       if (MclashPseudoNodes.isPseudo(name)) {
         continue;
@@ -123,16 +113,11 @@ abstract final class MclashSubscriptionNodes {
     return out;
   }
 
-  /// 最近一次解析出的订阅状态（后端提示节点里的话）。
-  ///
-  /// 让「配置档本身就是一份失效订阅」这件事可以被上层立刻看到 —— 不必等
-  /// 账号接口 5 分钟一次的轮询，也不依赖账号接口是否连得上。
   static MclashSubscriptionNotice _lastNotice =
       MclashSubscriptionNotice.unknown;
 
   static MclashSubscriptionNotice get lastNotice => _lastNotice;
 
-  /// 只解析订阅状态（给测试与门禁用）。
   static MclashSubscriptionNotice parseNotice(String yamlText) {
     dynamic doc;
     try {
@@ -153,10 +138,6 @@ abstract final class MclashSubscriptionNodes {
     ]);
   }
 
-  /// 解析缓存：键 = 文件路径，值 = (修改时间, 大小, 结果)。
-  ///
-  /// 启动流程里 `load` 会被调用 2~3 次（首屏、订阅同步完成、用户手动刷新），
-  /// 每次都对几百个节点重新解析一遍 YAML 是纯浪费；文件没变就直接复用。
   static String? _cachePath;
   static DateTime? _cacheMtime;
   static int? _cacheSize;
@@ -176,8 +157,6 @@ abstract final class MclashSubscriptionNodes {
   static Future<List<MclashNode>> loadNodes() async {
     var text = await _readCurrentProfile();
     if (text == null) {
-      // 启动竞态：节点列表在 gate 里就跑，可能早于配置档加载完成。
-      // 不补这一步的话首屏是空列表，一直要等订阅同步（约 10 秒）才有节点。
       await ProfileManager.ensureLoaded();
       text = await _readCurrentProfile();
     }
@@ -240,7 +219,6 @@ abstract final class MclashSubscriptionNodes {
     }
   }
 
-  /// 配置档里所有策略组的名字（用于区分「节点」和「组」）。
   static Set<String> _groupNames(dynamic doc) {
     final out = <String>{};
     final groups = (doc is YamlMap) ? doc["proxy-groups"] : null;

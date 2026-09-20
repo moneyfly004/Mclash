@@ -6,12 +6,6 @@ import 'package:libclash_vpn_service/src/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-/// 内核配置生成的回归（**安卓端"内核起不来"的根因就在这里**）。
-///
-/// 旧实现 Android 侧只要发现 `core_path_patch` / `core_path_patch_final` 非空
-/// 就返回**空配置**，而 app 层连接时必然设置它们 —— 内核收到的配置恒为空，
-/// 原生化判定"无配置启动"后直接停服务。这个文件确保生成结果永远是一份
-/// 可用配置（含 external-controller / secret / 合并后的 patch）。
 void main() {
   late Directory tmp;
 
@@ -58,9 +52,6 @@ rules:
   }
 
   test('TUN 开关真的传到内核配置（关=不建卡，开=建卡）', () async {
-    // App 层把「首页 TUN 开关」写进 patch 的 tun.enable；这里钉住「patch 里的
-    // tun 段会原样合并进最终配置」—— 用户反馈的「开了 TUN 没有虚拟网卡」，
-    // 只要这一步断了就必然发生（内核配置里根本没开 TUN）。
     const patchOn = '{"tun":{"overwrite":true,"enable":true,"device":"Mclash",'
         '"stack":"gvisor","auto-route":true,"auto-detect-interface":true,'
         '"mtu":1280,"inet4-address":["172.19.0.1/30"],'
@@ -88,9 +79,6 @@ rules:
 
   test('基本配置：包含 external-controller / secret / mixed-port', () async {
     final cfg = await makeConfig();
-    // checkPort:false：这里验的是「配置合并结果」，不是宿主机的端口占用情况。
-    // 开着检测的话，宿主机上恰好有人占着 7890（比如本机正在跑的另一个客户端）
-    // 就会自动换端口 —— 那是正确行为，但会让这个断言变得依赖运行环境。
     final r = await buildKernelConfig(cfg, checkPort: false);
     expect(r.yaml.trim().isNotEmpty, isTrue, reason: '绝不能是空配置（安卓真实事故）');
     final doc = loadYaml(r.yaml) as YamlMap;
@@ -101,8 +89,6 @@ rules:
   });
 
   test('端口被占用时自动换端口（不许生成「没人监听」的配置）', () async {
-    // 真实事故：内核入站绑的是 *:port，而检测只看了回环地址 → 误判为空闲 →
-    // 内核起来后 Mixed server bind 失败，用户看到「连上了却没有入站监听」。
     final squatter = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
     final busy = squatter.port;
     try {
@@ -186,13 +172,6 @@ proxies: []
   });
 
   test('配置里没有 mixed-port 时必须补写（否则内核不开任何入站监听）', () async {
-    // 真实事故（本机实测）：配置里没有 mixed-port 时内核**照常启动**、
-    // 控制 API 也通，但一个入站监听都不开 —— 实测日志只有
-    // `RESTful API listening at ...`，没有 `Mixed(http+socks) proxy listening`，
-    // 7890 上没有任何 LISTEN。上层 `_waitReady()` 要求「控制 API + 混合端口
-    // 都能连」→ 60 秒超时 → 用户看到「内核启动超时（可能被安全软件拦截）」。
-    // 旧实现只在端口被占用时才写这个键，等于把"有没有入站"寄托在订阅/patch
-    // 恰好写了 mixed-port 上。
     final profile = File(p.join(tmp.path, "no_mixed.yaml"));
     await profile.writeAsString("""
 mode: rule

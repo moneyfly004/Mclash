@@ -15,10 +15,8 @@ abstract final class MclashNodeAutoPick {
 
   static const Duration probeTimeout = Duration(seconds: 3);
 
-  /// 超过这个规模就**不做**「整组测速」（用户实测：连接后被内核测速压到点不动）。
   static const int kGroupDelayLimit = 16;
 
-  /// 从已有延迟缓存里挑出可用的（name → ms）。
   static Map<String, int> _cachedDelays(
     List<String> candidates,
     Map<String, int>? cached,
@@ -36,10 +34,6 @@ abstract final class MclashNodeAutoPick {
     return out;
   }
 
-  /// 只测少量候选（并发 3），用于「大组 + 没有缓存」的兜底。
-  ///
-  /// 选谁：内核报的当前节点优先（它已经在用，换掉要谨慎），其余按列表顺序取，
-  /// 最多 [probeLimit] 个。绝不整组 —— 这是连接后卡顿的直接来源。
   static Future<Map<String, int>> _probeFew(
     List<String> candidates,
     String current,
@@ -93,16 +87,12 @@ abstract final class MclashNodeAutoPick {
   static Future<Map<String, int>> Function(String group)? debugGroupDelayOverride;
   static Future<bool> Function(String group, String node)? debugSwitchOverride;
 
-  /// 读取用户固定的节点名（空 = 自动模式）。
   static String fixedNode() =>
       (debugFixedNodeValue ?? SettingManager.getConfig().fixedNode).trim();
 
-  /// 记住/清除固定节点（手动选节点、点国家、点「自动最优」时调用）。
-  /// 测试缝：替换「记住固定节点」（真实实现要落盘）。
   @visibleForTesting
   static Future<void> Function(String name)? debugSetFixedNodeOverride;
 
-  /// 测试缝：读取「当前固定的节点」时用的值（测试里不碰设置文件）。
   @visibleForTesting
   static String? debugFixedNodeValue;
 
@@ -126,19 +116,10 @@ abstract final class MclashNodeAutoPick {
     );
   }
 
-  /// 连接时该做什么：沿用固定节点，还是自动选最优。
-  ///
-  /// 返回 `true` 表示「应当自动选」。
-  ///
-  /// 规则（与参考客户端一致，回答用户「什么时候自动、什么时候固定」）：
-  ///   * 用户固定了节点，且该节点仍在候选列表里 → **沿用，不自动切换**；
-  ///   * 没固定（首次连接 / 点过「自动最优」）→ 自动选延迟最低的；
-  ///   * 固定的节点已经不存在（换订阅/下架）→ 视为没固定，自动选并重新固定。
   static bool shouldAutoSelect({
     required String fixed,
     required Iterable<String> candidates,
   }) {
-    // 名称两侧的空格不该影响判断（各来源的写法不完全一致）
     final name = fixed.trim();
     if (name.isEmpty) {
       return true;
@@ -146,8 +127,6 @@ abstract final class MclashNodeAutoPick {
     return !candidates.map((e) => e.trim()).contains(name);
   }
 
-  /// 并发保护：自动选路可能被「连接成功」和「用户点自动最优」同时触发，
-  /// 两个同时跑会各自测速+切换，最后的结果取决于谁后写 —— 用户看到节点"跳来跳去"。
   static Future<String?>? _pickInflight;
 
   static Future<String?> selectBestOnConnect({
@@ -201,7 +180,6 @@ abstract final class MclashNodeAutoPick {
       return null;
     }
 
-    // 固定模式：用户选过的节点优先沿用（不再每次连接都改掉他的选择）。
     final fixed = fixedNode();
     final candidates = group.all
         .where((n) => !MclashPseudoNodes.isPseudo(n))
@@ -213,7 +191,6 @@ abstract final class MclashNodeAutoPick {
         Log.i("MclashNodeAutoPick: 固定节点 [$fixed] 已生效，保持不动");
         return null;
       }
-      // 固定节点与内核当前选择不一致（例如切过模式）→ 只把它写回去，不换节点
       final ok = await _switch(target, fixed);
       if (ok) {
         onNote?.call("已回到固定节点：$fixed");
@@ -228,17 +205,6 @@ abstract final class MclashNodeAutoPick {
     }
 
     final url = SettingManager.getConfig().delayTestUrl;
-    // ⚠️ 这里**不再无条件调用 `ClashHttpApi.getGroupDelay`**。
-    //
-    // 那个接口会让**内核一次性并发测整组**（订阅动辄 300~400 个节点），而它是在
-    // 「连接成功」之后立刻触发的。用户实测的原话是「连接之后非常卡，根本点不动」，
-    // 日志里也能看到连接成功后内核被自家测速压满（控制端口都连不上，测速刷出
-    // 几百行拒绝连接）。连接期间内核正在服务真实流量，不该再被自家测速抢占。
-    //
-    // 现在分三档（越往下越省）：
-    //   1. 小组（≤ kGroupDelayLimit）：仍然整组测速 —— 内核压力可控、结果最准；
-    //   2. 大组但有延迟缓存：**用缓存选最优**，连接后零请求、立即生效；
-    //   3. 大组且没有缓存：只测极少数候选（[probeLimit] 个），绝不整组。
     Map<String, int> delays;
     if (candidates.length <= kGroupDelayLimit) {
       delays = debugGroupDelayOverride != null
@@ -284,8 +250,6 @@ abstract final class MclashNodeAutoPick {
       onNote?.call("没有找到可用节点，请在「节点列表」里手动换一个");
       return null;
     }
-    // 全局模式下真正生效的是内核 GLOBAL：测速仍看主选择组（成员一样、更快），
-    // 但**写入**必须写到当前模式的选择器，否则切了等于没切。
     final targetName =
         MclashNodeSelector.groupNameForMode(proxies) ?? group.name;
     final target = MclashNodeSelector.byName(proxies, targetName);
@@ -299,7 +263,6 @@ abstract final class MclashNodeAutoPick {
     }
     Log.i("MclashNodeAutoPick: 已自动连接最优节点 [$bestNode]（${bestMs}ms）");
     onNote?.call("已自动连接最优节点：$bestNode（${bestMs}ms）");
-    // 记下来，避免"每次重连都换一个节点"（用户明确要的是可预期）
     await setFixedNode(bestNode);
     return bestNode;
   }

@@ -26,18 +26,11 @@ class Biz {
   static void Function(String)? onEventSingletonInstance;
 
   static Future<void> init(bool launchAtStartup) async {
-    // 老版本升上来的安装里可能还躺着「第三方机场 provider」子系统的数据文件
-    // （providers.json / board_sessions.json）—— 那套功能已整体删除，
-    // 没有任何代码再读写它们，顺手清掉。
     unawaited(MclashDataCleaner.removeLegacyFiles());
     await ClashSettingManager.init();
     await ProfileManager.init();
     await ProfilePatchManager.init();
     await DiversionTemplateManager.init();
-    // VPNService.init() 内部已经做了一次「启动清理系统代理」（它是平台无关的，
-    // 见那里的注释）。以前这里还额外调一次 restoreSystemProxy()，等于同一个动作
-    // 连做两遍 —— 每次都是几次注册表读取 + 归属判定，日志里也是连着两行
-    // 「清理系统代理已跳过」。合并成一次。
     await VPNService.init();
 
     for (var callback in onEventInitFinish) {
@@ -61,23 +54,13 @@ class Biz {
     await ClashSettingManager.uninit();
   }
 
-  /// 启动清理：把「上次没还原干净的系统代理」恢复原状。
-  ///
-  /// 归属判定现在只由插件负责（注册表里的归属标记 MclashProxyOwner + 端口是否还有
-  /// 人监听）：**不是我们写的就一行都不碰**，并把原因写进日志与「系统代理」面板的
-  /// 诊断。这里以前用 `getSystemProxyEnable()`（「注册表里的 ProxyServer 是不是
-  /// `127.0.0.1:<我们设置里的端口>`」）当判据 —— 默认端口 7890 与别的客户端撞车，
-  /// 于是把正在用的代理当成残留清掉（用户实测的跨软件事故）。
-  ///
-  /// 调用点在 [VPNService.init]（它内部走 stop()，本身就会清理系统代理）——
-  /// 这里保留这个入口，供「托盘重启内核」之类的场景复用。
   static Future<void> restoreSystemProxyIfStale() async {
     try {
       if (!VPNService.getSupportSystemProxy()) {
         return;
       }
       if (await VPNService.getStarted()) {
-        return; // 内核还活着（例如被系统托盘重启过），代理是有效的
+        return; 
       }
       await VPNService.restoreSystemProxy();
     } catch (e) {

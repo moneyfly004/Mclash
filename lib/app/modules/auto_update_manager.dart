@@ -89,10 +89,6 @@ class AutoUpdateCheckVersion {
 class AutoUpdateManager {
   static final List<void Function()> onEventCheck = [];
 
-  /// 注册「检查更新有结果」回调。**必须成对移除**（[removeCheckListener]）：
-  /// 以前的写法是直接 `onEventCheck.add(...)` 且从不移除，于是每次重建主界面
-  /// 都会多挂一个回调 —— 回调里 `setState` 打在已经销毁的 State 上会抛异常，
-  /// 列表本身也会一直变长（用户要求：排查竞态、减少内存占用）。
   static void addCheckListener(void Function() cb) {
     if (!onEventCheck.contains(cb)) {
       onEventCheck.add(cb);
@@ -180,7 +176,6 @@ class AutoUpdateManager {
     return _versionCheck;
   }
 
-  /// 测试缝：替换「本地是否已经下好安装包」。
   @visibleForTesting
   static Future<String?> Function()? debugCheckReplaceOverride;
 
@@ -204,9 +199,6 @@ class AutoUpdateManager {
     await _fileSaver.saveAsJson(_versionCheck);
   }
 
-  /// **手动**检查更新：绕过间隔限制，立刻查一次并刷新状态。
-  ///
-  /// 「我的 → 检查更新」用它。返回查到的更新信息（null = 已是最新/查不到）。
   static Future<MclashUpdateInfo?> checkNow() async {
     final info = await MclashUpdateCheck.latest(
       currentVersion: AppUtils.getBuildinVersion(),
@@ -229,8 +221,6 @@ class AutoUpdateManager {
     _lastCheck = DateTime.now();
     await save();
     _notify();
-    // 勾了「自动下载更新包」就顺手在后台下好，用户点安装时不用等。
-    // 这里兜住异常：后台预下载失败不能把「检查更新」本身搞崩。
     unawaited(
       download().catchError((Object e) {
         Log.w("AutoUpdateManager.checkNow: 后台预下载失败 $e");
@@ -328,8 +318,6 @@ class AutoUpdateManager {
           null,
           false,
           port,
-          // 安装包动辄几十 MB：默认 60 秒的下载超时会把包下坏（.tmp 被删掉），
-          // 用户点「立即更新」就变成「下载失败」。
           timeout: const Duration(minutes: 10),
         );
         if (result.error == null) {

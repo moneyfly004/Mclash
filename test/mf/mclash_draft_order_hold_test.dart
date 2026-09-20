@@ -1,12 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_device_upgrade.dart';
 
-/// 草稿订单在支付期间**不许被取消**的回归。
-///
-/// 真实事故（用户报「支付时提示订单不存在或状态不正确」）：
-/// 设备管理里选好支付方式后，代码先关掉算价面板，而面板关闭时挂着
-/// `whenComplete(cancelDraft)` —— 刚建好的订单立刻被取消，紧接着用这笔
-/// **已取消**的订单去支付/发起支付，后端自然回「订单不存在或状态不正确」。
 void main() {
   final cancelled = <String>[];
 
@@ -20,7 +14,6 @@ void main() {
 
   tearDown(() async {
     MclashDeviceUpgrade.debugCancelOverride = null;
-    // 解锁，避免影响其它用例
     MclashDeviceUpgrade.endPayment(keepOrder: true);
   });
 

@@ -117,11 +117,6 @@ class _VersionUpdateScreenState
     try {
       await VPNService.stop();
       if (Platform.isWindows || Platform.isMacOS) {
-        // 先退出应用，再由一个**分离进程**在稍后启动安装包。
-        //
-        // 不能 `await launchUrl(installer)` 再退出：安装包（Inno Setup）一启动
-        // 就要覆盖正在运行的 mclash.exe，于是等它退出；而这里又卡在等
-        // launchUrl / exitApplication —— 两边互相等，界面就「未响应」。
         _launchInstallerAfterExit(installer);
         await ServicesBinding.instance.exitApplication(AppExitType.required);
       } else if (Platform.isAndroid) {
@@ -148,11 +143,6 @@ class _VersionUpdateScreenState
     }
   }
 
-  /// 启动一个**分离**进程：等本进程退干净之后，再运行安装包。
-  ///
-  /// 直接启动安装包会和「覆盖正在运行的 exe」打架；这里延迟 2 秒（足够本进程
-  /// 走完 exitApplication 退出），再用 `ProcessStartMode.detached` 让安装进程
-  /// 独立于本进程，父进程退出不影响它。
   void _launchInstallerAfterExit(String installer) {
     try {
       if (Platform.isWindows) {

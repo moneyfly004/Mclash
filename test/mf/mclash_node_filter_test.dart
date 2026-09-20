@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_node_filter.dart';
 
-/// 节点名取自**真实订阅**（已验证的那份 154KB 订阅 YAML），不是编的。
 void main() {
   NodeFilterEntry e(String name, {String type = "Vless", bool isGroup = false, bool hidden = false}) =>
       NodeFilterEntry(name: name, type: type, isGroup: isGroup, hidden: hidden);
@@ -78,12 +77,9 @@ void main() {
     ];
 
     test('即使筛选词命中名字里的部分，伪节点也不出现', () {
-      // "官网" 是伪节点名字的一部分，但绝不能被选进测速集合
       expect(MclashNodeFilter.select(nodes, "官网", describe: (x) => x), isEmpty);
-      // Shadowsocks 类型能匹配到伪节点，但同样必须被排除
       final byType = MclashNodeFilter.select(nodes, "shadowsocks", describe: (x) => x);
       expect(byType, isEmpty);
-      // 错误节点同理
       expect(MclashNodeFilter.select(nodes, "订阅", describe: (x) => x), isEmpty);
     });
 

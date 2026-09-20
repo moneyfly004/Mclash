@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_notice.dart';
 
-/// 准入闸门判定：**判错就完全连不上**，所以用真实账号响应钉死。
 void main() {
   final acc = MclashAccountService.instance;
   tearDown(() {
@@ -32,8 +31,6 @@ void main() {
     "package_name": "test",
     "days_remaining": remaining,
     "expire_at": "2028-06-25",
-    // 与 dashboard 保持一致：`/user/subscribe` 是订阅信息的权威来源，
-    // MclashAccountInfo 优先读它（两处不一致时以它为准，见其字段解析顺序）
     "device_limit": limit,
     "current_devices": used,
     "is_active": active,
@@ -42,9 +39,6 @@ void main() {
   };
 
   test('启动时回填的旧缓存不允许拦截（否则续费后反而连不上）', () {
-    // 真实事故场景：用户套餐过期 → 缓存住了 expired；随后在官网续费成功，
-    // 但客户端启动时先把旧缓存读进来 —— 若用旧缓存判定，用户会被
-    // 「套餐已到期」拦在门外，直到下一次刷新成功为止（离线时永远连不上）。
     acc.debugSetData(
       dash(),
       sub(active: false, remaining: 0),
@@ -57,7 +51,6 @@ void main() {
     );
     expect(acc.blockKind, MclashBlockKind.none);
 
-    // 同一份数据只要是**本次**拿到的，就必须拦截
     acc.debugSetData(dash(), sub(active: false, remaining: 0));
     expect(acc.blockKind, MclashBlockKind.subscriptionDisabled);
   });

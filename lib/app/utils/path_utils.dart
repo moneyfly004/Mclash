@@ -37,23 +37,6 @@ class PathUtils {
     return path.join(appAssetsDir(), "flutter_assets");
   }
 
-  /// 内核工作目录（`mihomo -d`）：**必须可写**。
-  ///
-  /// 真实事故（Windows）：安装包把 App 装到 `C:\Program Files (x86)\Mclash`，
-  /// 而工作目录原本取的是安装目录下的 `data` —— 普通用户对 Program Files
-  /// **没有写权限**，于是：
-  ///   * 写 `config.yaml` 抛 `PathAccessException ... 拒绝访问 (errno 5)`（未捕获，
-  ///     连接直接失败）；
-  ///   * geo 文件（country.mmdb / geosite.dat / ASN）拷不进去，内核只好去 GitHub 下载
-  ///     （国内不可达 → 内核永不就绪）。
-  /// 用户侧表现就是：看着像连上了，其实什么都没生效 —— 系统代理没设、
-  /// 流量统计为 0、上网走的是直连。
-  ///
-  /// 所以这里做**可写性探测**：安装目录能写就用它（保持便携版/自定义目录的行为），
-  /// 不能写就回退到应用数据目录（`%APPDATA%\mclash\mclash`，必然可写）。
-  /// 进程内缓存：内核工作目录在一次运行里不会变，但**每次连接**都会问一次；
-  /// 而它内部要做一次真实的可写性探测（写一个临时文件再删）—— 装在
-  /// `C:\Program Files` 下时那次写入还会失败并抛异常。缓存后只探测一次。
   static String _serviceWorkDirCache = "";
 
   static Future<String> serviceWorkDir() async {
@@ -79,7 +62,6 @@ class PathUtils {
     return assets;
   }
 
-  /// 目录是否可写（真实写一个临时文件再删掉，比看权限位可靠）。
   static Future<bool> _isWritable(String dir) async {
     if (dir.isEmpty) {
       return false;

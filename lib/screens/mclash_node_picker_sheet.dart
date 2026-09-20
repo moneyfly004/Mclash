@@ -10,17 +10,6 @@ import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 
-/// 主页「就地换节点」的选择器。
-///
-/// 这里的设计按用户反馈重做过，现在的结论是：
-///   * **不做国家图标那一排**（用户：「上方的国家图标我不需要，都溢出弹窗了」）——
-///     主页本来就有「快速筛选国家」区块，弹层里再来一排既重复又挤；
-///   * **桌面端不用底部弹层**（用户：「弹窗出现的非常突兀，而且不美观」）——
-///     窗口最大化时一个贴着底边的全宽弹层很怪，改成**居中卡片式弹窗**：
-///     限宽 460、限高 560，看起来像一个正常对话框；
-///   * 手机端仍然是底部弹层（那才是移动端的习惯）；
-///   * 列表**永远按延迟升序**（延迟最低的排最前），搜索框常驻；
-///   * 完整节点列表仍有明确入口（底部一行），但不再隐式跳转。
 Future<void> showMclashNodePickerSheet(
   BuildContext context, {
   String current = "",
@@ -58,10 +47,8 @@ class MclashNodePickerSheet extends StatefulWidget {
     this.inDialog = false,
   });
 
-  /// 当前节点名（用于打勾标记）。
   final String current;
 
-  /// 是否渲染在居中弹窗里（决定高度策略与拖拽条）。
   final bool inDialog;
 
   @override
@@ -96,8 +83,6 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
   List<MclashNode> get _visible {
     final q = _query.trim().toLowerCase();
     final matched = MclashNodesStore.instance.nodes.where((n) {
-      // 内核内置的 GLOBAL / DIRECT / REJECT 这类伪目标不是「能选的节点」，
-      // 不该出现在选择列表里（用户明确要求：不要看到 global）。
       if (isInternalProxyName(n.name)) {
         return false;
       }
@@ -106,7 +91,6 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
       }
       return true;
     }).toList();
-    // **永远**按延迟升序：延迟最低的排最前（用户要求，不必再手动点排序）
     return sortNodesByLatency(matched);
   }
 
@@ -337,7 +321,7 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
             const Icon(Icons.check, size: 18, color: ThemeDefine.kColorBlue)
           else if (node.latencyUsable)
             Text(
-              "${node.measuredByKernel ? "" : "≈"}${node.latencyMs}ms",
+              "${node.latencyMs}ms",
               style: TextStyle(
                 fontSize: 12,
                 color: node.latencyMs < 800

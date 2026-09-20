@@ -5,11 +5,6 @@ import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/mclash_system_proxy_sheet.dart';
 
-/// 「系统代理」面板的回归。
-///
-/// 用户反馈（Windows）：「连上之后系统代理是空白，无法改变 IP 和端口」。
-/// 端口链路已在 VPNService 里修（以内核实际监听端口为准），但用户还需要一个
-/// **能看见当前地址、能重设、能换端口**的地方 —— 就是这里要钉住的东西。
 void main() {
   setUp(() {
     MclashNodesStore.instance.debugResetLoadState();
