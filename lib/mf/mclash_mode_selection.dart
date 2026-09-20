@@ -259,7 +259,8 @@ bool isInternalProxyName(String name) =>
 /// 规则：
 ///   * 先取链路里**最后一个真实节点**（跳过 GLOBAL 这类内置组名）；
 ///   * 只有 DIRECT/REJECT 这类伪目标时，说人话（直连 / 已拦截）；
-///   * 末尾附上延迟（有的话）。
+///   * 只返回**节点名本身**，不拼接延迟 —— 用户要求主页「当前节点」只显示
+///     切到了哪个节点，名称要和节点列表里的一一对应，不要「(xxx ms)」尾巴。
 String formatCurrentProxyName(
   Iterable<String> chain, {
   int? delayMs,
@@ -287,5 +288,5 @@ String formatCurrentProxyName(
     // （用户反复反馈：「全局模式不要显示 global 的东西」）。
     return "";
   }
-  return delayMs != null && delayMs > 0 ? "$real ($delayMs ms)" : real;
+  return real;
 }

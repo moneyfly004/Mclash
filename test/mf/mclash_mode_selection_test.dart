@@ -165,12 +165,12 @@ void main() {
   });
 
   group('当前节点的显示文案（回归：全局模式不该把 GLOBAL 摊给用户）', () {
-    test('全局模式：内核报 GLOBAL -> 节点，界面只显示节点', () {
+    test('全局模式：内核报 GLOBAL -> 节点，界面只显示节点名（不附延迟）', () {
       expect(
         formatCurrentProxyName(["GLOBAL", "🇯🇵 日本东京"], delayMs: 345),
-        "🇯🇵 日本东京 (345 ms)",
-        reason: '用户反馈的是「为什么全局还有 global，而不是选择节点」——'
-            'GLOBAL 是内核内部组名，不该出现在界面上',
+        "🇯🇵 日本东京",
+        reason: '用户要求主页「当前节点」只显示节点名字、名称与节点列表一一对应，'
+            '不要「(345 ms)」尾巴；GLOBAL 是内核内部组名，也不该出现在界面上',
       );
     });
 
@@ -200,12 +200,12 @@ void main() {
       expect(formatCurrentProxyName(["GLOBAL", "PASS"]), "跟随规则");
     });
 
-    test('没有延迟数据时不编造 ms', () {
+    test('无论有没有延迟数据，都只显示节点名（不附延迟）', () {
       expect(formatCurrentProxyName(["GLOBAL", "🇸🇬 新加坡"]), "🇸🇬 新加坡");
       expect(
-        formatCurrentProxyName(["GLOBAL", "🇸🇬 新加坡"], delayMs: 0),
+        formatCurrentProxyName(["GLOBAL", "🇸🇬 新加坡"], delayMs: 123),
         "🇸🇬 新加坡",
-        reason: '0ms 是"还没测"，不能显示成延迟 0',
+        reason: '用户要求只显示节点名，延迟数字一律不拼',
       );
     });
   });
