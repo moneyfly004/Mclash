@@ -14,8 +14,19 @@ abstract final class MclashSubscriptionRevision {
   static Future<String> current() async {
     try {
       final nodes = await MclashSubscriptionNodes.loadNodes();
+      final sorted = [...nodes]..sort((a, b) {
+        final byName = a.name.compareTo(b.name);
+        if (byName != 0) {
+          return byName;
+        }
+        final byServer = a.server.compareTo(b.server);
+        if (byServer != 0) {
+          return byServer;
+        }
+        return a.port.compareTo(b.port);
+      });
       final sb = StringBuffer();
-      for (final n in nodes) {
+      for (final n in sorted) {
         sb
           ..write(n.name)
           ..write('|')
