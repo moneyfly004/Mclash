@@ -2299,19 +2299,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
-  /// 取某个 PID 的可执行文件路径（用于确认「这是我们自己的内核」）。
-  static Future<String> _exePathOfPid(int pid) async {
-    try {
-      if (Platform.isWindows) {
-        return "";
-      }
-      final r = await Process.run("ps", ["-p", "$pid", "-o", "comm="]);
-      return r.stdout.toString().trim();
-    } catch (_) {
-      return "";
-    }
-  }
-
   /// 本次运行是否已经扫过残留内核（Windows）。
   ///
   /// 为什么要记住：Windows 上这个扫描要起一次 PowerShell（冷启动实测 1~3 秒），
@@ -2330,61 +2317,39 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       return const [];
     }
     final killed = <int>[];
-    // 同一路径上、但不是正在被跟踪的那个进程 → 残留内核（父进程还活着，
-    // 因此不是孤儿，但继续占着端口）。起内核前必须收掉。
-    if (includeOwn) {
-      // 正在被跟踪的内核（本次连接用的那个）不能杀。
-      final platform = VpnServicePlatform.instance;
-      final keepPid = platform is DesktopVpnServiceImpl
-          ? (platform._proc?.pid ?? 0)
-          : 0;
-      try {
-        final kernel = await resolveKernelPath();
-        final want = kernel == null ? "" : File(kernel).absolute.path;
-        if (want.isNotEmpty) {
-          final r = await Process.run("pgrep", ["-x", "mihomo"]);
-          if (r.exitCode == 0) {
-            for (final line in r.stdout.toString().split("\n")) {
-              final pid = int.tryParse(line.trim());
-              if (pid == null || pid == keepPid) {
-                continue;
-              }
-              final exe = await _exePathOfPid(pid);
-              if (exe != want) {
-                continue;
-              }
-              try {
-                Process.killPid(pid, ProcessSignal.sigterm);
-                await Future<void>.delayed(const Duration(milliseconds: 150));
-                Process.killPid(pid, ProcessSignal.sigkill);
-                killed.add(pid);
-              } catch (_) {}
-            }
-          }
-        }
-      } catch (_) {}
-    }
     try {
       final kernel = await resolveKernelPath();
       if (Platform.isWindows) {
-        // 用 Get-Process 列进程（毫秒级）而不是 Get-CimInstance Win32_Process
-        // 全表扫描（WMI 冷启动实测 1~3 秒）—— 这个扫描在**每次连接**前都会跑，
-        // 正是用户反馈「连接时卡顿」的来源之一。只有真的存在 mihomo 进程时，
-        // 才对它逐个查一次父进程 id。
+        final platform = VpnServicePlatform.instance;
+        final keepPid = platform is DesktopVpnServiceImpl
+            ? (platform._proc?.pid ?? 0)
+            : 0;
+        // 一个脚本搞定，避免「孤儿判断」漏杀。用户实测：卡死后退出再开仍卡死、
+        // 内核进程根本没退干净 —— 残留内核的父进程可能还「存在」（App 卡死但
+        // 进程没退、或成僵尸），按「父进程不存在」判断就漏掉，它继续占着端口，
+        // 新实例一启动就卡死。
+        //   · includeOwn=true（连接时 force）：杀所有「同路径、非当前跟踪 PID」
+        //     的内核 —— 彻底清场，无论父进程死活；
+        //   · includeOwn=false（启动时）：只杀父进程已经不存在的孤儿（保守）。
         final script = r"""
 $mine = '__KERNEL__'
+$keep = __KEEP_PID__
+$onlyOrphan = __ONLY_ORPHAN__
 $targets = @(Get-Process -Name mihomo -ErrorAction SilentlyContinue)
 foreach ($p in $targets) {
+  if ($keep -ne 0 -and $p.Id -eq $keep) { continue }
   $exe = $p.Path
   if ($mine -ne '' -and $exe -and ($exe.ToLower() -ne $mine.ToLower())) { continue }
-  $ppid = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction SilentlyContinue).ParentProcessId
-  if (-not $ppid) { continue }
-  if (-not (Get-Process -Id $ppid -ErrorAction SilentlyContinue)) {
-    try { Stop-Process -Id $p.Id -Force; Write-Output $p.Id } catch {}
+  if ($onlyOrphan) {
+    $ppid = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction SilentlyContinue).ParentProcessId
+    if ($ppid -and (Get-Process -Id $ppid -ErrorAction SilentlyContinue)) { continue }
   }
+  try { Stop-Process -Id $p.Id -Force; Write-Output $p.Id } catch {}
 }
 """
-            .replaceFirst('__KERNEL__', (kernel ?? '').replaceAll("'", "''"));
+            .replaceFirst('__KERNEL__', (kernel ?? '').replaceAll("'", "''"))
+            .replaceFirst('__KEEP_PID__', '$keepPid')
+            .replaceFirst('__ONLY_ORPHAN__', includeOwn ? r'$false' : r'$true');
         final r = await Process.run("powershell", [
           "-NoProfile",
           "-ExecutionPolicy",

@@ -1042,31 +1042,41 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     if (AppLifecycleStateNofity.isPaused()) {
       return;
     }
-    unawaited(_updateProxyMode());
-    _startProxyModeTimer();
-    // 内核在跑 → 回读一次「当前节点 / 模式」：面板（浏览器里打开的那个）可能刚改过，
-    // 回到前台/重连时先把 App 的状态对齐，再显示。
-    unawaited(MclashKernelSync.syncFromKernel());
-    // 起流量监听（内核控制端口 + 密钥）；幂等，重复调用只是刷新一次显示
+    // 连接后**立即**只做最轻量的事：起流量监听 + 读一次流量数字。
+    // 其余（读内核模式/节点、起各种轮询定时器）全部延后 5 秒 —— 参考
+    // MoneyFly：连接成功不堆一堆任务，否则刚就绪的内核瞬间被自家一堆
+    // HTTP 请求压满，表现就是「一连上就卡死」。
     ClashTrafficWatcher.instance.start(
       port: ClashSettingManager.getControlPort(),
       secret: ClashSettingManager.getConfig().Secret ?? "",
     );
     await _updateConnections();
-    // 2 秒刷新一次界面：流量数字本身是 ClashTrafficWatcher 每 3 秒从内核推来的，
-    // 以前 1 秒刷一次只是把同一份数据重复渲染一遍（多出来的唤醒没有收益）。
-    const Duration duration = Duration(seconds: 2);
-    _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
-      if (AppLifecycleStateNofity.isPaused()) {
+
+    // 内核稳定后再把「读模式/节点 + 轮询定时器」挂起来。
+    unawaited(() async {
+      await Future<void>.delayed(const Duration(seconds: 5));
+      if (_state != FlutterVpnServiceState.connected) {
         return;
       }
-      await _updateConnections();
-      if (_proxyNow.value.isEmpty) {
-        Future.delayed(Duration(seconds: 1), () async {
-          _updateProxyNow();
-        });
-      }
-    });
+      unawaited(_updateProxyMode());
+      _startProxyModeTimer();
+      // 面板（浏览器里打开的那个）可能刚改过节点/模式 → 回读一次对齐。
+      unawaited(MclashKernelSync.syncFromKernel());
+      // 2 秒刷新一次界面：流量数字本身是 ClashTrafficWatcher 每 3 秒从内核推来的，
+      // 以前 1 秒刷一次只是把同一份数据重复渲染一遍（多出来的唤醒没有收益）。
+      const Duration duration = Duration(seconds: 2);
+      _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
+        if (AppLifecycleStateNofity.isPaused()) {
+          return;
+        }
+        await _updateConnections();
+        if (_proxyNow.value.isEmpty) {
+          Future.delayed(Duration(seconds: 1), () async {
+            _updateProxyNow();
+          });
+        }
+      });
+    }());
   }
 
   Future<void> _disconnectToCore({bool resetUI = true}) async {
