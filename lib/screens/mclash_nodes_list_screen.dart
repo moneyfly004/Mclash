@@ -38,6 +38,13 @@ class _MclashNodesListScreenState
 
   String _filter = "";
   String? _countryFilter;
+
+  /// 正在单独测速的节点 server 标识（点击行尾延迟触发）。
+  ///
+  /// 非空时表示「单节点测速」进行中，此时只有这个节点显示转圈，
+  /// 其余未测节点不再跟着一起转（那是「全部测速」的语义）。
+  String? _singleTestTarget;
+
   bool _sortByLatency = true;
   bool _searching = false;
   final TextEditingController _searchController = TextEditingController();
@@ -123,6 +130,25 @@ class _MclashNodesListScreenState
     return MclashNodesStore.instance.testAll(
       subset: filtered ? _visibleNodes() : null,
     );
+  }
+
+  /// 点击行尾延迟区域：只测这一个节点。
+  ///
+  /// 用户要求「没有延迟时点它就能单独测这个节点」，与「点整行 = 启用节点」分开：
+  /// 这里仅驱动测速，不改变当前选中节点。
+  Future<void> _testSingleNode(MclashNode n) async {
+    if (_singleTestTarget != null) {
+      // 已经有一个单测在跑，避免并发点出一堆单测互相覆盖。
+      return;
+    }
+    setState(() => _singleTestTarget = n.server);
+    try {
+      await MclashNodesStore.instance.testOne(n);
+    } finally {
+      if (mounted) {
+        setState(() => _singleTestTarget = null);
+      }
+    }
   }
 
   List<MclashNode> _visibleNodes() {
@@ -489,7 +515,12 @@ class _MclashNodesListScreenState
   }
 
   Widget _nodeRow(MclashNode n) {
-    final testing = _testing > 0 && !n.latencyUsable;
+    // 单测进行中：只让「正在被单测」的那个节点转圈；
+    // 全部测速（_singleTestTarget == null）才让所有待测节点一起转。
+    final bool single = _singleTestTarget != null;
+    final bool testing = single
+        ? (n.server == _singleTestTarget && !n.latencyUsable)
+        : (_testing > 0 && !n.latencyUsable);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
@@ -503,51 +534,60 @@ class _MclashNodesListScreenState
         n.udpOnly ? "${n.type} · UDP" : n.type,
         style: const TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
       ),
-      trailing: SizedBox(
-
-        width: 88,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (testing)
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: RepaintBoundary(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else
-              Flexible(
-                child: Text(
-                  n.latencyUsable
-                      // ≈ = 内核没在跑时的本机 TCP 粗估（不是真实代理延迟）
-                      ? "${n.measuredByKernel ? "" : "≈"}${n.latencyMs}ms"
-                      // 「内核里还没有这个节点」要和「真的超时」分开说：
-                      // 前者是订阅更新后内核还没重载，等重载完再测就有结果。
-                      : (n.missingInKernel
-                            ? "未测到（待重载内核）"
-                            : (n.online ? "—" : "超时")),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: n.latencyUsable
-                        ? _latencyColor(n.latencyMs)
-                        : ThemeDefine.kColorGrey,
-                  ),
-                ),
+      // 行尾两段各司其职：
+      //   · 延迟区 → 点击只测这一个节点（用户要求「没有延迟点它就单独测」）
+      //   · 整行（onTap）→ 启用/选中该节点
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: testing ? null : () => _testSingleNode(n),
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              width: 78,
+              height: 36,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (testing)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: RepaintBoundary(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: Text(
+                        n.latencyUsable
+                            // ≈ = 内核没在跑时的本机 TCP 粗估（不是真实代理延迟）
+                            ? "${n.measuredByKernel ? "" : "≈"}${n.latencyMs}ms"
+                            // 「内核里还没有这个节点」要和「真的超时」分开说：
+                            // 前者是订阅更新后内核还没重载，等重载完再测就有结果。
+                            : (n.missingInKernel
+                                  ? "未测到（待重载内核）"
+                                  : (n.online ? "—" : "超时")),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: n.latencyUsable
+                              ? _latencyColor(n.latencyMs)
+                              : ThemeDefine.kColorGrey,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            const Icon(Icons.chevron_right, size: 18),
-          ],
-        ),
+            ),
+          ),
+          const Icon(Icons.chevron_right, size: 18),
+        ],
       ),
       onTap: () => _pickNode(n),
-      onLongPress: () async {
-
-        await MclashNodesStore.instance.testOne(n);
-      },
+      onLongPress: () => _testSingleNode(n),
     );
   }
 

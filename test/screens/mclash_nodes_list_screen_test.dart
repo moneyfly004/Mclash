@@ -263,6 +263,38 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   });
 
+  testWidgets('点击行尾延迟区域：只测这一个节点，且不切换节点', (tester) async {
+    final remembered = <String>[];
+    MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
+      remembered.add(name);
+    };
+    await pump(tester);
+    await expandAll(tester);
+    final jp = MclashNodesStore.instance.nodes.firstWhere(
+      (n) => n.name == "日本 01",
+    );
+    expect(jp.latencyMs, -1, reason: '点击前未测速');
+
+    // 未测速的节点行尾显示「超时」占位，点它 = 单独测速（区别于点整行 = 启用节点）
+    final row = find.widgetWithText(ListTile, "日本 01");
+    final latencyText = find.descendant(of: row, matching: find.text("超时"));
+    expect(latencyText, findsOneWidget, reason: '未测速时行尾应有「超时」占位');
+
+    await tester.tap(latencyText);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(jp.latencyMs, 120, reason: '点延迟区应测出该节点延迟');
+    final hk = MclashNodesStore.instance.nodes.firstWhere(
+      (n) => n.name.contains("香港快"),
+    );
+    expect(hk.latencyMs, -1, reason: '点延迟区只测一个，不测别的节点');
+    expect(remembered, isEmpty, reason: '点延迟区不应触发「启用节点」');
+    MclashNodeAutoPick.debugSetFixedNodeOverride = null;
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
   testWidgets('分组按钮：能打开 ClashMi 的代理组页（原有能力不能丢）', (tester) async {
     // 代理组页会直接问内核要 /proxies：测试里没有 ClashSettingManager，
     // 控制端口是 null，会拼出 http://127.0.0.1:null 而抛异常。
