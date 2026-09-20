@@ -184,7 +184,7 @@ class ClashProxies {
 
     final p = map['proxies'];
     if (p is Map) {
-      Set<String> toRemove = {};
+      final toRemove = <String>{};
       p.forEach((key, value) {
         var node = ClashProxiesNode();
         node.fromJson(value);
@@ -194,25 +194,29 @@ class ClashProxies {
           toRemove.add(node.name);
         }
       });
-      List<String> globalAll = [];
-      for (int i = 0; i < proxies.length; ++i) {
-        proxies[i].all.removeWhere((ele) => toRemove.contains(ele));
-        proxies[i].delay = updateGroupDelay(proxies[i]);
-        if (proxies[i].name == "GLOBAL") {
-          globalAll = proxies[i].all;
-        }
+
+      // name → node 索引：组延迟计算 / GLOBAL 排序 / provider 去重都要按名字
+      // 查节点。旧实现每次都 O(n) 线性查找，400 个节点 → O(n²)，连接后解析
+      // /proxies 时把主线程卡住（用户实测「连接之后点不动」）。
+      final byName = <String, ClashProxiesNode>{
+        for (final n in proxies) n.name: n,
+      };
+
+      for (final n in proxies) {
+        n.all.removeWhere((ele) => toRemove.contains(ele));
+        n.delay = updateGroupDelayIndexed(n, byName, <String>{});
       }
-      List<ClashProxiesNode> globalAllProxies = [];
-      for (var tag in globalAll) {
-        for (int i = 0; i < proxies.length; ++i) {
-          if (tag == proxies[i].name) {
-            globalAllProxies.add(proxies[i]);
-            proxies.removeAt(i);
-            break;
-          }
-        }
+
+      final globalAll = byName["GLOBAL"]?.all ?? const <String>[];
+      final globalAllProxies = <ClashProxiesNode>[
+        for (final tag in globalAll)
+          if (byName[tag] != null) byName[tag]!,
+      ];
+      if (globalAllProxies.isNotEmpty) {
+        final keep = globalAllProxies.toSet();
+        proxies.removeWhere(keep.contains);
+        proxies.insertAll(0, globalAllProxies);
       }
-      proxies.insertAll(0, globalAllProxies);
     }
   }
 
@@ -223,19 +227,18 @@ class ClashProxies {
 
     final p = map['providers'];
     if (p is Map) {
+      // 去重用 Set，避免对每个 provider 节点都 indexWhere O(n) 线性查找。
+      final existing = <String>{for (final n in proxies) n.name};
       p.forEach((key, value) {
         final p = value['proxies'];
         if (p != null && p is List) {
           for (var item in p) {
             var node = ClashProxiesNode();
             node.fromJson(item);
-            if (node.type.toLowerCase() != "dns") {
-              final index = proxies.indexWhere(
-                (element) => element.name == node.name,
-              );
-              if (index < 0) {
-                proxies.add(node);
-              }
+            if (node.type.toLowerCase() != "dns" &&
+                !existing.contains(node.name)) {
+              proxies.add(node);
+              existing.add(node.name);
             }
           }
         }
@@ -243,25 +246,27 @@ class ClashProxies {
     }
   }
 
-  int? updateGroupDelay(ClashProxiesNode node) {
+  /// 组延迟：沿 `now` 链路递归到最底层节点，取其延迟。
+  ///
+  /// 用 [byName] 索引做 O(1) 查找；[visiting] 防止组之间循环引用造成死循环。
+  int? updateGroupDelayIndexed(
+    ClashProxiesNode node,
+    Map<String, ClashProxiesNode> byName,
+    Set<String> visiting,
+  ) {
     if (node.now.isEmpty) {
       return node.delay;
     }
-    ClashProxiesNode? nextNode;
-    for (var proxy in proxies) {
-      if (proxy.name == node.now) {
-        nextNode = proxy;
-        break;
-      }
-    }
-    if (nextNode == null) {
+    if (!visiting.add(node.name)) {
+      // 循环引用（罕见）：按现状返回，避免死循环。
       return node.delay;
     }
-    final delay = updateGroupDelay(nextNode);
-    if (delay == null) {
-      return node.delay;
-    }
-    return delay;
+    final next = byName[node.now];
+    final delay = next == null
+        ? node.delay
+        : updateGroupDelayIndexed(next, byName, visiting);
+    visiting.remove(node.name);
+    return delay ?? node.delay;
   }
 }
 
