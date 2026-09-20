@@ -349,7 +349,11 @@ class VPNService {
         uiLocalizedDescription = "$uiLocalizedDescription (system)";
       }
     }
-    FlutterVpnService.prepareConfig(
+    // ⚠️ 必须 await：prepareConfig 在 native 层设置 `_config`，紧接着
+    // `FlutterVpnService.start()` 会读它。以前这里不 await，等于 fire-and-forget，
+    // 系统繁忙（刚启动一堆任务）时 FFI 往返变慢，start 就读到 null 的 _config →
+    // 「config not prepared」→ 连接立刻断开（用户实测「连接就卡死/立即断开」）。
+    await FlutterVpnService.prepareConfig(
       config: config,
       tunnelServicePath: PathUtils.serviceExePath(),
       configFilePath: configFilePath,

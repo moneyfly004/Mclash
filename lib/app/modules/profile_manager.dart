@@ -606,7 +606,11 @@ class ProfileManager {
     String userAgent,
     bool xhwid,
   ) async {
-    final ports = await VPNService.getPortsByPrefer(true);
+    // 订阅下载**只直连**，不再经内核代理。走内核代理时，内核刚启动/当前节点
+    // 不稳会报「Connection closed before full header」，订阅下载失败又触发断开
+    // 重连 —— 这是用户实测「连接后卡死 / 反复断开」的诱因之一。订阅地址被墙的
+    // 场景由「手动更新订阅」时用户自行开代理兜底，不在这里自动绕。
+    final ports = <int?>[null];
     late ReturnResult<HttpHeaders> result;
     final attempts = <String>[];
     for (final port in ports) {
