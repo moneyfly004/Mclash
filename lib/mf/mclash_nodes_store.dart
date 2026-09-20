@@ -28,6 +28,11 @@ class MclashNodesStore extends ChangeNotifier {
   int _testing = 0;
   int _testTotal = 0;
 
+  /// 连接代次：连接状态一变就 +1，用于作废「连接成功」之后仍在途的自动选优/测速。
+  /// 参考 MoneyFly 的 epoch 守卫 —— 否则「刚启动就连了又断、断了又连」时，旧的
+  /// 后台测速还会继续回填、继续压刚就绪的内核，表现就是启动即卡死。
+  int _connectEpoch = 0;
+
   bool _initialized = false;
 
   String? pendingCountryFilter;
@@ -135,15 +140,24 @@ class MclashNodesStore extends ChangeNotifier {
     // 连接状态一变，内核可用性就变了 → 丢掉缓存，下一次测速重新判定
     // （内核在跑 = 走 /proxies/{name}/delay，协议无关；没跑 = TCP 粗测兜底）。
     MclashSpeedTester.instance.resetKernelCache();
+    // 状态变化 → 代次 +1：让「连接成功」之后还在途的自动选优/测速立即作废。
+    _connectEpoch++;
     if (state == FlutterVpnServiceState.connected) {
       Log.i("MclashNodesStore: 连接成功，自动开始测速");
-      unawaited(_onConnected());
+      unawaited(_onConnected(_connectEpoch));
     }
   }
 
-  Future<void> _onConnected() async {
+  Future<void> _onConnected(int epoch) async {
 
-    await Future<void>.delayed(const Duration(seconds: 2));
+    // 让刚就绪的内核先稳定几秒，再动测速 —— 启动即连、连了就测，是「刚启动
+    // 就卡死」的直接来源（内核还在初始化，就被自家测速的 /delay 请求压满）。
+    await Future<void>.delayed(const Duration(seconds: 5));
+
+    // 等待期间用户断开/重连了 → 本轮作废，不再测速、不再回填。
+    if (epoch != _connectEpoch) {
+      return;
+    }
 
     try {
       await MclashNodeAutoPick.selectBestOnConnect(
@@ -151,13 +165,22 @@ class MclashNodesStore extends ChangeNotifier {
         // （用户实测：连接之后非常卡、根本点不动；日志里内核被自家测速压满）。
         cachedLatency: latencyByName(),
         onNote: (note) {
+          if (epoch != _connectEpoch) {
+            return;
+          }
           autoPickNote = note;
           notifyListeners();
         },
       );
+      if (epoch != _connectEpoch) {
+        return;
+      }
       onNodeSwitched?.call();
     } catch (e) {
       Log.w("MclashNodesStore: 自动选最优节点失败 $e");
+    }
+    if (epoch != _connectEpoch) {
+      return;
     }
 
     // **不再无条件全量测速。**
