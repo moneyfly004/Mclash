@@ -1043,9 +1043,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       return;
     }
     // 连接后**立即**只做最轻量的事：起流量监听 + 读一次流量数字。
-    // 其余（读内核模式/节点、起各种轮询定时器）全部延后 5 秒 —— 参考
-    // MoneyFly：连接成功不堆一堆任务，否则刚就绪的内核瞬间被自家一堆
-    // HTTP 请求压满，表现就是「一连上就卡死」。
+    // 其余（读内核模式/节点、起各种轮询定时器）延后 3 秒；自动测速延后到
+    // 10 秒（见 MclashNodesStore._onConnected）—— 参考 MoneyFly：连接成功
+    // 不堆一堆任务，且错峰，否则刚就绪的内核瞬间被自家一堆 HTTP 请求压满，
+    // 表现就是「一连上就卡死」。
     ClashTrafficWatcher.instance.start(
       port: ClashSettingManager.getControlPort(),
       secret: ClashSettingManager.getConfig().Secret ?? "",
@@ -1054,7 +1055,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
     // 内核稳定后再把「读模式/节点 + 轮询定时器」挂起来。
     unawaited(() async {
-      await Future<void>.delayed(const Duration(seconds: 5));
+      await Future<void>.delayed(const Duration(seconds: 3));
       if (_state != FlutterVpnServiceState.connected) {
         return;
       }

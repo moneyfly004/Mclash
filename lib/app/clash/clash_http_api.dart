@@ -380,6 +380,19 @@ class ClashHttpApi {
     _proxiesAt = null;
   }
 
+  // /configs 同样会被多个地方在连接后同时读（内核同步、测速前的内核探测），
+  // 之前没有缓存，连接瞬间会并发好几个 /configs 请求。加 1 秒缓存 + in-flight
+  // 合并，避免把刚就绪的内核打满。
+  static Future<ReturnResult<ClashConfigs>>? _configsInflight;
+  static ReturnResult<ClashConfigs>? _configsCache;
+  static DateTime? _configsAt;
+  static const Duration _configsTtl = Duration(seconds: 1);
+
+  static void invalidateConfigsCache() {
+    _configsCache = null;
+    _configsAt = null;
+  }
+
   @visibleForTesting
   static void debugResetControlState() {
     resetControlConnection();
@@ -387,7 +400,28 @@ class ClashHttpApi {
     _proxiesInflight = null;
   }
 
-  static Future<ReturnResult<ClashConfigs>> getConfigs() async {
+  static Future<ReturnResult<ClashConfigs>> getConfigs() {
+    final cached = _configsCache;
+    final at = _configsAt;
+    if (cached != null &&
+        at != null &&
+        DateTime.now().difference(at) < _configsTtl) {
+      return Future.value(cached);
+    }
+    final inflight = _configsInflight;
+    if (inflight != null) {
+      return inflight;
+    }
+    final future = _fetchConfigs();
+    _configsInflight = future;
+    return future.whenComplete(() {
+      if (identical(_configsInflight, future)) {
+        _configsInflight = null;
+      }
+    });
+  }
+
+  static Future<ReturnResult<ClashConfigs>> _fetchConfigs() async {
     final result = await controlRequest("GET", "/configs");
     if (result.error != null) {
       return ReturnResult(error: result.error);
@@ -396,7 +430,10 @@ class ClashHttpApi {
       var decodedResponse = jsonDecode(result.data!.item2);
       ClashConfigs configs = ClashConfigs();
       configs.fromJson(decodedResponse);
-      return ReturnResult(data: configs);
+      final out = ReturnResult(data: configs);
+      _configsCache = out;
+      _configsAt = DateTime.now();
+      return out;
     } catch (err) {
       return ReturnResult(error: ReturnResultError(err.toString()));
     }
@@ -644,8 +681,9 @@ class ClashHttpApi {
       timeout: const Duration(seconds: 2),
     );
     if (result.error == null) {
-      // 模式变了 → GLOBAL/选择组会不同，缓存的 /proxies 不再可信。
+      // 模式变了 → GLOBAL/选择组会不同，缓存的 /proxies 与 /configs 都不再可信。
       invalidateProxiesCache();
+      invalidateConfigsCache();
     }
     return result.error;
   }

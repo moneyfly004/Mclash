@@ -150,9 +150,11 @@ class MclashNodesStore extends ChangeNotifier {
 
   Future<void> _onConnected(int epoch) async {
 
-    // 让刚就绪的内核先稳定几秒，再动测速 —— 启动即连、连了就测，是「刚启动
+    // 让刚就绪的内核先稳定，再动测速 —— 启动即连、连了就测，是「刚启动
     // 就卡死」的直接来源（内核还在初始化，就被自家测速的 /delay 请求压满）。
-    await Future<void>.delayed(const Duration(seconds: 5));
+    // 10 秒：和「读模式/节点 + 轮询定时器」（连接后 3 秒，见 _connectToCore）
+    // 错峰，避免同一瞬间堆一堆请求。
+    await Future<void>.delayed(const Duration(seconds: 10));
 
     // 等待期间用户断开/重连了 → 本轮作废，不再测速、不再回填。
     if (epoch != _connectEpoch) {
