@@ -435,9 +435,13 @@ class MclashNodesStore extends ChangeNotifier {
   }
 
   Future<void> testAll({List<MclashNode>? subset}) async {
-    if (_nodes.isEmpty || _testing > 0) {
+    if (_nodes.isEmpty) {
       return;
     }
+    // 不再「忙就静默丢弃」：旧实现 _testing > 0 时直接 return，用户点「全部测速」
+    // 正好撞上连接后的自动补测时，手动测速就被无声吃掉 —— 表现就是「点了测速
+    // 没反应 / 像被自动停止」。现在交给 MclashSpeedTester 的测速代次：新一轮
+    // 自动作废上一轮，手动测速始终能打断后台补测。
     final src = subset ?? _nodes;
     // **不再**按 udpOnly 过滤：内核在跑时（走 /proxies/{name}/delay）
     // hysteria2 / tuic / wireguard 这些纯 UDP 协议同样能测出真实延迟；

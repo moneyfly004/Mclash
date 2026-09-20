@@ -2,7 +2,7 @@ name: mclash
 description: Mclash - MoneyFly 多平台加速客户端（Mclash 风格 + 4 Tab）
 
 publish_to: none 
-version: 0.0.17+21
+version: 0.0.18+22
 environment:
   sdk: ">=3.12.2 <4.0.0"
   flutter: ">=3.44.0"

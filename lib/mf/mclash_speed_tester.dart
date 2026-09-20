@@ -37,17 +37,22 @@ class MclashSpeedTester {
 
   final Duration connectTimeout;
 
+  /// 测速代次：新一轮测速一开始就自增，让上一轮在跑的尽快收尾（其结果作废）。
+  /// 参考 MoneyFly 的 `_speedTestGen` —— 否则「连接后的自动补测」和「用户手动
+  /// 全量测速」撞上时，旧的一轮还会继续跑、继续压内核，用户看到的就是
+  /// 「点了测速又像被自动停止/结果被覆盖」。
+  int _testGen = 0;
+
   /// TCP 粗测的采样次数（取中位数，抗抖动）。
   static const int probeCount = 3;
 
   /// 并发上限。
   ///
-  /// 12 路并发会把内核 CPU/连接表塞满（用户实测「连接后点不动」）；6 路在
-  /// 连接后自动测速时仍会压刚启动的内核（用户反馈「刚启动就卡死」）。回到 3：
-  /// 连接后测速走内核 /delay，每次都是内核去连一次测速地址，并发高了就是
-  /// 在跟刚就绪的内核抢资源。测速「慢」不该靠加并发解决，而是减少连接后
-  /// 自动测速的数量、其余交给用户主动测。
-  static const int maxConcurrent = 3;
+  /// 之前为了「连接后不压刚启动的内核」压到 3，结果 300 个节点要测 12 秒
+  /// （用户反馈「测速非常慢」）。真正的连接卡死根因是 prepareConfig 竞态
+  /// （已修复），不是测速并发。参考 MoneyFly 用 16 路也稳定，这里取 8：
+  /// 明显提速，又给内核留余量。
+  static const int maxConcurrent = 8;
 
   /// 连续这么多次「内核根本没在听」就整批放弃。
   ///
@@ -256,6 +261,8 @@ class MclashSpeedTester {
     if (nodes.isEmpty) {
       return;
     }
+    // 新一轮测速开始：代次 +1，让上一轮还在跑的 worker 尽快收尾（结果作废）。
+    final gen = ++_testGen;
     final kernelUp = await kernelAvailable();
     final swBatch = Stopwatch()..start();
     Log.i(
@@ -272,6 +279,10 @@ class MclashSpeedTester {
 
     Future<void> worker() async {
       while (queue.isNotEmpty) {
+        // 被新一轮测速取代：立即收尾，不再发新的探测请求。
+        if (gen != _testGen) {
+          break;
+        }
         if (shouldStop != null && shouldStop()) {
           break;
         }
