@@ -8,15 +8,28 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
+import 'package:mclash/mf/mclash_entitlement.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
 
 void main() {
-  setUp(() {
+  final fixedNow = DateTime(2026, 1, 1, 12);
+
+  setUp(() async {
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
     MclashNodesStore.instance.debugSetNodes([], loading: false);
     ClashHttpApi.getControlPort = () => 9090;
     ClashHttpApi.getSecret = () => "test";
+    // 连接前新增了授权闸门：给测试放一个「新鲜且未到期」的租约，
+    // 否则闸门会把连接拦下（本文件测的是连接反馈 UI，不是授权判定）。
+    MclashEntitlement.debugReset();
+    MclashEntitlement.debugKeyOverride = () async => "test-key";
+    MclashEntitlement.now = () => fixedNow;
+    await MclashEntitlement.debugSetLease(
+      verifiedAt: fixedNow.subtract(const Duration(hours: 1)),
+      expireAt: DateTime(2030, 1, 1),
+      lastSeenAt: fixedNow,
+    );
   });
 
   tearDown(() {
@@ -25,6 +38,7 @@ void main() {
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
     ClashHttpApi.getControlPort = null;
     ClashHttpApi.getSecret = null;
+    MclashEntitlement.debugReset();
   });
 
   Future<void> pumpHome(WidgetTester tester) async {

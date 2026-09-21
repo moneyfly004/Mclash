@@ -394,10 +394,13 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
     // 服务端下发的受限（到期/封禁的伪节点）自带具体原因与解决方式：
     // 这种情况用富文本弹窗，把「❌原因 / ⏰到期 / 💡解决 / 📢官网 / 💬客服」原样给到客户，
     // 而不是只丢一句笼统提示。租约自身的原因（需联网校验/时间异常）才用简化弹窗。
+    //
+    // ⚠️ 弹窗**不能 await**：调用方（首页开关）在这之后要立刻把「正在连接…」的
+    // 乐观状态收掉，await 弹窗会让它一直挂着转圈（widget 测试已抓到过这个回归）。
     if (MclashAccountService.instance.isBlocked) {
-      await showMclashAccountGateDialog(context);
+      unawaited(showMclashAccountGateDialog(context));
     } else {
-      await _showEntitlementGateDialog(context, decision);
+      unawaited(_showEntitlementGateDialog(context, decision));
     }
     return false;
   }

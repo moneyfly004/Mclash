@@ -245,7 +245,11 @@ void main() {
       final d = await MclashEntitlement.check(allowNetwork: false);
 
       expect(d.allowed, isFalse);
-      expect(d.state, MclashEntitlementState.needVerify);
+      expect(
+        d.state,
+        MclashEntitlementState.tampered,
+        reason: '签名不符 = 本地授权数据被改动，要明确报异常而不是含糊的"需校验"',
+      );
     });
 
     test('已封禁的租约被改成未封禁（签名不符）也不能放行', () async {
