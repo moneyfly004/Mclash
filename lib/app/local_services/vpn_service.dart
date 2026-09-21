@@ -349,7 +349,8 @@ class VPNService {
     final prev = _opLock;
     final gate = Completer<void>();
     _opLock = gate.future;
-    return prev.then((_) async {
+
+    Future<T> run() async {
       final waited = _opHolder.isNotEmpty;
       if (waited) {
         Log.i("VPNService: $name 等待前一个操作($_opHolder)完成");
@@ -359,9 +360,23 @@ class VPNService {
         return await action();
       } finally {
         _opHolder = "";
-        gate.complete();
+        if (!gate.isCompleted) {
+          gate.complete();
+        }
       }
-    });
+    }
+
+    // ⚠️ 前一个操作**异常结束**时也必须放行后面的操作：
+    // 以前写成 `prev.then(...)`，prev 带错误完成时回调根本不会执行 → gate 永不
+    // 完成 → 之后所有 start / stop / restart 永久排队（表现为「点了没反应」，
+    // 且再怎么点都连不上/断不开）。
+    return prev
+        .then((_) => run(), onError: (Object _) => run())
+        .whenComplete(() {
+          if (!gate.isCompleted) {
+            gate.complete();
+          }
+        });
   }
 
   static Future<ReturnResultError?> restart(Duration timeout) =>

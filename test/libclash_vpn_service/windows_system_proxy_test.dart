@@ -155,15 +155,22 @@ void main() {
   });
 
   test('广播 WM_SETTINGCHANGE（界面刷新的关键一步）', () async {
+    // ⚠️ 回归点：这里以前用 SMTO_NOTIMEOUTIFNOTHUNG(0x8)，只要系统里有一个顶层
+    // 窗口不处理这条消息（实测 WPS Office 的 Qt 内部窗口），调用线程就会**永久**
+    // 卡死在 user32 里，整个 App 变「未响应」，只能强制结束进程。
+    // 现在同步版本改为 SMTO_ABORTIFHUNG + 真实超时（所以返回值允许是 false：
+    // 有窗口不响应时会立刻放弃），生产路径更是完全不再同步广播。
+    // 关键断言是「必须能返回」，而不是返回值本身。
+    final sync = windows_wininet.broadcastInternetSettingsChanged();
     expect(
-      windows_wininet.broadcastInternetSettingsChanged(),
-      isTrue,
-      reason: 'user32!SendMessageTimeout 必须可调用，否则界面不会刷新',
+      sync,
+      anyOf(isTrue, isFalse),
+      reason: '同步广播必须有真实超时：任何情况下都必须能返回，不能永久阻塞',
     );
     expect(
       windows_wininet.broadcastInternetSettingsChangedAsync(),
       isTrue,
-      reason: 'FFI 可用时必须能发起后台广播',
+      reason: 'FFI 可用时必须能发起后台广播（不得阻塞调用线程）',
     );
     await Future<void>.delayed(const Duration(milliseconds: 300));
   });

@@ -850,8 +850,21 @@ const int _kHwndBroadcast = 0xffff;
 
 const int _kWmSettingChange = 0x001A;
 
-const int _kSmtoNotTimeoutIfNotHung = 0x0008;
+/// ⚠️ 广播超时**必须**是真能生效的：
+///
+/// - **禁止** `SMTO_NOTIMEOUTIFNOTHUNG (0x0008)`。按 Win32 文档，只要接收线程
+///   “还在处理消息”就完全不执行超时；而“是否 hung”的判定标准只是“5 秒内有没有
+///   调过 GetMessage”。现实里 Qt 内部窗口、输入法/悬浮窗等线程会定时醒来处理
+///   自己的定时器（因此被判定为“没 hung”），却永远不会处理这条被 Send 过来的
+///   消息 —— 调用线程就会**永久**卡死在 user32!SendMessageTimeout 里，整个 GUI
+///   变成「未响应」，连关闭窗口都只能靠任务管理器强制结束。
+///   实测：Mclash 连接时广播 WM_SETTINGCHANGE，被 WPS Office 的
+///   `QEventDispatcherWin32_Internal_Widget`（wps.exe）卡死 20+ 分钟不返回。
+/// - `SMTO_ABORTIFHUNG (0x0002)` 才是正确选择：对方不响应就立刻返回。
+const int _kSmtoAbortIfHung = 0x0002;
 
+/// 单个窗口的超时时间。注意 `HWND_BROADCAST` 的总耗时 = 本值 × 顶层窗口数，
+/// 所以这个值不能大；真正的兜底是「不要在调用线程里同步广播」。
 const int _kBroadcastTimeoutMs = 200;
 
 typedef _PostMessageNative = Int32 Function(
@@ -921,6 +934,11 @@ _SendMessageTimeoutDart? _resolveSendMessageTimeout() {
   }
 }
 
+/// 同步广播（会阻塞调用线程直到所有顶层窗口处理完/超时）。
+///
+/// ⚠️ **不要在 UI/GUI 线程上调用它**（生产路径请用
+/// [broadcastInternetSettingsChangedAsync]，它绝不阻塞调用线程）。
+/// 保留此函数只给测试与诊断用，且已改用 `SMTO_ABORTIFHUNG`。
 bool broadcastInternetSettingsChanged() {
   final fn = _resolveSendMessageTimeout();
   if (fn == null || !_loadMore()) {
@@ -939,7 +957,7 @@ bool broadcastInternetSettingsChanged() {
       _kWmSettingChange,
       0,
       textPtr,
-      _kSmtoNotTimeoutIfNotHung,
+      _kSmtoAbortIfHung,
       _kBroadcastTimeoutMs,
       Pointer<UintPtr>.fromAddress(resultPtr),
     );
@@ -968,25 +986,32 @@ bool postInternetSettingsChanged() {
   }
 }
 
+/// 通知系统「Internet 设置已变更」（新版：**绝不阻塞调用线程**）。
+///
+/// 历史坑：这里以前在 `PostMessage` 失败时会退到
+/// `broadcastInternetSettingsChanged()`（同线程同步广播 + SMTO_NOTIMEOUTIFNOTHUNG），
+/// 一旦系统里存在“不处理这条消息”的顶层窗口，GUI 线程就永久卡死
+/// （实测被 WPS Office 的 Qt 内部窗口卡住，整个 App 变「未响应」）。
+///
+/// 现在只做两件不会阻塞调用线程的事：
+///   1. `PostMessage` 异步投递（首选，投递成功即返回）；
+///   2. 失败时把同步广播交给一次性的 PowerShell 子进程（可超时、可杀）——
+///      就算对方窗口不处理消息，卡住的也只是那个子进程，不会拖住 UI。
 bool broadcastInternetSettingsChangedAsync() {
   if (!Platform.isWindows) {
-    return false;
-  }
-  final fn = _resolveSendMessageTimeout();
-  if (fn == null) {
     return false;
   }
   if (postInternetSettingsChanged()) {
     return true;
   }
-  unawaited(Future<void>(() {
-    try {
-      broadcastInternetSettingsChanged();
-    } catch (_) {}
-  }));
+  unawaited(broadcastInternetSettingsViaPowerShell());
   return true;
 }
 
+/// 用一次性的 PowerShell 子进程做 `WM_SETTINGCHANGE` 广播。
+///
+/// 子进程里用的是 `SMTO_ABORTIFHUNG(2)` + 1000ms；再加一层 8 秒硬超时并强杀，
+/// 保证**任何情况下都不会**在客户端留下卡死的线程/进程。
 Future<bool> broadcastInternetSettingsViaPowerShell() async {
   if (!Platform.isWindows) {
     return false;
@@ -996,12 +1021,15 @@ Add-Type -MemberDefinition '[DllImport("user32.dll", SetLastError = true)] publi
 $r = [UIntPtr]::Zero
 [void][W32.P]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "InternetSettings", 2, 1000, [ref]$r)
 ''';
+  File? ps1;
+  Process? proc;
   try {
-    final ps1 = File(
-      '${Directory.systemTemp.path}/mclash_proxy_notify.ps1',
+    ps1 = File(
+      '${Directory.systemTemp.path}/mclash_proxy_notify_'
+      '${pid}_${DateTime.now().microsecondsSinceEpoch}.ps1',
     );
     await ps1.writeAsString(script, flush: true);
-    final r = await Process.run('powershell', [
+    final started = await Process.start('powershell', [
       '-NoProfile',
       '-NonInteractive',
       '-ExecutionPolicy',
@@ -1009,9 +1037,23 @@ $r = [UIntPtr]::Zero
       '-File',
       ps1.path,
     ]);
-    return r.exitCode == 0;
+    proc = started;
+    final code = await started.exitCode.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        try {
+          proc?.kill(ProcessSignal.sigkill);
+        } catch (_) {}
+        return -1;
+      },
+    );
+    return code == 0;
   } catch (_) {
     return false;
+  } finally {
+    try {
+      await ps1?.delete();
+    } catch (_) {}
   }
 }
 

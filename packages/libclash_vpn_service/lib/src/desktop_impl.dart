@@ -1199,10 +1199,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
       }
 
+      final swNotify = Stopwatch()..start();
       final notified = notifySystemProxyChanged();
+      swNotify.stop();
       SystemProxyDiagnostics.internetSetOption = notified;
       desktopLog(
-        "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified",
+        "[mclash] 已广播 Internet 设置变更（SETTINGS_CHANGED+REFRESH）: $notified"
+        "（用时 ${swNotify.elapsedMilliseconds} ms）",
       );
       final wm = broadcastInternetSettingsChangedAsync();
       if (!wm) {
@@ -1268,6 +1271,130 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       "ProxyOverride=${snap.overrideValue ?? "(无)"} "
       "/ 界面那份 flags=${snap.connFlags} server='${snap.connServer}'",
     );
+    await _persistSystemProxySnapshot();
+  }
+
+  static const String kSystemProxySnapshotFile = "system_proxy_snapshot.json";
+
+  Future<File?> _systemProxySnapshotFile() async {
+    try {
+      final base = await getApplicationSupportDir();
+      if (base.isEmpty) {
+        return null;
+      }
+      return File(p.join(base, kSystemProxySnapshotFile));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 把「用户原有代理配置」落到磁盘。
+  ///
+  /// 之前只存在内存里：一旦进程卡死/被强杀（例如广播死锁后任务管理器结束进程），
+  /// 下次启动时 `_cleanSystemProxyWindows()` 拿不到快照就**什么都不还原**，
+  /// 于是系统代理会一直指向已经死掉的 `127.0.0.1:端口` —— 浏览器直接没网。
+  Future<void> _persistSystemProxySnapshot() async {
+    final snap = _systemProxySnapshot;
+    if (!snap.captured) {
+      return;
+    }
+    try {
+      final f = await _systemProxySnapshotFile();
+      if (f == null) {
+        return;
+      }
+      final map = <String, dynamic>{
+        "capturedAt": DateTime.now().toIso8601String(),
+        "enableValue": snap.enableValue,
+        "serverValue": snap.serverValue,
+        "overrideValue": snap.overrideValue,
+        "connFlags": snap.connFlags,
+        "connServer": snap.connServer,
+        "connBypass": snap.connBypass,
+        "connBlob": snap.connBlob == null ? null : base64Encode(snap.connBlob!),
+        "blobOverwritten": snap.blobOverwritten,
+      };
+      await f.writeAsString(jsonEncode(map), flush: true);
+      desktopLog("[mclash] 已把代理原始配置写入磁盘快照（${f.path}）");
+    } catch (err) {
+      desktopLog("[mclash] 写入代理磁盘快照失败（忽略）：$err");
+    }
+  }
+
+  /// 进程重启后从磁盘快照恢复「用户原有代理配置」。成功返回 true。
+  Future<bool> _restoreSystemProxyFromDisk() async {
+    final snap = _systemProxySnapshot;
+    if (snap.captured) {
+      return true;
+    }
+    try {
+      final f = await _systemProxySnapshotFile();
+      if (f == null || !await f.exists()) {
+        return false;
+      }
+      final decoded = jsonDecode(await f.readAsString());
+      if (decoded is! Map) {
+        return false;
+      }
+      snap.enableValue = decoded["enableValue"]?.toString();
+      snap.serverValue = decoded["serverValue"]?.toString();
+      snap.overrideValue = decoded["overrideValue"]?.toString();
+      final flags = decoded["connFlags"];
+      snap.connFlags = flags is num ? flags.toInt() : null;
+      snap.connServer = decoded["connServer"]?.toString() ?? "";
+      snap.connBypass = decoded["connBypass"]?.toString() ?? "";
+      final blob = decoded["connBlob"]?.toString();
+      snap.connBlob = (blob == null || blob.isEmpty)
+          ? null
+          : base64Decode(blob);
+      snap.blobOverwritten = decoded["blobOverwritten"] == true;
+      snap.captured = true;
+      desktopLog(
+        "[mclash] 已从磁盘快照恢复用户原有代理配置"
+        "（记录于 ${decoded["capturedAt"] ?? "未知时间"}）",
+      );
+      return true;
+    } catch (err) {
+      desktopLog("[mclash] 读取代理磁盘快照失败（忽略）：$err");
+      return false;
+    }
+  }
+
+  Future<void> _deleteSystemProxySnapshot() async {
+    try {
+      final f = await _systemProxySnapshotFile();
+      if (f != null && await f.exists()) {
+        await f.delete();
+      }
+    } catch (_) {}
+  }
+
+  /// 确认系统代理是本程序设置的、但没有任何快照时使用：
+  /// 直接恢复成「不使用代理」，绝不留一个指向死端口（127.0.0.1:xxx）的代理。
+  void _forceSystemProxyDirect() {
+    _writeProxyRegistryDword("ProxyEnable", 0);
+    _deleteProxyRegistryValue("ProxyServer");
+    _deleteProxyRegistryValue("ProxyOverride");
+    var counter = 1;
+    try {
+      final prev = readDefaultConnectionSettings();
+      if (prev != null && prev.length >= 8) {
+        counter =
+            (prev[4] | (prev[5] << 8) | (prev[6] << 16) | (prev[7] << 24)) + 1;
+      }
+    } catch (_) {}
+    final ok = writeDefaultConnectionSettings(
+      buildDefaultConnectionSettingsBlob(
+        flags: kProxyTypeDirect,
+        server: "",
+        bypass: "",
+        counter: counter,
+      ),
+    );
+    desktopLog(
+      "[mclash] 无快照兜底：系统代理已强制恢复为「不使用代理」"
+      "（DefaultConnectionSettings 直连写入: $ok）",
+    );
   }
 
   Future<({bool owned, String reason})> _systemProxyOwnership() async {
@@ -1332,6 +1459,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       desktopLog("[mclash] 清理系统代理：${own.reason}");
 
       final snap = _systemProxySnapshot;
+      if (!snap.captured) {
+        // 进程重启/上次被强杀：快照不在内存里，但磁盘上留了一份。
+        await _restoreSystemProxyFromDisk();
+      }
       if (snap.captured) {
         final rawEnable =
             snap.enableValue ?? SystemProxySnapshot.valueText(snap.enableRaw, "ProxyEnable");
@@ -1349,9 +1480,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
               SystemProxySnapshot.valueText(snap.overrideRaw, "ProxyOverride"),
         );
       } else {
-        desktopLog(
-          "[mclash] 清理：没拿到原始快照，不动注册表里的 ProxyEnable/ProxyServer",
-        );
+        // 没有任何快照，但上面 `_systemProxyOwnership()` 已确认这份代理是我们写的：
+        // 宁可恢复成「不使用代理」，也不能留一个指向死端口的代理（那会直接断网）。
+        _forceSystemProxyDirect();
       }
       _deleteProxyRegistryValue(kSystemProxyOwnerValueName);
 
@@ -1387,17 +1518,23 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         }
       } else {
         desktopLog(
-          "[mclash] 清理：没拿到原始快照，不动「当前连接」那一份"
-          "（它可能正被别的代理软件使用）",
+          "[mclash] 清理：没有原始快照，「当前连接」那一份已按直连重置"
+          "（见上面的无快照兜底）",
         );
       }
 
+      final swNotify = Stopwatch()..start();
       notifySystemProxyChanged();
+      swNotify.stop();
       if (!broadcastInternetSettingsChangedAsync()) {
         unawaited(broadcastInternetSettingsViaPowerShell());
       }
+      await _deleteSystemProxySnapshot();
       _systemProxyApplied = false;
-      desktopLog("[mclash] 已清理系统代理（注册表 + 界面读的那份 + 广播）");
+      desktopLog(
+        "[mclash] 已清理系统代理（注册表 + 界面读的那份 + 广播，"
+        "InternetSetOption 用时 ${swNotify.elapsedMilliseconds} ms）",
+      );
       return true;
     } catch (err) {
       SystemProxyDiagnostics.lastError = "$err";
