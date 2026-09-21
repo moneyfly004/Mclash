@@ -16,6 +16,18 @@ import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:path/path.dart' as path;
 import 'package:yaml/yaml.dart';
 
+/// 一次订阅解析的结果：节点列表 + 服务端下发的受限结论。
+///
+/// 之所以要打包返回，是因为受限结论必须跨 isolate 边界传回来（见
+/// [MclashSubscriptionNodes.parseNodesOffThread]）。
+class MclashParsedNodes {
+  const MclashParsedNodes(this.nodes, this.notice);
+
+  final List<MclashNode> nodes;
+
+  final MclashSubscriptionNotice notice;
+}
+
 abstract final class MclashSubscriptionNodes {
 
   static const Map<String, String> _groupTypeMap = {
@@ -58,10 +70,23 @@ abstract final class MclashSubscriptionNodes {
     return parse(text);
   }
 
-  static Future<List<MclashNode>> parseNodesOffThread(String yamlText) =>
-      Isolate.run(() => parseNodes(yamlText));
+  /// 解析结果：节点 + 服务端下发的受限结论。
+  ///
+  /// 必须把 notice **作为返回值**带回主 isolate：以前 `parseNodes` 在
+  /// `Isolate.run` 里直接写静态字段 `_lastNotice`，子 isolate 有自己的静态区，
+  /// 赋值不会同步回主 isolate —— 于是「订阅已过期 / 已被封禁」这个唯一的在线
+  /// 受限信号在生产路径恒为 unknown，账号受限判定与自动断开全部失效。
+  static Future<MclashParsedNodes> parseNodesOffThread(String yamlText) =>
+      Isolate.run(() => parseNodesWithNotice(yamlText));
 
+  /// 兼容旧调用：主 isolate 内解析，并顺手更新 `lastNotice`。
   static List<MclashNode> parseNodes(String yamlText) {
+    final parsed = parseNodesWithNotice(yamlText);
+    _lastNotice = parsed.notice;
+    return parsed.nodes;
+  }
+
+  static MclashParsedNodes parseNodesWithNotice(String yamlText) {
     dynamic doc;
     try {
       doc = loadYaml(yamlText);
@@ -109,8 +134,8 @@ abstract final class MclashSubscriptionNodes {
         ),
       );
     }
-    _lastNotice = MclashSubscriptionNotice.parse(allNames);
-    return out;
+    final notice = MclashSubscriptionNotice.parse(allNames);
+    return MclashParsedNodes(out, notice);
   }
 
   static MclashSubscriptionNotice _lastNotice =
@@ -144,8 +169,8 @@ abstract final class MclashSubscriptionNodes {
   static List<MclashNode>? _cacheNodes;
   static MclashSubscriptionNotice? _cacheNotice;
 
-  @visibleForTesting
-  static void debugClearParseCache() {
+  /// 清掉解析缓存（到期/封禁清档时调用）。生产可用，不加 @visibleForTesting。
+  static void clearCache() {
     _cachePath = null;
     _cacheMtime = null;
     _cacheSize = null;
@@ -153,6 +178,9 @@ abstract final class MclashSubscriptionNodes {
     _cacheNotice = null;
     _lastNotice = MclashSubscriptionNotice.unknown;
   }
+
+  @visibleForTesting
+  static void debugClearParseCache() => clearCache();
 
   static Future<List<MclashNode>> loadNodes() async {
     var text = await _readCurrentProfile();
@@ -176,13 +204,16 @@ abstract final class MclashSubscriptionNodes {
         _lastNotice = _cacheNotice!;
         return _cacheNodes!;
       }
-      final nodes = await parseNodesOffThread(text);
+      final parsed = await parseNodesOffThread(text);
+      // 关键修复：受限结论必须由子 isolate 返回后再在主 isolate 落值，
+      // 否则 `lastNotice` 恒为 unknown，「订阅过期/被封禁」永远检测不到。
+      _lastNotice = parsed.notice;
       _cachePath = path;
       _cacheMtime = stat.modified;
       _cacheSize = stat.size;
-      _cacheNodes = nodes;
-      _cacheNotice = _lastNotice;
-      return nodes;
+      _cacheNodes = parsed.nodes;
+      _cacheNotice = parsed.notice;
+      return parsed.nodes;
     }
 
     return parseNodes(text);

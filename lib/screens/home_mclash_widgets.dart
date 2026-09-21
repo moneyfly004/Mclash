@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/mf/mclash_entitlement.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
@@ -302,7 +303,25 @@ Future<void> showMclashAccountGateDialog(BuildContext context) async {
   }
 }
 
+/// 连接前的账号/授权闸门。
+///
+/// 两道：
+///  1. [MclashEntitlement.check] —— 授权租约（到期时间 / 封禁状态 / 校验新鲜度）。
+///     这一道**离线也生效**：过期的用户即使还留着旧的本地配置档，同样连不上。
+///  2. 账号受限复核 —— 设备超限这类可自助修复的场景给更具体的文案。
 Future<bool> mclashCheckAccountGate(BuildContext context) async {
+  final decision = await MclashEntitlement.check();
+  if (!decision.allowed) {
+    Log.w(
+      "mclashCheckAccountGate: 已拦截连接（${decision.state.name}）${decision.title}",
+    );
+    if (!context.mounted) {
+      return false;
+    }
+    await _showEntitlementGateDialog(context, decision);
+    return false;
+  }
+
   final acc = MclashAccountService.instance;
   if (!acc.isBlocked) {
     return true;
@@ -317,6 +336,25 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
   }
   await showMclashAccountGateDialog(context);
   return false;
+}
+
+Future<void> _showEntitlementGateDialog(
+  BuildContext context,
+  MclashEntitlementDecision decision,
+) async {
+  final title = decision.title.isEmpty ? "无法连接" : decision.title;
+  final message = decision.message.isEmpty ? title : decision.message;
+  try {
+    await DialogUtils.showAlertDialog(
+      context,
+      "$title\n\n$message",
+      showCopy: true,
+      showFAQ: true,
+      withVersion: true,
+    );
+  } catch (err) {
+    Log.w("mclashCheckAccountGate: 弹出提示失败 $err");
+  }
 }
 
 

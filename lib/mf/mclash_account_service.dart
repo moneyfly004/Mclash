@@ -11,6 +11,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_entitlement.dart';
 import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:path/path.dart' as path;
 
@@ -61,6 +62,33 @@ class MclashAccountService extends ChangeNotifier {
     notifyListeners();
     if (isBlocked) {
       unawaited(disconnectIfBlocked());
+      // 服务端明确受限（订阅下发伪节点）→ 立刻写进授权租约：
+      // 之后即使离线、即使还留着旧配置档，也无法再连接。
+      unawaited(
+        MclashEntitlement.markBlocked(
+          blockText,
+          purge: shouldPurgeOnBlock(blockKind),
+        ),
+      );
+    }
+  }
+
+  /// 哪些受限类型要连本地配置档一起清掉。
+  ///
+  /// 到期 / 被禁用 / 无套餐 / 设备被踢 → 清档（旧的配置文件不能再被利用）；
+  /// 设备数超限、服务端暂时不可用 → 只拦连接，不清档（用户可自助恢复）。
+  static bool shouldPurgeOnBlock(MclashBlockKind kind) {
+    switch (kind) {
+      case MclashBlockKind.expired:
+      case MclashBlockKind.subscriptionDisabled:
+      case MclashBlockKind.accountDisabled:
+      case MclashBlockKind.noSubscription:
+      case MclashBlockKind.deviceKicked:
+        return true;
+      case MclashBlockKind.deviceFull:
+      case MclashBlockKind.serverUnavailable:
+      case MclashBlockKind.none:
+        return false;
     }
   }
 
@@ -127,6 +155,19 @@ class MclashAccountService extends ChangeNotifier {
       _fresh = false;
       notifyListeners();
       Log.i("MclashAccountService: 已回填账号缓存（${at?.toIso8601String() ?? '未知时间'}）");
+      // 老用户升级上来时本机还没有授权租约：用「最后一次成功联网校验的时间」播种，
+      // 避免因为一时联系不上账号接口（或刚更新完）就把正常用户拦在门外。
+      unawaited(
+        MclashEntitlement.seedFromAccountCache(
+          cachedAt: at,
+          expireAt: MclashEntitlement.parseExpireAt(
+            info.expireDate,
+            info.remainingDays,
+            at ?? DateTime.now(),
+          ),
+          blocked: isBlocked,
+        ),
+      );
     } catch (e) {
       Log.w("MclashAccountService.loadCache 失败 $e");
     }
@@ -246,6 +287,15 @@ class MclashAccountService extends ChangeNotifier {
         _fresh = true;
         _cachedAt = DateTime.now();
         unawaited(_saveCache());
+        // 一次成功的联网校验 → 续上授权租约（到期时间一并落盘，离线也能判到期）
+        unawaited(
+          MclashEntitlement.recordFromAccount(
+            info,
+            blocked: isBlocked,
+            reason: blockText,
+            purgeOnBlock: shouldPurgeOnBlock(blockKind),
+          ),
+        );
       }
     } finally {
       _loading = false;

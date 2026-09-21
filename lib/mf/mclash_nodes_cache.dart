@@ -40,8 +40,7 @@ abstract final class MclashNodesCache {
     }
   }
 
-  static Future<int> apply(Iterable<MclashNode> nodes) async {
-    try {
+  static Future<int> apply(Iterable<MclashNode> nodes) async {    try {
       final f = await _file();
       if (!await f.exists()) {
         return 0;
@@ -77,6 +76,19 @@ abstract final class MclashNodesCache {
     } catch (e) {
       Log.w("MclashNodesCache.apply 失败 $e");
       return 0;
+    }
+  }
+
+  /// 到期 / 封禁时清除延迟缓存（配置档已被清除，缓存也没有意义）。
+  static Future<void> clear() async {
+    try {
+      final f = await _file();
+      if (await f.exists()) {
+        await f.delete();
+        Log.i("MclashNodesCache: 已清除节点延迟缓存");
+      }
+    } catch (e) {
+      Log.w("MclashNodesCache.clear 失败 $e");
     }
   }
 }

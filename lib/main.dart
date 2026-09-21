@@ -25,6 +25,8 @@ import 'package:mclash/app/utils/windows_version_helper.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_entitlement.dart';
+import 'package:mclash/mf/mclash_entitlement_binding.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/mclash_gate.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
@@ -196,6 +198,12 @@ Future<void> run(List<String> args) async {
 
   registerMclashVpnService();
   registerDesktopLogSink((line) => Log.i(line));
+
+  // 授权闸门：到期 / 被封禁的账号必须在所有连接路径上都连不上
+  // （首页按钮、托盘菜单、clash:// 深链、开机自启、订阅更新后的重连、内核自愈）。
+  MclashEntitlementBinding.install();
+  VPNService.connectGate = MclashEntitlement.guard;
+  unawaited(MclashEntitlement.load());
 
   runApp(TranslationProvider(child: const MyApp()));
 }

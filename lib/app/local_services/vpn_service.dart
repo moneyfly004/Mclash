@@ -345,6 +345,28 @@ class VPNService {
   static Future<void> _opLock = Future<void>.value();
   static String _opHolder = "";
 
+  /// 连接许可闸门（由账号/授权层注入）：返回非 null 表示**拒绝**本次连接。
+  ///
+  /// 到期 / 被禁用的账号必须在**所有**路径上都连不上：首页按钮、托盘菜单、
+  /// `clash://` 深链、开机自启、订阅更新后的重连、内核自愈 —— 它们最终都走
+  /// `start()` / `restart()`，所以闸门放在这里最可靠（UI 层的提示是第二道）。
+  static Future<ReturnResultError?> Function()? connectGate;
+
+  /// 执行闸门。**失败即拒绝**（fail-closed）：宁可让连接被拦下并报错，
+  /// 也不能因为校验本身出错而放行一个到期/被封禁的账号。
+  static Future<ReturnResultError?> _runConnectGate() async {
+    final gate = connectGate;
+    if (gate == null) {
+      return null;
+    }
+    try {
+      return await gate();
+    } catch (err) {
+      Log.w("VPNService: 连接许可校验异常 → 拒绝连接 $err");
+      return ReturnResultError("连接许可校验失败，请联网后重试：$err");
+    }
+  }
+
   static Future<T> _serialOp<T>(String name, Future<T> Function() action) {
     final prev = _opLock;
     final gate = Completer<void>();
@@ -383,6 +405,10 @@ class VPNService {
       _serialOp("restart", () => _restartInner(timeout));
 
   static Future<ReturnResultError?> _restartInner(Duration timeout) async {
+    final gateError = await _runConnectGate();
+    if (gateError != null) {
+      return gateError;
+    }
     final profile = ProfileManager.getCurrent();
     if (profile == null) {
       return ReturnResultError("current profile is empty");
@@ -469,6 +495,10 @@ class VPNService {
       _serialOp("start", () => _startInner(timeout));
 
   static Future<ReturnResultError?> _startInner(Duration timeout) async {
+    final gateError = await _runConnectGate();
+    if (gateError != null) {
+      return gateError;
+    }
     final profile = ProfileManager.getCurrent();
     if (profile == null) {
       return ReturnResultError("current profile is empty");
