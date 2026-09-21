@@ -284,7 +284,8 @@ abstract final class MclashEntitlement {
     _lastSeenAt = _verifiedAt;
     await _persist();
     if (purge) {
-      await purge(reason: reason.isEmpty ? "账号受限" : reason);
+      // 注意：参数名 purge 会遮蔽静态方法 purge()，这里必须写全限定名。
+      await MclashEntitlement.purge(reason: reason.isEmpty ? "账号受限" : reason);
     }
   }
 
