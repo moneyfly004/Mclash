@@ -130,4 +130,44 @@ void main() {
       expect(acc.blockKind, MclashBlockKind.noSubscription);
     });
   });
+
+  group('封禁 vs 停用（账号封禁在登录环节挡，套餐停用只拦连接）', () {
+    test('原因说「账号已被禁用」→ accountDisabled（要强制下线）', () {
+      acc.debugSetData(dash(), sub());
+      acc.markPayloadNotice(
+        MclashSubscriptionNotice.parse(["❌ 原因: 账号已被禁用"]),
+      );
+      expect(acc.blockKind, MclashBlockKind.accountDisabled);
+    });
+
+    test('原因说「套餐已失效」→ subscriptionDisabled（不登出，只拦连接）', () {
+      // fresh: false → 不触发 unawaited 的自动断开（那条路径会去碰 VPN 插件）
+      acc.debugSetData(dash(), sub(), fresh: false);
+      acc.markPayloadNotice(
+        MclashSubscriptionNotice.parse(["❌ 原因: 套餐已失效"]),
+      );
+      expect(acc.blockKind, MclashBlockKind.subscriptionDisabled);
+    });
+
+    test('looksLikeAccountBan 只认「账号 + 禁用/封禁」这类组合', () {
+      expect(MclashAccountService.looksLikeAccountBan("账号已被禁用"), isTrue);
+      expect(MclashAccountService.looksLikeAccountBan("您的帐号被冻结"), isTrue);
+      expect(MclashAccountService.looksLikeAccountBan("套餐已失效"), isFalse);
+      expect(MclashAccountService.looksLikeAccountBan("设备数量超限"), isFalse);
+      expect(MclashAccountService.looksLikeAccountBan(""), isFalse);
+    });
+
+    test('账号被封禁 → 留下给登录页的原因（取走即清空）', () async {
+      MclashAccountService.setPendingLoginNotice("");
+      acc.debugSetData(dash(), sub());
+      acc.markPayloadNotice(
+        MclashSubscriptionNotice.parse(["❌ 原因: 账号已被禁用"]),
+      );
+      // markPayloadNotice 里的 disconnectIfBlocked() 是 unawaited，等一轮事件循环
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(MclashAccountService.pendingLoginNotice, isNotEmpty);
+      expect(MclashAccountService.takePendingLoginNotice(), isNotEmpty);
+      expect(MclashAccountService.pendingLoginNotice, isEmpty);
+    });
+  });
 }

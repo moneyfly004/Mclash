@@ -269,7 +269,7 @@ abstract final class MclashEntitlement {
   }
 
   /// 服务端明确下发受限（订阅伪节点 / 账号接口）时调用。
-  static Future<void> markBlocked(String reason, {bool purge: bool = true}) async {
+  static Future<void> markBlocked(String reason, {bool purge = true}) async {
     await load();
     if (_blocked && _blockReason == reason) {
       if (purge) {

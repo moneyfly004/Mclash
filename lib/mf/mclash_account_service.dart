@@ -112,6 +112,7 @@ class MclashAccountService extends ChangeNotifier {
   @visibleForTesting
   void debugClearPayloadNotice() {
     _payloadNotice = MclashSubscriptionNotice.unknown;
+    _pendingLoginNotice = "";
   }
   bool get loading => _loading;
 
@@ -248,12 +249,72 @@ class MclashAccountService extends ChangeNotifier {
       await refresh();
       return;
     }
+    // 账号被封禁 → 直接退出登录：不能让被封的账号继续挂在「已登录」状态里。
+    // 退出后用户回到登录页，并在那里看到具体原因（服务端也会继续拒绝其登录）。
+    if (blockKind == MclashBlockKind.accountDisabled) {
+      await _forceLogoutForBan();
+      return;
+    }
     final started = await VPNService.getStarted();
     if (!started) {
       return;
     }
     Log.w("MclashAccountService: 账号受限($blockTitle)，已断开连接");
     await VPNService.stop();
+  }
+
+  /// 被强制下线时要带给登录页的原因。
+  static String _pendingLoginNotice = "";
+
+  static String get pendingLoginNotice => _pendingLoginNotice;
+
+  static void setPendingLoginNotice(String text) {
+    _pendingLoginNotice = text;
+  }
+
+  /// 登录页取走原因（取走即清空，避免每次进登录页都弹）。
+  static String takePendingLoginNotice() {
+    final text = _pendingLoginNotice;
+    _pendingLoginNotice = "";
+    return text;
+  }
+
+  /// 封禁原因文案里是不是在说「账号」被封（而不是套餐被停用）。
+  /// 账号封禁要在登录环节处理；套餐停用只拦连接。
+  static bool looksLikeAccountBan(String reason) {
+    final text = reason.replaceAll(" ", "");
+    if (text.isEmpty) {
+      return false;
+    }
+    final aboutAccount = text.contains("账号") ||
+        text.contains("帐号") ||
+        text.contains("账户") ||
+        text.contains("用戶") ||
+        text.contains("用户");
+    final banned = text.contains("禁用") ||
+        text.contains("封禁") ||
+        text.contains("停用") ||
+        text.contains("封号") ||
+        text.contains("冻结");
+    return aboutAccount && banned;
+  }
+
+  Future<void> _forceLogoutForBan() async {
+    final reason =
+        blockText.isEmpty ? "您的账号已被禁用，无法继续使用服务。" : blockText;
+    if (_pendingLoginNotice.isEmpty) {
+      _pendingLoginNotice = reason;
+    }
+    Log.w("MclashAccountService: 账号被封禁，强制退出登录并提示原因");
+    if (!MclashApi.isLoggedIn) {
+      // 测试 / 本来就没登录：只留下提示，不发网络请求
+      return;
+    }
+    try {
+      await MclashApi.logout();
+    } catch (e) {
+      Log.w("MclashAccountService: 强制退出登录失败（忽略）$e");
+    }
   }
 
   Future<void> refresh() async {
@@ -316,7 +377,9 @@ class MclashAccountService extends ChangeNotifier {
       case MclashNoticeState.expired:
         return MclashBlockKind.expired;
       case MclashNoticeState.inactive:
-        return MclashBlockKind.subscriptionDisabled;
+        return looksLikeAccountBan(_payloadNotice.reason)
+            ? MclashBlockKind.accountDisabled
+            : MclashBlockKind.subscriptionDisabled;
       case MclashNoticeState.deviceOverLimit:
         return MclashBlockKind.deviceFull;
       case MclashNoticeState.notFound:

@@ -251,18 +251,91 @@ class MclashQuickCountries extends StatelessWidget {
   }
 }
 
+enum _DeviceFullChoice { upgrade, manage }
+
+/// 设备数量超限：**优先引导升级**，其次才是删设备。
+/// 两个按钮各自跳到设备页（升级那条会直接把升级面板弹出来）。
+Future<_DeviceFullChoice?> _showDeviceFullDialog(
+  BuildContext context,
+  MclashAccountService acc,
+) async {
+  if (!context.mounted) {
+    return null;
+  }
+  final used = acc.info.deviceUsed ?? 0;
+  final limit = acc.info.deviceLimit ?? 0;
+  final countText = (used > 0 && limit > 0) ? "当前设备 $used/$limit 台\n\n" : "";
+  final text =
+      "${acc.blockEmoji}\n${acc.blockTitle}\n\n"
+      "$countText"
+      "升级设备数量后可立即恢复连接（推荐）；"
+      "也可以先删除不常用的设备腾出名额。";
+  return showDialog<_DeviceFullChoice>(
+    context: context,
+    routeSettings: const RouteSettings(name: "showDeviceFullDialog"),
+    barrierDismissible: false,
+    builder: (dialogContext) => SimpleDialog(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Text(
+            text,
+            maxLines: 20,
+            style: const TextStyle(
+              fontSize: ThemeConfig.kFontSizeListSubItem,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, null),
+              child: const Text("稍后"),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DeviceFullChoice.manage),
+              child: const Text("设备管理"),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _DeviceFullChoice.upgrade),
+              child: const Text("升级设备数量"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+      ],
+    ),
+  );
+}
+
 Future<void> showMclashAccountGateDialog(BuildContext context) async {
   final acc = MclashAccountService.instance;
   final kind = acc.blockKind;
 
   switch (kind) {
     case MclashBlockKind.deviceFull:
-      final ok = await DialogUtils.showConfirmDialog(
-        context,
-        "${acc.blockEmoji}\n${acc.blockTitle}\n\n${acc.blockText}",
-      );
-      if (ok == true) {
-        MainTabController.instance?.setTab(3);
+      final choice = await _showDeviceFullDialog(context, acc);
+      if (!context.mounted) {
+        return;
+      }
+      if (choice == _DeviceFullChoice.upgrade) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const MclashDevicesScreen(autoOpenUpgrade: true),
+          ),
+        );
+      } else if (choice == _DeviceFullChoice.manage) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MclashDevicesScreen()),
+        );
       }
       return;
 
@@ -318,7 +391,14 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
     if (!context.mounted) {
       return false;
     }
-    await _showEntitlementGateDialog(context, decision);
+    // 服务端下发的受限（到期/封禁的伪节点）自带具体原因与解决方式：
+    // 这种情况用富文本弹窗，把「❌原因 / ⏰到期 / 💡解决 / 📢官网 / 💬客服」原样给到客户，
+    // 而不是只丢一句笼统提示。租约自身的原因（需联网校验/时间异常）才用简化弹窗。
+    if (MclashAccountService.instance.isBlocked) {
+      await showMclashAccountGateDialog(context);
+    } else {
+      await _showEntitlementGateDialog(context, decision);
+    }
     return false;
   }
 

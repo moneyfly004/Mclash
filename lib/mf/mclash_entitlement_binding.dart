@@ -54,19 +54,33 @@ abstract final class MclashEntitlementBinding {
       // 而 stop() 同样要排队等"当前操作"结束 —— 直接 await 就会自己等自己、永久卡死。
       // 改成让闸门先返回，再异步停内核。
       unawaited(_stopKernelSoon());
-      try {
-        final profiles = ProfileManager.getProfiles().toList();
-        for (final p in profiles) {
-          await ProfileManager.remove(p.id);
+      // 到期场景：服务端已经把订阅内容换成了「虚假节点」，磁盘上这份就是那份假配置 ——
+      // 伪节点的名字里带着「❌原因 / ⏰到期 / 💡解决」，是给客户看原因的，
+      // 所以不能再删（否则用户只看到空列表、不知道发生了什么；假节点本身也连不通，
+      // 连接由闸门统一拦住）。
+      // 反过来，如果本地还是旧的「真配置」（离线、或还没来得及更新），就必须清掉，
+      // 不能让到期用户继续用旧配置连出去。
+      final restrictedPayload = MclashSubscriptionNodes.lastNotice.blocked;
+      if (restrictedPayload) {
+        Log.w(
+          "MclashEntitlementBinding: 当前配置档已是服务端下发的受限配置 → 保留（供用户查看原因），"
+          "连接由授权闸门拦下",
+        );
+      } else {
+        try {
+          final profiles = ProfileManager.getProfiles().toList();
+          for (final p in profiles) {
+            await ProfileManager.remove(p.id);
+          }
+          if (profiles.isNotEmpty) {
+            Log.w(
+              "MclashEntitlementBinding: 已清除 ${profiles.length} 个本地配置档"
+              "（${profiles.map((e) => e.id).take(3).join("、")}${profiles.length > 3 ? "…" : ""}）",
+            );
+          }
+        } catch (e) {
+          Log.w("MclashEntitlementBinding: 清除配置档失败（忽略）$e");
         }
-        if (profiles.isNotEmpty) {
-          Log.w(
-            "MclashEntitlementBinding: 已清除 ${profiles.length} 个本地配置档"
-            "（${profiles.map((e) => e.id).take(3).join("、")}${profiles.length > 3 ? "…" : ""}）",
-          );
-        }
-      } catch (e) {
-        Log.w("MclashEntitlementBinding: 清除配置档失败（忽略）$e");
       }
       try {
         await MclashNodesCache.clear();

@@ -1,11 +1,15 @@
 
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/cboard_client.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/mclash_forgot_password_screen.dart';
 import 'package:mclash/screens/mclash_register_screen.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -40,6 +44,25 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
         setState(() => _cfg = c);
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_showPendingLoginNotice()),
+    );
+  }
+
+  /// 被强制下线时（账号被封禁 / 设备被踢），把具体原因告诉客户。
+  Future<void> _showPendingLoginNotice() async {
+    final notice = MclashAccountService.takePendingLoginNotice();
+    if (notice.isEmpty || !mounted) {
+      return;
+    }
+    setState(() => _err = notice);
+    await DialogUtils.showAlertDialog(
+      context,
+      notice,
+      showCopy: true,
+      showFAQ: true,
+      withVersion: true,
+    );
   }
 
   Future<void> _setRemember(bool value) async {
@@ -270,10 +293,21 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
       if (!mounted) {
         return;
       }
+      final text = _friendly(e);
       setState(() {
         _busy = false;
-        _err = _friendly(e);
+        _err = text;
       });
+      // 账号被封禁/停用：登录会被服务端直接拒绝 → 明确弹窗告知原因
+      if (MclashAccountService.looksLikeAccountBan(text)) {
+        await DialogUtils.showAlertDialog(
+          context,
+          text,
+          showCopy: true,
+          showFAQ: true,
+          withVersion: true,
+        );
+      }
     }
   }
 

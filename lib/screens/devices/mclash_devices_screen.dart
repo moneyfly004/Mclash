@@ -20,7 +20,11 @@ import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
 
 class MclashDevicesScreen extends LasyRenderingStatefulWidget {
-  const MclashDevicesScreen({super.key});
+  const MclashDevicesScreen({super.key, this.autoOpenUpgrade = false});
+
+  /// 「设备数量超限」提示里点「升级设备数量」进入时置 true：
+  /// 进来就直接弹出升级面板（优先引导升级，而不是让用户自己找入口）。
+  final bool autoOpenUpgrade;
 
   @override
   State<MclashDevicesScreen> createState() => _MclashDevicesScreenState();
@@ -37,6 +41,14 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     MclashAccountService.instance.addListener(_onAccountChanged);
     unawaited(MclashAccountService.instance.refreshIfStale());
     _load();
+    if (widget.autoOpenUpgrade) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        unawaited(_showUpgradeSheet());
+      });
+    }
   }
 
   @override

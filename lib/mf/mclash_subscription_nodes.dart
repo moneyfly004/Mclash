@@ -92,14 +92,14 @@ abstract final class MclashSubscriptionNodes {
       doc = loadYaml(yamlText);
     } catch (e) {
       Log.w("MclashSubscriptionNodes.parseNodes: 配置档不是合法 YAML: $e");
-      return [];
+      return const MclashParsedNodes([], MclashSubscriptionNotice.unknown);
     }
     if (doc is! YamlMap) {
-      return [];
+      return const MclashParsedNodes([], MclashSubscriptionNotice.unknown);
     }
     final proxies = doc["proxies"];
     if (proxies is! YamlList) {
-      return [];
+      return const MclashParsedNodes([], MclashSubscriptionNotice.unknown);
     }
     final groupNames = _groupNames(doc);
     final out = <MclashNode>[];
