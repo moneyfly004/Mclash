@@ -227,6 +227,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   bool _systemProxyApplied = false;
 
+  /// 本进程最后一次**成功写入**的系统代理地址（host:port）。
+  /// 清理时用它判断"现在注册表里的是不是还是我们写的"，
+  /// 避免被别的代理软件改写后，我们拿旧快照去还原、把人家的配置抹掉。
+  String _appliedProxyServer = "";
+
   bool _teardownInProgress = false;
 
   final SystemProxySnapshot _systemProxySnapshot = SystemProxySnapshot();
@@ -1066,6 +1071,18 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   @override
   Future<bool> getSystemProxyEnable(ProxyOption option) async {
     if (Platform.isWindows) {
+      // ⚠️ 必须**同时**看 ProxyEnable，不能只比对 ProxyServer 字符串。
+      // 只比字符串时，「别的程序只把开关关掉、地址值留着」这种改动会被判成
+      // 「已生效」→ 看守永远不恢复、界面一直显示已连接，但流量其实不走代理了。
+      // 真机报障就是这个：v2rayN 退出时把 ProxyEnable 置 0、ProxyServer 留着，
+      // Mclash 40 多分钟一次都没发现。
+      final enable = SystemProxySnapshot.valueText(
+        await readSystemProxyRaw(value: "ProxyEnable"),
+        "ProxyEnable",
+      );
+      if (!SystemProxySnapshot.isEnabledRaw(enable)) {
+        return false;
+      }
       final raw = await readSystemProxyRaw(value: "ProxyServer");
       return proxyServerValueMatches(
         SystemProxySnapshot.valueText(raw, "ProxyServer") ?? "",
@@ -1240,6 +1257,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         );
       }
       _systemProxyApplied = true;
+      _appliedProxyServer = server;
       return true;
     } catch (err) {
       SystemProxyDiagnostics.lastError = "$err";
@@ -1397,8 +1415,33 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     );
   }
 
+  /// 清理完成后复位"快照已捕获"状态，让下一次连接**重新抓取**用户当前代理配置。
+  ///
+  /// 以前 `captured` 一旦置 true 就永不复位（清理时只删了磁盘快照），于是第二次连接
+  /// 不再重新抓取 —— 断开时就会拿**过期快照**去还原注册表，把用户在两次会话之间
+  /// 手动配的代理（或别的代理软件写的值）抹掉。
+  void _resetSystemProxySnapshotState() {
+    _systemProxySnapshot.captured = false;
+    _appliedProxyServer = "";
+  }
+
   Future<({bool owned, String reason})> _systemProxyOwnership() async {
     if (_systemProxyApplied) {
+      // "我写过" ≠ "现在还是我的"：别的代理软件可能已经改掉了。
+      // 值已经不是我们写的那个时，绝不能拿旧快照去还原（会抹掉别人的配置）。
+      if (_appliedProxyServer.isNotEmpty) {
+        final nowRaw = await readSystemProxyRaw(value: "ProxyServer");
+        final nowServer =
+            SystemProxySnapshot.valueText(nowRaw, "ProxyServer") ?? "";
+        if (nowServer == _appliedProxyServer) {
+          return (owned: true, reason: "本进程写入 $_appliedProxyServer 且值未被改动");
+        }
+        return (
+          owned: false,
+          reason: "本进程写过 $_appliedProxyServer，但当前 ProxyServer="
+              "${nowServer.isEmpty ? "(空)" : nowServer} 已被别的程序改写 → 不还原用户快照",
+        );
+      }
       return (owned: true, reason: "本进程刚写入");
     }
     final markerRaw = await readSystemProxyRaw(
@@ -1453,6 +1496,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         SystemProxyDiagnostics.lastCleanSkip = own.reason;
         desktopLog("[mclash] 清理系统代理已跳过（不是我们设置的）：${own.reason}");
         _systemProxyApplied = false;
+        _resetSystemProxySnapshotState();
         return true;
       }
       SystemProxyDiagnostics.lastCleanSkip = "";
@@ -1531,6 +1575,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       await _deleteSystemProxySnapshot();
       _systemProxyApplied = false;
+      _resetSystemProxySnapshotState();
       desktopLog(
         "[mclash] 已清理系统代理（注册表 + 界面读的那份 + 广播，"
         "InternetSetOption 用时 ${swNotify.elapsedMilliseconds} ms）",

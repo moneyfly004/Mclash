@@ -70,6 +70,10 @@ Future<KernelConfigResult> buildKernelConfig(
   final config = deepCopyMap(doc);
   notes.add("profile=${p.basename(cfg.core_path)} (${raw.length}B)");
 
+  // patch_final 是**应用自己生成**的那份（用户设置都会写进去）；
+  // 订阅自带的 patch 属于服务端可控输入，不能当作"用户显式同意开局域网"。
+  bool? finalPatchAllowLan;
+
   for (final patchPath in [cfg.core_path_patch, cfg.core_path_patch_final]) {
     if (patchPath.isEmpty) {
       continue;
@@ -82,21 +86,54 @@ Future<KernelConfigResult> buildKernelConfig(
     if (text.trim().isEmpty) {
       continue;
     }
+    final isFinalPatch = patchPath == cfg.core_path_patch_final;
     try {
       final patch = jsonDecode(text);
       if (patch is Map) {
-        deepMerge(config, Map<String, dynamic>.from(patch));
+        final patchMap = Map<String, dynamic>.from(patch);
+        if (isFinalPatch && patchMap.containsKey("allow-lan")) {
+          final v = patchMap["allow-lan"];
+          finalPatchAllowLan = v is bool ? v : null;
+        }
+        deepMerge(config, patchMap);
         notes.add("merged=${p.basename(patchPath)} (json)");
       }
     } catch (_) {
       try {
         final patchYaml = loadYaml(text);
         if (patchYaml is Map) {
-          deepMerge(config, deepCopyMap(patchYaml));
+          final patchMap = deepCopyMap(patchYaml);
+          if (isFinalPatch && patchMap.containsKey("allow-lan")) {
+            final v = patchMap["allow-lan"];
+            finalPatchAllowLan = v is bool ? v : null;
+          }
+          deepMerge(config, patchMap);
           notes.add("merged=${p.basename(patchPath)} (yaml)");
         }
       } catch (_) {}
     }
+  }
+
+  // ---- 安全默认：混合端口只监听本机 ----
+  // 订阅（服务端可控）里的 allow-lan: true 会让 mihomo 监听 0.0.0.0 / ::，
+  // 而客户端默认没有 authentication —— 同网段任何人都能把它当免费代理
+  //（真机实测：http://<本机内网IP>:7890 直接可用）。
+  // 只有用户在应用设置里**显式**打开「允许局域网」（会体现在 patch_final 里）才保留 true。
+  final allowLanFromUser = finalPatchAllowLan == true;
+  if (config["allow-lan"] == true && !allowLanFromUser) {
+    notes.add(
+      "订阅里的 allow-lan=true 已被强制关闭（混合端口只监听本机）；"
+      "如需局域网共享，请在应用设置里显式打开「允许局域网」",
+    );
+    config["allow-lan"] = false;
+  }
+  if (config["allow-lan"] != true) {
+    config["allow-lan"] = false;
+    config["bind-address"] = "127.0.0.1";
+  } else {
+    notes.add(
+      "allow-lan=true（用户在应用设置里显式开启）→ 混合端口会对局域网开放，且默认无认证，请注意风险",
+    );
   }
 
   if (cfg.control_port > 0) {

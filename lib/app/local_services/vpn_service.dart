@@ -596,12 +596,15 @@ class VPNService {
         await setSystemProxy(true);
         final ok = await getSystemProxyEnable();
         Log.i("VPNService: 系统代理 -> 127.0.0.1:$port（读回校验: ${ok ? "已生效" : "未生效"}）");
-        if (ok) {
-          _startProxyWatchdog(port);
-        } else {
+        // 无论校验是否通过都要启动看守：
+        //   · 通过 → 之后被别的程序改动/关闭时由它恢复并提示；
+        //   · 不通过 → 正是最需要它持续尝试 + 在界面报警的情况（以前这里不启动看守，
+        //     于是"写入失败"就永久失败了，界面上却看不出异常）。
+        _startProxyWatchdog(port);
+        if (!ok) {
           Log.w(
             "VPNService: 系统代理写入后校验未通过（127.0.0.1:$port）——"
-            "可能被其它代理软件/组策略覆盖，可在「我的→应用设置→系统代理」里重设",
+            "可能被其它代理软件/组策略覆盖；看守会继续尝试，失败会在首页提示",
           );
         }
       } else {
@@ -720,8 +723,45 @@ class VPNService {
 
   static Timer? _proxyWatchdog;
 
+  /// 系统代理健康告警（空字符串 = 正常）。首页用它显示醒目提示。
+  ///
+  /// 以前系统代理被别的程序关掉/改掉时，看守要么判定错误（只看地址不看开关），
+  /// 要么只在日志里写一行 —— 用户界面一直显示"已连接"，而流量其实已经不走代理。
+  static final ValueNotifier<String> systemProxyWarning = ValueNotifier<String>("");
+
+  static final List<DateTime> _proxyRepairs = [];
+
+  static const int kProxyRepairLimit = 5;
+
+  static const Duration kProxyRepairWindow = Duration(minutes: 10);
+
+  static bool _proxyWatchdogPaused = false;
+
+  /// 退让策略：短时间窗内被反复抢改达到上限就不再自动恢复，
+  /// 避免和别的代理软件无限互抢（同时如实告诉用户）。
+  @visibleForTesting
+  static bool shouldPauseProxyWatchdog(
+    List<DateTime> repairs,
+    DateTime now, {
+    int limit = kProxyRepairLimit,
+    Duration window = kProxyRepairWindow,
+  }) {
+    final recent = repairs.where((t) => now.difference(t) <= window).length;
+    return recent >= limit;
+  }
+
+  @visibleForTesting
+  static void debugResetProxyWatchdogState() {
+    _proxyRepairs.clear();
+    _proxyWatchdogPaused = false;
+    systemProxyWarning.value = "";
+  }
+
   static void _startProxyWatchdog(int port) {
     _proxyWatchdog?.cancel();
+    _proxyRepairs.clear();
+    _proxyWatchdogPaused = false;
+    systemProxyWarning.value = "";
     _proxyWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
       try {
         if (!shouldApplySystemProxy() && !systemProxyFallbackActive) {
@@ -735,15 +775,50 @@ class VPNService {
         if (expect <= 0) {
           return;
         }
+        // 注意：这里的判定现在同时看 ProxyEnable 与 ProxyServer
+        //（只比地址会漏掉"被别的程序关掉开关、值还留着"的情况）
         if (await getSystemProxyEnable()) {
+          if (systemProxyWarning.value.isNotEmpty) {
+            systemProxyWarning.value = "";
+          }
+          _proxyWatchdogPaused = false;
+          return;
+        }
+        if (_proxyWatchdogPaused) {
+          return;
+        }
+        final now = DateTime.now();
+        _proxyRepairs.removeWhere((t) => now.difference(t) > kProxyRepairWindow);
+        if (shouldPauseProxyWatchdog(_proxyRepairs, now)) {
+          _proxyWatchdogPaused = true;
+          final msg =
+              "检测到有其它程序在反复抢占系统代理（已自动恢复 ${_proxyRepairs.length} 次），"
+              "为避免互相干扰，Mclash 已暂停自动恢复。请退出其它代理软件"
+              "（如 v2rayN / Clash Verge / Nyanpasu 等）后重新连接 —— "
+              "当前流量不会经过 Mclash。";
+          Log.w("VPNService: $msg");
+          systemProxyWarning.value = msg;
           return;
         }
         await setSystemProxy(true);
         final fixed = await getSystemProxyEnable();
-        Log.w(
-          "VPNService: 系统代理被改动，已按 127.0.0.1:$expect 重新设置"
-          "（读回: ${fixed ? "已生效" : "仍未生效"}）",
-        );
+        if (fixed) {
+          _proxyRepairs.add(now);
+          Log.w(
+            "VPNService: 系统代理被改动或被关闭，已按 127.0.0.1:$expect 恢复"
+            "（第 ${_proxyRepairs.length} 次）",
+          );
+          systemProxyWarning.value =
+              "系统代理被其它程序改动，已自动恢复（第 ${_proxyRepairs.length} 次）。"
+              "建议机器上只保留一个代理软件。";
+        } else {
+          Log.w(
+            "VPNService: 系统代理写入后仍未生效（可能被别的代理软件占用/覆盖）",
+          );
+          systemProxyWarning.value =
+              "系统代理已被其它程序占用或关闭，Mclash 无法恢复 —— "
+              "当前流量没有经过代理。请退出其它代理软件后重新连接。";
+        }
       } catch (err) {
         Log.w("VPNService: 系统代理看守异常 ${err.toString()}");
       }
@@ -753,6 +828,8 @@ class VPNService {
   static void _stopProxyWatchdog() {
     _proxyWatchdog?.cancel();
     _proxyWatchdog = null;
+    _proxyWatchdogPaused = false;
+    systemProxyWarning.value = "";
   }
 
   static Future<void> stop() => _serialOp("stop", _stopInner);

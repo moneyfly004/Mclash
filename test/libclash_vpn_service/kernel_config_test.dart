@@ -211,4 +211,81 @@ rules:
     expect(doc["mixed-port"], 7890);
     expect(built.mixedPort, 7890);
   });
+
+  group('混合端口安全默认：订阅不能把代理开放到局域网', () {
+    const lanProfile = """
+mixed-port: 7890
+mode: rule
+allow-lan: true
+bind-address: "*"
+proxies:
+  - name: 香港 01
+    type: ss
+    server: 1.1.1.1
+    port: 443
+proxy-groups:
+  - name: 🚀 节点选择
+    type: select
+    proxies:
+      - 香港 01
+rules:
+  - MATCH,🚀 节点选择
+""";
+
+    Future<VpnServiceConfig> makeLanConfig({String patchJson = ""}) async {
+      final profile = File(p.join(tmp.path, "lan_profile.yaml"));
+      await profile.writeAsString(lanProfile);
+      String patchPath = "";
+      if (patchJson.isNotEmpty) {
+        final f = File(p.join(tmp.path, "lan_patch_final.json"));
+        await f.writeAsString(patchJson);
+        patchPath = f.path;
+      }
+      return VpnServiceConfig()
+        ..core_path = profile.path
+        ..core_path_patch_final = patchPath
+        ..work_dir = tmp.path
+        ..control_port = 19098
+        ..secret = "test-secret";
+    }
+
+    test('订阅里 allow-lan=true（服务端可控）→ 强制关闭并锁回 127.0.0.1', () async {
+      final built = await buildKernelConfig(
+        await makeLanConfig(),
+        checkPort: false,
+      );
+      final doc = loadYaml(built.yaml);
+      expect(
+        doc["allow-lan"],
+        isFalse,
+        reason: '不能因为订阅写了 true 就把混合端口开到局域网（无认证＝开放代理）',
+      );
+      expect(doc["bind-address"], "127.0.0.1");
+      expect(
+        built.notes.any((n) => n.contains("allow-lan")),
+        isTrue,
+        reason: '要在连接日志里说明为什么改掉：${built.notes}',
+      );
+    });
+
+    test('用户在应用设置里显式开启 allow-lan → 保留（这是用户自己的选择）', () async {
+      final built = await buildKernelConfig(
+        await makeLanConfig(patchJson: '{"allow-lan":true}'),
+        checkPort: false,
+      );
+      final doc = loadYaml(built.yaml);
+      expect(doc["allow-lan"], isTrue);
+      expect(built.notes.any((n) => n.contains("显式开启")), isTrue);
+    });
+
+    test('patch_final 里 allow-lan=null（老设置没这个字段）→ 仍然强制关闭', () async {
+      final built = await buildKernelConfig(
+        await makeLanConfig(patchJson: '{"allow-lan":null}'),
+        checkPort: false,
+      );
+      final doc = loadYaml(built.yaml);
+      expect(doc["allow-lan"], isFalse);
+      expect(doc["bind-address"], "127.0.0.1");
+    });
+  });
 }

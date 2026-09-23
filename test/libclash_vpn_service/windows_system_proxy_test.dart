@@ -293,4 +293,28 @@ void main() {
         );
       }
     }
-  });}
+  });
+
+  test('回归：ProxyServer 值还在、但 ProxyEnable 被关掉 → 必须判定「未生效」', () async {
+    // 真机报障场景：别的代理客户端退出时只把开关置 0、地址值留在注册表。
+    // 以前 getSystemProxyEnable() 只比对 ProxyServer 字符串，于是判定"已生效"，
+    // 看守永远不恢复、界面一直显示已连接，而流量其实已经不走代理。
+    await Process.run("reg", [
+      "add", key, "/v", "ProxyServer", "/t", "REG_SZ", "/d", "$host:$port", "/f",
+    ]);
+    await Process.run("reg", [
+      "add", key, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
+    ]);
+
+    final option = ProxyOption(host, port, const []);
+    expect(
+      await FlutterVpnService.getSystemProxyEnable(option),
+      isFalse,
+      reason: '开关是关的就必须判未生效，否则看守永远发现不了「代理没了」',
+    );
+
+    // 重设之后必须判定为已生效（否则会出现"永远修不好"的死循环）
+    await FlutterVpnService.setSystemProxy(option);
+    expect(await FlutterVpnService.getSystemProxyEnable(option), isTrue);
+  });
+}

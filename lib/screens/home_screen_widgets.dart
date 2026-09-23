@@ -298,7 +298,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
               ],
             ),
             const SizedBox(height: 12),
-
+            const SystemProxyWarningBar(),
             InkWell(
               key: const ValueKey("home-node-row"),
               borderRadius: BorderRadius.circular(10),
@@ -940,4 +940,62 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
+}
+
+/// 系统代理告警条。
+///
+/// 出现的场景：系统代理被其它程序关掉/改掉（看守会尝试恢复），或者看守已经
+/// 退让（反复被抢）—— 这时候界面**必须**明确告诉用户"当前流量没走代理"，
+/// 否则就是"显示已连接、实际裸奔"（真机报障）。
+class SystemProxyWarningBar extends StatelessWidget {
+  const SystemProxyWarningBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: VPNService.systemProxyWarning,
+      builder: (context, warning, _) {
+        if (warning.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.55)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                size: 18,
+                color: Colors.orange,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  warning,
+                  style: const TextStyle(fontSize: 12, height: 1.35),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await VPNService.setSystemProxy(true);
+                  // 立刻复检：成功就收起告警，不必等下一个 15 秒周期
+                  if (await VPNService.getSystemProxyEnable()) {
+                    VPNService.systemProxyWarning.value = "";
+                  }
+                },
+                child: const Text("重设"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
