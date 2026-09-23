@@ -8,7 +8,6 @@ import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/utils/http_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_api.dart';
-import 'package:mclash/mf/mclash_domains.dart';
 import 'package:mclash/mf/mclash_subscription_revision.dart';
 
 enum MclashSubSyncStatus {

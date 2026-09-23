@@ -4,9 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
-import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/mf/mclash_api.dart';
-import 'package:mclash/mf/mclash_domains.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 
 /// 只用来给 MclashApi 提供「登录 + 取订阅地址」，不涉及真实网络。

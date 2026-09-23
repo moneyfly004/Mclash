@@ -3,7 +3,6 @@ library;
 
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/cboard_client.dart';
-import 'package:mclash/mf/mclash_domains.dart';
 
 export 'package:mclash/mf/cboard_client.dart'
     show CBoardClient, CBoardException, CBoardSession, CBoardResponse;

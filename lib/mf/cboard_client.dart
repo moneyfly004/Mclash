@@ -353,8 +353,10 @@ class CBoardClient {
           lastFailure = e;
         }
         if (last) {
-          throw lastFailure ??
-              CBoardException('请求失败：$method $path（已尝试 ${order.length} 个域名）');
+          // 走到这里 lastFailure 必然已被赋值（上面两条路径都会写它），所以直接
+          // 抛出即可；写成 `lastFailure ?? 新异常` 会被 analyze 判成
+          // dead_null_aware_expression（warning 会让 CI 变红）。
+          throw lastFailure;
         }
         Log.w(
           "CBoardClient: $method $path 在 ${MclashDomainPool.hostOf(candidate)} 失败"
@@ -554,7 +556,9 @@ class CBoardClient {
   static const Duration kRefreshTimeout = Duration(seconds: 15);
 
   Future<bool> _refreshOnce() => _refreshing ??=
-      _doRefresh().timeout(kRefreshTimeout, onTimeout: (): bool {
+      _doRefresh().timeout(kRefreshTimeout, onTimeout: () {
+        // 注意：这里不能写成 `(): bool { ... }` —— Dart 不允许在闭包上标注
+        // 返回类型（会报 expected_token），返回类型由 onTimeout 的签名推断。
         Log.w(
           "CBoardClient: token 刷新超时（${kRefreshTimeout.inSeconds}s），放弃本次刷新",
         );
