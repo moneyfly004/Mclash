@@ -3,9 +3,11 @@ library;
 
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/cboard_client.dart';
+import 'package:mclash/mf/mclash_domains.dart';
 
 export 'package:mclash/mf/cboard_client.dart'
     show CBoardClient, CBoardException, CBoardSession, CBoardResponse;
+export 'package:mclash/mf/mclash_domains.dart' show MclashDomainPool;
 
 class MclashApi {
   MclashApi._();
@@ -19,6 +21,15 @@ class MclashApi {
   static bool _restored = false;
 
   static CBoardClient get client => _client;
+
+  /// 当前正在使用的 API 域名（UI/日志用）。
+  ///
+  /// 为什么会变：某个域名连不上时 [CBoardClient] 会自动轮换到另一个域名，
+  /// 这里跟着反映最新结果，方便用户看出「现在走的是哪个域名」。
+  static String get currentApiHost => _client.currentHost;
+
+  /// 当前 base URL（形如 `https://new.moneyfly.top/api/v1`）。
+  static String get currentApiBaseUrl => _client.baseUrl;
 
   static Future<bool>? _restoreInflight;
 

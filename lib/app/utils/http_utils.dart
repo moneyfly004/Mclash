@@ -31,7 +31,6 @@ abstract final class HttpUtils {
   ) async {
     timeout ??= const Duration(seconds: 20);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -120,7 +119,6 @@ abstract final class HttpUtils {
   ) async {
     timeout ??= const Duration(seconds: 60);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -177,7 +175,6 @@ abstract final class HttpUtils {
       uri = uri.punyEncoded;
     } catch (err) {}
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -216,7 +213,6 @@ abstract final class HttpUtils {
   }) async {
     timeout ??= const Duration(seconds: 30);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -308,7 +304,6 @@ abstract final class HttpUtils {
   }) async {
     timeout ??= const Duration(seconds: 30);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -397,7 +392,6 @@ abstract final class HttpUtils {
   ) async {
     timeout ??= const Duration(seconds: 20);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -476,7 +470,6 @@ abstract final class HttpUtils {
   ) async {
     timeout ??= const Duration(seconds: 20);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -554,7 +547,6 @@ abstract final class HttpUtils {
   ) async {
     timeout ??= const Duration(seconds: 20);
     var client = HttpClient();
-    client.badCertificateCallback = _certificateCheck;
     client.userAgent = userAgent == null || userAgent.isEmpty
         ? await getUserAgent()
         : userAgent;
@@ -678,8 +670,17 @@ abstract final class HttpUtils {
     return null;
   }
 
-  static bool _certificateCheck(X509Certificate cert, String host, int port) =>
-      true;
+  // 这里刻意不再设置 badCertificateCallback —— HttpClient 的默认行为就是严格
+  // 校验证书链，这正是我们要的。
+  //
+  // 历史原因：本类继承自上游 Clash Mi，8 个请求方法都挂了
+  //     client.badCertificateCallback = _certificateCheck;   // 实现为 => true
+  // 等于对所有 HTTPS 请求关闭证书校验。后果不是"少报个错"，而是：
+  //   · 订阅内容可被中间人整体替换（注入恶意节点）；
+  //   · 更新包可被替换（更新链路本身还缺哈希校验）；
+  //   · 某个域名证书不可用时也"看起来正常"，使多域名轮换永远不会触发。
+  // 证书真的有问题的域名应当去修服务端证书，或由多域名轮换切到下一个域名 ——
+  // 而不是放宽校验。切勿再把这段回调加回来。
 
   static void setProxy(HttpClient client, int proxyPort) {
     client.findProxy = (Uri uri) => "PROXY 127.0.0.1:$proxyPort";

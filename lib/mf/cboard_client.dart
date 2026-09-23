@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/secure_storage.dart';
+import 'package:mclash/mf/mclash_domains.dart';
 
 class CBoardResponse<T> {
   CBoardResponse({
@@ -159,15 +160,45 @@ abstract final class CBoardSessionStore {
 }
 
 class CBoardClient {
-  CBoardClient({String? baseUrl, HttpClient? httpClient})
-      : baseUrl = _normalize(baseUrl ?? kCBoardDefaultBaseUrl),
-        _http = httpClient ?? HttpClient();
+  CBoardClient({
+    String? baseUrl,
+    List<String>? baseUrlCandidates,
+    HttpClient? httpClient,
+  })  : _http = httpClient ?? HttpClient(),
+        _baseUrl = _normalize(baseUrl ?? MclashDomainPool.currentApiBaseUrl()) {
+    final list = <String>[];
+    if (baseUrl != null && baseUrl.trim().isNotEmpty) {
+      // 显式传了 base（构建期 MCLASH_API_BASE、测试）就以它为首选，再补域名池候选。
+      list.add(_normalize(baseUrl));
+    }
+    for (final c in baseUrlCandidates ?? const <String>[]) {
+      final n = _normalize(c);
+      if (n.isNotEmpty && !list.contains(n)) {
+        list.add(n);
+      }
+    }
+    for (final c in MclashDomainPool.apiBaseUrls()) {
+      if (!list.contains(c)) {
+        list.add(c);
+      }
+    }
+    _candidates = List<String>.unmodifiable(list);
+  }
 
   static const kCBoardDefaultHost = 'new.moneyfly.top';
   static const kCBoardDefaultBaseUrl = 'https://new.moneyfly.top/api/v1';
 
-  final String baseUrl;
   final HttpClient _http;
+
+  /// 当前使用的 base URL：轮换成功后会被改成可用域名，后续请求直接用它。
+  String _baseUrl;
+
+  /// 本次客户端可用的全部 base 候选（按域名池顺序，已去重）。
+  late final List<String> _candidates;
+
+  /// 正在处理的那次请求实际用的 base：CSRF / refresh 必须打同一个域名，
+  /// 否则可能落在两个不同站点上，白白放大调用次数。
+  String? _activeBase;
 
   CBoardSession? _session;
   Future<bool>? _refreshing;
@@ -175,6 +206,16 @@ class CBoardClient {
   CBoardSession? get session => _session ?? CBoardSessionStore.cached;
   bool get isLoggedIn => session != null;
   Map<String, dynamic> get user => session?.user ?? const {};
+
+  /// 当前 base URL（只读，UI/日志用来显示「当前在用哪个域名」）。
+  String get baseUrl => _baseUrl;
+
+  /// 当前 API host。
+  String get currentHost => MclashDomainPool.hostOf(_baseUrl);
+
+  /// 候选 base（测试断言用）。
+  @visibleForTesting
+  List<String> get baseUrlCandidates => _candidates;
 
   static String _normalize(String u) =>
       u.endsWith('/') ? u.substring(0, u.length - 1) : u;
@@ -211,7 +252,7 @@ class CBoardClient {
   }) async {
     final mutating = method != 'GET' && method != 'HEAD';
     if (!mutating) {
-      return _requestInner(
+      return _requestWithRotation(
         method,
         path,
         body: body,
@@ -226,7 +267,7 @@ class CBoardClient {
     _writeLock = gate.future;
     await prev;
     try {
-      return await _requestInner(
+      return await _requestWithRotation(
         method,
         path,
         body: body,
@@ -240,9 +281,160 @@ class CBoardClient {
     }
   }
 
-  Future<CBoardResponse<dynamic>> _requestInner(
+  /// 把 [method] 在候选域名上依次尝试，直到成功或走完一遍候选。
+  ///
+  /// 轮换条件（只有「请求根本没到达业务层」才换域名）：
+  /// - 连接层失败：SocketException / HandshakeException / 超时 / 连接被重置
+  /// - HTTP 5xx（仅 GET/HEAD）：站点整体挂了
+  /// - 响应不是 JSON：被 Cloudflare 或错误页拦截
+  ///
+  /// 不轮换（换域名也一样，还会把「登录失败」变成误报）：
+  /// - 401 / 403 / 404 等 4xx
+  /// - 业务 code 非 0
+  ///
+  /// 另外，非幂等的写请求（POST/PUT/DELETE）只在**连接层**失败时轮换：
+  /// 如果请求其实已经到达服务端，换域名重放会造成重复下单。
+  ///
+  /// CSRF 与 refresh 都在 [CBoardClient._requestAttempt] 内部按「本次 attempt 的
+  /// 域名」重新获取/发起，绝不允许「在域名 A 取 CSRF 却打到域名 B」。
+  Future<CBoardResponse<dynamic>> _requestWithRotation(
     String method,
     String path, {
+    Object? body,
+    Map<String, String>? query,
+    bool auth = true,
+    bool retryAuth = true,
+    bool retryCsrf = true,
+  }) async {
+    final base = _baseUrl;
+    final order = candidateBaseUrlsFor(base);
+    _activeBase = base;
+    try {
+      CBoardException? lastFailure;
+      for (var i = 0; i < order.length; i++) {
+        final candidate = order[i];
+        final last = i == order.length - 1;
+        // 这里刻意**不提前**切换 _baseUrl：只有真的在这个域名上成功，才把它记为
+        // 「当前可用域名」。否则失败后 _baseUrl 会停在坏域名上，下一次请求又会先
+        // 试坏域名，等于绕过域名池的「上次可用优先 + 失败冷却」。
+        _activeBase = candidate;
+        try {
+          final resp = await _requestAttempt(
+            method,
+            path,
+            base: candidate,
+            body: body,
+            query: query,
+            auth: auth,
+            retryAuth: retryAuth,
+            retryCsrf: retryCsrf,
+          );
+          if (!_shouldRotateOnResponse(resp, method)) {
+            // 只有在这个域名上真的成功了，才把它固定为「当前域名」，
+            // 这样「上次可用域名优先」才成立（失败路径保留原域名）。
+            if (candidate != _baseUrl) {
+              _switchBase(candidate);
+            }
+            MclashDomainPool.reportSuccess(MclashDomainPool.hostOf(candidate));
+            return resp;
+          }
+          MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
+          lastFailure = CBoardException(
+            '请求失败（HTTP ${resp.httpStatus}），已尝试域名 $candidate',
+            code: resp.code,
+            httpStatus: resp.httpStatus,
+          );
+        } on CBoardException catch (e) {
+          if (!_shouldRotateOnException(e)) {
+            // 业务层拒绝：换域名也没用，直接把结果交给调用方。
+            rethrow;
+          }
+          MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
+          lastFailure = e;
+        }
+        if (last) {
+          throw lastFailure ??
+              CBoardException('请求失败：$method $path（已尝试 ${order.length} 个域名）');
+        }
+        Log.w(
+          "CBoardClient: $method $path 在 ${MclashDomainPool.hostOf(candidate)} 失败"
+          "（${lastFailure.message}），换下一个 API 域名重试",
+        );
+      }
+      throw lastFailure ??
+          CBoardException('请求失败：$method $path（已尝试 ${order.length} 个域名）');
+    } finally {
+      _activeBase = null;
+    }
+  }
+
+  /// 当前 base 优先，其后是域名池候选（去重、保持域名池的优先级顺序）。
+  ///
+  /// 公开出来是为了让测试能断言候选顺序。
+  @visibleForTesting
+  List<String> candidateBaseUrlsFor(String current) {
+    final list = <String>[];
+    if (current.isNotEmpty) {
+      list.add(current);
+    }
+    for (final c in _candidates) {
+      if (!list.contains(c)) {
+        list.add(c);
+      }
+    }
+    if (list.isEmpty) {
+      list.add(kCBoardDefaultBaseUrl);
+    }
+    return list;
+  }
+
+  /// 切换当前 base，并记一行中文日志，方便用户/排障时看出在用哪个域名。
+  void _switchBase(String candidate) {
+    final from = MclashDomainPool.hostOf(_baseUrl);
+    _baseUrl = candidate;
+    Log.i(
+      "CBoardClient: API 域名已轮换 $from -> ${MclashDomainPool.hostOf(candidate)}",
+    );
+  }
+
+  /// 只有「请求根本没到达业务层」的失败才轮换域名。
+  bool _shouldRotateOnException(CBoardException e) {
+    final status = e.httpStatus;
+    if (status >= 300) {
+      // 5xx＝站点整体挂了；3xx 但响应不是 JSON＝典型的边缘节点拦截页。
+      // 两者都值得换域名；401/403/404 之类是账号/权限问题，换域名不会变好。
+      return true;
+    }
+    if (status > 0) {
+      return false;
+    }
+    // status == 0：连接层失败（网络不可达 / TLS 握手 / 超时 / 连接被重置）。
+    // 写请求也允许在这里换域名，因为连接都没建起来，服务端肯定没处理过。
+    return true;
+  }
+
+  /// 响应级的轮换判定：只有幂等请求（GET/HEAD）遇到 5xx 才换域名。
+  ///
+  /// 写请求遇到 5xx 不轮换：请求已经到达业务层，换域名重放可能造成重复下单。
+  bool _shouldRotateOnResponse(CBoardResponse<dynamic> resp, String method) {
+    if (resp.httpStatus < 500) {
+      return false;
+    }
+    return methodAllowsFullRotation(method);
+  }
+
+  /// 幂等（GET/HEAD）＝可以放心在任意失败上换域名；写请求＝只允许连接层失败换。
+  @visibleForTesting
+  bool methodAllowsFullRotation(String method) {
+    final m = method.toUpperCase();
+    return m == 'GET' || m == 'HEAD';
+  }
+
+  /// 单次尝试：一次请求打一个 base，只做 CSRF/401 的既有重试，不再换域名。
+  Future<CBoardResponse<dynamic>> _requestAttempt(
+    String method,
+    String path, {
+    required String base,
     Object? body,
     Map<String, String>? query,
     bool auth = true,
@@ -253,14 +445,14 @@ class CBoardClient {
 
     final isAuthPath = path.startsWith('/auth/');
 
-    var uri = Uri.parse('$baseUrl$path');
+    var uri = Uri.parse('$base$path');
     if (query != null && query.isNotEmpty) {
       uri = uri.replace(queryParameters: {...uri.queryParameters, ...query});
     }
 
     String? csrf;
     if (mutating && auth && !isAuthPath) {
-      csrf = await _fetchCsrfToken();
+      csrf = await _fetchCsrfToken(base);
     }
 
     HttpClientResponse resp;
@@ -278,6 +470,11 @@ class CBoardClient {
       throw CBoardException('网络不可达：${e.message}');
     } on HandshakeException {
       throw CBoardException('TLS 握手失败，请检查网络或系统时间');
+    } on HttpException catch (e) {
+      // 连接被重置/中断：请求没到业务层，可以换域名。
+      throw CBoardException('连接失败：${e.message}');
+    } on TimeoutException {
+      throw CBoardException('请求超时（连接或读取超时）');
     } catch (e) {
       throw CBoardException('请求失败：$e');
     }
@@ -311,7 +508,8 @@ class CBoardClient {
     if (r.isUnauthorized && auth && retryAuth && !isAuthPath) {
       final refreshed = await _refreshOnce();
       if (refreshed) {
-        return _requestInner(method, path,
+        return _requestAttempt(method, path,
+            base: base,
             body: body,
             query: query,
             auth: auth,
@@ -322,7 +520,8 @@ class CBoardClient {
 
     if (r.isCsrfFailure && mutating && retryCsrf) {
       Log.w("CBoardClient: CSRF token 已过期，重新获取后重试一次 $method $path");
-      return _requestInner(method, path,
+      return _requestAttempt(method, path,
+          base: base,
           body: body,
           query: query,
           auth: auth,
@@ -336,10 +535,10 @@ class CBoardClient {
   static String _snip(String s) =>
       s.length <= 120 ? s : '${s.substring(0, 120)}…';
 
-  Future<String?> _fetchCsrfToken() async {
+  Future<String?> _fetchCsrfToken(String base) async {
     try {
-      final r = await request('GET', '/csrf-token',
-          auth: true, retryAuth: true, retryCsrf: false);
+      final r = await _requestAttempt('GET', '/csrf-token',
+          base: base, auth: true, retryAuth: true, retryCsrf: false);
       final d = r.data;
       if (d is Map) {
         return (d['csrf_token'] ?? d['token'] ?? d['csrfToken'])?.toString();
@@ -351,15 +550,35 @@ class CBoardClient {
     return null;
   }
 
-  Future<bool> _refreshOnce() =>
-      _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+  /// refresh 自身的有界超时：刷新只是重试的前置条件，不能让它把用户的请求拖死。
+  static const Duration kRefreshTimeout = Duration(seconds: 15);
+
+  Future<bool> _refreshOnce() => _refreshing ??=
+      _doRefresh().timeout(kRefreshTimeout, onTimeout: (): bool {
+        Log.w(
+          "CBoardClient: token 刷新超时（${kRefreshTimeout.inSeconds}s），放弃本次刷新",
+        );
+        return false;
+      }).whenComplete(() => _refreshing = null);
 
   Future<bool> _doRefresh() async {
     final rt = session?.refreshToken;
     if (rt == null || rt.isEmpty) return false;
+    // refresh 必须打「当前这次 attempt 的域名」：token 是同一个账号的，
+    // 但把请求打到另一个域名上等于凭空多碰一个站点，也容易触发风控。
+    // 这里刻意不走轮换：401 本身不是轮换条件，只有连接层失败才由外层换域名。
+    final base = _activeBase ?? _baseUrl;
     try {
-      final r = await request('POST', '/auth/refresh',
-          body: {'refresh_token': rt}, auth: false, retryAuth: false);
+      // 关键：直接走 _requestAttempt，**绝不能**再调 request()。
+      // request() 对非 GET/HEAD 会抢同一把写锁，而写请求的 401 刷新恰恰发生在
+      // 持有写锁的那次 request() 内部 —— 再抢一次就是自我死锁，下单/改密码等
+      // 写操作会永久卡住（UI 表现为「点了没反应、一直转圈」）。
+      final r = await _requestAttempt('POST', '/auth/refresh',
+          base: base,
+          body: {'refresh_token': rt},
+          auth: false,
+          retryAuth: false,
+          retryCsrf: false);
       if (!r.ok) return false;
       final d = r.data;
       if (d is! Map) return false;
@@ -372,6 +591,13 @@ class CBoardClient {
         refreshToken: (d['refresh_token'] ?? rt).toString(),
       );
       await _setSession(next);
+      // 刷新成功说明这个域名是通的：记成可用域名（但如果 mid-request 已经
+      // 轮换到别的域名，就不要把当前 base 退回去）。
+      final host = MclashDomainPool.hostOf(base);
+      MclashDomainPool.reportSuccess(host);
+      if (_baseUrl == base) {
+        Log.i("CBoardClient: API 域名 $host 正常（token 已刷新）");
+      }
       return true;
     } catch (_) {
       return false;

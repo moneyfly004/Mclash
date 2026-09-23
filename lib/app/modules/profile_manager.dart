@@ -641,12 +641,17 @@ class ProfileManager {
     String decryptPassword = "",
     Duration? updateInterval,
     bool updateIntervalPreferByProfile = false,
+    String id = "",
   }) async {
     final uri = Uri.tryParse(url);
     if (uri == null) {
       return ReturnResult(error: ReturnResultError("invalid url"));
     }
-    final id = "${url.hashCode}.yaml";
+    // 默认仍用 URL 的 hash 当配置档 id（保持既有行为）；调用方传入 id 时可以固定它，
+    // 例如账号订阅在多个候选域名之间轮换时，不能让「换域名」变成「多出一个配置档」。
+    if (id.isEmpty) {
+      id = "${url.hashCode}.yaml";
+    }
     final savePath = path.join(await PathUtils.profilesDir(), id);
     if (userAgent.isEmpty) {
       userAgent = SettingManager.getConfig().userAgent();
