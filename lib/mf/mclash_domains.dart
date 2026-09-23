@@ -255,15 +255,33 @@ abstract final class MclashDomainPool {
   static List<String> subscriptionHostOrder(String originalHost) {
     _loadIfNeeded();
     final current = originalHost.trim().toLowerCase();
+    final preferredSub = _state.lastGoodSubscriptionHost;
+    final preferredApi = _state.lastGoodApiHost;
     final hosts = <String>[];
-    if (current.isNotEmpty) {
-      hosts.add(current);
+
+    // 冷却中的域名不当「优先项」：交给下面 _orderedHosts 统一排到最后，
+    // 否则刚失败过的域名又会被排到第一位反复撞墙。
+    void addIfUsable(String? h) {
+      if (h == null || h.isEmpty || hosts.contains(h) || inCooldown(h)) {
+        return;
+      }
+      hosts.add(h);
     }
-    final preferred = _state.lastGoodSubscriptionHost;
-    if (preferred != null && preferred.isNotEmpty && !hosts.contains(preferred)) {
-      hosts.add(preferred);
+
+    // 1) 明确记住的「上次可用的订阅域名」最优先 —— 它才是真正下成功过的那个。
+    addIfUsable(preferredSub);
+    // 2) 其次照 API 刚返回的原文 host（它来自刚跑通的 API 域名，本来就能用）。
+    addIfUsable(current);
+    // 3) 订阅侧还没有 last-good 时，用 API 侧 last-good 猜一次：
+    //    API 层能跑通的域名，订阅通常也能跑通。
+    if (preferredSub == null || preferredSub.isEmpty) {
+      addIfUsable(preferredApi);
     }
-    for (final h in _orderedHosts(kSubscriptionHosts, preferred)) {
+    // 4) 其余按默认顺序补齐（冷却中的排最后）。
+    for (final h in _orderedHosts(
+      kSubscriptionHosts,
+      preferredSub ?? preferredApi,
+    )) {
       if (!hosts.contains(h)) {
         hosts.add(h);
       }

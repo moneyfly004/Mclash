@@ -35,11 +35,24 @@ class CBoardResponse<T> {
 }
 
 class CBoardException implements Exception {
-  CBoardException(this.message, {this.code = -1, this.httpStatus = 0});
+  CBoardException(
+    this.message, {
+    this.code = -1,
+    this.httpStatus = 0,
+    this.retryAnotherDomain = false,
+  });
 
   final String message;
   final int code;
   final int httpStatus;
+
+  /// 是否值得换一个域名重试。
+  ///
+  /// 用于「HTTP 状态正常但响应根本不是业务响应」这种情况：例如 CDN 返回
+  /// 200 + Cloudflare 的 `<html>Just a moment…</html>` 拦截页。这种响应
+  /// httpStatus 是 200，光看状态码会误判成「业务层拒绝、不该轮换」，
+  /// 于是第一个域名被拦就整次请求失败 —— 必须显式标记出来。
+  final bool retryAnotherDomain;
 
   bool get isUnauthorized => code == 40100 || httpStatus == 401;
 
@@ -401,6 +414,11 @@ class CBoardClient {
 
   /// 只有「请求根本没到达业务层」的失败才轮换域名。
   bool _shouldRotateOnException(CBoardException e) {
+    // HTTP 状态看着正常、但响应压根不是业务响应（CDN 拦截页 / 结构异常）：
+    // 这不是「账号或权限问题」，换域名就能好。
+    if (e.retryAnotherDomain) {
+      return true;
+    }
     final status = e.httpStatus;
     if (status >= 300) {
       // 5xx＝站点整体挂了；3xx 但响应不是 JSON＝典型的边缘节点拦截页。
@@ -490,11 +508,12 @@ class CBoardClient {
     } catch (_) {
 
       throw CBoardException('响应不是 JSON（HTTP $status）：${_snip(text)}',
-          httpStatus: status);
+          httpStatus: status, retryAnotherDomain: true);
     }
 
     if (decoded is! Map) {
-      throw CBoardException('响应结构异常（HTTP $status）', httpStatus: status);
+      throw CBoardException('响应结构异常（HTTP $status）',
+          httpStatus: status, retryAnotherDomain: true);
     }
 
     final map = Map<String, dynamic>.from(decoded);

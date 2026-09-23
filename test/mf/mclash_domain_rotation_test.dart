@@ -507,8 +507,8 @@ void main() {
     expect(orderHits, 2, reason: '401 一次 + 刷新后重放一次');
     expect(
       http.hits.where((h) => h == 'POST new.moneyfly.top').length,
-      3,
-      reason: 'login + refresh + 重放的写请求',
+      4,
+      reason: 'login + 首次写请求(401) + refresh + 刷新后重放',
     );
     expect(c.session?.accessToken, 'A2', reason: '刷新后的 token 要落到会话上');
   });
