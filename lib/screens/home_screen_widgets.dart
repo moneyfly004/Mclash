@@ -956,7 +956,12 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   /// 内核读不到时，用本地记录的当前节点名（用户刚切的那个 / 固定节点）把那一行撑住。
   /// 一次读取失败绝不能让节点名变成空白。
   void _showNodeFromLocal() {
-    final name = MclashNodesStore.instance.selectedNodeName;
+    var name = MclashNodesStore.instance.selectedNodeName;
+    if (name.isEmpty) {
+      // 还没记录过任何名字时（例如刚启动、内核正忙着测速），至少把「固定节点」
+      // 显示出来 —— 那是用户明确选过的节点，比显示「未选择节点」正确得多。
+      name = MclashNodeAutoPick.fixedNode();
+    }
     if (name.isEmpty) {
       return;
     }
