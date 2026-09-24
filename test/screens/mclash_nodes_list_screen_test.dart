@@ -27,7 +27,7 @@ void main() {
     };
     sample = [
       MclashNode(
-        name: "🇭🇰 香港快线",
+        name: "香港快线",
         type: "ss",
         server: "1.1.1.1",
         port: 443,
@@ -87,7 +87,7 @@ void main() {
     expect(find.textContaining("香港"), findsWidgets);
     expect(find.textContaining("日本"), findsWidgets);
     expect(
-      find.text("🇭🇰 香港快线"),
+      find.text("香港快线"),
       findsNothing,
       reason: '订阅动辄几百个节点，默认铺开会把国家分组淹掉',
     );
@@ -102,14 +102,14 @@ void main() {
     await tester.tap(find.byIcon(Icons.expand_more).first);
     await tester.pump(const Duration(milliseconds: 50));
     expect(
-      find.text("🇭🇰 香港快线"),
+      find.text("香港快线"),
       findsOneWidget,
       reason: '展开后应看到该国节点',
     );
 
     await tester.tap(find.byIcon(Icons.expand_less).first);
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.text("🇭🇰 香港快线"), findsNothing);
+    expect(find.text("香港快线"), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));
   });
@@ -125,13 +125,13 @@ void main() {
     await tester.enterText(find.byType(TextField), "日本");
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text("日本 01"), findsOneWidget);
-    expect(find.text("🇭🇰 香港快线"), findsNothing, reason: '搜索应过滤掉不匹配节点');
+    expect(find.text("香港快线"), findsNothing, reason: '搜索应过滤掉不匹配节点');
 
     await tester.tap(find.byIcon(Icons.search).first);
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining("香港"), findsWidgets);
-    expect(find.text("🇭🇰 香港快线"), findsNothing);
+    expect(find.text("香港快线"), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));
   });
@@ -221,8 +221,8 @@ void main() {
       ClashProxiesNode()
         ..name = "🚀 节点选择"
         ..type = "Selector"
-        ..all = ["🇯🇵 日本 01", "🇭🇰 香港快线"]
-        ..now = "🇭🇰 香港快线",
+        ..all = ["日本 01", "香港快线"]
+        ..now = "香港快线",
     ];
     MclashNodeSelector.debugSetNodeOverride = (group, node) async {
       writes.add("$group->$node");
@@ -238,10 +238,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(writes, ["🚀 节点选择->🇯🇵 日本 01"], reason: '列表选节点要真的切内核');
+    expect(writes, ["🚀 节点选择->日本 01"], reason: '列表选节点要真的切内核');
     expect(
       fixed,
-      ["🇯🇵 日本 01"],
+      ["日本 01"],
       reason: '列表选节点必须固定下来（重启后仍是它），用户报障就是这条',
     );
     MclashNodeSelector.debugProxiesOverride = null;
