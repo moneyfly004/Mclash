@@ -4,7 +4,7 @@ import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/mf/mclash_current_node.dart';
 
 void main() {
-  ClashProxiesNode group(
+  ClashProxiesNode mkGroup(
     String name,
     List<String> all, {
     String now = "",
@@ -22,16 +22,16 @@ void main() {
         ..delay = delay;
 
   final proxies = [
-    group("🎯 全球直连", ["DIRECT", "🚀 节点选择"], now: "DIRECT"),
-    group("🚀 节点选择", ["♻️ 自动选择", "美国线路7", "DIRECT"], now: "美国线路7"),
+    mkGroup("🎯 全球直连", ["DIRECT", "🚀 节点选择"], now: "DIRECT"),
+    mkGroup("🚀 节点选择", ["♻️ 自动选择", "美国线路7", "DIRECT"], now: "美国线路7"),
     group(
       "♻️ 自动选择",
       ["美国线路7", "香港线路7"],
       now: "香港线路7",
       type: "URLTest",
     ),
-    group("🔮 负载均衡", ["香港线路7"], now: "", type: "LoadBalance"),
-    group("GLOBAL", ["DIRECT", "🚀 节点选择"], now: "DIRECT"),
+    mkGroup("🔮 负载均衡", ["香港线路7"], now: "", type: "LoadBalance"),
+    mkGroup("GLOBAL", ["DIRECT", "🚀 节点选择"], now: "DIRECT"),
     node("美国线路7", delay: 88),
     node("香港线路7", delay: 42),
     node("DIRECT", type: "Direct"),
@@ -72,8 +72,8 @@ void main() {
 
     test('生效组指向另一个组 → 一路走到链路末端的真实节点', () {
       final nested = [
-        group("🚀 节点选择", ["♻️ 自动选择", "美国线路7"], now: "♻️ 自动选择"),
-        group("♻️ 自动选择", ["香港线路7", "美国线路7"], now: "香港线路7"),
+        mkGroup("🚀 节点选择", ["♻️ 自动选择", "美国线路7"], now: "♻️ 自动选择"),
+        mkGroup("♻️ 自动选择", ["香港线路7", "美国线路7"], now: "香港线路7"),
         node("香港线路7"),
         node("美国线路7"),
       ];
@@ -91,8 +91,8 @@ void main() {
 
     test('显式给组名（全局模式 GLOBAL）→ 读 GLOBAL 的链路', () {
       final global = [
-        group("GLOBAL", ["🚀 节点选择"], now: "🚀 节点选择"),
-        group("🚀 节点选择", ["香港线路7"], now: "香港线路7"),
+        mkGroup("GLOBAL", ["🚀 节点选择"], now: "🚀 节点选择"),
+        mkGroup("🚀 节点选择", ["香港线路7"], now: "香港线路7"),
         node("香港线路7"),
       ];
       expect(
@@ -103,8 +103,8 @@ void main() {
 
     test('生效组还没选成员（负载均衡没有 now）→ 空串（由调用方保留上一次的值）', () {
       final lb = [
-        group("🚀 节点选择", ["🔮 负载均衡"], now: "🔮 负载均衡"),
-        group("🔮 负载均衡", ["香港线路7"], now: "", type: "LoadBalance"),
+        mkGroup("🚀 节点选择", ["🔮 负载均衡"], now: "🔮 负载均衡"),
+        mkGroup("🔮 负载均衡", ["香港线路7"], now: "", type: "LoadBalance"),
         node("香港线路7"),
       ];
       expect(
@@ -116,8 +116,8 @@ void main() {
 
     test('组互相指（环）→ 空串，不猜也不死循环', () {
       final loop = [
-        group("🚀 节点选择", ["♻️ 自动选择"], now: "♻️ 自动选择"),
-        group("♻️ 自动选择", ["🚀 节点选择"], now: "🚀 节点选择"),
+        mkGroup("🚀 节点选择", ["♻️ 自动选择"], now: "♻️ 自动选择"),
+        mkGroup("♻️ 自动选择", ["🚀 节点选择"], now: "🚀 节点选择"),
       ];
       expect(MclashCurrentNode.groupCurrentName(loop), "");
     });
@@ -130,7 +130,7 @@ void main() {
 
     test('链路末端是内置名（DIRECT）→ 如实返回，由界面翻译成"直连"', () {
       final direct = [
-        group("🚀 节点选择", ["DIRECT"], now: "DIRECT"),
+        mkGroup("🚀 节点选择", ["DIRECT"], now: "DIRECT"),
         node("DIRECT", type: "Direct"),
       ];
       expect(MclashCurrentNode.resolveName(direct), "DIRECT");
@@ -138,7 +138,7 @@ void main() {
 
     test('节点名前后空格不影响链路解析', () {
       final spaced = [
-        group("🚀 节点选择", [" 香港线路7 "], now: " 香港线路7 "),
+        mkGroup("🚀 节点选择", [" 香港线路7 "], now: " 香港线路7 "),
         node(" 香港线路7 "),
       ];
       expect(MclashCurrentNode.groupCurrentName(spaced), "香港线路7");

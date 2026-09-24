@@ -190,7 +190,7 @@ void main() {
   });
 
   testWidgets('点节点行：内核不可用时要给出明确反馈（不能点了没反应）', (tester) async {
-    MclashNodeSelector.debugProxiesOverride = () async => null;
+    MclashNodeSelector.debugProxiesOverride = () async => <ClashProxiesNode>[];
     final remembered = <String>[];
     MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
       remembered.add(name);

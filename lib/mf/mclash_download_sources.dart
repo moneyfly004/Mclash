@@ -548,7 +548,7 @@ abstract final class MclashDownloadSources {
   ///
   /// 例：`经镜像 ghfast.top 下载`、`经后端直连下载`、`GitHub 直连`。
   static String sourceLabel(String url) {
-    final value = (url ?? "").trim();
+    final value = url.trim();
     if (value.isEmpty) {
       return "未知来源";
     }
@@ -564,7 +564,7 @@ abstract final class MclashDownloadSources {
 
   /// 如果这个地址是某个镜像前缀拼出来的，返回该镜像的 host，否则空串。
   static String mirrorHostOf(String url) {
-    final value = (url ?? "").trim();
+    final value = url.trim();
     if (value.isEmpty) {
       return "";
     }

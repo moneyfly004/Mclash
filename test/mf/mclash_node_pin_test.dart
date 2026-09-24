@@ -15,7 +15,7 @@ void main() {
   late List<(String group, String node)> switched;
   late List<String> fixedWrites;
 
-  ClashProxiesNode group(String name, List<String> all, {String now = ""}) =>
+  ClashProxiesNode mkGroup(String name, List<String> all, {String now = ""}) =>
       ClashProxiesNode()
         ..name = name
         ..type = "Selector"
@@ -61,7 +61,7 @@ void main() {
   group('主页「自动最优」= 全量选优 + 回到自动模式', () {
     test('用户主动点：真的切到延迟最低的节点，但不把自己固定住', () async {
       MclashNodeAutoPick.debugProxiesOverride = () async => [
-        group("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
+        mkGroup("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
       ];
 
       final picked = await MclashNodeAutoPick.selectBestOnConnect(
@@ -84,7 +84,7 @@ void main() {
 
     test('连接后的自动选路仍然固定结果（既有语义不变，别把用户丢来丢去）', () async {
       MclashNodeAutoPick.debugProxiesOverride = () async => [
-        group("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
+        mkGroup("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
       ];
 
       expect(await MclashNodeAutoPick.selectBestOnConnect(), "快节点");
@@ -93,7 +93,7 @@ void main() {
 
     test('刚手动选过节点 → 后台自动选路不动；用户主动点「自动最优」则强制生效', () async {
       MclashNodeAutoPick.debugProxiesOverride = () async => [
-        group("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
+        mkGroup("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
       ];
       MclashNodeSelector.lastManualPickAt = DateTime.now();
 
@@ -118,7 +118,7 @@ void main() {
     test('固定节点仍有效 → 沿用，不自动换（固定优先）', () async {
       MclashNodeAutoPick.debugFixedNodeValue = "慢节点";
       MclashNodeAutoPick.debugProxiesOverride = () async => [
-        group("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
+        mkGroup("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
       ];
 
       expect(await MclashNodeAutoPick.selectBestOnConnect(), isNull);
@@ -133,7 +133,7 @@ void main() {
     test('固定节点已下架（换订阅）→ 清掉固定并重新自动选（只有这种情况才允许清）', () async {
       MclashNodeAutoPick.debugFixedNodeValue = "已下架的节点";
       MclashNodeAutoPick.debugProxiesOverride = () async => [
-        group("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
+        mkGroup("🚀 节点选择", ["慢节点", "快节点"], now: "慢节点"),
       ];
 
       expect(await MclashNodeAutoPick.selectBestOnConnect(), "快节点");
@@ -147,7 +147,7 @@ void main() {
 
     test('组名不会被当成节点固定（自动组名不能进 fixed_node）', () async {
       MclashNodeAutoPick.debugProxiesOverride = () async => [
-        group("🚀 节点选择", ["♻️ 自动选择", "真实节点"], now: "♻️ 自动选择"),
+        mkGroup("🚀 节点选择", ["♻️ 自动选择", "真实节点"], now: "♻️ 自动选择"),
         ClashProxiesNode()
           ..name = "♻️ 自动选择"
           ..type = "URLTest"
@@ -204,7 +204,7 @@ void main() {
   group('内核同步（跟随内核，但别拿"随便一个节点"覆盖固定节点）', () {
     test('当前节点取生效组的 now，而不是列表里最后一个节点名', () {
       final proxies = [
-        group("🚀 节点选择", ["美国线路7", "香港线路7"], now: "美国线路7"),
+        mkGroup("🚀 节点选择", ["美国线路7", "香港线路7"], now: "美国线路7"),
         node("美国线路7"),
         node("香港线路7"),
       ];
