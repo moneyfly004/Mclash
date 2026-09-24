@@ -179,6 +179,45 @@ class MclashNodesStore extends ChangeNotifier {
 
   String autoPickNote = "";
 
+  String _currentNodeName = "";
+
+  /// 内核事实里的「当前节点」名（主页那一行、切换弹层、节点列表的"当前选中"
+  /// 都用它，三处语义一致）。
+  String get currentNodeName => _currentNodeName;
+
+  /// 界面上"哪个节点算当前选中"：内核事实优先；内核还没来得及给出结果时
+  /// 退回用户固定的节点（重启后还没连接，也要看得出选的是谁）。
+  String get selectedNodeName =>
+      _currentNodeName.isNotEmpty ? _currentNodeName : MclashNodeAutoPick.fixedNode();
+
+  /// 记录当前节点名。
+  ///
+  /// **空串不覆盖**：内核在测速 / 重载 / 重启期间读不到节点状态时必须保留上一次的
+  /// 值，否则主页节点名会"闪一下就变成空白"（真机报障的时序特征）。
+  /// 需要"确实没有当前节点"（例如切到直连模式）时用 [clearCurrentNode]。
+  void setCurrentNodeName(String name) {
+    final value = name.trim();
+    if (value.isEmpty || value == _currentNodeName) {
+      return;
+    }
+    _currentNodeName = value;
+    notifyListeners();
+  }
+
+  /// 明确清空当前节点（直连模式：此时没有"当前节点"）。
+  void clearCurrentNode() {
+    if (_currentNodeName.isEmpty) {
+      return;
+    }
+    _currentNodeName = "";
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void debugResetCurrentNode() {
+    _currentNodeName = "";
+  }
+
   VoidCallback? onNodeSwitched;
 
   void clearAutoPickNote() {

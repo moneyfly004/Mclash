@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:protocol_handler/protocol_handler.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/app/utils/http_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/mf/mclash_api.dart';
@@ -91,7 +92,9 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
       if (!mounted || url == null || url.isEmpty) {
         return;
       }
-      Log.i("MclashGate: 冷启动深链接 $url");
+      // 深链接常常整个带着订阅地址（`?url=<编码后的订阅链接>`，里面有 token），
+      // 直接落盘到 app.log 就等于把账号写进日志。
+      Log.i("MclashGate: 冷启动深链接 ${HttpUtils.redact(url)}");
       setState(() => _initialUrl = url);
     } catch (e) {
       Log.w("MclashGate: 读取冷启动深链接失败（忽略）$e");

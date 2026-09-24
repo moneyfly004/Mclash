@@ -9,6 +9,7 @@ import 'package:mclash/app/clash/clash_config.dart';
 import 'package:tuple/tuple.dart';
 
 import 'package:mclash/app/runtime/return_result.dart';
+import 'package:mclash/app/utils/log.dart';
 
 class ClashConfigsTun {
   bool enable = false;
@@ -267,6 +268,15 @@ class ClashHttpApi {
   static String host = "http://127.0.0.1";
   static String wshost = "ws://127.0.0.1";
   static const int timeoutSeconds = 1;
+
+  /// 读 `/proxies` / `/providers/proxies` 这种**大响应**的超时。
+  ///
+  /// 494 个节点的 `/proxies` 有几百 KB，内核刚测速完或正在重载时 1 秒根本读不完 ——
+  /// 真机日志就是 `TimeoutException after 0:00:01.000000`。读不到的直接后果是主页
+  /// "当前节点"和自动选路静默失效（真机报障的空白）。
+  /// 小请求（切节点/读 configs）继续用 1 秒，只有这两个大响应放宽。
+  static const Duration proxiesReadTimeout = Duration(seconds: 5);
+
   static int Function()? getControlPort;
   static String Function()? getSecret;
 
@@ -302,6 +312,15 @@ class ClashHttpApi {
     } catch (_) {}
   }
 
+  /// 只有"连接本身坏了（IO / 传输层）"才值得重建连接池。
+  ///
+  /// [resetControlConnection] 会 `force: close()` **共享**的 HttpClient，连带打断
+  /// 首页轮询 / 测速 / 流量等并发请求（真机：读当前节点时把别人的请求一起掐了）。
+  /// `SocketException`（连接被拒/被重置）与 `HttpException`（对端提前关闭）都属于
+  /// [IOException]；超时（`TimeoutException`）不算 —— 它只是这一次慢，强关反而会
+  /// 把并发的其它请求一起打断。用异常**类型**判断，不做本地化文案匹配。
+  static bool _isConnectionStateError(Object err) => err is IOException;
+
   static Future<ReturnResult<Tuple2<int, String>>> controlRequest(
     String method,
     String path, {
@@ -332,9 +351,12 @@ class ClashHttpApi {
       } catch (err) {
         lastError = err;
         if (err is TimeoutException) {
+          // 超时只是这一次慢：强关共享连接会把并发的其它请求一起打断
           break;
         }
-        resetControlConnection();
+        if (_isConnectionStateError(err)) {
+          resetControlConnection();
+        }
       }
     }
     return ReturnResult(error: ReturnResultError("$lastError"));
@@ -500,7 +522,11 @@ class ClashHttpApi {
   }
 
   static Future<ReturnResult<List<ClashProxiesNode>>> _fetchProxies() async {
-    final resultProxies = await controlRequest("GET", "/proxies");
+    final resultProxies = await controlRequest(
+      "GET",
+      "/proxies",
+      timeout: proxiesReadTimeout,
+    );
     if (resultProxies.error != null) {
       return ReturnResult(error: resultProxies.error);
     }
@@ -511,13 +537,19 @@ class ClashHttpApi {
     } catch (err) {
       return ReturnResult(error: ReturnResultError(err.toString()));
     }
-    final resultProviders = await controlRequest("GET", "/providers/proxies");
+    final resultProviders = await controlRequest(
+      "GET",
+      "/providers/proxies",
+      timeout: proxiesReadTimeout,
+    );
     if (resultProviders.error == null) {
       try {
         var decodedResponse = jsonDecode(resultProviders.data!.item2);
         proxies.fromJsonProviders(decodedResponse);
       } catch (err) {
-        return ReturnResult(error: ReturnResultError(err.toString()));
+        // 只有 provider 这部分解析失败：已经成功拿到的 /proxies 不能一起丢掉 ——
+        // 丢了上层就会把"当前节点读不到"当成"没有节点"，界面直接空白。
+        Log.w("ClashHttpApi: 解析 /providers/proxies 失败，忽略这部分 $err");
       }
     }
     final out = ReturnResult(data: proxies.proxies);

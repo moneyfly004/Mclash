@@ -18,6 +18,144 @@ typedef DecodeCallback = String Function(String);
 
 abstract final class HttpUtils {
   static const String kStatusError = "http statusCode:";
+
+  /// 需要打码的 query 参数名（小写比较）。
+  static const Set<String> _sensitiveKeys = {
+    "token",
+    "access_token",
+    "refresh_token",
+    "ticket",
+    "secret",
+    "key",
+    "apikey",
+    "api_key",
+    "password",
+    "passwd",
+    "pwd",
+    "auth",
+    "authorization",
+    "sign",
+    "signature",
+    "code",
+    "hwid",
+  };
+
+  /// 兜底正则：不依赖 Uri 解析，直接按"参数名=值"打码。
+  ///
+  /// 只认 `? & # , ;` 或字符串开头之后的参数，因此 **path 里的 `token` 不会被碰**
+  /// （例如 `/api/v1/client/subscribe/token/abc` 原样保留）。
+  static final RegExp _sensitiveParamRegExp = RegExp(
+    r"([?&#,;]|^)([A-Za-z0-9_.\-\[\]]*(?:token|secret|password|passwd|ticket|"
+    r"sign|signature|api_?key|hwid|auth|code|key)[A-Za-z0-9_.\-\[\]]*)=([^&#\s]*)",
+    caseSensitive: false,
+  );
+
+  static bool _isSensitiveKey(String key) {
+    final raw = key.trim().toLowerCase();
+    // PHP 风格的数组参数：token[0]、token[] 也要打码。
+    final k = raw.contains("[") ? raw.split("[").first : raw;
+    if (k.isEmpty) {
+      return false;
+    }
+    if (_sensitiveKeys.contains(k)) {
+      return true;
+    }
+    // 兜底：sub_token / userToken / client_secret 这类带前后缀的键。
+    return k.endsWith("token") ||
+        k.endsWith("secret") ||
+        k.endsWith("password") ||
+        k.endsWith("passwd") ||
+        k.endsWith("_key") ||
+        k.endsWith("apikey");
+  }
+
+  static String _tryDecodeKey(String raw) {
+    try {
+      return Uri.decodeQueryComponent(raw);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  static String _redactQueryString(String query) {
+    final out = <String>[];
+    for (final seg in query.split("&")) {
+      if (seg.isEmpty) {
+        continue;
+      }
+      final i = seg.indexOf("=");
+      if (i < 0) {
+        out.add(seg);
+        continue;
+      }
+      final rawKey = seg.substring(0, i);
+      out.add(_isSensitiveKey(_tryDecodeKey(rawKey)) ? "$rawKey=***" : seg);
+    }
+    return out.join("&");
+  }
+
+  /// 兜底正则 2：参数名/等号被转义过的**嵌套 URL**（深链里很常见），例如
+  /// `clash://install-config?url=https%3A%2F%2Fsub...%3Ftoken%3Dabc`：
+  /// 只看 `?`/`&` 是抓不到里面那个 `token` 的。
+  static final RegExp _encodedSensitiveParamRegExp = RegExp(
+    r"(%3F|%3f|%26|%23|\?|&|#)"
+    r"([A-Za-z0-9_.\-\[\]]*(?:token|secret|password|passwd|ticket|"
+    r"sign|signature|api_?key|hwid|auth|code|key)[A-Za-z0-9_.\-\[\]]*)"
+    r"(%3D|%3d|=)([^&#\s%]*)",
+    caseSensitive: false,
+  );
+
+  static String _redactByRegExp(String text) {
+    final plain = text.replaceAllMapped(
+      _sensitiveParamRegExp,
+      (m) => "${m.group(1) ?? ""}${m.group(2) ?? ""}=***",
+    );
+    return plain.replaceAllMapped(
+      _encodedSensitiveParamRegExp,
+      (m) =>
+          "${m.group(1) ?? ""}${m.group(2) ?? ""}${m.group(3) ?? ""}***",
+    );
+  }
+
+  /// 把 URL 里的敏感值（订阅 token、密码、签名等）替换成 `***`，用于日志与剪贴板。
+  ///
+  /// 订阅地址里的 `token=` 就是账号凭证：真机日志里出现过完整
+  /// `https://sub.example.com/api/v1/client/subscribe?token=9c68ff44...`，
+  /// 而日志页支持一键复制粘贴到群里 —— 等于把账号送人。
+  ///
+  /// 约定：
+  ///  · **任何情况下都不抛异常**（日志路径不能因为脱敏失败而中断）；
+  ///  · 解析失败 / 没解析出 query 时退回正则打码；
+  ///  · path 里的 `token` 不需要处理（那是路径不是凭证值，且改动会破坏 URL 语义）。
+  static String redact(String url) {
+    if (url.isEmpty) {
+      return url;
+    }
+    var text = url;
+    try {
+      final uri = Uri.tryParse(url);
+      if (uri != null && uri.query.isNotEmpty) {
+        final qStart = url.indexOf("?");
+        if (qStart >= 0) {
+          final qEnd = url.indexOf("#", qStart + 1);
+          final head = url.substring(0, qStart + 1);
+          final query = _redactQueryString(
+            url.substring(qStart + 1, qEnd < 0 ? url.length : qEnd),
+          );
+          final tail = qEnd < 0 ? "" : url.substring(qEnd);
+          text = "$head$query$tail";
+        }
+      }
+    } catch (_) {
+      text = url;
+    }
+    try {
+      return _redactByRegExp(text);
+    } catch (_) {
+      return text;
+    }
+  }
+
   static Future<String> getUserAgent() async {
     return SettingManager.getConfig().userAgent();
   }
@@ -64,7 +202,9 @@ abstract final class HttpUtils {
 
       return ReturnResult(data: Tuple2(response.statusCode, response.headers));
     } catch (err, _) {
-      Log.i('http HeadRequest ${uri.toString()} exception: ${err.toString()}');
+      Log.i(
+        'http HeadRequest ${redact(uri.toString())} exception: ${err.toString()}',
+      );
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );
@@ -156,7 +296,9 @@ abstract final class HttpUtils {
       }
       return ReturnResult(data: response.headers);
     } catch (err, _) {
-      Log.i('http Download ${uri.toString()} exception: ${err.toString()}');
+      Log.i(
+        'http Download ${redact(uri.toString())} exception: ${err.toString()}',
+      );
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );
@@ -193,7 +335,9 @@ abstract final class HttpUtils {
         return ReturnResultError("$kStatusError ${response.statusCode}");
       }
     } catch (err, _) {
-      Log.i('http Upload ${uri.toString()} exception: ${err.toString()}');
+      Log.i(
+        'http Upload ${redact(uri.toString())} exception: ${err.toString()}',
+      );
       return ReturnResultError("http exception: ${err.toString()}");
     } finally {
       client.close(force: true);
@@ -283,12 +427,15 @@ abstract final class HttpUtils {
       return;
     }
     if (_suppressed > 0) {
-      Log.i("http: 同一条请求失败日志已抑制 $_suppressed 条（${_lastLogKey.split("|").first}）");
+      Log.i(
+        "http: 同一条请求失败日志已抑制 $_suppressed 条"
+        "（${redact(_lastLogKey.split("|").first)}）",
+      );
       _suppressed = 0;
     }
     _lastLogKey = key;
     _lastLogAt = now;
-    Log.i('http GetRequest $url exception: ${err.toString()}');
+    Log.i('http GetRequest ${redact(url)} exception: ${err.toString()}');
   }
 
   static Future<ReturnResult<Tuple2<int, String>>> httpPostRequest(
@@ -371,7 +518,9 @@ abstract final class HttpUtils {
 
       return ReturnResult(data: Tuple2(response.statusCode, stringData));
     } catch (err) {
-      Log.i('http PostRequest $url exception: ${err.toString()}');
+      Log.i(
+        'http PostRequest ${redact(url)} exception: ${err.toString()}',
+      );
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );
@@ -450,7 +599,7 @@ abstract final class HttpUtils {
 
       return ReturnResult(data: stringData);
     } catch (err) {
-      Log.i('http PutRequest $url exception: ${err.toString()}');
+      Log.i('http PutRequest ${redact(url)} exception: ${err.toString()}');
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );
@@ -527,7 +676,7 @@ abstract final class HttpUtils {
       var stringData = await response.transform(utf8.decoder).join();
       return ReturnResult(data: stringData);
     } catch (err) {
-      Log.i('http PatchRequest $url exception: ${err.toString()}');
+      Log.i('http PatchRequest ${redact(url)} exception: ${err.toString()}');
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );
@@ -603,7 +752,7 @@ abstract final class HttpUtils {
       var stringData = await response.transform(utf8.decoder).join();
       return ReturnResult(data: stringData);
     } catch (err) {
-      Log.i('http DeletetRequest $url exception: ${err.toString()}');
+      Log.i('http DeletetRequest ${redact(url)} exception: ${err.toString()}');
       return ReturnResult(
         error: ReturnResultError("http exception: ${err.toString()}"),
       );

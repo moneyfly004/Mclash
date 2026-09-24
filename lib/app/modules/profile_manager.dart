@@ -844,7 +844,9 @@ class ProfileManager {
       );
       if (err1 != null) {
         updating.remove(id);
-        await FileUtils.deletePath(savePath);
+        // 解密失败的是**临时文件**；以前这里删的是 `savePath`（线上唯一可用的
+        // 配置档），于是"订阅下发的加密档坏了"会顺手把用户能用的旧档删掉。
+        await FileUtils.deletePath(savePathTmp);
         Future.delayed(const Duration(milliseconds: 10), () async {
           for (var event in onEventUpdate) {
             event(id, true);
@@ -1030,7 +1032,16 @@ class ProfileManager {
       return ReturnResultError("decrypt profile failed");
     }
 
-    await file.writeAsString(decodedContent);
+    // 先写 `$filePath.dec`，成功后再原子替换：以前是原地 writeAsString，
+    // 一旦写到一半失败/进程被杀，用户手里就只剩半截配置档（解不开也连不上）。
+    final decPath = "$filePath.dec";
+    try {
+      await File(decPath).writeAsString(decodedContent, flush: true);
+      await FileUtils.replaceFile(filePath, decPath);
+    } catch (err) {
+      await FileUtils.deletePath(decPath);
+      return ReturnResultError("decrypt profile failed: $err");
+    }
     return null;
   }
 }

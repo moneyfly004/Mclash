@@ -218,6 +218,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   int _autoRecoveries = 0;
   static const int kMaxAutoRecover = 3;
 
+  /// 上一次内核**启动完成**的时刻。
+  ///
+  /// 用来判断"启动成功但立刻崩溃"：这种内核每次 start() 都返回成功，如果成功就
+  /// 清零 [_autoRecoveries]，[kMaxAutoRecover] 就形同虚设 —— 界面会在
+  /// connected / disconnected 之间无限来回跳（无界自愈循环）。
+  DateTime? _lastStartAt;
+
+  /// 内核至少存活这么久，才认为这次启动是"真的稳定"，可以清零自愈计数。
+  static const Duration kStableKernelUptime = Duration(seconds: 20);
+
   Timer? _kernelWatchdog;
   int _watchdogMisses = 0;
   static const Duration kWatchdogInterval = Duration(seconds: 20);
@@ -397,6 +407,38 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       } catch (_) {}
 
       final logSink = logFile.openWrite(mode: FileMode.append);
+      // 任何时刻只允许存在一个内核。`_proc` 还在说明上一个内核没被回收
+      // （自愈/重复 start 等路径），先把它彻底杀掉再启动新的；否则新进程会覆盖
+      // `_proc`，旧进程的 exitCode 回调因为 `if (_proc != proc) return;` 永远不会
+      // 回收它 —— 端口、内存都留在系统里。
+      final previous = _proc;
+      if (previous != null) {
+        _proc = null;
+        desktopLog(
+          "[mclash] 启动前发现旧内核仍在运行（PID=${previous.pid}）→ 先终止它",
+        );
+        try {
+          if (Platform.isWindows) {
+            await Process.run("taskkill", [
+              "/PID",
+              "${previous.pid}",
+              "/T",
+              "/F",
+            ]);
+          } else {
+            previous.kill(ProcessSignal.sigterm);
+          }
+        } catch (e) {
+          desktopLog("[mclash] 终止旧内核失败（继续启动新内核）: $e");
+        }
+        try {
+          await previous.exitCode.timeout(const Duration(seconds: 3));
+        } catch (_) {
+          try {
+            previous.kill(ProcessSignal.sigkill);
+          } catch (_) {}
+        }
+      }
       Process proc;
       try {
         proc = await Process.start(
@@ -514,7 +556,22 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         "（含配置生成 / geo 数据 / 启动等待）",
       );
       _wantConnected = true;
-      _autoRecoveries = 0;
+      // 只有这次启动"活得够久"才清零自愈计数：能启动但几秒就崩的内核会让
+      // start() 每次都成功，清零后再崩 → 自愈 → 再成功 → 无限循环。
+      final startedAt = DateTime.now();
+      final prevStartedAt = _lastStartAt;
+      if (prevStartedAt != null &&
+          startedAt.difference(prevStartedAt) < kStableKernelUptime) {
+        desktopLog(
+          "[mclash] 上一次内核启动后仅存活 "
+          "${startedAt.difference(prevStartedAt).inSeconds}s"
+          "（< ${kStableKernelUptime.inSeconds}s）→ 这次成功不代表稳定，"
+          "保留自愈计数 $_autoRecoveries/$kMaxAutoRecover",
+        );
+      } else {
+        _autoRecoveries = 0;
+      }
+      _lastStartAt = startedAt;
       _setState(FlutterVpnServiceState.connected);
       _startKernelWatchdog();
       return VpnServiceWaitResult(type: VpnServiceWaitType.done);
@@ -720,6 +777,11 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     if (_autoRecoveries >= kMaxAutoRecover) {
       desktopLog(
         "[mclash] $why —— 已连续自愈 $_autoRecoveries 次仍失败，停止重试并如实断开。",
+      );
+      desktopLog(
+        "[mclash] 自愈已放弃（连续 $_autoRecoveries 次没能稳定运行超过 "
+        "${kStableKernelUptime.inSeconds}s），避免无限重启内核；"
+        "请检查订阅/内核日志后手动重连。",
       );
       return false;
     }
@@ -1455,7 +1517,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       await readSystemProxyRaw(value: "ProxyEnable"),
       "ProxyEnable",
     );
-    if (enable == null || !enable.contains("0x1")) {
+    // 严格判定（0x1 / 1 才算启用）：以前这里写 `enable.contains("0x1")`，
+    // `0x10`、`0x100` 这类值会被误判成"系统代理已启用"，于是我们会去认领一个
+    // 根本不属于我们的代理配置。统一沿用 SystemProxySnapshot.isEnabledRaw。
+    if (!SystemProxySnapshot.isEnabledRaw(enable)) {
       return (
         owned: false,
         reason: "注册表 ProxyEnable 不是 1（系统里没有启用的代理）",

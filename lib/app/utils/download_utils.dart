@@ -57,12 +57,14 @@ abstract final class DownloadUtils {
     try {
       var file = File(downloadPathTemp);
       if (await file.exists()) {
-        await FileUtils.deletePath(downloadPath);
-        await file.rename(downloadPath);
+        // 备份-替换-清理：绝不"先删目标再改名"。rename 在 Windows 上会因为目标
+        // 被内核/杀软/索引器持有句柄而失败，先删的话用户就只剩半截 .tmp 了。
+        await FileUtils.replaceFile(downloadPath, downloadPathTemp);
       }
     } catch (err) {
       Log.w(
-        "DownloadUtils.download exception ${uri.toString()} ${err.toString()} ",
+        "DownloadUtils.download exception ${HttpUtils.redact(uri.toString())} "
+        "${err.toString()} ",
       );
       return ReturnResult(error: ReturnResultError(err.toString()));
     }

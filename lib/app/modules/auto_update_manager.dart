@@ -18,6 +18,7 @@ import 'package:mclash/app/utils/install_referrer_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
+import 'package:mclash/mf/mclash_download_sources.dart';
 import 'package:mclash/mf/mclash_update_check.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:path/path.dart' as path;
@@ -26,7 +27,14 @@ class AutoUpdateCheckVersion {
   String latestCheck = "";
   bool newVersion = false;
   String version = "";
+
+  /// 主下载地址（第一个候选源）。
   String url = "";
+
+  /// 候选下载地址（按优先级排好：后端直连 → 镜像 → GitHub 直链）。
+  ///
+  /// 为空表示"只有 [url] 一个源"，因此本次改动不影响老数据与老测试。
+  List<String> urls = [];
 
   String sha256 = "";
   Map<String, dynamic> toJson() => {
@@ -34,6 +42,7 @@ class AutoUpdateCheckVersion {
     'new_version': newVersion,
     "version": version,
     "url": url,
+    "urls": urls,
     "sha256": sha256,
   };
   void fromJson(Map<String, dynamic>? map) {
@@ -44,6 +53,14 @@ class AutoUpdateCheckVersion {
     newVersion = map["new_version"] ?? "";
     version = map["version"] ?? "";
     url = map["url"] ?? "";
+    final savedUrls = map["urls"];
+    if (savedUrls is List) {
+      for (var i in savedUrls) {
+        if (i is String && i.trim().isNotEmpty) {
+          urls.add(i);
+        }
+      }
+    }
     sha256 = map["sha256"] ?? "";
   }
 
@@ -51,6 +68,21 @@ class AutoUpdateCheckVersion {
     AutoUpdateCheckVersion config = AutoUpdateCheckVersion();
     config.fromJson(map);
     return config;
+  }
+
+  /// 实际可用的下载地址列表（[urls] 为空时回落成 `[url]`）。
+  List<String> updateUrls() {
+    final out = <String>[];
+    for (final item in urls) {
+      if (item.trim().isEmpty || out.contains(item)) {
+        continue;
+      }
+      out.add(item);
+    }
+    if (out.isEmpty && url.trim().isNotEmpty) {
+      out.add(url);
+    }
+    return out;
   }
 
   String getExtension() {
@@ -82,8 +114,35 @@ class AutoUpdateCheckVersion {
     newVersion = false;
     version = "";
     url = "";
+    urls = [];
     sha256 = "";
   }
+}
+
+/// 一次「多源下载」尝试的结果。
+///
+/// [verified] 是**下载之后**的结论（包含 sha256 校验），
+/// 不能在建对象时就按"有没有 sha256"定下来。
+class _DownloadAttempt {
+  _DownloadAttempt();
+
+  /// 实际尝试过的下载源数量（用于「已尝试 N 个下载源」这类用户可见文案）。
+  int attempted = 0;
+
+  /// 是否有一个源返回了成功响应（不代表哈希校验通过）。
+  bool downloaded = false;
+
+  /// 是否拿到了「下载完成且校验通过（或该渠道本来就没有哈希）」的安装包。
+  bool verified = false;
+
+  /// 因为 sha256 对不上而被判为"这个源坏了"的次数。
+  int corruptedSources = 0;
+
+  /// 是否出现过 404（说明这个版本在服务端已经不存在，继续试别的源没意义）。
+  bool notFound = false;
+
+  String path = "";
+  String error = "";
 }
 
 class AutoUpdateManager {
@@ -209,6 +268,7 @@ class AutoUpdateManager {
       _versionCheck.newVersion = false;
       _versionCheck.version = "";
       _versionCheck.url = "";
+      _versionCheck.urls = [];
       _versionCheck.sha256 = "";
       await save();
       _notify();
@@ -217,6 +277,8 @@ class AutoUpdateManager {
     _versionCheck.newVersion = true;
     _versionCheck.version = info.version;
     _versionCheck.url = info.downloadUrl;
+    // 后台下载会按这个列表逐个试（镜像在前、GitHub 直链兜底）。
+    _versionCheck.urls = MclashDownloadSources.expandedUrls(info.downloadUrl);
     _versionCheck.sha256 = info.sha256;
     _lastCheck = DateTime.now();
     await save();
@@ -302,16 +364,122 @@ class AutoUpdateManager {
       for (var file in files) {
         await FileUtils.deletePath(file);
       }
-      Uri? uri = Uri.tryParse(_versionCheck.url);
-      if (uri == null) {
-        return;
+      List<String> candidates = _versionCheck.updateUrls();
+      final uris = <Uri>[];
+      for (final candidate in candidates) {
+        final parsed = Uri.tryParse(candidate);
+        if (parsed != null && parsed.hasScheme) {
+          uris.add(parsed);
+        }
       }
-      if (_downloading) {
+      if (uris.isEmpty) {
+        Log.w(
+          "AutoUpdateManager.download: 没有可用的下载地址"
+          "（${MclashDownloadSources.redacted(_versionCheck.url)}）",
+        );
         return;
       }
       _downloading = true;
-      late ReturnResult<HttpHeaders> result;
-      for (var port in ports) {
+      if (_versionCheck.sha256.isEmpty) {
+        Log.w(
+          "AutoUpdateManager.download: 本次更新没有 sha256 可比对"
+          "（该渠道无哈希可比对：${MclashDownloadSources.redacted(_versionCheck.url)}），"
+          "下载后不做哈希校验",
+        );
+      } else {
+        Log.i(
+          "AutoUpdateManager.download: 将校验 sha256=${_versionCheck.sha256}"
+          " path=$downloadPath",
+        );
+      }
+      late _DownloadAttempt attempt;
+      try {
+        attempt = await _downloadFromCandidates(
+          candidates,
+          uris,
+          downloadPath,
+          ports,
+        );
+      } catch (err) {
+        Log.w("AutoUpdateManager.download exception ${err.toString()}");
+        attempt = _DownloadAttempt()
+          ..attempted = uris.length
+          ..error = "downloading failed: ${err.toString()}";
+      }
+      if (!attempt.verified) {
+        if (attempt.corruptedSources > 0) {
+          Log.w(
+            "AutoUpdateManager.download: 已尝试 ${attempt.attempted} 个下载源，"
+            "其中 ${attempt.corruptedSources} 个下载到的文件 sha256 校验失败"
+            "（镜像被替换或缓存了坏文件），删除安装包",
+          );
+        } else {
+          Log.w(
+            "AutoUpdateManager.download: 所有下载源都失败了"
+            "（已尝试 ${attempt.attempted} 个下载源）"
+            "${attempt.error.isEmpty ? "" : "：${attempt.error}"}",
+          );
+        }
+        await FileUtils.deletePath(downloadPath);
+      }
+
+      if (attempt.notFound) {
+        _versionCheck.newVersion = false;
+        _versionCheck.version = "";
+        _versionCheck.url = "";
+        _versionCheck.urls = [];
+        _versionCheck.sha256 = "";
+
+        await save();
+      }
+      if (attempt.verified) {
+        await _sanitizeMacOSInstaller(downloadPath);
+      } else {
+        Log.i(
+          "AutoUpdateManager.download: 本次没有取到可用的安装包"
+          "（已尝试 ${attempt.attempted} 个下载源），保留原有状态",
+        );
+      }
+      _downloading = false;
+      Future.delayed(const Duration(milliseconds: 300), () async {
+        for (var callback in onEventCheck) {
+          callback();
+        }
+      });
+    }
+  }
+
+  /// 按候选列表逐个下载源尝试，任一"下载成功且哈希校验通过"即停。
+  ///
+  /// 关键点（国内直连 GitHub 是不通的，所以这条路必须能走通）：
+  ///  · 后端直连 → 镜像 → GitHub 直链，按列表顺序试，谁先成用谁；
+  ///  · 每个源内部仍然按 [ports] 的顺序试端口（已连接时可走内核代理）；
+  ///  · 下载成功但 sha256 对不上 = 这个源坏了（镜像被替换 / 缓存了坏文件），
+  ///    **删掉文件继续试下一个源**，绝不把校验失败的包留在磁盘上；
+  ///  · 全部失败才返回失败，错误信息里带"已尝试 N 个源"。
+  static Future<_DownloadAttempt> _downloadFromCandidates(
+    List<String> candidates,
+    List<Uri> uris,
+    String downloadPath,
+    List<int?> ports,
+  ) async {
+    final expected = _versionCheck.sha256.trim();
+    final attempt = _DownloadAttempt()..path = downloadPath;
+    final safePorts = ports.isEmpty ? <int?>[null] : ports;
+    final total = candidates.length < uris.length
+        ? candidates.length
+        : uris.length;
+    for (var i = 0; i < uris.length; i++) {
+      final uri = uris[i];
+      attempt.attempted = i + 1;
+      final label = MclashDownloadSources.sourceLabel(uri.toString());
+      final safeUrl = MclashDownloadSources.redacted(uri.toString());
+      Log.i(
+        "AutoUpdateManager.download: 尝试第 ${i + 1}/$total 个下载源"
+        "（${label.isEmpty ? safeUrl : label}）",
+      );
+      ReturnResult<HttpHeaders>? result;
+      for (final port in safePorts) {
         result = await DownloadUtils.downloadWithPort(
           uri,
           downloadPath,
@@ -324,37 +492,54 @@ class AutoUpdateManager {
           break;
         }
       }
-
-      if (result.error != null) {
-        if (result.error!.message.contains("404")) {
-          _versionCheck.newVersion = false;
-          _versionCheck.version = "";
-          _versionCheck.url = "";
-          _versionCheck.sha256 = "";
-
-          save();
+      if (result == null || result.error != null) {
+        attempt.error = result?.error?.message ?? "downloading failed";
+        Log.w(
+          "AutoUpdateManager.download: 下载源失败（$label $safeUrl）：${attempt.error}",
+        );
+        if (attempt.error.contains("404")) {
+          // 404 说明这个版本/地址在服务端已经不存在，继续试别的源也是白费。
+          attempt.notFound = true;
+          break;
         }
+        continue;
       }
-      if (_versionCheck.sha256.isNotEmpty) {
-        final hash = await CryptoUtils.getFileSha256(downloadPath);
-        if (hash != null) {
-          if (_versionCheck.sha256 != hash) {
-            Log.w(
-              "AutoUpdateManager.download: 校验值不匹配，删除安装包 "
-              "expect=${_versionCheck.sha256} actual=$hash path=$downloadPath",
-            );
-            await FileUtils.deletePath(downloadPath);
-          }
-        }
+      if (!await File(downloadPath).exists()) {
+        attempt.error = "downloading failed: 下载完成但文件不存在";
+        Log.w("AutoUpdateManager.download: 下载源没有产出文件（$label $safeUrl）");
+        continue;
       }
-      await _sanitizeMacOSInstaller(downloadPath);
-      _downloading = false;
-      Future.delayed(const Duration(milliseconds: 300), () async {
-        for (var callback in onEventCheck) {
-          callback();
-        }
-      });
+      attempt.downloaded = true;
+      attempt.error = "";
+      if (expected.isEmpty) {
+        attempt.verified = true;
+        Log.w(
+          "AutoUpdateManager.download: $label 下载完成，但该渠道无哈希可比对，跳过 sha256 校验",
+        );
+        return attempt;
+      }
+      final actual = (await CryptoUtils.getFileSha256(downloadPath)) ?? "";
+      if (MclashDownloadSources.hashMatches(
+        expected: expected,
+        actual: actual,
+      )) {
+        attempt.verified = true;
+        Log.i("AutoUpdateManager.download: $label 下载完成且 sha256 校验通过");
+        return attempt;
+      }
+      // 校验失败：当作这个源坏了，删掉接着试下一个。
+      attempt.downloaded = false;
+      attempt.corruptedSources++;
+      attempt.error =
+          "hash verification failed: sha256 mismatch "
+          "expect=$expected actual=${actual.isEmpty ? "unknown" : actual}";
+      Log.w(
+        "AutoUpdateManager.download: $label 下载的文件 sha256 不匹配，"
+        "当作该源损坏并继续下一个源（expect=$expected actual=${actual.isEmpty ? "unknown" : actual}）",
+      );
+      await FileUtils.deletePath(downloadPath);
     }
+    return attempt;
   }
 
   static Future<void> _sanitizeMacOSInstaller(String downloadPath) async {
@@ -439,6 +624,7 @@ class AutoUpdateManager {
         _versionCheck.newVersion = false;
         _versionCheck.version = "";
         _versionCheck.url = "";
+        _versionCheck.urls = [];
         _versionCheck.sha256 = "";
 
         for (var item in items.data!) {
@@ -472,6 +658,8 @@ class AutoUpdateManager {
               _versionCheck.newVersion = true;
               _versionCheck.version = item.version;
               _versionCheck.url = item.url;
+              // 候选源：后端直连 / 镜像 / GitHub 直链，按后端给的顺序原样保留。
+              _versionCheck.urls = item.candidateUrls();
               _versionCheck.sha256 = item.sha256;
             }
 

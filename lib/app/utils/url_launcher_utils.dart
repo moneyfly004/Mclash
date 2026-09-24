@@ -1,5 +1,6 @@
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/utils/app_url_utils.dart';
+import 'package:mclash/app/utils/http_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,7 +21,10 @@ class UrlLauncherUtils {
       );
       return ret ? null : ReturnResultError("launchUrl failed $url");
     } catch (err, _) {
-      Log.w('UrlLauncherUtils.loadUrl exception: $url\n ${err.toString()}');
+      Log.w(
+        'UrlLauncherUtils.loadUrl exception: ${HttpUtils.redact(url)}\n '
+        '${err.toString()}',
+      );
       return ReturnResultError(err.toString());
     }
   }

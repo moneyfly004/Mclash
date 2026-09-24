@@ -98,8 +98,10 @@ class MclashHeartbeatService {
       hwidHeaders.forEach((k, v) => req.headers.set(k, v));
 
       final resp = await req.close().timeout(_timeout);
+      // 同 mclash_update_check：HTTP JSON 用 UTF-8 解，SystemEncoding（GBK）会把
+      // 中文/非 ASCII 内容解坏，导致心跳响应解析失败并被 catch 静默吞掉。
       final body = await resp
-          .transform(const SystemEncoding().decoder)
+          .transform(utf8.decoder)
           .join()
           .timeout(_timeout);
       if (resp.statusCode != 200) {
@@ -125,7 +127,10 @@ class MclashHeartbeatService {
           data = Map<String, dynamic>.from(d);
         }
       }
-    } catch (_) {
+    } catch (e) {
+      // 不改变控制流（仍然按"没有 data"处理），但不能再静默：
+      // 解析失败会让服务端下发的 interval / registered 分支全部失效。
+      Log.w("MclashHeartbeat: 响应体解析失败（按无数据处理）$e");
     }
 
     final suggested = (data['interval'] as num?)?.toInt() ?? 0;

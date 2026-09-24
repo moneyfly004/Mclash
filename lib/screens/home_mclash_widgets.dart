@@ -123,11 +123,17 @@ class MclashQuickCountries extends StatelessWidget {
                 const SizedBox(height: 10),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: ActionChip(
-                    key: const ValueKey("home-country-auto-best"),
-                    avatar: const Icon(Icons.auto_awesome, size: 15),
-                    label: const Text("自动最优", style: TextStyle(fontSize: 12)),
-                    onPressed: () => _onTapAutoBest(context),
+                  child: Tooltip(
+                    message: "在所有国家的节点里挑延迟最低的可用节点（自动模式）",
+                    child: ActionChip(
+                      key: const ValueKey("home-country-auto-best"),
+                      avatar: const Icon(Icons.auto_awesome, size: 15),
+                      label: const Text(
+                        "自动最优",
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      onPressed: () => _onTapAutoBest(context),
+                    ),
                   ),
                 ),
                 for (var row = 0; row < 2; row++)
@@ -171,54 +177,82 @@ class MclashQuickCountries extends StatelessWidget {
     }
     final code = codes[index];
     final ms = latency[code];
-    return InkWell(
-      key: ValueKey("home-country-$code"),
-      borderRadius: BorderRadius.circular(10),
-      onTap: () => _onTapCountry(context, store, code),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        decoration: BoxDecoration(
-          border: Border.all(color: ThemeDefine.kColorGrey, width: 0.6),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                "${MclashNodeCountry.flagFor(code)} "
-                "${code == "XX" ? "其他" : MclashNodeCountry.displayName(code)}",
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            if (ms != null) ...[
-              const SizedBox(width: 4),
-              Text(
-                "${ms}ms",
-                style: TextStyle(
-                  fontSize: 11,
-                  color: ms < 800
-                      ? ThemeDefine.kColorGreenBright
-                      : ThemeDefine.kColorGrey,
+    final label = code == "XX"
+        ? "其他"
+        : MclashNodeCountry.displayName(code);
+    return Tooltip(
+      // 悬停提示要说清"点了会发生什么"：在该国里自动挑最优，并固定下来。
+      message: "自动选择「$label」延迟最低的可用节点，并固定使用它",
+      child: InkWell(
+        key: ValueKey("home-country-$code"),
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _onTapCountry(context, store, code),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          decoration: BoxDecoration(
+            border: Border.all(color: ThemeDefine.kColorGrey, width: 0.6),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  "${MclashNodeCountry.flagFor(code)} $label",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
+              if (ms != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  "${ms}ms",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ms < 800
+                        ? ThemeDefine.kColorGreenBright
+                        : ThemeDefine.kColorGrey,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _onTapAutoBest(BuildContext context) async {
+    // 「自动最优」= 回到自动模式：清掉固定节点，然后在**所有国家**的节点里重新挑
+    // 一次延迟最低的可用节点。
+    //
+    //  - force: 必须绕过「用户刚手动选过节点」的保护，否则刚切过节点的人点
+    //    「自动最优」会被自己上一次的选择挡住（点了没反应）。
+    //  - persist=false: 自动模式不该把自己锁死在某一台上，下次连接重新挑。
     await MclashNodeAutoPick.setFixedNode("");
-    final note = await MclashNodeAutoPick.selectBestOnConnect();
+    final picked = await MclashNodeAutoPick.selectBestOnConnect(
+      // 用 App 已经测过的全量延迟（494 个节点都测过）选优 —— 不传的话只能
+      // 探测十几个候选，那就不是"所有国家里最低"了。
+      cachedLatency: MclashNodesStore.instance.latencyByName(),
+      force: true,
+      persist: false,
+    );
     if (!context.mounted) {
       return;
     }
+    if (picked != null && picked.isNotEmpty) {
+      // 界面立刻跟着变（内核事实稍后会再对齐一次）
+      MclashNodesStore.instance.setCurrentNodeName(picked);
+    }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(note == null ? "已在自动选路（最优节点）" : "已切换到最优节点：$note")),
+      SnackBar(
+        content: Text(
+          picked == null
+              ? "已在自动模式（没有找到更优的可用节点）"
+              : "已切换到最优节点：$picked",
+        ),
+      ),
     );
   }
 
@@ -227,13 +261,16 @@ class MclashQuickCountries extends StatelessWidget {
     MclashNodesStore store,
     String code,
   ) async {
-    final node = store.preferredNodeOfCountry(code);
+    // 该国延迟最低的可用节点（测过速的才算数）；实在没有可用的才退回第一个。
+    final node =
+        store.bestNodeOfCountry(code) ?? store.preferredNodeOfCountry(code);
     if (node == null) {
       return;
     }
     final country = code == "XX"
         ? "其他"
         : MclashNodeCountry.displayName(code);
+    // 和「切换」/节点列表等效：切内核 + 固定下来（下次连接仍是它）。
     final err = await MclashNodeSelector.select(node.name);
     if (!context.mounted) {
       return;

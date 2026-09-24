@@ -4,12 +4,12 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
 import 'package:mclash/mf/mclash_node_sort.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
+import 'package:mclash/mf/mclash_current_node.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
@@ -21,9 +21,6 @@ import 'package:mclash/screens/widgets/framework.dart';
 
 class MclashNodesListScreen extends LasyRenderingStatefulWidget {
   const MclashNodesListScreen({super.key});
-
-  @visibleForTesting
-  static Future<String?> Function()? debugPrimaryGroupOverride;
 
   @override
   State<MclashNodesListScreen> createState() => _MclashNodesListScreenState();
@@ -169,20 +166,12 @@ class _MclashNodesListScreenState
     }).toList();
   }
 
+  /// 从节点列表选节点 = 和顶部「切换」弹层**等效**：切内核 + 固定下来（写
+  /// setting.json 的 fixed_node，重启后仍是它），并立刻打出"当前选中"标志。
+  /// （旧实现直接 `setProxiesNode`，既没固定也没通知界面 —— 用户报障
+  /// "列表里选了不算固定、也没有选中标志"。）
   Future<void> _pickNode(MclashNode node) async {
-
-    final group = await _primaryGroupName();
-    if (group == null) {
-      await MclashNodeSelector.rememberSelection(node.name);
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("已选择 ${node.name}（连接后生效）")),
-      );
-      return;
-    }
-    final err = await ClashHttpApi.setProxiesNode(group, node.name);
+    final err = await MclashNodeSelector.select(node.name);
     if (!mounted) {
       return;
     }
@@ -196,17 +185,14 @@ class _MclashNodesListScreenState
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("已切换到 ${node.name}")));
-  }
-
-  Future<String?> _primaryGroupName() async {
-    final override = MclashNodesListScreen.debugPrimaryGroupOverride;
-    if (override != null) {
-      return override();
-    }
-    return MclashNodeSelector.currentGroupName();
+    final deferred = MclashNodeSelector.lastSelectDeferred;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          deferred ? "已选择 ${node.name}（连接后生效）" : "已切换到 ${node.name}",
+        ),
+      ),
+    );
   }
 
   void _pickSort() {
@@ -500,14 +486,27 @@ class _MclashNodesListScreenState
     final bool testing = single
         ? (n.server == _singleTestTarget && !n.latencyUsable)
         : (_testing > 0 && !n.latencyUsable);
+    // 和「切换」弹层共用同一判定：当前节点必须有明确的选中标志。
+    final bool selected = MclashCurrentNode.isSelected(
+      n.name,
+      MclashNodesStore.instance.selectedNodeName,
+    );
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
+      selected: selected,
+      selectedTileColor: ThemeDefine.kColorBlue.withValues(alpha: 0.08),
       title: Text(
         n.name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: selected
+              ? ThemeConfig.kFontWeightListItem
+              : FontWeight.normal,
+          color: selected ? ThemeDefine.kColorBlue : null,
+        ),
       ),
       subtitle: Text(
         n.udpOnly ? "${n.type} · UDP" : n.type,
@@ -516,6 +515,28 @@ class _MclashNodesListScreenState
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (selected)
+            const Tooltip(
+              message: "当前选中（正在使用的节点）",
+              child: Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, size: 16, color: ThemeDefine.kColorBlue),
+                    SizedBox(width: 2),
+                    Text(
+                      "当前",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: ThemeDefine.kColorBlue,
+                        fontWeight: ThemeConfig.kFontWeightListItem,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           InkWell(
             onTap: testing ? null : () => _testSingleNode(n),
             borderRadius: BorderRadius.circular(6),

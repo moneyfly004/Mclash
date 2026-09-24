@@ -11,6 +11,13 @@ import 'package:mclash/mf/mclash_nodes_store.dart';
 
 const String kGlobalSelectorName = "GLOBAL";
 
+/// 产品配置里真正承载流量的主选择组名。
+///
+/// 内核 `/proxies` 里"组的顺序"由内核自己决定（GLOBAL.all 中间那段的顺序不保证稳定），
+/// 所以"取第一个 Selector"可能落到「🎯 全球直连」这类旁路组上 —— 那会让当前节点显示、
+/// 自动选路、固定节点校验全都读错组（真机报障）。按固定组名取才是确定的。
+const String kPrimarySelectorName = "🚀 节点选择";
+
 const Set<String> kNonProxyTargets = {
   "DIRECT",
   "REJECT",
@@ -92,6 +99,13 @@ abstract final class MclashNodeSelector {
   debugSetNodeOverride;
 
   static ClashProxiesNode? primarySelector(List<ClashProxiesNode> proxies) {
+    final main = byName(proxies, kPrimarySelectorName);
+    if (main != null &&
+        main.type.toLowerCase() == "selector" &&
+        main.all.isNotEmpty &&
+        !main.hidden) {
+      return main;
+    }
     for (final p in proxies) {
       if (p.all.isEmpty || p.hidden || p.name == kGlobalSelectorName) {
         continue;
@@ -156,6 +170,7 @@ abstract final class MclashNodeSelector {
     }
     lastSelectDeferred = true;
     await MclashNodeAutoPick.setFixedNode(nodeName);
+    MclashNodesStore.instance.setCurrentNodeName(nodeName);
     Log.i("MclashNodeSelector: 已记住节点 [$nodeName]，连接后生效");
   }
 
@@ -171,6 +186,8 @@ abstract final class MclashNodeSelector {
       lastSelectDeferred = true;
       if (manual) {
         await MclashNodeAutoPick.setFixedNode(nodeName);
+        // 界面必须马上有"当前选中"标志（内核没跑，连接后就会生效）
+        MclashNodesStore.instance.setCurrentNodeName(nodeName);
         MclashNodesStore.instance.clearAutoPickNote();
       }
       Log.i("MclashNodeSelector: 内核未运行，已记住节点 [$nodeName]，连接后生效");
@@ -185,6 +202,7 @@ abstract final class MclashNodeSelector {
       if (manual) {
         lastManualPickAt = DateTime.now();
         await MclashNodeAutoPick.setFixedNode(nodeName);
+        MclashNodesStore.instance.setCurrentNodeName(nodeName);
         MclashNodesStore.instance.clearAutoPickNote();
       }
       MclashNodesStore.instance.notifyCurrentMaybeChanged();

@@ -198,6 +198,51 @@ abstract final class FileUtils {
     return true;
   }
 
+  /// 用 [sourcePath] 覆盖 [targetPath]，语义是「备份 → 替换 → 清理」。
+  ///
+  /// 为什么不能"先删目标再改名"：`File.rename` 在 Windows 上会因为目标被内核 /
+  /// 杀软 / 搜索索引器持有句柄而失败，而目标已经被删掉了 —— 用户唯一可用的配置档
+  /// 就这么没了（表现为连接彻底失败）。
+  ///
+  /// 保证：要么 [targetPath] 是新的，要么还是原来那份；失败时把备份还原回原位，
+  /// 并**上抛原始异常**（错误信息里带路径上下文，上层原样展示）。
+  static Future<void> replaceFile(String targetPath, String sourcePath) async {
+    if (targetPath.isEmpty || sourcePath.isEmpty) {
+      throw ArgumentError("replaceFile: target/source 路径不能为空");
+    }
+    final backupPath = "$targetPath.bak";
+    final target = File(targetPath);
+    final hadTarget = await target.exists();
+    // 上一轮异常退出可能留下 .bak，先清掉，避免干扰这次替换。
+    if (await File(backupPath).exists()) {
+      await deletePath(backupPath);
+    }
+    if (hadTarget) {
+      // 这一步失败会直接抛出，此时目标还在原位（没有丢数据）。
+      await target.rename(backupPath);
+    }
+    try {
+      await File(sourcePath).rename(targetPath);
+    } catch (_) {
+      if (hadTarget) {
+        try {
+          await File(backupPath).rename(targetPath);
+        } catch (restoreErr) {
+          Log.w(
+            "FileUtils.replaceFile: 替换 $targetPath 失败后还原备份也失败"
+            "（$restoreErr）—— 原文件仍保留在 $backupPath，可手工改名恢复",
+          );
+        }
+      }
+      rethrow;
+    }
+    if (hadTarget) {
+      if (!await deletePath(backupPath)) {
+        Log.w("FileUtils.replaceFile: 新文件已就位，但清理备份 $backupPath 失败（可忽略）");
+      }
+    }
+  }
+
   static Future<String?> readAndDelete(String filePath) async {
     if (filePath.isEmpty) return null;
 

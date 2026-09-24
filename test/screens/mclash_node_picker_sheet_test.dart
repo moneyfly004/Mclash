@@ -5,6 +5,7 @@ import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node.dart';
+import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/home_screen_widgets.dart';
@@ -33,7 +34,9 @@ void main() {
 
   setUp(() {
     MclashNodesStore.instance.debugResetLoadState();
+    MclashNodesStore.instance.debugResetCurrentNode();
     MclashNodesStore.instance.debugSetNodes(sample, loading: false);
+    MclashNodeAutoPick.debugFixedNodeValue = "";
     tabSwitches = [];
     MainTabController(tabSwitches.add);
     ClashHttpApi.getControlPort = () => 9090;
@@ -43,6 +46,8 @@ void main() {
   tearDown(() {
     MclashNodesStore.instance.debugSetNodes([], loading: false);
     MclashNodesStore.instance.debugResetLoadState();
+    MclashNodesStore.instance.debugResetCurrentNode();
+    MclashNodeAutoPick.debugFixedNodeValue = null;
     MclashNodeSelector.debugProxiesOverride = null;
     MclashNodeSelector.debugSetNodeOverride = null;
     ClashSettingManager.debugSetMode("rule");
@@ -134,6 +139,48 @@ void main() {
     expect(find.byKey(const ValueKey("picker-node-GLOBAL")), findsNothing);
     expect(find.byKey(const ValueKey("picker-node-DIRECT")), findsNothing);
     expect(find.textContaining("GLOBAL"), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('当前选中标志：当前节点有勾 + 「当前」字样', (tester) async {
+    await pumpSheet(tester, current: "🇭🇰 香港 01");
+
+    expect(
+      find.text("当前"),
+      findsOneWidget,
+      reason: '用户报障：切换面板里看不出哪个是当前节点',
+    );
+    expect(find.byIcon(Icons.check), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('已连上后打开切换面板：能看出当前节点（回归：点一次闪一下就没标志）', (tester) async {
+    MclashNodesStore.instance.setCurrentNodeName("🇯🇵 日本 01");
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: HomeScreenWidgetPart1()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.byIcon(Icons.dns_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text("选择节点"), findsOneWidget);
+    expect(
+      find.text("当前"),
+      findsOneWidget,
+      reason: '主页那一行必须把**原始节点名**给弹层（不是带 "(120 ms)" 的显示串），'
+          '否则永远匹配不上节点名 → 没有选中标志',
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));

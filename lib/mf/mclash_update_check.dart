@@ -265,8 +265,11 @@ abstract final class MclashUpdateCheck {
       req.headers.set(HttpHeaders.acceptHeader, "application/vnd.github+json");
       req.headers.set(HttpHeaders.userAgentHeader, "Mclash-UpdateCheck");
       final resp = await req.close().timeout(const Duration(seconds: 20));
+      // HTTP 响应体一律 UTF-8：以前用 SystemEncoding（中文 Windows = GBK）解，
+      // release JSON 里的中文说明会被解成乱码并在 jsonDecode 处抛 FormatException
+      // → 「检查更新」永远失败，用户看不到新版本。SystemEncoding 只适用于本地文本。
       final body = await resp
-          .transform(const SystemEncoding().decoder)
+          .transform(utf8.decoder)
           .join()
           .timeout(const Duration(seconds: 30));
       if (resp.statusCode != 200) {

@@ -132,6 +132,8 @@ abstract final class MclashNodeAutoPick {
   static Future<String?> selectBestOnConnect({
     void Function(String note)? onNote,
     Map<String, int>? cachedLatency,
+    bool force = false,
+    bool persist = true,
   }) {
     final running = _pickInflight;
     if (running != null) {
@@ -141,6 +143,8 @@ abstract final class MclashNodeAutoPick {
     final future = _selectBestOnConnectInner(
       onNote: onNote,
       cachedLatency: cachedLatency,
+      force: force,
+      persist: persist,
     );
     _pickInflight = future;
     return future.whenComplete(() => _pickInflight = null);
@@ -149,6 +153,8 @@ abstract final class MclashNodeAutoPick {
   static Future<String?> _selectBestOnConnectInner({
     void Function(String note)? onNote,
     Map<String, int>? cachedLatency,
+    bool force = false,
+    bool persist = true,
   }) async {
     List<ClashProxiesNode>? proxies;
     final override = debugProxiesOverride;
@@ -158,24 +164,35 @@ abstract final class MclashNodeAutoPick {
       final r = await ClashHttpApi.getProxies();
       if (r.error != null || r.data == null) {
         Log.w("MclashNodeAutoPick: 拿不到代理列表 ${r.error?.message}");
+        // 只落日志的话用户什么都看不到（真机：内核忙着测速时控制口超时 →
+        // 自动选路静默失效）。给一条可读的提示，并配合"保留上一次的节点名"。
+        onNote?.call("暂时读不到内核的节点状态，稍后会自动重试");
         return null;
       }
       proxies = r.data!;
     }
-    return _selectBest(proxies, onNote, cachedLatency);
+    return _selectBest(
+      proxies,
+      onNote,
+      cachedLatency,
+      force: force,
+      persist: persist,
+    );
   }
 
   static Future<String?> _selectBest(
     List<ClashProxiesNode> proxies,
     void Function(String note)? onNote,
-    Map<String, int>? cachedLatency,
-  ) async {
+    Map<String, int>? cachedLatency, {
+    bool force = false,
+    bool persist = true,
+  }) async {
     final group = MclashNodeSelector.primarySelector(proxies);
     if (group == null) {
       return null;
     }
 
-    if (MclashNodeSelector.userPickedRecently()) {
+    if (!force && MclashNodeSelector.userPickedRecently()) {
       Log.i("MclashNodeAutoPick: 用户刚手动选过节点，本轮不自动切换");
       return null;
     }
@@ -239,6 +256,12 @@ abstract final class MclashNodeAutoPick {
       if (name == "DIRECT" || name == "REJECT" || MclashPseudoNodes.isPseudo(name)) {
         return;
       }
+      final entry = MclashNodeSelector.byName(proxies, name);
+      if (entry != null && entry.all.isNotEmpty) {
+        // 组名（如「♻️ 自动选择」）不能当节点固定下来：候选只认真实节点，
+        // 否则"固定节点"会变成一个组名，下次连接就没法按候选校验了。
+        return;
+      }
       if (ms < bestMs) {
         bestMs = ms;
         best = name;
@@ -263,7 +286,12 @@ abstract final class MclashNodeAutoPick {
     }
     Log.i("MclashNodeAutoPick: 已自动连接最优节点 [$bestNode]（${bestMs}ms）");
     onNote?.call("已自动连接最优节点：$bestNode（${bestMs}ms）");
-    await setFixedNode(bestNode);
+    if (persist) {
+      // 自动选出来的节点 = 固定下来（下次连接沿用；节点下架才回到自动）。
+      // 用户主动点「自动最优」时 persist=false：那是**回到自动模式**，
+      // 每次连接都重新挑一次，不能把自己锁在某一台上。
+      await setFixedNode(bestNode);
+    }
     return bestNode;
   }
 
@@ -276,6 +304,7 @@ abstract final class MclashNodeAutoPick {
     final result = await ClashHttpApi.getProxies();
     if (result.error != null || result.data == null) {
       Log.w("MclashNodeAutoPick: 拿不到内核代理列表 ${result.error?.message}");
+      onNote?.call("暂时读不到内核的节点状态，稍后会自动重试");
       return null;
     }
     return _pick(result.data!, onNote);

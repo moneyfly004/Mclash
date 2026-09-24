@@ -21,8 +21,10 @@ import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/clash_traffic_watcher.dart';
+import 'package:mclash/mf/mclash_current_node.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_kernel_sync.dart';
+import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
@@ -304,7 +306,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
               borderRadius: BorderRadius.circular(10),
               onTap: () => showMclashNodePickerSheet(
                 context,
-                current: _proxyNow.value,
+                // 传**原始节点名**（不是 _proxyNow 那个带 "(120 ms)" 的显示串），
+                // 否则弹层里永远匹配不上当前节点，看不到"当前选中"标志。
+                current: MclashNodesStore.instance.selectedNodeName,
               ),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
@@ -896,48 +900,70 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _updateProxyNow() async {
-    if (_state == FlutterVpnServiceState.connected) {
-      if (AppLifecycleStateNofity.isPaused()) {
-        return;
-      }
-      if (_proxyNowUpdating) {
-        return;
-      }
-      if (ClashSettingManager.getConfigsMode() == ClashConfigsMode.direct) {
-        _proxyNow.value = "DIRECT";
-        return;
-      }
-      _proxyNowUpdating = true;
-
-      final result = await ClashHttpApi.getNowProxy(
-        ClashSettingManager.getConfig().Mode ?? ClashConfigsMode.rule.name,
-      );
-      final chain = result.data;
-      if (result.error != null || chain == null || chain.isEmpty) {
-        _proxyNow.value = "";
-      } else {
-        final groupTypes = ClashProtocolType.GroupToList();
-        ClashProxiesNode? real;
-        for (final n in chain) {
-          if (!groupTypes.contains(n.type)) {
-            real = n;
-            break;
-          }
-        }
-        final ownDelay = real == null
-            ? null
-            : MclashNodesStore.instance.latencyByName()[real.name];
-        _proxyNow.value = real == null
-            ? ""
-            : formatCurrentProxyName(
-                [real.name],
-                delayMs: ownDelay ?? real.delay,
-              );
-      }
-      _proxyNowUpdating = false;
-    } else {
-      _proxyNow.value = "";
+    if (_state != FlutterVpnServiceState.connected) {
+      // 非连接态由 _disconnectToCore() 负责清空显示，这里不要动 ——
+      // 否则内核重启/短暂 reasserting 会把节点名误清成空白。
+      return;
     }
+    if (AppLifecycleStateNofity.isPaused()) {
+      return;
+    }
+    if (_proxyNowUpdating) {
+      return;
+    }
+    if (ClashSettingManager.getConfigsMode() == ClashConfigsMode.direct) {
+      // 直连模式没有"当前节点"：清掉记录，避免面板还高亮着上一个节点
+      MclashNodesStore.instance.clearCurrentNode();
+      _proxyNow.value = "DIRECT";
+      return;
+    }
+    _proxyNowUpdating = true;
+    try {
+      final result = await ClashHttpApi.getProxies();
+      final proxies = result.data;
+      if (result.error != null || proxies == null || proxies.isEmpty) {
+        // 内核暂时读不到（正忙着测速 / 重载内核时控制口会超时）：用本地记录的
+        // 当前节点名撑住那一行。旧实现在这里赋空串 —— 用户看到的就是
+        // "已连上但当前节点空白 / 点一次闪一下就没了"（真机报障）。
+        Log.i(
+          "首页当前节点：内核暂时读不到，沿用本地记录（${result.error?.message ?? "无数据"}）",
+        );
+        _showNodeFromLocal();
+        return;
+      }
+      // 以内核事实为准：有固定节点就是它，否则取生效组 now 链路上的真实节点。
+      final name = MclashCurrentNode.resolveName(
+        proxies,
+        fixed: MclashNodeAutoPick.fixedNode(),
+        groupName: MclashNodeSelector.groupNameForMode(proxies),
+      );
+      if (name.isEmpty) {
+        Log.i("首页当前节点：内核还没给出当前节点，沿用本地记录");
+        _showNodeFromLocal();
+        return;
+      }
+      MclashNodesStore.instance.setCurrentNodeName(name);
+      final delay =
+          MclashNodesStore.instance.latencyByName()[name] ??
+          MclashCurrentNode.delayOf(proxies, name);
+      _proxyNow.value = formatCurrentProxyName([name], delayMs: delay);
+    } finally {
+      // 无论成功失败都要复位：卡住的话后面所有刷新都会被丢掉（节点名再也不更新）
+      _proxyNowUpdating = false;
+    }
+  }
+
+  /// 内核读不到时，用本地记录的当前节点名（用户刚切的那个 / 固定节点）把那一行撑住。
+  /// 一次读取失败绝不能让节点名变成空白。
+  void _showNodeFromLocal() {
+    final name = MclashNodesStore.instance.selectedNodeName;
+    if (name.isEmpty) {
+      return;
+    }
+    _proxyNow.value = formatCurrentProxyName(
+      [name],
+      delayMs: MclashNodesStore.instance.latencyByName()[name],
+    );
   }
 
 }

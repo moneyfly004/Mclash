@@ -164,14 +164,14 @@ abstract final class MclashSubscriptionService {
         .whenComplete(() => _inflight = null);
   }
 
+  /// 写日志/界面提示前把订阅地址脱敏。
+  ///
+  /// 以前只把 `token=` 后面的值**截断**到前 8 个字符 —— 那仍然是凭证的一部分，
+  /// 而且遇到 `access_token` / path 里的 token 就完全失效。现在整段值统一打码，
+  /// 只保留"是哪个地址"的信息。
   static String _safe(String url) {
-    final i = url.indexOf("token=");
-    if (i < 0) {
-      return url.length <= 40 ? url : "${url.substring(0, 40)}…";
-    }
-    final head = url.substring(0, i + 6);
-    final tail = url.substring(i + 6);
-    return "$head${tail.length <= 8 ? "…" : "${tail.substring(0, 8)}…"}";
+    final redacted = HttpUtils.redact(url);
+    return redacted.length <= 80 ? redacted : "${redacted.substring(0, 80)}…";
   }
 
   static Future<MclashSubSyncResult> _doSync() async {

@@ -136,10 +136,14 @@ abstract final class MclashEntitlement {
     return File(path.join(dir, fileName));
   }
 
-  static Future<String> _signKey() async {
+  /// 租约签名密钥。返回 null 表示**拿不到设备标识** —— 此时 fail-closed：
+  /// 绝不回落成固定常量（固定常量等于公开密钥，任何人都能伪造一份"已校验"的租约，
+  /// 于是过期/被封的账号可以自己造一张永久有效的许可）。
+  static Future<String?> _signKey() async {
     final override = debugKeyOverride;
     if (override != null) {
-      return override();
+      final key = await override();
+      return key.isEmpty ? null : key;
     }
     try {
       final did = await Did.getDid();
@@ -147,7 +151,7 @@ abstract final class MclashEntitlement {
         return "mclash.entitlement.v1.$did";
       }
     } catch (_) {}
-    return "mclash.entitlement.v1.fallback";
+    return null;
   }
 
   static String _signature(Map<String, dynamic> body, String key) {
@@ -167,8 +171,12 @@ abstract final class MclashEntitlement {
 
   static Future<void> _persist() async {
     try {
-      final f = await _file();
       final key = await _signKey();
+      if (key == null) {
+        Log.w("MclashEntitlement: 拿不到设备标识，拒绝写入授权租约（fail-closed）");
+        return;
+      }
+      final f = await _file();
       final body = _body();
       final payload = <String, dynamic>{...body, "sig": _signature(body, key)};
       await f.writeAsString(jsonEncode(payload), flush: true);
@@ -191,6 +199,13 @@ abstract final class MclashEntitlement {
     _blockReason = "";
     _tampered = false;
     try {
+      // fail-closed：没有设备标识就无法判断租约真伪（也签不出来），一律视为被改动。
+      final key = await _signKey();
+      if (key == null) {
+        _tampered = true;
+        Log.w("MclashEntitlement: 拿不到设备标识，无法校验授权租约 → 视为被改动");
+        return;
+      }
       final f = await _file();
       if (!await f.exists()) {
         return;
@@ -206,7 +221,6 @@ abstract final class MclashEntitlement {
       }
       final map = decoded.map((k, v) => MapEntry(k.toString(), v));
       final sig = (map.remove("sig") ?? "").toString();
-      final key = await _signKey();
       if (sig.isEmpty || sig != _signature(map, key)) {
         _tampered = true;
         Log.w("MclashEntitlement: 授权租约签名不匹配（本地被改动？）→ 视为未校验");

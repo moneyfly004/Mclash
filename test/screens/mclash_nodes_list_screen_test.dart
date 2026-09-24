@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
+import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
@@ -14,6 +16,9 @@ void main() {
 
   setUp(() {
     MclashNodesStore.instance.debugResetLoadState();
+    MclashNodesStore.instance.debugResetCurrentNode();
+    MclashNodeAutoPick.debugFixedNodeValue = "";
+    ClashSettingManager.debugSetMode("rule");
     MclashSpeedTester.debugProbeOverride = (n) async {
       if (n.name.contains("香港快")) return 30;
       if (n.name.contains("日本")) return 120;
@@ -44,6 +49,11 @@ void main() {
     MclashNodesStore.debugLoadNodesOverride = null;
     MclashNodesStore.instance.debugSetNodes([], loading: false);
     MclashNodesStore.instance.debugResetLoadState();
+    MclashNodesStore.instance.debugResetCurrentNode();
+    MclashNodeAutoPick.debugFixedNodeValue = null;
+    MclashNodeSelector.debugProxiesOverride = null;
+    MclashNodeSelector.debugSetNodeOverride = null;
+    ClashSettingManager.debugSetMode("rule");
   });
 
   Future<void> expandAll(WidgetTester tester) async {
@@ -180,7 +190,7 @@ void main() {
   });
 
   testWidgets('点节点行：内核不可用时要给出明确反馈（不能点了没反应）', (tester) async {
-    MclashNodesListScreen.debugPrimaryGroupOverride = () async => null; 
+    MclashNodeSelector.debugProxiesOverride = () async => null;
     final remembered = <String>[];
     MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
       remembered.add(name);
@@ -198,8 +208,63 @@ void main() {
       reason: '要明确告诉用户「已记住，连接后生效」',
     );
     expect(remembered, ["日本 01"], reason: '选择必须被记住');
-    MclashNodesListScreen.debugPrimaryGroupOverride = null;
+    MclashNodeSelector.debugProxiesOverride = null;
     MclashNodeAutoPick.debugSetFixedNodeOverride = null;
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('列表里选节点 = 固定该节点（和顶部「切换」等效，写 fixed_node）', (tester) async {
+    final writes = <String>[];
+    final fixed = <String>[];
+    MclashNodeSelector.debugProxiesOverride = () async => [
+      ClashProxiesNode()
+        ..name = "🚀 节点选择"
+        ..type = "Selector"
+        ..all = ["🇯🇵 日本 01", "🇭🇰 香港快线"]
+        ..now = "🇭🇰 香港快线",
+    ];
+    MclashNodeSelector.debugSetNodeOverride = (group, node) async {
+      writes.add("$group->$node");
+      return null;
+    };
+    MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
+      fixed.add(name);
+    };
+    await pump(tester);
+    await expandAll(tester);
+
+    await tester.tap(find.text("日本 01"));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(writes, ["🚀 节点选择->🇯🇵 日本 01"], reason: '列表选节点要真的切内核');
+    expect(
+      fixed,
+      ["🇯🇵 日本 01"],
+      reason: '列表选节点必须固定下来（重启后仍是它），用户报障就是这条',
+    );
+    MclashNodeSelector.debugProxiesOverride = null;
+    MclashNodeSelector.debugSetNodeOverride = null;
+    MclashNodeAutoPick.debugSetFixedNodeOverride = null;
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 50));
+  });
+
+  testWidgets('当前选中：列表里有明确的「当前」标志（不再没有高亮）', (tester) async {
+    MclashNodesStore.instance.setCurrentNodeName("日本 01");
+    await pump(tester, injectSample: false);
+    MclashNodesStore.instance.debugSetNodes(sample, loading: false);
+    await tester.pump(const Duration(milliseconds: 50));
+    await expandAll(tester);
+
+    expect(
+      find.text("当前"),
+      findsOneWidget,
+      reason: '当前节点必须有明确标志（用户报障：列表里看不出哪个是当前）',
+    );
+    expect(find.byIcon(Icons.check), findsWidgets);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 50));
   });

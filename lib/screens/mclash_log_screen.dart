@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:libclash_vpn_service/libclash_vpn_service.dart';
 import 'package:mclash/app/utils/file_utils.dart';
+import 'package:mclash/app/utils/http_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 
@@ -92,8 +93,18 @@ class _MclashLogScreenState extends State<MclashLogScreen> {
 
   String get _content => _tab == 0 ? _appLog : _coreLog;
 
-  Future<void> _copy() async {
+  /// 显示与复制前都要脱敏：日志里可能夹着完整的订阅地址（`?token=...` 就是账号
+  /// 凭证），而这里是 `SelectableText` + 一键复制，等于把账号送出去。
+  String get _safeContent {
     final text = _content;
+    if (text.isEmpty) {
+      return text;
+    }
+    return text.split("\n").map(HttpUtils.redact).join("\n");
+  }
+
+  Future<void> _copy() async {
+    final text = _safeContent;
     if (text.isEmpty) {
       return;
     }
@@ -101,15 +112,17 @@ class _MclashLogScreenState extends State<MclashLogScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("已复制")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("已复制（订阅地址等敏感信息已自动打码，日志文件本身仍可能包含原始地址）"),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
-    final content = _content;
+    final content = _safeContent;
     return Scaffold(
       appBar: AppBar(
         title: Text(tcontext.meta.log),

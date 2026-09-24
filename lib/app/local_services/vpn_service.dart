@@ -495,6 +495,17 @@ class VPNService {
       _serialOp("start", () => _startInner(timeout));
 
   static Future<ReturnResultError?> _startInner(Duration timeout) async {
+    // 幂等：内核已经在跑（或正在起）时，再调一次 start() 绝不能起第二个内核。
+    // 以前只靠 UI 层拦 connecting/disconnecting/reasserting，connected 不拦 ——
+    // 重复 start 会让底层用新进程覆盖 `_proc`，旧内核失去引用、永远不会被回收
+    // （端口占用 + 内存泄漏，断开时也只能杀掉其中一个）。
+    final state = await getState();
+    if (state == FlutterVpnServiceState.connected ||
+        state == FlutterVpnServiceState.connecting ||
+        state == FlutterVpnServiceState.reasserting) {
+      Log.i("VPNService: 内核已处于 ${state.name}，忽略重复的 start 请求");
+      return null;
+    }
     final gateError = await _runConnectGate();
     if (gateError != null) {
       return gateError;

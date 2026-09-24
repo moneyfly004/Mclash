@@ -53,7 +53,9 @@ abstract final class Did {
     if (_did == null || _did!.isEmpty) {
       await _init();
     }
-    return _did!;
+    // 拿不到设备标识时返回空串（以前是 `_did!` 强制解引用 → 直接抛
+    // "Null check operator used on a null value"）。调用方必须自己处理空串。
+    return _did ?? "";
   }
 
   static Future<bool> getFirstTime() async {

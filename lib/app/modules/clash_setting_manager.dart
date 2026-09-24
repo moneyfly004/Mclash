@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:mclash/app/private/app_url_utils_private.dart';
 import 'package:mclash/app/clash/clash_config.dart';
@@ -69,8 +70,18 @@ class ClashSettingManager {
   }
 
   static Future<String> getSecretFromDid() async {
-    String secret = await Did.getDid();
-    return secret.substring(8, 24);
+    final did = await Did.getDid();
+    if (did.length >= 24) {
+      return did.substring(8, 24);
+    }
+    // 正常路径上 DID 一定存在（首次启动就会生成并落盘）。以前这里直接
+    // `substring(8, 24)`：拿不到 DID 时会在连接路径上抛 RangeError。
+    // 兜底用随机值而不是固定常量 —— 控制端口的 secret 不能被任何人猜到。
+    final rnd = Random.secure();
+    return List.generate(
+      16,
+      (_) => "0123456789abcdef"[rnd.nextInt(16)],
+    ).join();
   }
 
   static Future<void> reload() async {
