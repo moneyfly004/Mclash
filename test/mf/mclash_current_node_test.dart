@@ -24,7 +24,7 @@ void main() {
   final proxies = [
     mkGroup("🎯 全球直连", ["DIRECT", "🚀 节点选择"], now: "DIRECT"),
     mkGroup("🚀 节点选择", ["♻️ 自动选择", "美国线路7", "DIRECT"], now: "美国线路7"),
-    group(
+    mkGroup(
       "♻️ 自动选择",
       ["美国线路7", "香港线路7"],
       now: "香港线路7",
