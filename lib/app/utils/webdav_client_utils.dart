@@ -1,9 +1,9 @@
 // ignore_for_file: unused_catch_stack
 import 'dart:async';
+import 'package:punycode_converter/punycode_converter.dart' as punycode;
 
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:webdav_client_plus/webdav_client_plus.dart';
-import 'package:punycode_converter/punycode_converter.dart' as punycode;
 
 class WebdavClientUtils {
   static const String _prefix = "/mclash/";

@@ -46,6 +46,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:libclash_vpn_service/libclash_vpn_service.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_single_instance/flutter_single_instance.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 
 List<String> processArgs = [];
 StartFailedReason? startFailedReason;
@@ -61,6 +62,10 @@ void main(List<String> args) async {
   processArgs = args;
   WidgetsFlutterBinding.ensureInitialized();
   await LocaleSettings.useDeviceLocale();
+  // 先把域名池读进内存：域名池的第一个调用方是 CBoardClient 的构造函数，
+  // 不先 await 的话"上次可用域名/失败冷却"对 API/登录链路永不生效 ——
+  // 用户要的"主域挂了自动换备用域，且记住上次可用的"就会退化成"每次冷启动都先撞主域"。
+  await MclashDomainPool.ensureLoaded();
   await VPNService.initABI();
   await RemoteConfigManager.init();
   await SettingManager.init();
@@ -456,10 +461,7 @@ class MyAppState extends State<MyApp>
       }
       final minimize = await DialogUtils.showConfirmDialog(
         ctx,
-        "关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n"
-        "· 点「确定」：最小化到托盘（想彻底退出时，右键托盘图标 → 退出）\n"
-        "· 点「取消」：完全退出 Mclash，同时停止内核并还原系统代理\n\n"
-        "（本次选择会被记住；下次可直接右键托盘图标操作）",
+        MclashI18n.t.trayShell.closeBody,
       );
       if (minimize == null) {
         return false;
@@ -562,11 +564,11 @@ class MyAppState extends State<MyApp>
     } catch (err) {
       Log.w("quit: _uninit exception ${err.toString()}");
     }
-    try {
-      await VPNService.uninit();
-    } catch (err) {
-      Log.w("quit: 停止内核 exception ${err.toString()}");
-    }
+    // ⚠️ 这里**不能**再调一次 VPNService.uninit()：上面的 Biz.uninit() 内部已经
+    // 调过了（见 app/modules/biz.dart），而 stop 走的是串行队列、只在**并发**时合并
+    // —— 串行两次会老老实实跑两遍（真机日志里就是结尾连续两条
+    // "[perf] 断开：撤系统代理 + 停内核用时 ~4s"），退出要 4~8 秒，
+    // 用户以为"没退出"就去强杀进程，反而把内核留成孤儿。
     Future.delayed(const Duration(seconds: 0), () async {
       await Log.uninit();
       await ServicesBinding.instance.exitApplication(AppExitType.required);

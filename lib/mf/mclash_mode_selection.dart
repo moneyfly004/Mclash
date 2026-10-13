@@ -181,15 +181,30 @@ abstract final class MclashNodeSelector {
     if (nodeName.trim().isEmpty) {
       return ReturnResultError("节点名为空");
     }
+
+    // 「点一下就要立刻看到选中」——先把界面状态落下来（乐观更新），再去动内核。
+    //
+    // 以前是先 `await currentGroupName()`（读内核，最长 5s）再 `setProxiesNode`
+    // （写内核，超时 10s×重试 2 次 = 最长 20s），**之后**才 setCurrentNodeName。
+    // 全量测速（几百个节点）期间内核控制口被挤到超时，用户点一个节点后列表里
+    // 既不出现"当前选中"标志、主页也不换 —— 看起来就是"点了没反应/卡死"。
+    // 现在立刻置为当前节点并固定下来（用户意图本来就该马上生效），内核那两次
+    // HTTP 放到后面做；失败只记账不回滚界面（回滚会让用户觉得"点了又跳回去"，
+    // 而固定节点已经写下，内核就绪/下次连接时自然生效）。
+    if (manual) {
+      lastManualPickAt = DateTime.now();
+      // 这几步必须**同步**做完（不 await）：调用方一点下去，列表的"当前选中"
+      // 标志、主页那一行就要立刻变 —— 见下面 setFixedNode 之前的注释。
+      MclashNodesStore.instance.setCurrentNodeName(nodeName);
+      MclashNodesStore.instance.clearAutoPickNote();
+      MclashNodesStore.instance.notifyCurrentMaybeChanged();
+      // 写 setting.json 是异步的，放最后（它不影响界面即时反馈）。
+      await MclashNodeAutoPick.setFixedNode(nodeName);
+    }
+
     final group = await currentGroupName();
     if (group == null) {
       lastSelectDeferred = true;
-      if (manual) {
-        await MclashNodeAutoPick.setFixedNode(nodeName);
-        // 界面必须马上有"当前选中"标志（内核没跑，连接后就会生效）
-        MclashNodesStore.instance.setCurrentNodeName(nodeName);
-        MclashNodesStore.instance.clearAutoPickNote();
-      }
       Log.i("MclashNodeSelector: 内核未运行，已记住节点 [$nodeName]，连接后生效");
       return null;
     }
@@ -199,14 +214,12 @@ abstract final class MclashNodeSelector {
         ? await override(group, nodeName)
         : await ClashHttpApi.setProxiesNode(group, nodeName);
     if (err == null) {
-      if (manual) {
-        lastManualPickAt = DateTime.now();
-        await MclashNodeAutoPick.setFixedNode(nodeName);
-        MclashNodesStore.instance.setCurrentNodeName(nodeName);
-        MclashNodesStore.instance.clearAutoPickNote();
-      }
-      MclashNodesStore.instance.notifyCurrentMaybeChanged();
       Log.i("MclashNodeSelector: 已把 [$group] 切到 [$nodeName]");
+    } else {
+      Log.w(
+        "MclashNodeSelector: 切换 [$group] -> [$nodeName] 未生效：${err.message}"
+        "（界面保留用户选择，固定节点已写下）",
+      );
     }
     return err;
   }

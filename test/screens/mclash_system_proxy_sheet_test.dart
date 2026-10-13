@@ -6,6 +6,12 @@ import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/mclash_system_proxy_sheet.dart';
 
 void main() {
+
+  // 面板文案现在走 i18n（默认英文），下面断言的是中文 → 固定简中。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   setUp(() {
     MclashNodesStore.instance.debugResetLoadState();
   });

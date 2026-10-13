@@ -102,7 +102,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   final ValueNotifier<String> _proxyNow = ValueNotifier<String>("");
   Timer? _timerProxyMode;
   int _trafficLogTick = 0;
-  bool _proxyNowUpdating = false;
+  /// 是否已有一次「读内核当前节点」在飞；[_proxyNowDirty] 表示读完之后要再读一次
+  /// （合并并发请求，但**绝不丢弃**用户刚触发的那一次）。
+  bool _proxyNowFetching = false;
+  bool _proxyNowDirty = false;
 
   @override
   void initState() {
@@ -204,6 +207,24 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
   }
 
+  /// 连接开关的切换动作（开关本身与"点整张卡"共用同一条路径）。
+  Future<void> _toggleConnection(bool value) async {
+    _setPending(
+      value
+          ? FlutterVpnServiceState.connecting
+          : FlutterVpnServiceState.disconnecting,
+    );
+    if (value && !(await mclashCheckAccountGate(context))) {
+      _clearPending();
+      return;
+    }
+    if (value) {
+      await start("switch");
+    } else {
+      await stop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
@@ -222,7 +243,15 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            Row(
+            // 整张卡都能点（真机走查：只有最右边 ~60px 的开关能点，点卡片中间没反应）。
+            // 手势与开关完全等效：开→连、关→断；被账号闸门拦住时保持原状。
+            InkWell(
+              key: const ValueKey("home-connect-card-tap"),
+              borderRadius: BorderRadius.circular(12),
+              onTap: MclashAccountService.instance.isBlocked
+                  ? null
+                  : () => _toggleConnection(!switchOn),
+              child: Row(
               children: [
                 connecting || disconnecting
                     ? const SizedBox(
@@ -257,10 +286,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                       ),
                       Text(
                         connecting
-                            ? "正在连接…"
+                            ? t.homeScreen.connecting
                             : (disconnecting
-                                  ? "正在断开…"
-                                  : (connected ? "点击开关断开" : "点击开关连接")),
+                                  ? t.homeScreen.disconnecting
+                                  : (connected ? t.homeScreen.tapToDisconnect : t.homeScreen.tapToConnect)),
                         style: const TextStyle(
                           fontSize: 12,
                           color: ThemeDefine.kColorGrey,
@@ -278,26 +307,11 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                     activeTrackColor: ThemeDefine.kColorGreenBright,
                     onChanged: MclashAccountService.instance.isBlocked
                         ? null
-                        : (bool value) async {
-                            _setPending(
-                              value
-                                  ? FlutterVpnServiceState.connecting
-                                  : FlutterVpnServiceState.disconnecting,
-                            );
-                            if (value &&
-                                !(await mclashCheckAccountGate(context))) {
-                              _clearPending();
-                              return;
-                            }
-                            if (value) {
-                              await start("switch");
-                            } else {
-                              await stop();
-                            }
-                          },
+                        : (bool value) => _toggleConnection(value),
                   ),
                 ),
               ],
+              ),
             ),
             const SizedBox(height: 12),
             const SystemProxyWarningBar(),
@@ -334,8 +348,8 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            "当前节点",
+                          Text(
+                            t.homeScreen.currentNode,
                             style: TextStyle(
                               fontSize: 11,
                               color: ThemeDefine.kColorGrey,
@@ -345,7 +359,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                           ValueListenableBuilder<String>(
                             valueListenable: _proxyNow,
                             builder: (context, value, _) => Text(
-                              value.isEmpty ? "未选择节点" : value,
+                              value.isEmpty ? t.homeScreen.noNodeSelected : value,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -368,13 +382,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                         color: ThemeDefine.kColorBlue,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.swap_horiz, size: 14, color: Colors.white),
-                          SizedBox(width: 4),
+                          const Icon(Icons.swap_horiz, size: 14, color: Colors.white),
+                          const SizedBox(width: 4),
                           Text(
-                            "切换",
+                            t.homeScreen.switchAction,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.white,
@@ -429,12 +443,12 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
               ValueListenableBuilder<String>(
                 valueListenable: _trafficSpeed,
-                builder: (context, v, _) => _trafficLine("实时速度", v),
+                builder: (context, v, _) => _trafficLine(t.homeScreen.realtimeSpeed, v),
               ),
               const SizedBox(height: 4),
               ValueListenableBuilder<String>(
                 valueListenable: _trafficTotal,
-                builder: (context, v, _) => _trafficLine("累计流量", v),
+                builder: (context, v, _) => _trafficLine(t.homeScreen.totalTraffic, v),
               ),
             ],
             const Divider(height: 22, thickness: 0.3),
@@ -609,13 +623,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       }
       if (ProfileManager.getCurrent() == null) {
         final msg = switch (result?.status) {
-          MclashSubSyncStatus.ok => "订阅已下载，但配置档还没就绪，请稍后再试。",
-          MclashSubSyncStatus.noSubscription => "该账号暂无可用套餐，请先购买套餐。",
-          MclashSubSyncStatus.notLoggedIn => "登录已失效，请重新登录。",
-          MclashSubSyncStatus.skipped => "正在同步订阅，请稍候再试。",
+          MclashSubSyncStatus.ok => t.homeScreen.subSyncedNotReady,
+          MclashSubSyncStatus.noSubscription => t.homeScreen.noPlan,
+          MclashSubSyncStatus.notLoggedIn => t.homeScreen.loginExpired,
+          MclashSubSyncStatus.skipped => t.homeScreen.syncingWait,
           MclashSubSyncStatus.failed =>
-            "订阅同步失败：${result?.message ?? ""}\n请检查网络后重试。",
-          null => "订阅同步失败，请稍后重试。",
+            t.homeScreen.syncFailedNetwork(message: result?.message ?? ""),
+          null => t.homeScreen.syncFailed,
         };
         await DialogUtils.showAlertDialog(context, msg, withVersion: true);
         return false;
@@ -864,12 +878,39 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     await _updateConnections();
 
     unawaited(() async {
-      await Future<void>.delayed(const Duration(seconds: 3));
+      // 连上以后**尽快**把「当前节点」读出来显示（而不是死等 3 秒才读一次）。
+      //
+      // 真机报障：「连上后主页那一行当前节点要等好一会才出现」。
+      // 旧实现固定等 3 秒再读一次内核；而这时全量测速往往刚开始（500+ 节点要跑
+      // 好几分钟），控制口一旦被挤占，那唯一一次读取就超时了 —— 界面上就是长时间
+      // 空白。现在改成短间隔重试：内核一就绪就显示，最多重试 [retryDelays] 次。
+      const retryDelays = <Duration>[
+        Duration(milliseconds: 250),
+        Duration(milliseconds: 700),
+        Duration(milliseconds: 1500),
+        Duration(seconds: 3),
+        Duration(seconds: 5),
+      ];
+      for (var i = 0; i < retryDelays.length; i++) {
+        await Future<void>.delayed(retryDelays[i]);
+        if (_state != FlutterVpnServiceState.connected) {
+          return;
+        }
+        try {
+          await MclashKernelSync.syncFromKernel();
+          await _updateProxyNow();
+        } catch (e) {
+          Log.w("首页当前节点：读取失败（第 ${i + 1} 次）$e");
+        }
+        if (_proxyNow.value.isNotEmpty &&
+            MclashNodesStore.instance.selectedNodeName.isNotEmpty) {
+          break;
+        }
+      }
       if (_state != FlutterVpnServiceState.connected) {
         return;
       }
       _startProxyModeTimer();
-      unawaited(MclashKernelSync.syncFromKernel());
       const Duration duration = Duration(seconds: 2);
       _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
         if (AppLifecycleStateNofity.isPaused()) {
@@ -900,15 +941,16 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _updateProxyNow() async {
-    if (_state != FlutterVpnServiceState.connected) {
-      // 非连接态由 _disconnectToCore() 负责清空显示，这里不要动 ——
-      // 否则内核重启/短暂 reasserting 会把节点名误清成空白。
-      return;
-    }
     if (AppLifecycleStateNofity.isPaused()) {
       return;
     }
-    if (_proxyNowUpdating) {
+    if (_state != FlutterVpnServiceState.connected) {
+      // **未连接**也要把「当前选的是哪个节点」显示出来。
+      //
+      // 旧实现在这里直接 return（理由是"清空由 _disconnectToCore 负责"），结果是
+      // 未连接时在节点列表/切换弹层里点选节点，主页那一行**永远不动** ——
+      // 用户报障"点了没反应"。用户选中的节点是本地事实，不需要内核在线。
+      _showNodeFromLocal();
       return;
     }
     if (ClashSettingManager.getConfigsMode() == ClashConfigsMode.direct) {
@@ -917,40 +959,60 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       _proxyNow.value = "DIRECT";
       return;
     }
-    _proxyNowUpdating = true;
-    try {
-      final result = await ClashHttpApi.getProxies();
-      final proxies = result.data;
-      if (result.error != null || proxies == null || proxies.isEmpty) {
-        // 内核暂时读不到（正忙着测速 / 重载内核时控制口会超时）：用本地记录的
-        // 当前节点名撑住那一行。旧实现在这里赋空串 —— 用户看到的就是
-        // "已连上但当前节点空白 / 点一次闪一下就没了"（真机报障）。
-        Log.i(
-          "首页当前节点：内核暂时读不到，沿用本地记录（${result.error?.message ?? "无数据"}）",
-        );
-        _showNodeFromLocal();
-        return;
-      }
-      // 以内核事实为准：有固定节点就是它，否则取生效组 now 链路上的真实节点。
-      final name = MclashCurrentNode.resolveName(
-        proxies,
-        fixed: MclashNodeAutoPick.fixedNode(),
-        groupName: MclashNodeSelector.groupNameForMode(proxies),
-      );
-      if (name.isEmpty) {
-        Log.i("首页当前节点：内核还没给出当前节点，沿用本地记录");
-        _showNodeFromLocal();
-        return;
-      }
-      MclashNodesStore.instance.setCurrentNodeName(name);
-      final delay =
-          MclashNodesStore.instance.latencyByName()[name] ??
-          MclashCurrentNode.delayOf(proxies, name);
-      _proxyNow.value = formatCurrentProxyName([name], delayMs: delay);
-    } finally {
-      // 无论成功失败都要复位：卡住的话后面所有刷新都会被丢掉（节点名再也不更新）
-      _proxyNowUpdating = false;
+
+    // 先把用户刚选中的节点**立刻**回显出来（不等内核 HTTP）。
+    _showNodeFromLocal();
+
+    if (_proxyNowFetching) {
+      // 已有一次在读：**不丢弃**这次请求，只标记"读完再读一次"。
+      //
+      // 旧实现（`if (_proxyNowUpdating) return;`）会把用户点选节点触发的这次刷新
+      // 整次丢掉，主页最长要等下一个 15s 定时器才更新（真机报障：点了节点
+      // 主页迟迟不显示；测速期间更明显）。
+      _proxyNowDirty = true;
+      return;
     }
+    _proxyNowFetching = true;
+    try {
+      do {
+        _proxyNowDirty = false;
+        await _refreshProxyNowFromKernel();
+      } while (_proxyNowDirty);
+    } finally {
+      _proxyNowFetching = false;
+    }
+  }
+
+  /// 从内核读"现在用的是哪个节点"并更新那一行。
+  Future<void> _refreshProxyNowFromKernel() async {
+    final result = await ClashHttpApi.getProxies();
+    final proxies = result.data;
+    if (result.error != null || proxies == null || proxies.isEmpty) {
+      // 内核暂时读不到（正忙着测速 / 重载内核时控制口会超时）：用本地记录的
+      // 当前节点名撑住那一行。旧实现在这里赋空串 —— 用户看到的就是
+      // "已连上但当前节点空白 / 点一次闪一下就没了"（真机报障）。
+      Log.i(
+        "首页当前节点：内核暂时读不到，沿用本地记录（${result.error?.message ?? "无数据"}）",
+      );
+      _showNodeFromLocal();
+      return;
+    }
+    // 以内核事实为准：有固定节点就是它，否则取生效组 now 链路上的真实节点。
+    final name = MclashCurrentNode.resolveName(
+      proxies,
+      fixed: MclashNodeAutoPick.fixedNode(),
+      groupName: MclashNodeSelector.groupNameForMode(proxies),
+    );
+    if (name.isEmpty) {
+      Log.i("首页当前节点：内核还没给出当前节点，沿用本地记录");
+      _showNodeFromLocal();
+      return;
+    }
+    MclashNodesStore.instance.setCurrentNodeName(name);
+    final delay =
+        MclashNodesStore.instance.latencyByName()[name] ??
+        MclashCurrentNode.delayOf(proxies, name);
+    _proxyNow.value = formatCurrentProxyName([name], delayMs: delay);
   }
 
   /// 内核读不到时，用本地记录的当前节点名（用户刚切的那个 / 固定节点）把那一行撑住。
@@ -1021,7 +1083,7 @@ class SystemProxyWarningBar extends StatelessWidget {
                     VPNService.systemProxyWarning.value = "";
                   }
                 },
-                child: const Text("重设"),
+                child: Text(t.homeScreen.resetProxy),
               ),
             ],
           ),

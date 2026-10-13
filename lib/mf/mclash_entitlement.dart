@@ -11,6 +11,7 @@ import 'package:mclash/app/utils/did.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 import 'package:path/path.dart' as path;
 
 /// 授权租约的判定结果。
@@ -389,11 +390,11 @@ abstract final class MclashEntitlement {
       Log.w("MclashEntitlement: 检测到系统时间回拨（now=$at lastSeen=$seen）→ 必须联网校验");
       final ok = allowNetwork && await _verifyOnline();
       if (!ok) {
-        return const MclashEntitlementDecision(
+        return MclashEntitlementDecision(
           false,
           MclashEntitlementState.tampered,
-          "授权状态异常",
-          "检测到系统时间被回拨（或本地授权数据被改动），请联网完成一次校验后再连接。",
+          MclashI18n.t.entitlementMsg.tamperedTitle,
+          MclashI18n.t.entitlementMsg.tamperedClock,
         );
       }
       await load(force: true);
@@ -463,18 +464,18 @@ abstract final class MclashEntitlement {
       final ok = allowNetwork && await _verifyOnline();
       if (!ok) {
         if (_tampered) {
-          return const MclashEntitlementDecision(
+          return MclashEntitlementDecision(
             false,
             MclashEntitlementState.tampered,
-            "授权状态异常",
-            "本地授权数据已损坏或被改动，请联网完成一次校验后再连接。",
+            MclashI18n.t.entitlementMsg.tamperedTitle,
+            MclashI18n.t.entitlementMsg.tamperedLocal,
           );
         }
-        return const MclashEntitlementDecision(
+        return MclashEntitlementDecision(
           false,
           MclashEntitlementState.needVerify,
-          "需要联网校验",
-          "无法确认套餐状态：请先连接网络并登录账号，完成一次校验后再连接。",
+          MclashI18n.t.entitlementMsg.needVerifyTitle,
+          MclashI18n.t.entitlementMsg.needVerifyFirst,
         );
       }
       return _decideAfterVerify("首次校验");
@@ -497,11 +498,11 @@ abstract final class MclashEntitlement {
       );
       return MclashEntitlementDecision.allow;
     }
-    return const MclashEntitlementDecision(
+    return MclashEntitlementDecision(
       false,
       MclashEntitlementState.verifyFailed,
-      "无法校验套餐状态",
-      "已超过校验宽限期且无法连接服务器，请检查网络后重试（如刚续费，请重新登录）。",
+      MclashI18n.t.entitlementMsg.verifyFailedTitle,
+      MclashI18n.t.entitlementMsg.verifyFailedText,
     );
   }
 
@@ -521,11 +522,11 @@ abstract final class MclashEntitlement {
     }
     if (_verifiedAt == null) {
       Log.w("MclashEntitlement: $why 后仍没有校验记录 → 拒绝");
-      return const MclashEntitlementDecision(
+      return MclashEntitlementDecision(
         false,
         MclashEntitlementState.needVerify,
-        "需要联网校验",
-        "无法确认套餐状态，请联网后重试。",
+        MclashI18n.t.entitlementMsg.needVerifyTitle,
+        MclashI18n.t.entitlementMsg.needVerifyRetry,
       );
     }
     return MclashEntitlementDecision.allow;
@@ -535,17 +536,20 @@ abstract final class MclashEntitlement {
       MclashEntitlementDecision(
         false,
         MclashEntitlementState.blocked,
-        "账号受限",
-        _blockReason.isEmpty ? "账号或套餐已被禁用，无法连接。" : _blockReason,
+        MclashI18n.t.entitlementMsg.restrictedTitle,
+        _blockReason.isEmpty
+            ? MclashI18n.t.entitlementMsg.restrictedFallback
+            : _blockReason,
       );
 
   static MclashEntitlementDecision _expiredDecision(DateTime expire) =>
       MclashEntitlementDecision(
         false,
         MclashEntitlementState.expired,
-        "套餐已到期",
-        "您的套餐已于 ${expire.toIso8601String().split("T").first} 到期，"
-            "本地订阅配置已清除。续费后重新登录即可恢复。",
+        MclashI18n.t.entitlementMsg.expiredTitle,
+        MclashI18n.t.entitlementMsg.expiredText(
+          date: expire.toIso8601String().split("T").first,
+        ),
       );
 
   static Future<bool> _verifyOnline() async {

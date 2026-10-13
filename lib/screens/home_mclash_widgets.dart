@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_entitlement.dart';
 import 'package:mclash/screens/dialog_utils.dart';
@@ -13,6 +14,7 @@ import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_node_country.dart';
+import 'package:mclash/screens/mclash_country_label.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
@@ -25,12 +27,13 @@ class MclashSubscriptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final acc = MclashAccountService.instance;
+    final t = Translations.of(context);
     final info = MclashAccountInfo(acc.dashboard, acc.subscription);
     final blocked = acc.isBlocked;
     final parts = <String>[
       if (info.planName.isNotEmpty) info.planName,
-      if (info.expireDate.isNotEmpty) "到期 ${info.expireDate}",
-      if (info.deviceText != null) "设备 ${info.deviceText}",
+      if (info.expireDate.isNotEmpty) t.homeScreen.expiresOn(date: info.expireDate),
+      if (info.deviceText != null) t.homeScreen.devicesText(text: info.deviceText!),
     ];
     final text = blocked ? "${acc.blockEmoji} ${acc.blockTitle}" : parts.join(" · ");
     if (text.isEmpty) {
@@ -92,6 +95,7 @@ class MclashDeviceQuotaBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     return AnimatedBuilder(
       animation: MclashAccountService.instance,
       builder: (context, _) {
@@ -134,7 +138,7 @@ class MclashDeviceQuotaBar extends StatelessWidget {
                         const MclashDevicesScreen(autoOpenUpgrade: true),
                   ),
                 ),
-                child: const Text("升级"),
+                child: Text(t.homeScreen.upgrade),
               ),
             ],
           ),
@@ -155,6 +159,7 @@ class MclashQuickCountries extends StatelessWidget {
       animation: MclashNodesStore.instance,
       builder: (context, _) {
         final store = MclashNodesStore.instance;
+    final t = Translations.of(context);
         final codes = store.topCountries(limit: kCountryCount);
         if (codes.isEmpty) {
           return const SizedBox.shrink();
@@ -168,8 +173,8 @@ class MclashQuickCountries extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Text(
-                      "快速筛选国家",
+                    Text(
+                      t.homeScreen.quickCountries,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: ThemeConfig.kFontWeightListItem,
@@ -177,7 +182,7 @@ class MclashQuickCountries extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      "${store.nodes.length} 个节点",
+                      t.homeScreen.nodeCount(count: store.nodes.length),
                       style: const TextStyle(
                         fontSize: 11,
                         color: ThemeDefine.kColorGrey,
@@ -189,12 +194,12 @@ class MclashQuickCountries extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Tooltip(
-                    message: "在所有国家的节点里挑延迟最低的可用节点（自动模式）",
+                    message: t.homeScreen.autoBestTip,
                     child: ActionChip(
                       key: const ValueKey("home-country-auto-best"),
                       avatar: const Icon(Icons.auto_awesome, size: 15),
-                      label: const Text(
-                        "自动最优",
+                      label: Text(
+                        t.homeScreen.autoBest,
                         style: TextStyle(fontSize: 12),
                       ),
                       onPressed: () => _onTapAutoBest(context),
@@ -240,14 +245,13 @@ class MclashQuickCountries extends StatelessWidget {
     if (index >= codes.length) {
       return const SizedBox.shrink();
     }
+    final t = Translations.of(context);
     final code = codes[index];
     final ms = latency[code];
-    final label = code == "XX"
-        ? "其他"
-        : MclashNodeCountry.displayName(code);
+    final label = MclashCountryLabel.of(context, code);
     return Tooltip(
       // 悬停提示要说清"点了会发生什么"：在该国里自动挑最优，并固定下来。
-      message: "自动选择「$label」延迟最低的可用节点，并固定使用它",
+      message: t.homeScreen.pickCountryTip(label: label),
       child: InkWell(
         key: ValueKey("home-country-$code"),
         borderRadius: BorderRadius.circular(10),
@@ -289,6 +293,7 @@ class MclashQuickCountries extends StatelessWidget {
   }
 
   Future<void> _onTapAutoBest(BuildContext context) async {
+    final t = Translations.of(context);
     // 「自动最优」= 回到自动模式：清掉固定节点，然后在**所有国家**的节点里重新挑
     // 一次延迟最低的可用节点。
     //
@@ -307,15 +312,19 @@ class MclashQuickCountries extends StatelessWidget {
       return;
     }
     if (picked != null && picked.isNotEmpty) {
-      // 界面立刻跟着变（内核事实稍后会再对齐一次）
+      // 界面立刻跟着变（内核事实稍后会再对齐一次）。
       MclashNodesStore.instance.setCurrentNodeName(picked);
+      // ⚠️ 必须显式通知一次：主页那一行绑的是 `onNodeSwitched`（→ `_updateProxyNow`），
+      // 只有 `setCurrentNodeName` 的话它要等 15 秒周期轮询才刷新 ——
+      // 真机走查实测「自动最优」后主页最长 ~11s 还显示旧节点（手动点选只要 23~702ms）。
+      MclashNodesStore.instance.notifyCurrentMaybeChanged();
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           picked == null
-              ? "已在自动模式（没有找到更优的可用节点）"
-              : "已切换到最优节点：$picked",
+              ? t.homeScreen.autoNoBetter
+              : t.homeScreen.switchedBest(name: picked),
         ),
       ),
     );
@@ -326,15 +335,14 @@ class MclashQuickCountries extends StatelessWidget {
     MclashNodesStore store,
     String code,
   ) async {
+    final t = Translations.of(context);
     // 该国延迟最低的可用节点（测过速的才算数）；实在没有可用的才退回第一个。
     final node =
         store.bestNodeOfCountry(code) ?? store.preferredNodeOfCountry(code);
     if (node == null) {
       return;
     }
-    final country = code == "XX"
-        ? "其他"
-        : MclashNodeCountry.displayName(code);
+    final country = MclashCountryLabel.of(context, code);
     // 和「切换」/节点列表等效：切内核 + 固定下来（下次连接仍是它）。
     final err = await MclashNodeSelector.select(node.name);
     if (!context.mounted) {
@@ -345,8 +353,8 @@ class MclashQuickCountries extends StatelessWidget {
       SnackBar(
         content: Text(
           err == null
-              ? "已切换到 $country 最快节点：${node.name}$ms"
-              : "已筛选 $country；切换节点失败：${err.message}",
+              ? t.homeScreen.switchedCountry(country: country, node: node.name, ms: ms)
+              : t.homeScreen.filterCountryFailed(country: country, err: err.message),
         ),
       ),
     );
@@ -364,14 +372,16 @@ Future<_DeviceFullChoice?> _showDeviceFullDialog(
   if (!context.mounted) {
     return null;
   }
+  final t = Translations.of(context);
   final used = acc.info.deviceUsed ?? 0;
   final limit = acc.info.deviceLimit ?? 0;
-  final countText = (used > 0 && limit > 0) ? "当前设备 $used/$limit 台\n\n" : "";
+  final countText = (used > 0 && limit > 0)
+      ? t.homeScreen.deviceFullCount(used: used, limit: limit)
+      : "";
   final text =
       "${acc.blockEmoji}\n${acc.blockTitle}\n\n"
       "$countText"
-      "升级设备数量后可立即恢复连接（推荐）；"
-      "也可以先删除不常用的设备腾出名额。";
+      "${t.homeScreen.deviceFullUpgradeHint}";
   return showDialog<_DeviceFullChoice>(
     context: context,
     routeSettings: const RouteSettings(name: "showDeviceFullDialog"),
@@ -394,19 +404,19 @@ Future<_DeviceFullChoice?> _showDeviceFullDialog(
           children: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, null),
-              child: const Text("稍后"),
+              child: Text(t.homeScreen.later),
             ),
             const SizedBox(width: 10),
             ElevatedButton(
               onPressed: () =>
                   Navigator.pop(dialogContext, _DeviceFullChoice.manage),
-              child: const Text("设备管理"),
+              child: Text(t.meScreen.deviceManagement),
             ),
             const SizedBox(width: 10),
             ElevatedButton(
               onPressed: () =>
                   Navigator.pop(dialogContext, _DeviceFullChoice.upgrade),
-              child: const Text("升级设备数量"),
+              child: Text(t.homeScreen.upgradeDeviceCount),
             ),
           ],
         ),
@@ -486,6 +496,7 @@ String _quotaHintShownKey = "";
 ///
 /// 第 5 台设备（上限 5 台）就属于这种情况 —— 它在授权范围内，必须放行。
 void _hintDeviceQuotaIfNeeded(BuildContext context, MclashAccountService acc) {
+  final t = Translations.of(context);
   final hint = acc.deviceQuotaHint;
   if (hint.isEmpty) {
     return;
@@ -502,7 +513,7 @@ void _hintDeviceQuotaIfNeeded(BuildContext context, MclashAccountService acc) {
       content: Text(hint),
       duration: const Duration(seconds: 6),
       action: SnackBarAction(
-        label: "升级",
+        label: t.homeScreen.upgrade,
         onPressed: () {
           if (!context.mounted) {
             return;
@@ -573,7 +584,8 @@ Future<void> _showEntitlementGateDialog(
   BuildContext context,
   MclashEntitlementDecision decision,
 ) async {
-  final title = decision.title.isEmpty ? "无法连接" : decision.title;
+  final t = Translations.of(context);
+  final title = decision.title.isEmpty ? t.homeScreen.cannotConnect : decision.title;
   final message = decision.message.isEmpty ? title : decision.message;
   try {
     await DialogUtils.showAlertDialog(
@@ -594,18 +606,23 @@ class MclashHomeHeader extends StatelessWidget {
 
   static const Duration kStaleAfter = Duration(minutes: 5);
 
-  static String freshnessText(DateTime? cachedAt, {DateTime? now}) {
+  /// 静态方法拿不到 context，所以文案库由调用方传进来（测试也照此调用）。
+  static String freshnessText(
+    Translations t,
+    DateTime? cachedAt, {
+    DateTime? now,
+  }) {
     if (cachedAt == null) {
-      return "尚未同步 · 点击刷新";
+      return t.homeScreen.freshnessNever;
     }
     final diff = (now ?? DateTime.now()).difference(cachedAt);
     if (diff.inMinutes < 1) {
-      return "刚刚更新 · 点右侧管理设备";
+      return t.homeScreen.freshnessJustNow;
     }
     if (diff < kStaleAfter) {
-      return "${diff.inMinutes} 分钟前更新 · 点右侧管理设备";
+      return t.homeScreen.freshnessMinutes(minutes: diff.inMinutes);
     }
-    return "${diff.inMinutes} 分钟前更新 · 点击刷新";
+    return t.homeScreen.freshnessStale(minutes: diff.inMinutes);
   }
 
   static bool isStale(DateTime? cachedAt, {DateTime? now}) {
@@ -679,7 +696,7 @@ class MclashHomeHeader extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        freshnessText(cachedAt),
+                        freshnessText(t, cachedAt),
                         style: const TextStyle(
                           fontSize: 10.5,
                           color: ThemeDefine.kColorGrey,
@@ -719,8 +736,8 @@ class MclashHomeHeader extends StatelessWidget {
                 height: 1.15,
               ),
             ),
-            const Text(
-              "订阅自动同步",
+            Text(
+              t.homeScreen.subscriptionAutoSync,
               style: TextStyle(
                 fontSize: 10.5,
                 color: ThemeDefine.kColorGrey,
@@ -739,14 +756,15 @@ class MclashHomeHeader extends StatelessWidget {
     required bool blocked,
     required String blockedTitle,
   }) {
+    final t = Translations.of(context);
     final used = info.deviceUsed;
     final limit = info.deviceLimit;
     final deviceText = (used != null || limit != null)
         ? "${used ?? "-"}/${limit ?? "-"}"
         : (info.deviceText ?? "").replaceAll(" ", "");
     final bits = <String>[
-      if (info.expireDate.isNotEmpty) "到期 ${info.expireDate}",
-      if (deviceText.isNotEmpty) "设备 $deviceText",
+      if (info.expireDate.isNotEmpty) t.homeScreen.expiresOn(date: info.expireDate),
+      if (deviceText.isNotEmpty) t.homeScreen.devicesText(text: deviceText),
     ];
     final text = blocked ? blockedTitle : bits.join(" · ");
     if (text.isEmpty) {

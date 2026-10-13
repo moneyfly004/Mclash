@@ -9,6 +9,7 @@ import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_node.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_cache.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
@@ -29,6 +30,10 @@ class MclashNodesStore extends ChangeNotifier {
   int _testTotal = 0;
 
   int _connectEpoch = 0;
+
+  /// 已经为哪个 epoch 启动了「连接后选路」流程（避免重复触发）。
+  int _connectFlowEpoch = -1;
+
 
   bool _initialized = false;
 
@@ -52,6 +57,10 @@ class MclashNodesStore extends ChangeNotifier {
   int get testing => _testing;
   int get testTotal => _testTotal;
   bool get isTesting => _testing > 0;
+
+  /// 该节点此刻是否正在被探测（界面只给这些行显示转圈）。
+  bool isNodeInFlight(String name) =>
+      MclashSpeedTester.instance.inFlight.contains(name);
 
   Map<String, int>? _bestLatencyCache;
   List<String>? _countriesCache;
@@ -129,11 +138,32 @@ class MclashNodesStore extends ChangeNotifier {
     Map<String, String> params,
   ) {
     MclashSpeedTester.instance.resetKernelCache();
-    _connectEpoch++;
+
+    // epoch 只代表「这一次连接」：**离开连接态**（断开/被系统撤销）才算一次结束。
+    //
+    // 以前是每个状态事件都 `_connectEpoch++` —— 而内核在连接过程中会连发好几个
+    // 状态（connecting → connected → reasserting → connected…）。于是连上之后那段
+    // 全量测速（500+ 节点要跑好几分钟）期间随便来一个事件，`_onConnected` 里的
+    // `epoch != _connectEpoch` 就成立并直接 return：**自动选最优节点整段被作废**、
+    // 节点也不会被固定下来。
+    // 真机表现就是「连上了，主页当前节点迟迟不定 / 一直不是最优节点」。
     if (state == FlutterVpnServiceState.connected) {
+      // 同一次连接里内核可能连发多次 connected（重载/自愈）：只处理第一次，
+      // 否则会重复跑全量测速（500+ 节点）——既拖慢选路也把机器拖卡。
+      if (_connectFlowEpoch == _connectEpoch) {
+        Log.i("MclashNodesStore: 本次连接的选路已在进行，忽略重复的 connected 事件");
+        return;
+      }
+      _connectFlowEpoch = _connectEpoch;
       Log.i("MclashNodesStore: 连接成功，自动开始测速");
       unawaited(_onConnected(_connectEpoch));
+      return;
     }
+    if (state == FlutterVpnServiceState.reasserting ||
+        state == FlutterVpnServiceState.connecting) {
+      return;
+    }
+    _connectEpoch++;
   }
 
   Future<void> _onConnected(int epoch) async {
@@ -141,15 +171,44 @@ class MclashNodesStore extends ChangeNotifier {
       return;
     }
 
-    await testAll();
+    final lastTest = _lastFullTestAt;
+    final fresh =
+        lastTest != null &&
+        DateTime.now().difference(lastTest) < _fullTestFreshWindow;
 
+    if (fresh) {
+      // 延迟数据是新的（刚才那次全量测速的结果）→ 直接用它定下当前节点。
+      Log.i(
+        "MclashNodesStore: 连接成功，延迟数据是新的"
+        "（${DateTime.now().difference(lastTest).inSeconds}s 前测过）→ 直接选路，不重复全量测速",
+      );
+      await _autoPickAndBroadcast(epoch, persist: true);
+      return;
+    }
+
+    await _autoPickAndBroadcast(epoch, persist: false);
     if (epoch != _connectEpoch) {
       return;
     }
 
+    Log.i("MclashNodesStore: 连接成功，自动开始测速");
+    await testAll();
+    if (epoch != _connectEpoch) {
+      return;
+    }
+
+    // ③ 用完整测速数据再优化一次，并把选中的节点固定下来。
+    await _autoPickAndBroadcast(epoch, persist: true);
+  }
+
+  Future<void> _autoPickAndBroadcast(
+    int epoch, {
+    required bool persist,
+  }) async {
     try {
       await MclashNodeAutoPick.selectBestOnConnect(
         cachedLatency: latencyByName(),
+        persist: persist,
         onNote: (note) {
           if (epoch != _connectEpoch) {
             return;
@@ -166,6 +225,11 @@ class MclashNodesStore extends ChangeNotifier {
       Log.w("MclashNodesStore: 自动选最优节点失败 $e");
     }
   }
+
+  /// 全量测速结果被认为「还新鲜」的窗口：连接时若在此窗口内测过，就不再重复测。
+  static const Duration _fullTestFreshWindow = Duration(minutes: 3);
+
+  DateTime? _lastFullTestAt;
 
   Map<String, int> latencyByName() {
     final out = <String, int>{};
@@ -342,6 +406,12 @@ class MclashNodesStore extends ChangeNotifier {
     if (_nodes.isEmpty) {
       return;
     }
+    if (isTesting) {
+      // 已有一次全量测速在跑（订阅更新/连接两处都可能触发）：不要叠第二轮 ——
+      // 两组 worker 一起抢 CPU/网络/控制口，进度条乱跳、耗时翻倍，界面更卡。
+      Log.i("MclashNodesStore: 已有测速在进行，跳过这一轮");
+      return;
+    }
     final src = subset ?? _nodes;
     final targets = src
         .where((n) => n.name.isNotEmpty && n.server.isNotEmpty && n.port > 0)
@@ -353,12 +423,21 @@ class MclashNodesStore extends ChangeNotifier {
     _testTotal = targets.length;
     notifyListeners();
     var lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
+    // 这次测速开始时所属的"连接会话"：会话一结束（断开/内核被撤）就收工，
+    // 不该在用户已经断开后继续抢资源。
+    //
+    // 注意**不能**写成"当前没连接就停"：手动点「全部测速」时用户往往还没连，
+    // 那样会被立刻中止（测试也已抓到这个回归）。
+    final sessionAtStart = _connectEpoch;
     await MclashSpeedTester.instance.testAll(
       targets,
+      shouldStop: () => _connectEpoch != sessionAtStart,
       onProgress: (done, total) {
         _testing = total - done;
         final now = DateTime.now();
-        if (now.difference(lastNotify) < const Duration(milliseconds: 500)) {
+        // 1s 一次就够：界面只需要看到进度在走，500ms 一次会把列表/首页卡片
+        // 每秒重建两遍（测速要跑好几分钟）。
+        if (now.difference(lastNotify) < const Duration(milliseconds: 1000)) {
           return;
         }
         lastNotify = now;
@@ -369,18 +448,19 @@ class MclashNodesStore extends ChangeNotifier {
     _testing = 0;
     _invalidateDerived();
     notifyListeners();
+    _lastFullTestAt = DateTime.now();
     await MclashNodesCache.save(_nodes);
     Log.i("MclashNodesStore: 测速完成，已写缓存");
 
     final missing = MclashSpeedTester.missingInKernel;
     if (missing > 0) {
-      autoPickNote = "订阅里有 $missing 个新节点还没进内核，正在重载…";
+      autoPickNote = MclashI18n.t.nodeAuto.newNodesReloading(missing: missing);
       notifyListeners();
       Log.w(
         "MclashNodesStore: 有 $missing 个节点不在当前内核里 → 触发内核重载（订阅内容已变化）",
       );
       await MclashSubscriptionService.applyToRunningKernel();
-      autoPickNote = "内核已按新订阅重载，请再点一次测速";
+      autoPickNote = MclashI18n.t.nodeAuto.kernelReloadedRetest;
       notifyListeners();
     }
   }

@@ -23,6 +23,9 @@ abstract final class MclashDomainPool {
   static const List<String> kApiHosts = <String>[
     'new.moneyfly.top',
     'dollarsfly.top',
+    // 订阅域也放进 API 候选（排在最后，只在前两个都不可用时才用）：
+    // 用户要求"订阅域名也有多个，都要能顶上"。
+    'sub.dollarsfly.top',
   ];
 
   /// 订阅域名：订阅链接可以换用这些 host。
@@ -93,6 +96,22 @@ abstract final class MclashDomainPool {
     // 先标记已加载，避免并发调用重复读盘、也避免读盘异常时反复重入。
     _loaded = true;
     unawaited(_load());
+  }
+
+  /// **等**磁盘状态读进内存（真·异步加载）。
+  ///
+  /// 为什么必须有它（真机报错链）：旧实现只有 `_loadIfNeeded()` 里的 `unawaited(_load())`，
+  /// 而域名池的**第一个调用方**是 `CBoardClient` 的构造函数 —— 构造那一刻状态必然还是
+  /// 空默认值，候选表当场被 `List.unmodifiable` 冻结。结果：磁盘上记着的
+  /// "上次可用域名"和失败冷却对 **API/登录链路永远不生效**，每次冷启动都固定先撞
+  /// `new.moneyfly.top`（用户要的"自动无感换域名"实际没生效）。
+  /// App 启动时先 await 一次即可（见 main.dart）。
+  static Future<void> ensureLoaded() async {
+    if (_loaded) {
+      return;
+    }
+    _loaded = true;
+    await _load();
   }
 
   static Future<void> _load() async {
@@ -304,6 +323,28 @@ abstract final class MclashDomainPool {
 
     final out = <String>[];
     for (final h in subscriptionHostOrder(uri.host)) {
+      final next = uri.replace(host: h);
+      if (!out.contains(next.toString())) {
+        out.add(next.toString());
+      }
+    }
+    return out;
+  }
+
+  /// 任意 **API 域名**下的地址 → 逐个候选 URL（保留 path/query）。
+  ///
+  /// 用于不走 CBoardClient 的站点请求（例如启动时的 `/api/v1/config`）：
+  /// 那个请求以前把 host 写死在 `new.moneyfly.top`，是全 App **第一个**站点请求，
+  /// 主域被墙时它一定失败、而且完全不轮换。
+  static List<String> apiUrlsFor(String url) {
+    _loadIfNeeded();
+    final text = url.trim();
+    final uri = Uri.tryParse(text);
+    if (uri == null || uri.host.isEmpty) {
+      return text.isEmpty ? const <String>[] : <String>[text];
+    }
+    final out = <String>[];
+    for (final h in _orderedHosts(kApiHosts, lastGoodApiHost())) {
       final next = uri.replace(host: h);
       if (!out.contains(next.toString())) {
         out.add(next.toString());

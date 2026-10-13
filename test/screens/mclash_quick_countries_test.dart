@@ -10,6 +10,16 @@ import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 
 void main() {
+
+  // 固定语言：国家/地区名现在走 i18n，而测试环境的语言取决于**宿主系统** ——
+  // 不固定就会出现"英文机器过、中文机器挂"。这里固定成简中，让断言与夹具里的
+  // 中文节点名一致。
+  // ⚠️ 必须用异步 setLocale（zh-CN 是 deferred 加载的），且只能在 setUpAll 里调：
+  //    放进 testWidgets 的 fake async 里会永远等不到 loadLibrary（会把整套测试挂住）。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   final sample = <MclashNode>[
     MclashNode(name: "🇭🇰 香港 01", type: "ss", server: "1.1.1.1", port: 443)
       ..latencyMs = 120

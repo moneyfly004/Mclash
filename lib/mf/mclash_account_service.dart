@@ -12,6 +12,7 @@ import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_entitlement.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 import 'package:mclash/mf/mclash_subscription_notice.dart';
 import 'package:path/path.dart' as path;
 
@@ -308,7 +309,7 @@ class MclashAccountService extends ChangeNotifier {
 
   Future<void> _forceLogoutForBan() async {
     final reason =
-        blockText.isEmpty ? "您的账号已被禁用，无法继续使用服务。" : blockText;
+        blockText.isEmpty ? MclashI18n.t.accountBlock.banFallback : blockText;
     if (_pendingLoginNotice.isEmpty) {
       _pendingLoginNotice = reason;
     }
@@ -403,8 +404,7 @@ class MclashAccountService extends ChangeNotifier {
     }
     final limit = info.deviceLimit ?? 0;
     final used = info.deviceUsed ?? 0;
-    return "设备名额已用满（$used/$limit）：本机仍在授权范围内，可正常连接。"
-        "如需再添加新设备，请升级设备数量或先删除不用的设备。";
+    return MclashI18n.t.accountBlock.quotaFull(used: used, limit: limit);
   }
 
   bool get blockingDataFresh => _fresh;
@@ -480,19 +480,19 @@ class MclashAccountService extends ChangeNotifier {
   String get blockTitle {
     switch (blockKind) {
       case MclashBlockKind.expired:
-        return "套餐已到期";
+        return MclashI18n.t.accountBlock.titleExpired;
       case MclashBlockKind.deviceFull:
-        return "设备数量已达上限";
+        return MclashI18n.t.accountBlock.titleDeviceFull;
       case MclashBlockKind.accountDisabled:
-        return "账号已被禁用";
+        return MclashI18n.t.accountBlock.titleAccountDisabled;
       case MclashBlockKind.subscriptionDisabled:
-        return "套餐已被禁用";
+        return MclashI18n.t.accountBlock.titlePlanDisabled;
       case MclashBlockKind.noSubscription:
-        return "尚未开通套餐";
+        return MclashI18n.t.accountBlock.titleNoPlan;
       case MclashBlockKind.deviceKicked:
-        return "本设备已被移除";
+        return MclashI18n.t.accountBlock.titleDeviceRemoved;
       case MclashBlockKind.serverUnavailable:
-        return "服务暂时不可用";
+        return MclashI18n.t.accountBlock.titleServiceUnavailable;
       case MclashBlockKind.none:
         return "";
     }
@@ -505,22 +505,21 @@ class MclashAccountService extends ChangeNotifier {
     }
     switch (blockKind) {
       case MclashBlockKind.expired:
-        return "您的套餐已到期，购买套餐后即可继续畅连全球节点。";
+        return MclashI18n.t.accountBlock.textExpired;
       case MclashBlockKind.deviceFull:
         final limit = info.deviceLimit ?? 0;
         final used = info.deviceUsed ?? 0;
-        return "服务端判定本机已超出套餐设备数上限（$used/$limit），暂时无法连接。"
-            "可在「我的 - 设备管理」中删除不常用设备，或升级更高设备数的套餐。";
+        return MclashI18n.t.accountBlock.textDeviceFull(used: used, limit: limit);
       case MclashBlockKind.accountDisabled:
-        return "您的账号已被禁用，无法使用服务。如有疑问，请联系客服。";
+        return MclashI18n.t.accountBlock.textAccountDisabled;
       case MclashBlockKind.subscriptionDisabled:
-        return "您的套餐已被禁用或状态异常，无法连接。如有疑问，请联系客服。";
+        return MclashI18n.t.accountBlock.textPlanDisabled;
       case MclashBlockKind.noSubscription:
-        return "您还没有开通套餐，开通后即可畅连全球节点。";
+        return MclashI18n.t.accountBlock.textNoPlan;
       case MclashBlockKind.deviceKicked:
-        return "本设备已被移除并踢下线，请重新登录。";
+        return MclashI18n.t.accountBlock.textDeviceRemoved;
       case MclashBlockKind.serverUnavailable:
-        return "服务暂时不可用，请稍后重试；若持续出现请截图联系客服。";
+        return MclashI18n.t.accountBlock.textServiceUnavailable;
       case MclashBlockKind.none:
         return "";
     }
@@ -561,8 +560,13 @@ class MclashAccountService extends ChangeNotifier {
     final acc = info;
     final parts = <String>[
       if (acc.planName.isNotEmpty) acc.planName,
-      if ((acc.remainingDays ?? 0) > 0) "剩余 ${acc.remainingDays} 天",
-      if ((acc.deviceLimit ?? 0) > 0) "设备 ${acc.deviceUsed ?? 0}/${acc.deviceLimit}",
+      if ((acc.remainingDays ?? 0) > 0)
+        MclashI18n.t.accountBlock.remainingDays(days: acc.remainingDays!),
+      if ((acc.deviceLimit ?? 0) > 0)
+        MclashI18n.t.accountBlock.deviceUsage(
+          used: acc.deviceUsed ?? 0,
+          limit: acc.deviceLimit!,
+        ),
     ];
     return parts.isEmpty ? "" : parts.join(" · ");
   }

@@ -631,9 +631,29 @@ class ClashHttpApi {
       body: body,
     );
     if (result.error == null) {
-      invalidateProxiesCache();
+      // 只**本地给这一组打补丁**，不清整表缓存。
+      //
+      // 旧实现 `invalidateProxiesCache()` 会让紧接着的界面刷新再全量拉一次
+      // `/proxies`（几百 KB、超时 5s）；内核正忙着测速时这一下就是秒级等待 ——
+      // 用户点一个节点，主页要等这趟往返才更新。
+      // 补丁与内核事实等价（PUT 刚成功），15s 的定时同步仍以内核为准兜底。
+      patchGroupNowInCache(group, node);
     }
     return result.error;
+  }
+
+  /// 切换节点成功后，本地把该选择组的 `now` 改掉（不清整表缓存）。
+  @visibleForTesting
+  static void patchGroupNowInCache(String group, String node) {
+    final cached = _proxiesCache?.data;
+    if (cached == null || group.isEmpty || node.isEmpty) {
+      return;
+    }
+    for (final p in cached) {
+      if (p.name == group) {
+        p.now = node;
+      }
+    }
   }
 
   static Future<ReturnResult<List<String>>> dnsQuery(

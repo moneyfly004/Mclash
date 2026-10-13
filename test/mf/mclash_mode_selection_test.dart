@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
+import 'package:mclash/mf/mclash_nodes_store.dart';
 
 void main() {
   String remembered = '';
@@ -155,6 +158,63 @@ void main() {
       MclashNodeSelector.debugProxiesOverride = null;
       MclashNodeSelector.debugSetNodeOverride = null;
       MclashNodeAutoPick.debugSetFixedNodeOverride = null;
+    });
+
+    test('点选节点必须**立刻**生效：内核还没答复，界面状态就已经更新'
+        '（回归：测速期间点节点没反应）', () async {
+      // 模拟"内核控制口被全量测速挤到超时"：写内核这一步**永远不返回**。
+      final never = Completer<ReturnResultError?>();
+      MclashNodeSelector.debugProxiesOverride = () async => [
+        ClashProxiesNode()
+          ..name = "🚀 节点选择"
+          ..type = "Selector"
+          ..all = ["🇯🇵 日本 01"]
+          ..now = "🇭🇰 香港 01",
+      ];
+      MclashNodeSelector.debugSetNodeOverride = (g, n) => never.future;
+      MclashNodeAutoPick.debugSetFixedNodeOverride = (name) async {
+        remembered = name;
+      };
+      ClashSettingManager.debugSetMode("rule");
+      MclashNodeSelector.debugResetManualPick();
+      remembered = "";
+      MclashNodesStore.instance.setCurrentNodeName("");
+
+      // 故意不 await：内核没返回也必须已经能"看到选中"
+      final pending = MclashNodeSelector.select("🇯🇵 日本 01");
+
+      expect(
+        MclashNodesStore.instance.currentNodeName,
+        "🇯🇵 日本 01",
+        reason: '点一下就该看到当前节点，不能等内核那次 HTTP（测速期间会超时十几秒）',
+      );
+      expect(
+        MclashNodesStore.instance.selectedNodeName,
+        "🇯🇵 日本 01",
+        reason: '列表与主页的高亮都读 selectedNodeName',
+      );
+      // 固定节点是紧接着的异步写入（写 setting.json），让出两个微任务即可看到
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(remembered, "🇯🇵 日本 01", reason: '用户意图要马上固定下来');
+      expect(
+        MclashNodeSelector.userPickedRecently(),
+        isTrue,
+        reason: '要标记成"用户刚手动选过"，免得自动选路马上又换掉',
+      );
+      expect(
+        MclashNodeSelector.lastSelectDeferred,
+        isFalse,
+        reason: '内核在跑，不属于"连接后生效"',
+      );
+
+      never.complete(null);
+      await pending;
+
+      MclashNodeSelector.debugProxiesOverride = null;
+      MclashNodeSelector.debugSetNodeOverride = null;
+      MclashNodeAutoPick.debugSetFixedNodeOverride = null;
+      MclashNodesStore.instance.setCurrentNodeName("");
     });
   });
 

@@ -44,6 +44,10 @@ class MclashProfileScreen extends LasyRenderingStatefulWidget {
   State<MclashProfileScreen> createState() => _MclashProfileScreenState();
 }
 
+/// 「账号信息读取失败」的哨兵：`_load()` 里拿不到 context，先落哨兵，
+/// 展示时再按当前语言取文案（见 `_MclashProfileScreenState._errorText`）。
+const String kProfileLoadFailedMarker = "__profile_load_failed__";
+
 class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     with WidgetsBindingObserver {
   bool _loading = true;
@@ -104,7 +108,9 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           _dash = dash;
           _error = null;
         } else if (!hadData) {
-          _error = "账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。";
+          // 文案要走 i18n（设置英文就是英文），而这里拿不到 context：
+          // 先落一个哨兵，真正显示时再按当前语言取（见 _errorText）。
+          _error = kProfileLoadFailedMarker;
         } else {
           Log.w("profile: 刷新失败，保留上一次的数据");
         }
@@ -123,6 +129,15 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         _loading = false;
       });
     }
+  }
+
+  /// 错误文案：哨兵 → 当前语言的「读取失败」；其它情况原样显示（多为异常文本）。
+  String _errorText(Translations t) {
+    final err = _error;
+    if (err == null) {
+      return "";
+    }
+    return err == kProfileLoadFailedMarker ? t.meScreen.loadFailed : err;
   }
 
   @override
@@ -199,7 +214,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
             const Divider(height: 24, thickness: 0.3),
             Row(
               children: [
-                const Text("账户余额", style: TextStyle(fontSize: 15)),
+                Text(t.meScreen.accountBalance, style: const TextStyle(fontSize: 15)),
                 const Spacer(),
                 Text(
                   "¥ ${info.balance.toStringAsFixed(2)}",
@@ -246,24 +261,24 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
             const SizedBox(height: 12),
             Row(
               children: [
-                _cell(info.expireDate.isEmpty ? "-" : info.expireDate, "到期时间"),
+                _cell(info.expireDate.isEmpty ? "-" : info.expireDate, t.meScreen.expireAt),
                 _cell(
                   info.remainingDays == null ? "-" : "${info.remainingDays}",
-                  "剩余天数",
+                  t.meScreen.remainingDays,
                 ),
-                _cell(info.deviceText ?? "-", "设备数"),
+                _cell(info.deviceText ?? "-", t.meScreen.deviceCount),
               ],
             ),
             const SizedBox(height: 6),
             const Divider(height: 1, thickness: 0.3),
 
             _row(
-              "我的订单",
+              t.meScreen.myOrders,
               trailing: const Icon(Icons.chevron_right, size: 20),
               onTap: () => _push(const MclashOrdersScreen()),
             ),
             _row(
-              "设备管理",
+              t.meScreen.deviceManagement,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -280,7 +295,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
               onTap: () => _push(const MclashDevicesScreen()),
             ),
             _row(
-              "修改密码",
+              t.meScreen.changePassword,
               trailing: const Icon(Icons.chevron_right, size: 20),
               onTap: () => _push(const MclashChangePasswordScreen()),
             ),
@@ -317,14 +332,14 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
 
       if (PlatformUtils.isPC())
         _settingRow(
-          "清除本地数据（卸载前使用）",
+          t.meScreen.clearLocalData,
           Icons.delete_forever_outlined,
           _clearLocalData,
         ),
 
       if (SettingManager.getConfig().devMode)
         _settingRow(
-          "配置档管理（开发者）",
+          t.meScreen.profileManagementDev,
           Icons.developer_mode,
           () => _push(const ProfilesBoardScreen()),
         ),
@@ -365,7 +380,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
         ),
       if (PlatformUtils.isPC())
         _settingRow(
-          "TUN 虚拟网卡",
+          t.meScreen.tunAdapter,
           Icons.lan_outlined,
           () => MclashTunSetting.show(context),
           trailingText: MclashTunSetting.label(
@@ -376,7 +391,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           ),
         ),
       _settingRow(
-        "检查更新",
+        t.meScreen.checkUpdate,
         Icons.system_update_alt_outlined,
         () => MclashUpdatePrompt.checkManually(context),
         trailingText: AppUtils.getBuildinVersion(),
@@ -441,9 +456,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       }
       final go = await DialogUtils.showConfirmDialog(
         context,
-        "面板显示的是内核的实时数据（连接、流量、规则命中）。\n\n"
-        "当前内核没有运行，面板会是一个空壳。\n"
-        "点「确定」仍然打开，点「取消」先去主页连接。",
+        t.meScreen.boardNoKernel,
       );
       if (go != true || !mounted) {
         return;
@@ -472,9 +485,9 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     );
     if (PlatformUtils.isPC() && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          duration: Duration(seconds: 4),
-          content: Text("已在浏览器中打开面板；在里面换节点 / 切规则-全局，App 会自动跟随（约 5 秒内）"),
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(t.meScreen.boardOpened),
         ),
       );
     }
@@ -505,7 +518,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   }
 
   Future<void> _confirmLogout() async {
-    final ok = await DialogUtils.showConfirmDialog(context, "确认退出登录？");
+    final ok = await DialogUtils.showConfirmDialog(context, t.meScreen.logoutConfirm);
     if (ok != true || !mounted) {
       return;
     }
@@ -602,7 +615,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _error ?? "",
+                    _errorText(t),
                     style: const TextStyle(fontSize: 13, color: Colors.red),
                   ),
                 ),
@@ -613,7 +626,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
               child: TextButton(
                 key: const ValueKey("profile-retry"),
                 onPressed: _loading ? null : _load,
-                child: const Text("重试"),
+                child: Text(t.meScreen.retry),
               ),
             ),
           ],

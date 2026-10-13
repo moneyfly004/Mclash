@@ -1,8 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
+import 'package:mclash/i18n/strings.g.dart';
 
 void main() {
+
+  // 业务层文案现在走 i18n（默认英文），而下面断言的是中文 —— 固定简中保证确定性。
+  // ⚠️ zh-CN 是 deferred 加载的，只能在 setUpAll 里异步设置。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   late List<String> probed;
   late List<(String group, String node)> switched;
 

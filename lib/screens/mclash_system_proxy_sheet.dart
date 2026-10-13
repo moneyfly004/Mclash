@@ -9,6 +9,8 @@ import 'package:mclash/app/modules/clash_setting_manager.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
+import 'package:mclash/i18n/strings.g.dart';
 
 @visibleForTesting
 Future<String?> Function()? debugSystemProxyStateOverride;
@@ -35,7 +37,15 @@ class _SystemProxySheetBody extends StatefulWidget {
 
 class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
   final TextEditingController _port = TextEditingController();
-  String _state = "读取中…";
+  /// 状态用**机器值**保存，文案在渲染时按当前语言取（见 [_stateText]）。
+  /// "" = 读取中 / "unknown" / "kernel_stopped" / "applied" / "not_set" /
+  /// `not_effective` / `read_failed:<err>`（尖括号写在反引号里，避免被当 HTML）
+  String _state = "";
+  static const String _kStateUnknown = "unknown";
+  static const String _kStateKernelStopped = "kernel_stopped";
+  static const String _kStateApplied = "applied";
+  static const String _kStateNotSet = "not_set";
+  static const String _kStateNotEffective = "not_effective";
   String _diag = "";
   bool _showDiag = false;
   bool _busy = false;
@@ -56,17 +66,45 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
     super.dispose();
   }
 
+  /// 状态文案（按当前语言）。
+  String _stateText(Translations t) {
+    final port = ClashSettingManager.getMixedPort();
+    if (_state.startsWith("read_failed:")) {
+      return t.sysProxySheet.readFailed(
+        err: _state.substring("read_failed:".length),
+      );
+    }
+    switch (_state) {
+      case _kStateUnknown:
+        return t.sysProxySheet.unknown;
+      case _kStateKernelStopped:
+        return t.sysProxySheet.kernelNotRunning;
+      case _kStateApplied:
+        return t.sysProxySheet.applied(
+          host: VPNService.systemProxyHost,
+          port: port,
+        );
+      case _kStateNotSet:
+        return t.sysProxySheet.notSet(reason: VPNService.systemProxySkipReason());
+      case _kStateNotEffective:
+        return t.sysProxySheet.notEffective(port: port);
+      default:
+        // 空串 = 还在读；其它未知值（例如测试用 debugSystemProxyStateOverride
+        // 直接注入的文本）原样显示，保证调试/测试路径不变。
+        return _state.isEmpty ? t.sysProxySheet.reading : _state;
+    }
+  }
+
   Future<void> _refresh() async {
     final override = debugSystemProxyStateOverride;
     if (override != null) {
       final v = await override();
       if (mounted) {
-        setState(() => _state = v ?? "未知");
+        setState(() => _state = v ?? _kStateUnknown);
       }
       return;
     }
     try {
-      final port = ClashSettingManager.getMixedPort();
       final running = await VPNService.getStarted();
       final enable = await VPNService.getSystemProxyEnable();
       String diag = "";
@@ -79,13 +117,13 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
       setState(() {
         _diag = diag;
         if (!running) {
-          _state = "内核未运行（先在主页打开连接开关）";
+          _state = _kStateKernelStopped;
         } else if (enable) {
-          _state = "已生效 · ${VPNService.systemProxyHost}:$port";
+          _state = _kStateApplied;
         } else if (!VPNService.shouldApplySystemProxy()) {
-          _state = "未设置系统代理 —— ${VPNService.systemProxySkipReason()}";
+          _state = _kStateNotSet;
         } else {
-          _state = "未生效（系统里没有指向 $port 的代理）";
+          _state = _kStateNotEffective;
         }
         if (!enable && _diag.trim().isNotEmpty) {
           _showDiag = true;
@@ -93,7 +131,7 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
       });
     } catch (err) {
       if (mounted) {
-        setState(() => _state = "读取失败：$err");
+        setState(() => _state = "read_failed:$err");
       }
     }
   }
@@ -115,7 +153,9 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
         return;
       }
       if (!ok) {
-        setState(() => _error = enable ? "设置失败：系统可能拒绝了写入（或被其它代理软件覆盖）" : "关闭失败");
+        setState(() => _error = enable
+            ? MclashI18n.t.sysProxySheet.setRejected
+            : MclashI18n.t.sysProxySheet.disableFailed);
       }
       await _refresh();
     } catch (err) {
@@ -143,7 +183,7 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
 
   Future<void> _changePort(int value) async {
     if (value <= 0 || value > 65535) {
-      setState(() => _error = "端口需在 1–65535 之间");
+      setState(() => _error = t.sysProxySheet.portRange);
       return;
     }
     final setter = debugSetMixedPortOverride;
@@ -165,7 +205,7 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("端口已改为 $value：请断开重连一次，内核才会监听新端口"),
+        content: Text(t.sysProxySheet.portChanged(value: value)),
       ),
     );
   }
@@ -179,8 +219,8 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "系统代理",
+          Text(
+            t.sysProxySheet.title,
             style: TextStyle(
               fontSize: 17,
               fontWeight: ThemeConfig.kFontWeightTitle,
@@ -188,7 +228,7 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
           ),
           const SizedBox(height: 6),
           Text(
-            _state,
+            _stateText(t),
             style: const TextStyle(
               fontSize: 13,
               color: ThemeDefine.kColorGrey,
@@ -196,8 +236,8 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
           ),
           const SizedBox(height: 4),
           Text(
-            "系统代理地址固定为 $host（本机回环），端口就是内核的混合端口。"
-            "${Platform.isWindows ? "Windows 的「设置 → 网络和 Internet → 代理」里看到的就是这个地址。" : ""}",
+            "${t.sysProxySheet.desc(host: host)}"
+            "${Platform.isWindows ? t.sysProxySheet.descWindows : ""}",
             style: const TextStyle(
               fontSize: 11,
               color: ThemeDefine.kColorGrey,
@@ -209,14 +249,14 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _busy ? null : () => _apply(true),
-                  child: const Text("重新设置"),
+                  child: Text(t.sysProxySheet.reset),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton(
                   onPressed: _busy ? null : () => _apply(false),
-                  child: const Text("关闭系统代理"),
+                  child: Text(t.sysProxySheet.disable),
                 ),
               ),
             ],
@@ -234,8 +274,8 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
                     color: ThemeDefine.kColorGrey,
                   ),
                   const SizedBox(width: 4),
-                  const Text(
-                    "诊断详情（界面读的到底是不是注册表那份）",
+                  Text(
+                    t.sysProxySheet.diagnostics,
                     style: TextStyle(
                       fontSize: 12,
                       color: ThemeDefine.kColorGrey,
@@ -262,8 +302,8 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
             ],
           ],
           const SizedBox(height: 14),
-          const Text(
-            "混合端口",
+          Text(
+            t.sysProxySheet.mixedPort,
             style: TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
           ),
           const SizedBox(height: 6),
@@ -288,7 +328,7 @@ class _SystemProxySheetBodyState extends State<_SystemProxySheetBody> {
                 onPressed: _busy
                     ? null
                     : () => _changePort(int.tryParse(_port.text.trim()) ?? 0),
-                child: const Text("应用"),
+                child: Text(t.sysProxySheet.apply),
               ),
             ],
           ),

@@ -10,6 +10,7 @@ import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
+import 'package:mclash/i18n/strings.g.dart';
 
 Future<void> showMclashNodePickerSheet(
   BuildContext context, {
@@ -99,32 +100,43 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
     if (_switching) {
       return;
     }
-    setState(() => _switching = true);
-    final err = await MclashNodeSelector.select(node.name);
-    if (!mounted) {
-      return;
-    }
-    setState(() => _switching = false);
-    if (err != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("切换失败：${err.message}")));
-      return;
-    }
-    final deferred = MclashNodeSelector.lastSelectDeferred;
-    setState(() => _switchedTo = node.name);
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
+    _switching = true;
+    final t = Translations.of(context);
+
+    // 立刻关掉弹层并给出反馈，「切内核」放到后台完成。
+    //
+    // 以前是 `await MclashNodeSelector.select(...)` 之后才 pop —— 而全量测速
+    // 期间内核控制口会超时，这一等就是十几秒：弹层里转圈、用户以为卡死。
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    _switchedTo = node.name;
+    navigator.pop();
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          deferred ? "已选择 ${node.name}（连接后生效）" : "已切换到 ${node.name}",
-        ),
+        duration: const Duration(seconds: 2),
+        content: Text(t.nodesScreen.switchedTo(name: node.name)),
       ),
     );
+
+    final err = await MclashNodeSelector.select(node.name);
+    if (err != null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(t.nodesScreen.switchFailed(message: err.message))));
+      return;
+    }
+    if (MclashNodeSelector.lastSelectDeferred) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(t.nodesScreen.selectedAfterConnect(name: node.name))),
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     final store = MclashNodesStore.instance;
     final visible = _visible;
 
@@ -145,12 +157,12 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
             onChanged: (v) => setState(() => _query = v),
             decoration: InputDecoration(
               isDense: true,
-              hintText: "搜索节点",
+              hintText: t.nodesScreen.searchNode,
               prefixIcon: const Icon(Icons.search, size: 18),
               suffixIcon: _query.isEmpty
                   ? null
                   : IconButton(
-                      tooltip: "清空",
+                      tooltip: t.nodesScreen.clear,
                       icon: const Icon(Icons.close, size: 16),
                       onPressed: () {
                         _search.clear();
@@ -206,16 +218,16 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
     padding: EdgeInsets.fromLTRB(20, widget.inDialog ? 16 : 6, 8, 8),
     child: Row(
       children: [
-        const Text(
-          "选择节点",
+        Text(
+          t.nodesScreen.selectNode,
           style: TextStyle(
             fontSize: 17,
             fontWeight: ThemeConfig.kFontWeightTitle,
           ),
         ),
         const SizedBox(width: 8),
-        const Text(
-          "按延迟排序",
+        Text(
+          t.nodesScreen.sortByLatency,
           style: TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
         ),
         const Spacer(),
@@ -229,7 +241,7 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
             ),
           ),
         IconButton(
-          tooltip: "关闭",
+          tooltip: t.meta.close,
           icon: const Icon(Icons.close, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -250,8 +262,8 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
         const SizedBox(height: 10),
         Text(
           store.nodes.isEmpty
-              ? "还没有可用节点。\n请先在主页打开连接开关。"
-              : "没有匹配的节点。",
+              ? t.nodesScreen.emptyNoKernel
+              : t.nodesScreen.emptyNoMatch,
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 13,
@@ -268,7 +280,7 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
       Navigator.of(context).pop();
       MainTabController.instance?.setTab(1);
     },
-    child: const Padding(
+    child: Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -281,7 +293,7 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
           SizedBox(width: 6),
           Flexible(
             child: Text(
-              "打开完整节点列表（搜索 / 测速 / 分组）",
+              t.nodesScreen.openFullList,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 13, color: ThemeDefine.kColorBlue),
@@ -328,8 +340,8 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
               ),
             ),
           if (selected)
-            const Tooltip(
-              message: "当前选中（正在使用的节点）",
+            Tooltip(
+              message: t.nodesScreen.currentInUse,
               child: Padding(
                 padding: EdgeInsets.only(right: 4),
                 child: Row(
@@ -338,7 +350,7 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
                     Icon(Icons.check, size: 16, color: ThemeDefine.kColorBlue),
                     SizedBox(width: 2),
                     Text(
-                      "当前",
+                      t.nodesScreen.current,
                       style: TextStyle(
                         fontSize: 11,
                         color: ThemeDefine.kColorBlue,

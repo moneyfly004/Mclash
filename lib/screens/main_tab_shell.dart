@@ -11,6 +11,8 @@ import 'package:mclash/screens/mclash_plan_screen.dart';
 import 'package:mclash/screens/mclash_profile_screen.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
+import 'package:mclash/app/utils/move_to_background_utils.dart';
+import 'package:mclash/app/utils/log.dart';
 
 class MainNavEntry {
   const MainNavEntry({
@@ -76,6 +78,43 @@ class MainTabShell extends StatefulWidget {
   State<MainTabShell> createState() => _MainTabShellState();
 }
 
+/// 系统返回键该做什么。
+enum MclashBackAction {
+  /// 当前 Tab 的内嵌导航器还能返回 → 返回上一页
+  popNested,
+
+  /// 内嵌到底、但根导航器上还压着页面（有些页面 push 到根上）→ 由根返回
+  popRoot,
+
+  /// 不在第一个 Tab → 回到第一个 Tab
+  switchToFirstTab,
+
+  /// 真的到底了 → 移到后台（**不退出 App**：VPN 还要继续跑）
+  moveToBackground,
+}
+
+/// 返回键决策（纯函数，便于单测）。
+///
+/// 真机报障：在「设备管理」等子页按系统返回**直接退出到桌面**。
+/// 旧实现只判断了"内嵌导航器能不能返回 / 是不是第一个 Tab"，漏了"根导航器上还压着
+/// 页面"这一档 —— 那一档会一路落到"到底"，于是把 App 退出/切后台。
+MclashBackAction decideBackAction({
+  required bool nestedCanPop,
+  required bool rootCanPop,
+  required int tabIndex,
+}) {
+  if (nestedCanPop) {
+    return MclashBackAction.popNested;
+  }
+  if (rootCanPop) {
+    return MclashBackAction.popRoot;
+  }
+  if (tabIndex != 0) {
+    return MclashBackAction.switchToFirstTab;
+  }
+  return MclashBackAction.moveToBackground;
+}
+
 class _MainTabShellState extends State<MainTabShell> {
   int _index = 0;
 
@@ -121,24 +160,41 @@ class _MainTabShellState extends State<MainTabShell> {
     setState(() => _index = index);
   }
 
-  bool get _currentTabAtRoot {
-    final nav = _navKeys[_index].currentState;
-    if (nav == null) {
-      return true;
+  /// 系统返回键的处理（安卓真机报障：在「设备管理」等子页按返回**直接退出到桌面**）。
+  ///
+  /// 处理顺序：
+  ///  1. 当前 Tab 的**内嵌导航器**能返回 → 返回上一页（这是子页最正常的路径）；
+  ///  2. 内嵌导航器到底了、但**根导航器**还有压着的路由（有些页面是 push 到根上的）
+  ///     → 由根导航器返回。旧实现漏了这一步：根上压着页面时按返回会一路走到
+  ///     "到底"分支，把 App 直接退出/切后台，用户看到的就是"按返回退出 App"；
+  ///  3. 不在第一个 Tab → 回到第一个 Tab；
+  ///  4. 真的到底了 → **把 App 移到后台**（而不是退出）：VPN 还要继续跑，
+  ///     这也是本 App 其它入口（快捷方式/托盘）的一致语义。
+  Future<void> _handleSystemBack() async {
+    final nested = _navKeys[_index].currentState;
+    final action = decideBackAction(
+      nestedCanPop: nested?.canPop() ?? false,
+      rootCanPop: Navigator.of(context).canPop(),
+      tabIndex: _index,
+    );
+    Log.i(
+      "返回键：tab=$_index → ${action.name}"
+      "（内嵌可返回=${nested?.canPop() ?? false}）",
+    );
+    switch (action) {
+      case MclashBackAction.popNested:
+        await nested?.maybePop();
+        return;
+      case MclashBackAction.popRoot:
+        await Navigator.of(context).maybePop();
+        return;
+      case MclashBackAction.switchToFirstTab:
+        setState(() => _index = 0);
+        return;
+      case MclashBackAction.moveToBackground:
+        await MoveToBackgroundUtils.moveToBackground();
+        return;
     }
-    return !nav.canPop();
-  }
-
-  Future<bool> _onWillPop() async {
-    if (!_currentTabAtRoot) {
-      _navKeys[_index].currentState?.pop();
-      return false;
-    }
-    if (_index != 0) {
-      setState(() => _index = 0);
-      return false;
-    }
-    return true;
   }
 
   @override
@@ -152,7 +208,7 @@ class _MainTabShellState extends State<MainTabShell> {
         if (didPop) {
           return;
         }
-        await _onWillPop();
+        await _handleSystemBack();
       },
       child: Scaffold(
         body: useRail

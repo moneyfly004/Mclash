@@ -13,6 +13,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_download_sources.dart';
 import 'package:mclash/mf/mclash_update_check.dart';
 import 'package:tuple/tuple.dart';
+import 'package:mclash/mf/mclash_domains.dart';
 
 Future<List<AutoupdateItem>> _itemsFromGitHub() async {
   try {
@@ -136,21 +137,34 @@ abstract final class AutoupdateUtils {
   static Future<ReturnResult<RemoteConfig>> getRemoteConfig() async {
     RemoteConfig rc = RemoteConfig();
     String url = RemoteConfigManager.getConfig().config;
-    late ReturnResult<Tuple2<int, String>> response;
+    ReturnResult<Tuple2<int, String>>? response;
     List<int?> ports = await VPNService.getPortsByPrefer(true);
-    for (var port in ports) {
-      response = await HttpUtils.httpGetRequest(
-        url,
-        port,
-        null,
-        const Duration(seconds: 10),
-        null,
-        null,
-      );
-      if (response.error == null) {
-        break;
+    // 主域/备用域/订阅域逐个试（这是整个 App 的**第一个**站点请求，以前 host 写死，
+    // 主域被墙时它必然失败且完全不轮换 —— 用户要的"自动无感换域名"在这里漏了）。
+    final candidates = MclashDomainPool.apiUrlsFor(url);
+    outer:
+    for (final candidate in candidates) {
+      final host = MclashDomainPool.hostOf(candidate);
+      for (var port in ports) {
+        response = await HttpUtils.httpGetRequest(
+          candidate,
+          port,
+          null,
+          const Duration(seconds: 10),
+          null,
+          null,
+        );
+        if (response.error == null) {
+          MclashDomainPool.reportSuccess(host);
+          break outer;
+        }
       }
+      MclashDomainPool.reportFailure(host);
+      Log.w("AutoupdateUtils: 远端配置在 $host 失败，换下一个域名");
     }
+    response ??= ReturnResult(
+      error: ReturnResultError("远端配置不可用（已尝试 ${candidates.length} 个域名）"),
+    );
 
     if (response.error != null) {
       return ReturnResult(error: response.error);

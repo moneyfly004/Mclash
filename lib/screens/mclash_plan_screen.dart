@@ -10,6 +10,7 @@ import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_plan_cache.dart';
 import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/payment/mclash_payment_sheet.dart';
@@ -42,7 +43,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     super.initState();
     MclashAccountService.instance.addListener(_onAccountChanged);
     unawaited(MclashAccountService.instance.refreshIfStale());
-    _load();
+    unawaited(_loadFromCacheThenRefresh());
   }
 
   @override
@@ -57,10 +58,51 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     }
   }
 
+  /// 同一时刻只允许一轮加载（连点刷新 = N 倍请求）。
+  bool _inFlight = false;
+
+  /// 先渲染缓存（进页面立刻有内容），再后台静默刷新。
+  ///
+  /// 真机反馈："每次打开套餐购买都要重新拉后台配置，感觉很慢"。
+  Future<void> _loadFromCacheThenRefresh() async {
+    await MclashPlanCache.loadFromDisk();
+    final cachedPlans = MclashPlanCache.packagesStale;
+    final cachedMethods = MclashPlanCache.methodsStale;
+    if (mounted && (cachedPlans?.isNotEmpty ?? false)) {
+      setState(() {
+        _plans = cachedPlans!;
+        if (cachedMethods?.isNotEmpty ?? false) {
+          _methods = cachedMethods!;
+        }
+        _selectedPlanId ??= _pickRecommendedId(_plans);
+        _selectedMethod ??= _methods.isNotEmpty ? _methods.first : null;
+        _loading = false;
+      });
+    }
+    if (mounted && cachedPlans == null) {
+      setState(() => _loading = true);
+    }
+    unawaited(MclashPlanCache.invalidate());
+    await _load(silent: true);
+  }
+
+  int? _pickRecommendedId(List<Map<String, dynamic>> plans) {
+    if (plans.isEmpty) {
+      return null;
+    }
+    return ((plans.firstWhere(
+              (p) => p["is_recommended"] == true,
+              orElse: () => plans.first,
+            )["id"])
+            as num?)
+        ?.toInt();
+  }
+
   Future<void> _load({bool silent = false}) async {
-    if (!mounted) {
+    if (!mounted || _inFlight) {
       return;
     }
+    _inFlight = true;
     final hadData = _plans.isNotEmpty;
     setState(() {
       _loading = !silent && !hadData;
@@ -85,6 +127,10 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         _sub = sub;
         _plans = plans;
         _methods = methods;
+        // ⚠️ 必须复位：旧实现只写不复位，失败一次之后即使「重试」成功、数据已经
+        // 拿到了，页面仍停在错误页（build 里 _error 优先），只能重启 App ——
+        // 用户感知就是"套餐页打不开/特别慢"。订单页、设备页都做了复位，这里漏了。
+        _error = null;
         _selectedPlanId ??= plans.isNotEmpty
             ? ((plans.firstWhere(
                     (p) => p["is_recommended"] == true,
@@ -95,6 +141,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         _selectedMethod ??= methods.isNotEmpty ? methods.first : null;
         _loading = false;
       });
+      unawaited(MclashPlanCache.save(packages: plans, methods: methods));
     } catch (e) {
       if (!mounted) {
         return;
@@ -103,6 +150,8 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         _error = "$e";
         _loading = false;
       });
+    } finally {
+      _inFlight = false;
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:mclash/app/clash/clash_http_api.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 import 'package:mclash/mf/mclash_pseudo_nodes.dart';
 
 abstract final class MclashNodeAutoPick {
@@ -166,7 +167,7 @@ abstract final class MclashNodeAutoPick {
         Log.w("MclashNodeAutoPick: 拿不到代理列表 ${r.error?.message}");
         // 只落日志的话用户什么都看不到（真机：内核忙着测速时控制口超时 →
         // 自动选路静默失效）。给一条可读的提示，并配合"保留上一次的节点名"。
-        onNote?.call("暂时读不到内核的节点状态，稍后会自动重试");
+        onNote?.call(MclashI18n.t.nodeAuto.kernelStateUnavailable);
         return null;
       }
       proxies = r.data!;
@@ -210,7 +211,7 @@ abstract final class MclashNodeAutoPick {
       }
       final ok = await _switch(target, fixed);
       if (ok) {
-        onNote?.call("已回到固定节点：$fixed");
+        onNote?.call(MclashI18n.t.nodeAuto.backToFixedNode(fixed: fixed));
         Log.i("MclashNodeAutoPick: 已把内核选择改回固定节点 [$fixed]");
         return fixed;
       }
@@ -270,7 +271,7 @@ abstract final class MclashNodeAutoPick {
 
     final bestNode = best;
     if (bestNode == null) {
-      onNote?.call("没有找到可用节点，请在「节点列表」里手动换一个");
+      onNote?.call(MclashI18n.t.nodeAuto.noUsableNodePickOne);
       return null;
     }
     final targetName =
@@ -285,7 +286,9 @@ abstract final class MclashNodeAutoPick {
       return null;
     }
     Log.i("MclashNodeAutoPick: 已自动连接最优节点 [$bestNode]（${bestMs}ms）");
-    onNote?.call("已自动连接最优节点：$bestNode（${bestMs}ms）");
+    onNote?.call(
+      MclashI18n.t.nodeAuto.autoConnectedBest(bestNode: bestNode, bestMs: bestMs),
+    );
     if (persist) {
       // 自动选出来的节点 = 固定下来（下次连接沿用；节点下架才回到自动）。
       // 用户主动点「自动最优」时 persist=false：那是**回到自动模式**，
@@ -331,7 +334,7 @@ abstract final class MclashNodeAutoPick {
       return null;
     }
 
-    onNote?.call("当前节点无法访问外网，正在自动换一个…");
+    onNote?.call(MclashI18n.t.nodeAuto.currentNodeUnreachable);
     Log.w("MclashNodeAutoPick: 当前节点 [$current] 探活失败，开始换节点");
 
     var tried = 0;
@@ -362,12 +365,12 @@ abstract final class MclashNodeAutoPick {
         continue;
       }
       Log.i("MclashNodeAutoPick: 已自动切换到可用节点 [$target]（原 [$current] 不可用）");
-      onNote?.call("已自动切换到可用节点：$target");
+      onNote?.call(MclashI18n.t.nodeAuto.autoSwitchedToUsable(target: target));
       return target;
     }
 
     Log.w("MclashNodeAutoPick: 试了 $tried 个候选都不可用");
-    onNote?.call("没有找到可用的节点，请在「节点列表」里手动换一个试试");
+    onNote?.call(MclashI18n.t.nodeAuto.noUsableNodeTryOne);
     return null;
   }
 

@@ -1,12 +1,19 @@
+///
+/// Generated file. Do not edit.
+///
 // coverage:ignore-file
 // ignore_for_file: type=lint, unused_import
+// dart format off
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:slang/generated.dart';
 import 'strings.g.dart';
 
+// Path: <root>
 class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements Translations {
+	/// You can call this constructor and build your own translation instance of this locale.
+	/// Constructing via the enum [AppLocale.build] is preferred.
 	TranslationsZhCn({Map<String, Node>? overrides, PluralResolver? cardinalResolver, PluralResolver? ordinalResolver, TranslationMetadata<AppLocale, Translations>? meta})
 		: assert(overrides == null, 'Set "translation_overrides: true" in order to enable this feature.'),
 		  _meta = meta ?? TranslationMetadata(
@@ -18,9 +25,11 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 		_meta.setFlatMapFunction(_flatMapFunction);
 	}
 
+	/// Metadata for the translations of <zh-CN>.
 	final TranslationMetadata<AppLocale, Translations> _meta;
 	@override TranslationMetadata<AppLocale, Translations> get $meta => _meta;
 
+	/// Access flat map
 	@override dynamic operator[](String key) => _meta.getTranslation(key);
 
 	late final TranslationsZhCn _root = this; // ignore: unused_field
@@ -28,6 +37,7 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 	@override 
 	TranslationsZhCn $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsZhCn(meta: meta ?? this.$meta);
 
+	// Translations
 	@override late final Translations$BackupAndSyncWebdavScreen$zh_CN BackupAndSyncWebdavScreen = Translations$BackupAndSyncWebdavScreen$zh_CN.internal(_root);
 	@override late final Translations$LaunchFailedScreen$zh_CN LaunchFailedScreen = Translations$LaunchFailedScreen$zh_CN.internal(_root);
 	@override late final Translations$PerAppAndroidScreen$zh_CN PerAppAndroidScreen = Translations$PerAppAndroidScreen$zh_CN.internal(_root);
@@ -57,24 +67,94 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 		'fa': 'فارسی',
 		'es': 'Español',
 	};
+	@override Map<String, String> get countries => {
+		'HK': '香港',
+		'TW': '台湾',
+		'MO': '澳门',
+		'CN': '中国',
+		'JP': '日本',
+		'KR': '韩国',
+		'SG': '新加坡',
+		'MY': '马来西亚',
+		'TH': '泰国',
+		'VN': '越南',
+		'PH': '菲律宾',
+		'ID': '印尼',
+		'KH': '柬埔寨',
+		'US': '美国',
+		'CA': '加拿大',
+		'MX': '墨西哥',
+		'GB': '英国',
+		'DE': '德国',
+		'FR': '法国',
+		'NL': '荷兰',
+		'RU': '俄罗斯',
+		'IT': '意大利',
+		'ES': '西班牙',
+		'CH': '瑞士',
+		'SE': '瑞典',
+		'NO': '挪威',
+		'FI': '芬兰',
+		'DK': '丹麦',
+		'PL': '波兰',
+		'AT': '奥地利',
+		'IE': '爱尔兰',
+		'UA': '乌克兰',
+		'TR': '土耳其',
+		'PT': '葡萄牙',
+		'CZ': '捷克',
+		'RO': '罗马尼亚',
+		'BE': '比利时',
+		'GR': '希腊',
+		'HU': '匈牙利',
+		'IL': '以色列',
+		'AE': '阿联酋',
+		'SA': '沙特',
+		'EG': '埃及',
+		'ZA': '南非',
+		'NG': '尼日利亚',
+		'AU': '澳大利亚',
+		'NZ': '新西兰',
+		'BR': '巴西',
+		'AR': '阿根廷',
+		'CL': '智利',
+		'CO': '哥伦比亚',
+		'IN': '印度',
+		'PK': '巴基斯坦',
+		'XX': '其他',
+	};
+	@override late final Translations$meScreen$zh_CN meScreen = Translations$meScreen$zh_CN.internal(_root);
+	@override late final Translations$homeScreen$zh_CN homeScreen = Translations$homeScreen$zh_CN.internal(_root);
+	@override late final Translations$nodesScreen$zh_CN nodesScreen = Translations$nodesScreen$zh_CN.internal(_root);
+	@override late final Translations$nodeAuto$zh_CN nodeAuto = Translations$nodeAuto$zh_CN.internal(_root);
+	@override late final Translations$accountBlock$zh_CN accountBlock = Translations$accountBlock$zh_CN.internal(_root);
+	@override late final Translations$entitlementMsg$zh_CN entitlementMsg = Translations$entitlementMsg$zh_CN.internal(_root);
+	@override late final Translations$devicesScreen$zh_CN devicesScreen = Translations$devicesScreen$zh_CN.internal(_root);
+	@override late final Translations$sysProxySheet$zh_CN sysProxySheet = Translations$sysProxySheet$zh_CN.internal(_root);
+	@override late final Translations$logScreen$zh_CN logScreen = Translations$logScreen$zh_CN.internal(_root);
+	@override late final Translations$trayShell$zh_CN trayShell = Translations$trayShell$zh_CN.internal(_root);
 }
 
+// Path: BackupAndSyncWebdavScreen
 class Translations$BackupAndSyncWebdavScreen$zh_CN implements Translations$BackupAndSyncWebdavScreen$en {
 	Translations$BackupAndSyncWebdavScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get webdavServerUrl => '服务器地址';
 	@override String get webdavRequired => '不能为空';
 	@override String get webdavLoginFailed => '登录失败:';
 	@override String get webdavListFailed => '获取文件列表失败:';
 }
 
+// Path: LaunchFailedScreen
 class Translations$LaunchFailedScreen$zh_CN implements Translations$LaunchFailedScreen$en {
 	Translations$LaunchFailedScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get invalidProcess => '应用启动失败[无效的进程名称],请重新安装应用到独立目录';
 	@override String get invalidProfile => '应用启动失败[访问配置文件失败],请重新安装应用';
 	@override String get invalidVersion => '应用启动失败[无效版本],请重新安装应用';
@@ -82,30 +162,36 @@ class Translations$LaunchFailedScreen$zh_CN implements Translations$LaunchFailed
 	@override String get invalidInstallPath => '无效的安装路径,请重新安装到有效路径';
 }
 
+// Path: PerAppAndroidScreen
 class Translations$PerAppAndroidScreen$zh_CN implements Translations$PerAppAndroidScreen$en {
 	Translations$PerAppAndroidScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get title => '分应用代理';
 	@override String get whiteListMode => '白名单模式';
 	@override String get whiteListModeTip => '启用后:仅代理已勾选的App;未启用:仅代理未勾选的App';
 }
 
+// Path: UserAgreementScreen
 class Translations$UserAgreementScreen$zh_CN implements Translations$UserAgreementScreen$en {
 	Translations$UserAgreementScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get privacyFirst => '您的隐私很重要';
 	@override String get agreeAndContinue => '接受并继续';
 }
 
+// Path: NetCheckScreen
 class Translations$NetCheckScreen$zh_CN implements Translations$NetCheckScreen$en {
 	Translations$NetCheckScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get enterDomain => '请输入域名';
 	@override String get checking => '检测中...';
 	@override String aQueryFailed({required Object p}) => 'A 查询失败: ${p}';
@@ -122,21 +208,25 @@ class Translations$NetCheckScreen$zh_CN implements Translations$NetCheckScreen$e
 	@override String get routeTableSection => '4. 路由表';
 }
 
+// Path: VersionUpdateScreen
 class Translations$VersionUpdateScreen$zh_CN implements Translations$VersionUpdateScreen$en {
 	Translations$VersionUpdateScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String versionReady({required Object p}) => '新版本[${p}]已就绪';
 	@override String get update => '重启更新';
 	@override String get cancel => '暂不更新';
 }
 
+// Path: loginScreen
 class Translations$loginScreen$zh_CN implements Translations$loginScreen$en {
 	Translations$loginScreen$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get login => '登录';
 	@override String get register => '注册账号';
 	@override String get forgotPassword => '忘记密码';
@@ -147,19 +237,23 @@ class Translations$loginScreen$zh_CN implements Translations$loginScreen$en {
 	@override String get password => '密码';
 }
 
+// Path: main
 class Translations$main$zh_CN implements Translations$main$en {
 	Translations$main$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override late final Translations$main$tray$zh_CN tray = Translations$main$tray$zh_CN.internal(_root);
 }
 
+// Path: meta
 class Translations$meta$zh_CN implements Translations$meta$en {
 	Translations$meta$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get enable => '启用';
 	@override String get disable => '禁用';
 	@override String get open => '打开';
@@ -347,11 +441,13 @@ class Translations$meta$zh_CN implements Translations$meta$en {
 	@override String get tabMe => '我的';
 }
 
+// Path: permission
 class Translations$permission$zh_CN implements Translations$permission$en {
 	Translations$permission$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get camera => '摄像头';
 	@override String get screen => '屏幕录制';
 	@override String get appQuery => '获取应用列表';
@@ -359,21 +455,25 @@ class Translations$permission$zh_CN implements Translations$permission$en {
 	@override String requestNeed({required Object p}) => '请开启[${p}]权限';
 }
 
+// Path: tls
 class Translations$tls$zh_CN implements Translations$tls$en {
 	Translations$tls$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get certificate => '证书';
 	@override String get privateKey => '私钥';
 	@override String get customTrustCert => '自定义证书';
 }
 
+// Path: tun
 class Translations$tun$zh_CN implements Translations$tun$en {
 	Translations$tun$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get stack => '网络栈';
 	@override String get inet4Address => 'IPv4地址段';
 	@override String get dnsHijack => 'DNS劫持';
@@ -385,11 +485,13 @@ class Translations$tun$zh_CN implements Translations$tun$en {
 	@override String get bypassHttpProxyDomain => '允许绕过HTTP代理的域名';
 }
 
+// Path: dns
 class Translations$dns$zh_CN implements Translations$dns$en {
 	Translations$dns$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get listen => '监听地址';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'Fallback';
@@ -409,33 +511,319 @@ class Translations$dns$zh_CN implements Translations$dns$en {
 	@override String get fallbackGeoIpCode => '${_root.dns.fallback} GeoIp 代码';
 }
 
+// Path: sniffer
 class Translations$sniffer$zh_CN implements Translations$sniffer$en {
 	Translations$sniffer$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get overrideDest => '覆盖';
 }
 
+// Path: profilePatchMode
 class Translations$profilePatchMode$zh_CN implements Translations$profilePatchMode$en {
 	Translations$profilePatchMode$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get currentSelected => '当前选择';
 	@override String get overwrite => '内置-覆写';
 	@override String get noOverwrite => '内置-不覆写';
 }
 
+// Path: meScreen
+class Translations$meScreen$zh_CN implements Translations$meScreen$en {
+	Translations$meScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get accountBalance => '账户余额';
+	@override String get expireAt => '到期时间';
+	@override String get remainingDays => '剩余天数';
+	@override String get deviceCount => '设备数';
+	@override String get myOrders => '我的订单';
+	@override String get deviceManagement => '设备管理';
+	@override String get changePassword => '修改密码';
+	@override String get clearLocalData => '清除本地数据（卸载前使用）';
+	@override String get profileManagementDev => '配置档管理（开发者）';
+	@override String get tunAdapter => 'TUN 虚拟网卡';
+	@override String get checkUpdate => '检查更新';
+	@override String get retry => '重试';
+	@override String get loadFailed => '账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。';
+	@override String get logoutConfirm => '确认退出登录？';
+	@override String get boardNoKernel => '面板显示的是内核的实时数据（连接、流量、规则命中）。\n\n当前内核没有运行，面板会是一个空壳。\n点「确定」仍然打开，点「取消」先去主页连接。';
+	@override String get boardOpened => '已在浏览器中打开面板；在里面换节点 / 切规则-全局，App 会自动跟随（约 5 秒内）';
+}
+
+// Path: homeScreen
+class Translations$homeScreen$zh_CN implements Translations$homeScreen$en {
+	Translations$homeScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String expiresOn({required Object date}) => '到期 ${date}';
+	@override String devicesText({required Object text}) => '设备 ${text}';
+	@override String get upgrade => '升级';
+	@override String get quickCountries => '快速筛选国家';
+	@override String nodeCount({required Object count}) => '${count} 个节点';
+	@override String get autoBestTip => '在所有国家的节点里挑延迟最低的可用节点（自动模式）';
+	@override String get autoBest => '自动最优';
+	@override String pickCountryTip({required Object label}) => '自动选择「${label}」延迟最低的可用节点，并固定使用它';
+	@override String get autoNoBetter => '已在自动模式（没有找到更优的可用节点）';
+	@override String switchedBest({required Object name}) => '已切换到最优节点：${name}';
+	@override String switchedCountry({required Object country, required Object node, required Object ms}) => '已切换到 ${country} 最快节点：${node}${ms}';
+	@override String filterCountryFailed({required Object country, required Object err}) => '已筛选 ${country}；切换节点失败：${err}';
+	@override String deviceFullCount({required Object used, required Object limit}) => '当前设备 ${used}/${limit} 台\n\n';
+	@override String get deviceFullUpgradeHint => '升级设备数量后可立即恢复连接（推荐）；也可以先删除不常用的设备腾出名额。';
+	@override String get later => '稍后';
+	@override String get upgradeDeviceCount => '升级设备数量';
+	@override String get cannotConnect => '无法连接';
+	@override String get freshnessNever => '尚未同步 · 点击刷新';
+	@override String get freshnessJustNow => '刚刚更新 · 点右侧管理设备';
+	@override String freshnessMinutes({required Object minutes}) => '${minutes} 分钟前更新 · 点右侧管理设备';
+	@override String freshnessStale({required Object minutes}) => '${minutes} 分钟前更新 · 点击刷新';
+	@override String get subscriptionAutoSync => '订阅自动同步';
+	@override String get connecting => '正在连接…';
+	@override String get disconnecting => '正在断开…';
+	@override String get tapToDisconnect => '点击开关断开';
+	@override String get tapToConnect => '点击开关连接';
+	@override String get currentNode => '当前节点';
+	@override String get noNodeSelected => '未选择节点';
+	@override String get switchAction => '切换';
+	@override String get realtimeSpeed => '实时速度';
+	@override String get totalTraffic => '累计流量';
+	@override String get subSyncedNotReady => '订阅已下载，但配置档还没就绪，请稍后再试。';
+	@override String get noPlan => '该账号暂无可用套餐，请先购买套餐。';
+	@override String get loginExpired => '登录已失效，请重新登录。';
+	@override String get syncingWait => '正在同步订阅，请稍候再试。';
+	@override String syncFailedNetwork({required Object message}) => '订阅同步失败：${message}\n请检查网络后重试。';
+	@override String get syncFailed => '订阅同步失败，请稍后重试。';
+	@override String get resetProxy => '重设';
+}
+
+// Path: nodesScreen
+class Translations$nodesScreen$zh_CN implements Translations$nodesScreen$en {
+	Translations$nodesScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String updatedCount({required Object count}) => '订阅已更新：${count} 个节点';
+	@override String updateFailed({required Object message}) => '更新失败：${message}';
+	@override String get updateFailedNetwork => '更新失败，请检查网络';
+	@override String testDone({required Object ok, required Object fail}) => '测速完成：${ok} 个可用，${fail} 个连不上（可能已下线）';
+	@override String switchedTo({required Object name}) => '已切换到 ${name}';
+	@override String switchFailed({required Object message}) => '切换失败：${message}\n（节点切换需要内核运行，请先打开连接开关）';
+	@override String selectedAfterConnect({required Object name}) => '已选择 ${name}（连接后生效）';
+	@override String get title => '节点列表';
+	@override String get searchNode => '搜索节点';
+	@override String get sortByLatency => '按延迟排序';
+	@override String get updateSubscription => '更新订阅';
+	@override String get viewByGroup => '按代理组查看';
+	@override String get testAll => '全部测速';
+	@override String get searchHint => '搜索节点 / 国家 / 协议';
+	@override String get emptyNoNodes => '还没有可用节点。\n订阅会自动同步；若刚登录，请稍候或点下方重试。';
+	@override String get emptyNoMatch => '没有匹配的节点。';
+	@override String get reload => '重新加载';
+	@override String get currentInUse => '当前选中（正在使用的节点）';
+	@override String get current => '当前';
+	@override String get notTested => '未测到（待重载内核）';
+	@override String get timeout => '超时';
+	@override String get clear => '清空';
+	@override String get selectNode => '选择节点';
+	@override String get emptyNoKernel => '还没有可用节点。\n请先在主页打开连接开关。';
+	@override String get openFullList => '打开完整节点列表（搜索 / 测速 / 分组）';
+}
+
+// Path: nodeAuto
+class Translations$nodeAuto$zh_CN implements Translations$nodeAuto$en {
+	Translations$nodeAuto$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get kernelStateUnavailable => '暂时读不到内核的节点状态，稍后会自动重试';
+	@override String backToFixedNode({required Object fixed}) => '已回到固定节点：${fixed}';
+	@override String get noUsableNodePickOne => '没有找到可用节点，请在「节点列表」里手动换一个';
+	@override String get noUsableNodeTryOne => '没有找到可用的节点，请在「节点列表」里手动换一个试试';
+	@override String autoConnectedBest({required Object bestNode, required Object bestMs}) => '已自动连接最优节点：${bestNode}（${bestMs} ms）';
+	@override String get currentNodeUnreachable => '当前节点无法访问外网，正在自动换一个…';
+	@override String autoSwitchedToUsable({required Object target}) => '已自动切换到可用节点：${target}';
+	@override String newNodesReloading({required Object missing}) => '订阅里有 ${missing} 个新节点还没进内核，正在重载…';
+	@override String get kernelReloadedRetest => '内核已按新订阅重载，请再点一次测速';
+}
+
+// Path: accountBlock
+class Translations$accountBlock$zh_CN implements Translations$accountBlock$en {
+	Translations$accountBlock$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String quotaFull({required Object used, required Object limit}) => '设备名额已用满（${used}/${limit}）：本机仍在授权范围内，可正常连接。如需再添加新设备，请升级设备数量或先删除不用的设备。';
+	@override String get banFallback => '您的账号已被禁用，无法继续使用服务。';
+	@override String get titleExpired => '套餐已到期';
+	@override String get titleDeviceFull => '设备数量已达上限';
+	@override String get titleAccountDisabled => '账号已被禁用';
+	@override String get titlePlanDisabled => '套餐已被禁用';
+	@override String get titleNoPlan => '尚未开通套餐';
+	@override String get titleDeviceRemoved => '本设备已被移除';
+	@override String get titleServiceUnavailable => '服务暂时不可用';
+	@override String get textExpired => '您的套餐已到期，购买套餐后即可继续畅连全球节点。';
+	@override String textDeviceFull({required Object used, required Object limit}) => '服务端判定本机已超出套餐设备数上限（${used}/${limit}），暂时无法连接。可在「我的 - 设备管理」中删除不常用设备，或升级更高设备数的套餐。';
+	@override String get textAccountDisabled => '您的账号已被禁用，无法使用服务。如有疑问，请联系客服。';
+	@override String get textPlanDisabled => '您的套餐已被禁用或状态异常，无法连接。如有疑问，请联系客服。';
+	@override String get textNoPlan => '您还没有开通套餐，开通后即可畅连全球节点。';
+	@override String get textDeviceRemoved => '本设备已被移除并踢下线，请重新登录。';
+	@override String get textServiceUnavailable => '服务暂时不可用，请稍后重试；若持续出现请截图联系客服。';
+	@override String remainingDays({required Object days}) => '剩余 ${days} 天';
+	@override String deviceUsage({required Object used, required Object limit}) => '设备 ${used}/${limit}';
+}
+
+// Path: entitlementMsg
+class Translations$entitlementMsg$zh_CN implements Translations$entitlementMsg$en {
+	Translations$entitlementMsg$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get tamperedTitle => '授权状态异常';
+	@override String get tamperedClock => '检测到系统时间被回拨（或本地授权数据被改动），请联网完成一次校验后再连接。';
+	@override String get tamperedLocal => '本地授权数据已损坏或被改动，请联网完成一次校验后再连接。';
+	@override String get needVerifyTitle => '需要联网校验';
+	@override String get needVerifyFirst => '无法确认套餐状态：请先连接网络并登录账号，完成一次校验后再连接。';
+	@override String get needVerifyRetry => '无法确认套餐状态，请联网后重试。';
+	@override String get verifyFailedTitle => '无法校验套餐状态';
+	@override String get verifyFailedText => '已超过校验宽限期且无法连接服务器，请检查网络后重试（如刚续费，请重新登录）。';
+	@override String get restrictedTitle => '账号受限';
+	@override String get restrictedFallback => '账号或套餐已被禁用，无法连接。';
+	@override String get expiredTitle => '套餐已到期';
+	@override String expiredText({required Object date}) => '您的套餐已于 ${date} 到期，本地订阅配置已清除。续费后重新登录即可恢复。';
+}
+
+// Path: devicesScreen
+class Translations$devicesScreen$zh_CN implements Translations$devicesScreen$en {
+	Translations$devicesScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '设备管理';
+	@override String get currentPlan => '当前套餐';
+	@override String devicesText({required Object text}) => '设备 ${text}';
+	@override String get upgradeTitle => '升级设备数 / 延长时长';
+	@override String get upgradeSubtitle => '可同时增加台数与天数，一起算价一次支付';
+	@override String get addDevices => '增加台数';
+	@override String get noAddDevices => '不增加';
+	@override String addDevicesCount({required Object n}) => '+${n} 台';
+	@override String get addDays => '增加天数';
+	@override String get noExtend => '不延长';
+	@override String addDaysCount({required Object n, required Object months}) => '+${n} 天（${months} 个月）';
+	@override String get priceFailed => '价格获取失败';
+	@override String amountDue({required Object amount}) => '应付 ¥${amount}';
+	@override String get requote => '重新算价';
+	@override String get goPay => '去支付';
+	@override String get afterUpgrade => '升级后：';
+	@override String afterLimit({required Object limit}) => '设备上限 ${limit} 台';
+	@override String afterExpire({required Object date}) => '到期 ${date}';
+	@override String get pickSomething => '请至少选择要增加的台数或天数';
+	@override String get daysOnlyUnsupported => '面板暂不支持「只延长时间」：请把「增加台数」选成 1 台及以上再试（或联系客服开通）。';
+	@override String get paramsRejected => '参数不被接受：请重新选择台数与天数。';
+	@override String get subscriptionExpired => '订阅已到期，无法升级：请先续费或重新购买套餐。';
+	@override String get orderIncomplete => '订单信息不完整，请点「重新算价」再试';
+	@override String get orderRegenerated => '原订单已失效，已按同样配置重新生成订单';
+	@override String get payChannelIncomplete => '订单或支付通道信息不完整，请重新算价后再试';
+	@override String get noQrCode => '后端没有返回支付二维码/链接，请换一个支付方式或稍后再试';
+	@override String payStartFailed({required Object err}) => '支付发起失败：${err}';
+	@override String get payCancelled => '已取消本次支付；草稿订单已清理';
+	@override String get balancePay => '余额支付';
+	@override String get noPayMethod => '当前没有可用的支付方式，请稍后再试或联系客服';
+	@override String balanceInsufficient({required Object balance, required Object amount}) => '余额不足（¥${balance}，需付 ¥${amount}）。\n是否先去充值？';
+	@override String get choosePayMethod => '选择支付方式';
+	@override String balanceText({required Object balance}) => '余额 ¥${balance}';
+	@override String balanceShort({required Object balance}) => '余额 ¥${balance}（不足，请先充值）';
+	@override String get unknownDevice => '未知设备';
+	@override String get online => '● 在线';
+	@override String get offline => '○ 离线';
+	@override String lastActive({required Object text}) => '最近活跃 ${text}';
+	@override String get delete => '删除';
+	@override String deleteConfirm({required Object name}) => '确认删除设备「${name}」？该设备会被立即踢下线。';
+}
+
+// Path: sysProxySheet
+class Translations$sysProxySheet$zh_CN implements Translations$sysProxySheet$en {
+	Translations$sysProxySheet$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get reading => '读取中…';
+	@override String get unknown => '未知';
+	@override String get kernelNotRunning => '内核未运行（先在主页打开连接开关）';
+	@override String applied({required Object host, required Object port}) => '已生效 · ${host}:${port}';
+	@override String notSet({required Object reason}) => '未设置系统代理 —— ${reason}';
+	@override String notEffective({required Object port}) => '未生效（系统里没有指向 ${port} 的代理）';
+	@override String readFailed({required Object err}) => '读取失败：${err}';
+	@override String get setRejected => '设置失败：系统可能拒绝了写入（或被其它代理软件覆盖）';
+	@override String get disableFailed => '关闭失败';
+	@override String get portRange => '端口需在 1–65535 之间';
+	@override String portChanged({required Object value}) => '端口已改为 ${value}：请断开重连一次，内核才会监听新端口';
+	@override String get title => '系统代理';
+	@override String desc({required Object host}) => '系统代理地址固定为 ${host}（本机回环），端口就是内核的混合端口。';
+	@override String get descWindows => 'Windows 的「设置 → 网络和 Internet → 代理」里看到的就是这个地址。';
+	@override String get reset => '重新设置';
+	@override String get disable => '关闭系统代理';
+	@override String get diagnostics => '诊断详情（界面读的到底是不是注册表那份）';
+	@override String get mixedPort => '混合端口';
+	@override String get apply => '应用';
+}
+
+// Path: logScreen
+class Translations$logScreen$zh_CN implements Translations$logScreen$en {
+	Translations$logScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String readAppFailed({required Object e}) => '读取应用日志失败：${e}';
+	@override String readCoreFailed({required Object e}) => '读取核心日志失败：${e}';
+	@override String get copied => '已复制（订阅地址等敏感信息已自动打码，日志文件本身仍可能包含原始地址）';
+	@override String get copy => '复制';
+	@override String get refresh => '刷新';
+	@override String get empty => '暂无内容';
+}
+
+// Path: trayShell
+class Translations$trayShell$zh_CN implements Translations$trayShell$en {
+	Translations$trayShell$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get closeTitle => '关闭窗口';
+	@override String get closeBody => '关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n· 点「确定」：最小化到托盘（想彻底退出时，右键托盘图标 → 退出）\n· 点「取消」：完全退出 Mclash，同时停止内核并还原系统代理\n\n（本次选择会被记住；下次可直接右键托盘图标操作）';
+}
+
+// Path: main.tray
 class Translations$main$tray$zh_CN implements Translations$main$tray$en {
 	Translations$main$tray$zh_CN.internal(this._root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
+	// Translations
 	@override String get menuOpen => '打开';
 	@override String get menuExit => '退出';
 }
 
+/// The flat map containing all translations for locale <zh-CN>.
+/// Only for edge cases! For simple maps, use the map function of this library.
+///
+/// The Dart AOT compiler has issues with very large switch statements,
+/// so the map is split into smaller functions (512 entries each).
 extension on TranslationsZhCn {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
@@ -715,6 +1103,247 @@ extension on TranslationsZhCn {
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',
+			'countries.HK' => '香港',
+			'countries.TW' => '台湾',
+			'countries.MO' => '澳门',
+			'countries.CN' => '中国',
+			'countries.JP' => '日本',
+			'countries.KR' => '韩国',
+			'countries.SG' => '新加坡',
+			'countries.MY' => '马来西亚',
+			'countries.TH' => '泰国',
+			'countries.VN' => '越南',
+			'countries.PH' => '菲律宾',
+			'countries.ID' => '印尼',
+			'countries.KH' => '柬埔寨',
+			'countries.US' => '美国',
+			'countries.CA' => '加拿大',
+			'countries.MX' => '墨西哥',
+			'countries.GB' => '英国',
+			'countries.DE' => '德国',
+			'countries.FR' => '法国',
+			'countries.NL' => '荷兰',
+			'countries.RU' => '俄罗斯',
+			'countries.IT' => '意大利',
+			'countries.ES' => '西班牙',
+			'countries.CH' => '瑞士',
+			'countries.SE' => '瑞典',
+			'countries.NO' => '挪威',
+			'countries.FI' => '芬兰',
+			'countries.DK' => '丹麦',
+			'countries.PL' => '波兰',
+			'countries.AT' => '奥地利',
+			'countries.IE' => '爱尔兰',
+			'countries.UA' => '乌克兰',
+			'countries.TR' => '土耳其',
+			'countries.PT' => '葡萄牙',
+			'countries.CZ' => '捷克',
+			'countries.RO' => '罗马尼亚',
+			'countries.BE' => '比利时',
+			'countries.GR' => '希腊',
+			'countries.HU' => '匈牙利',
+			'countries.IL' => '以色列',
+			'countries.AE' => '阿联酋',
+			'countries.SA' => '沙特',
+			'countries.EG' => '埃及',
+			'countries.ZA' => '南非',
+			'countries.NG' => '尼日利亚',
+			'countries.AU' => '澳大利亚',
+			'countries.NZ' => '新西兰',
+			'countries.BR' => '巴西',
+			'countries.AR' => '阿根廷',
+			'countries.CL' => '智利',
+			'countries.CO' => '哥伦比亚',
+			'countries.IN' => '印度',
+			'countries.PK' => '巴基斯坦',
+			'countries.XX' => '其他',
+			'meScreen.accountBalance' => '账户余额',
+			'meScreen.expireAt' => '到期时间',
+			'meScreen.remainingDays' => '剩余天数',
+			'meScreen.deviceCount' => '设备数',
+			'meScreen.myOrders' => '我的订单',
+			'meScreen.deviceManagement' => '设备管理',
+			'meScreen.changePassword' => '修改密码',
+			'meScreen.clearLocalData' => '清除本地数据（卸载前使用）',
+			'meScreen.profileManagementDev' => '配置档管理（开发者）',
+			'meScreen.tunAdapter' => 'TUN 虚拟网卡',
+			'meScreen.checkUpdate' => '检查更新',
+			'meScreen.retry' => '重试',
+			'meScreen.loadFailed' => '账号信息读取失败：登录可能已过期或网络不通。\n请点右上角刷新重试；仍失败请重新登录。',
+			'meScreen.logoutConfirm' => '确认退出登录？',
+			'meScreen.boardNoKernel' => '面板显示的是内核的实时数据（连接、流量、规则命中）。\n\n当前内核没有运行，面板会是一个空壳。\n点「确定」仍然打开，点「取消」先去主页连接。',
+			'meScreen.boardOpened' => '已在浏览器中打开面板；在里面换节点 / 切规则-全局，App 会自动跟随（约 5 秒内）',
+			'homeScreen.expiresOn' => ({required Object date}) => '到期 ${date}',
+			'homeScreen.devicesText' => ({required Object text}) => '设备 ${text}',
+			'homeScreen.upgrade' => '升级',
+			'homeScreen.quickCountries' => '快速筛选国家',
+			'homeScreen.nodeCount' => ({required Object count}) => '${count} 个节点',
+			'homeScreen.autoBestTip' => '在所有国家的节点里挑延迟最低的可用节点（自动模式）',
+			'homeScreen.autoBest' => '自动最优',
+			'homeScreen.pickCountryTip' => ({required Object label}) => '自动选择「${label}」延迟最低的可用节点，并固定使用它',
+			'homeScreen.autoNoBetter' => '已在自动模式（没有找到更优的可用节点）',
+			'homeScreen.switchedBest' => ({required Object name}) => '已切换到最优节点：${name}',
+			'homeScreen.switchedCountry' => ({required Object country, required Object node, required Object ms}) => '已切换到 ${country} 最快节点：${node}${ms}',
+			'homeScreen.filterCountryFailed' => ({required Object country, required Object err}) => '已筛选 ${country}；切换节点失败：${err}',
+			'homeScreen.deviceFullCount' => ({required Object used, required Object limit}) => '当前设备 ${used}/${limit} 台\n\n',
+			'homeScreen.deviceFullUpgradeHint' => '升级设备数量后可立即恢复连接（推荐）；也可以先删除不常用的设备腾出名额。',
+			'homeScreen.later' => '稍后',
+			'homeScreen.upgradeDeviceCount' => '升级设备数量',
+			'homeScreen.cannotConnect' => '无法连接',
+			'homeScreen.freshnessNever' => '尚未同步 · 点击刷新',
+			'homeScreen.freshnessJustNow' => '刚刚更新 · 点右侧管理设备',
+			'homeScreen.freshnessMinutes' => ({required Object minutes}) => '${minutes} 分钟前更新 · 点右侧管理设备',
+			'homeScreen.freshnessStale' => ({required Object minutes}) => '${minutes} 分钟前更新 · 点击刷新',
+			'homeScreen.subscriptionAutoSync' => '订阅自动同步',
+			'homeScreen.connecting' => '正在连接…',
+			'homeScreen.disconnecting' => '正在断开…',
+			'homeScreen.tapToDisconnect' => '点击开关断开',
+			'homeScreen.tapToConnect' => '点击开关连接',
+			'homeScreen.currentNode' => '当前节点',
+			'homeScreen.noNodeSelected' => '未选择节点',
+			'homeScreen.switchAction' => '切换',
+			'homeScreen.realtimeSpeed' => '实时速度',
+			'homeScreen.totalTraffic' => '累计流量',
+			'homeScreen.subSyncedNotReady' => '订阅已下载，但配置档还没就绪，请稍后再试。',
+			'homeScreen.noPlan' => '该账号暂无可用套餐，请先购买套餐。',
+			'homeScreen.loginExpired' => '登录已失效，请重新登录。',
+			'homeScreen.syncingWait' => '正在同步订阅，请稍候再试。',
+			'homeScreen.syncFailedNetwork' => ({required Object message}) => '订阅同步失败：${message}\n请检查网络后重试。',
+			'homeScreen.syncFailed' => '订阅同步失败，请稍后重试。',
+			'homeScreen.resetProxy' => '重设',
+			'nodesScreen.updatedCount' => ({required Object count}) => '订阅已更新：${count} 个节点',
+			'nodesScreen.updateFailed' => ({required Object message}) => '更新失败：${message}',
+			'nodesScreen.updateFailedNetwork' => '更新失败，请检查网络',
+			'nodesScreen.testDone' => ({required Object ok, required Object fail}) => '测速完成：${ok} 个可用，${fail} 个连不上（可能已下线）',
+			'nodesScreen.switchedTo' => ({required Object name}) => '已切换到 ${name}',
+			'nodesScreen.switchFailed' => ({required Object message}) => '切换失败：${message}\n（节点切换需要内核运行，请先打开连接开关）',
+			'nodesScreen.selectedAfterConnect' => ({required Object name}) => '已选择 ${name}（连接后生效）',
+			'nodesScreen.title' => '节点列表',
+			'nodesScreen.searchNode' => '搜索节点',
+			'nodesScreen.sortByLatency' => '按延迟排序',
+			'nodesScreen.updateSubscription' => '更新订阅',
+			'nodesScreen.viewByGroup' => '按代理组查看',
+			'nodesScreen.testAll' => '全部测速',
+			'nodesScreen.searchHint' => '搜索节点 / 国家 / 协议',
+			'nodesScreen.emptyNoNodes' => '还没有可用节点。\n订阅会自动同步；若刚登录，请稍候或点下方重试。',
+			'nodesScreen.emptyNoMatch' => '没有匹配的节点。',
+			'nodesScreen.reload' => '重新加载',
+			'nodesScreen.currentInUse' => '当前选中（正在使用的节点）',
+			'nodesScreen.current' => '当前',
+			'nodesScreen.notTested' => '未测到（待重载内核）',
+			'nodesScreen.timeout' => '超时',
+			'nodesScreen.clear' => '清空',
+			'nodesScreen.selectNode' => '选择节点',
+			'nodesScreen.emptyNoKernel' => '还没有可用节点。\n请先在主页打开连接开关。',
+			'nodesScreen.openFullList' => '打开完整节点列表（搜索 / 测速 / 分组）',
+			'nodeAuto.kernelStateUnavailable' => '暂时读不到内核的节点状态，稍后会自动重试',
+			'nodeAuto.backToFixedNode' => ({required Object fixed}) => '已回到固定节点：${fixed}',
+			'nodeAuto.noUsableNodePickOne' => '没有找到可用节点，请在「节点列表」里手动换一个',
+			'nodeAuto.noUsableNodeTryOne' => '没有找到可用的节点，请在「节点列表」里手动换一个试试',
+			'nodeAuto.autoConnectedBest' => ({required Object bestNode, required Object bestMs}) => '已自动连接最优节点：${bestNode}（${bestMs} ms）',
+			'nodeAuto.currentNodeUnreachable' => '当前节点无法访问外网，正在自动换一个…',
+			'nodeAuto.autoSwitchedToUsable' => ({required Object target}) => '已自动切换到可用节点：${target}',
+			'nodeAuto.newNodesReloading' => ({required Object missing}) => '订阅里有 ${missing} 个新节点还没进内核，正在重载…',
+			'nodeAuto.kernelReloadedRetest' => '内核已按新订阅重载，请再点一次测速',
+			'accountBlock.quotaFull' => ({required Object used, required Object limit}) => '设备名额已用满（${used}/${limit}）：本机仍在授权范围内，可正常连接。如需再添加新设备，请升级设备数量或先删除不用的设备。',
+			'accountBlock.banFallback' => '您的账号已被禁用，无法继续使用服务。',
+			'accountBlock.titleExpired' => '套餐已到期',
+			'accountBlock.titleDeviceFull' => '设备数量已达上限',
+			'accountBlock.titleAccountDisabled' => '账号已被禁用',
+			'accountBlock.titlePlanDisabled' => '套餐已被禁用',
+			'accountBlock.titleNoPlan' => '尚未开通套餐',
+			'accountBlock.titleDeviceRemoved' => '本设备已被移除',
+			'accountBlock.titleServiceUnavailable' => '服务暂时不可用',
+			'accountBlock.textExpired' => '您的套餐已到期，购买套餐后即可继续畅连全球节点。',
+			'accountBlock.textDeviceFull' => ({required Object used, required Object limit}) => '服务端判定本机已超出套餐设备数上限（${used}/${limit}），暂时无法连接。可在「我的 - 设备管理」中删除不常用设备，或升级更高设备数的套餐。',
+			'accountBlock.textAccountDisabled' => '您的账号已被禁用，无法使用服务。如有疑问，请联系客服。',
+			'accountBlock.textPlanDisabled' => '您的套餐已被禁用或状态异常，无法连接。如有疑问，请联系客服。',
+			'accountBlock.textNoPlan' => '您还没有开通套餐，开通后即可畅连全球节点。',
+			'accountBlock.textDeviceRemoved' => '本设备已被移除并踢下线，请重新登录。',
+			'accountBlock.textServiceUnavailable' => '服务暂时不可用，请稍后重试；若持续出现请截图联系客服。',
+			'accountBlock.remainingDays' => ({required Object days}) => '剩余 ${days} 天',
+			'accountBlock.deviceUsage' => ({required Object used, required Object limit}) => '设备 ${used}/${limit}',
+			'entitlementMsg.tamperedTitle' => '授权状态异常',
+			'entitlementMsg.tamperedClock' => '检测到系统时间被回拨（或本地授权数据被改动），请联网完成一次校验后再连接。',
+			'entitlementMsg.tamperedLocal' => '本地授权数据已损坏或被改动，请联网完成一次校验后再连接。',
+			'entitlementMsg.needVerifyTitle' => '需要联网校验',
+			'entitlementMsg.needVerifyFirst' => '无法确认套餐状态：请先连接网络并登录账号，完成一次校验后再连接。',
+			'entitlementMsg.needVerifyRetry' => '无法确认套餐状态，请联网后重试。',
+			'entitlementMsg.verifyFailedTitle' => '无法校验套餐状态',
+			'entitlementMsg.verifyFailedText' => '已超过校验宽限期且无法连接服务器，请检查网络后重试（如刚续费，请重新登录）。',
+			'entitlementMsg.restrictedTitle' => '账号受限',
+			'entitlementMsg.restrictedFallback' => '账号或套餐已被禁用，无法连接。',
+			'entitlementMsg.expiredTitle' => '套餐已到期',
+			'entitlementMsg.expiredText' => ({required Object date}) => '您的套餐已于 ${date} 到期，本地订阅配置已清除。续费后重新登录即可恢复。',
+			'devicesScreen.title' => '设备管理',
+			'devicesScreen.currentPlan' => '当前套餐',
+			'devicesScreen.devicesText' => ({required Object text}) => '设备 ${text}',
+			'devicesScreen.upgradeTitle' => '升级设备数 / 延长时长',
+			'devicesScreen.upgradeSubtitle' => '可同时增加台数与天数，一起算价一次支付',
+			'devicesScreen.addDevices' => '增加台数',
+			'devicesScreen.noAddDevices' => '不增加',
+			'devicesScreen.addDevicesCount' => ({required Object n}) => '+${n} 台',
+			'devicesScreen.addDays' => '增加天数',
+			'devicesScreen.noExtend' => '不延长',
+			'devicesScreen.addDaysCount' => ({required Object n, required Object months}) => '+${n} 天（${months} 个月）',
+			'devicesScreen.priceFailed' => '价格获取失败',
+			'devicesScreen.amountDue' => ({required Object amount}) => '应付 ¥${amount}',
+			'devicesScreen.requote' => '重新算价',
+			'devicesScreen.goPay' => '去支付',
+			'devicesScreen.afterUpgrade' => '升级后：',
+			'devicesScreen.afterLimit' => ({required Object limit}) => '设备上限 ${limit} 台',
+			'devicesScreen.afterExpire' => ({required Object date}) => '到期 ${date}',
+			'devicesScreen.pickSomething' => '请至少选择要增加的台数或天数',
+			'devicesScreen.daysOnlyUnsupported' => '面板暂不支持「只延长时间」：请把「增加台数」选成 1 台及以上再试（或联系客服开通）。',
+			'devicesScreen.paramsRejected' => '参数不被接受：请重新选择台数与天数。',
+			'devicesScreen.subscriptionExpired' => '订阅已到期，无法升级：请先续费或重新购买套餐。',
+			'devicesScreen.orderIncomplete' => '订单信息不完整，请点「重新算价」再试',
+			'devicesScreen.orderRegenerated' => '原订单已失效，已按同样配置重新生成订单',
+			'devicesScreen.payChannelIncomplete' => '订单或支付通道信息不完整，请重新算价后再试',
+			'devicesScreen.noQrCode' => '后端没有返回支付二维码/链接，请换一个支付方式或稍后再试',
+			'devicesScreen.payStartFailed' => ({required Object err}) => '支付发起失败：${err}',
+			'devicesScreen.payCancelled' => '已取消本次支付；草稿订单已清理',
+			'devicesScreen.balancePay' => '余额支付',
+			'devicesScreen.noPayMethod' => '当前没有可用的支付方式，请稍后再试或联系客服',
+			'devicesScreen.balanceInsufficient' => ({required Object balance, required Object amount}) => '余额不足（¥${balance}，需付 ¥${amount}）。\n是否先去充值？',
+			'devicesScreen.choosePayMethod' => '选择支付方式',
+			'devicesScreen.balanceText' => ({required Object balance}) => '余额 ¥${balance}',
+			'devicesScreen.balanceShort' => ({required Object balance}) => '余额 ¥${balance}（不足，请先充值）',
+			'devicesScreen.unknownDevice' => '未知设备',
+			'devicesScreen.online' => '● 在线',
+			'devicesScreen.offline' => '○ 离线',
+			'devicesScreen.lastActive' => ({required Object text}) => '最近活跃 ${text}',
+			'devicesScreen.delete' => '删除',
+			'devicesScreen.deleteConfirm' => ({required Object name}) => '确认删除设备「${name}」？该设备会被立即踢下线。',
+			'sysProxySheet.reading' => '读取中…',
+			'sysProxySheet.unknown' => '未知',
+			'sysProxySheet.kernelNotRunning' => '内核未运行（先在主页打开连接开关）',
+			'sysProxySheet.applied' => ({required Object host, required Object port}) => '已生效 · ${host}:${port}',
+			'sysProxySheet.notSet' => ({required Object reason}) => '未设置系统代理 —— ${reason}',
+			'sysProxySheet.notEffective' => ({required Object port}) => '未生效（系统里没有指向 ${port} 的代理）',
+			'sysProxySheet.readFailed' => ({required Object err}) => '读取失败：${err}',
+			'sysProxySheet.setRejected' => '设置失败：系统可能拒绝了写入（或被其它代理软件覆盖）',
+			'sysProxySheet.disableFailed' => '关闭失败',
+			'sysProxySheet.portRange' => '端口需在 1–65535 之间',
+			'sysProxySheet.portChanged' => ({required Object value}) => '端口已改为 ${value}：请断开重连一次，内核才会监听新端口',
+			'sysProxySheet.title' => '系统代理',
+			'sysProxySheet.desc' => ({required Object host}) => '系统代理地址固定为 ${host}（本机回环），端口就是内核的混合端口。',
+			'sysProxySheet.descWindows' => 'Windows 的「设置 → 网络和 Internet → 代理」里看到的就是这个地址。',
+			'sysProxySheet.reset' => '重新设置',
+			'sysProxySheet.disable' => '关闭系统代理',
+			'sysProxySheet.diagnostics' => '诊断详情（界面读的到底是不是注册表那份）',
+			'sysProxySheet.mixedPort' => '混合端口',
+			'sysProxySheet.apply' => '应用',
+			'logScreen.readAppFailed' => ({required Object e}) => '读取应用日志失败：${e}',
+			'logScreen.readCoreFailed' => ({required Object e}) => '读取核心日志失败：${e}',
+			'logScreen.copied' => '已复制（订阅地址等敏感信息已自动打码，日志文件本身仍可能包含原始地址）',
+			'logScreen.copy' => '复制',
+			'logScreen.refresh' => '刷新',
+			_ => null,
+		} ?? switch (path) {
+			'logScreen.empty' => '暂无内容',
+			'trayShell.closeTitle' => '关闭窗口',
+			'trayShell.closeBody' => '关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n· 点「确定」：最小化到托盘（想彻底退出时，右键托盘图标 → 退出）\n· 点「取消」：完全退出 Mclash，同时停止内核并还原系统代理\n\n（本次选择会被记住；下次可直接右键托盘图标操作）',
 			_ => null,
 		};
 	}

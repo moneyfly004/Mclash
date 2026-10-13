@@ -140,4 +140,55 @@ void main() {
       expect(shell is LasyRenderingStatefulWidget, isFalse);
     });
   });
+
+  _backActionTests();
+}
+
+// ---------------------------------------------------------------------------
+// 回归（真机报障）：在「设备管理」等子页按系统返回键**直接退出到桌面**。
+//
+// 旧实现只判断"内嵌导航器能不能返回 / 是不是第一个 Tab"，漏了"根导航器上还压着
+// 页面（有些页面 push 到根上）"这一档 —— 那一档会落到"到底"，把 App 退出/切后台。
+// 这里把决策表钉死。
+// ---------------------------------------------------------------------------
+void _backActionTests() {
+  group('系统返回键决策（decideBackAction）', () {
+    test('子页在内嵌导航器上 → 返回上一页', () {
+      expect(
+        decideBackAction(nestedCanPop: true, rootCanPop: true, tabIndex: 0),
+        MclashBackAction.popNested,
+      );
+      expect(
+        decideBackAction(nestedCanPop: true, rootCanPop: false, tabIndex: 3),
+        MclashBackAction.popNested,
+      );
+    });
+
+    test('内嵌到底但根上还有页面 → 由根返回（旧实现漏掉的一档，会误退出 App）', () {
+      expect(
+        decideBackAction(nestedCanPop: false, rootCanPop: true, tabIndex: 0),
+        MclashBackAction.popRoot,
+      );
+      expect(
+        decideBackAction(nestedCanPop: false, rootCanPop: true, tabIndex: 2),
+        MclashBackAction.popRoot,
+        reason: '根上压着页面时，优先返回页面，而不是先跳 Tab',
+      );
+    });
+
+    test('不在第一个 Tab 且到底 → 回到第一个 Tab', () {
+      expect(
+        decideBackAction(nestedCanPop: false, rootCanPop: false, tabIndex: 2),
+        MclashBackAction.switchToFirstTab,
+      );
+    });
+
+    test('真的到底（首页根部）→ 移到后台，**不退出 App**（VPN 要继续跑）', () {
+      expect(
+        decideBackAction(nestedCanPop: false, rootCanPop: false, tabIndex: 0),
+        MclashBackAction.moveToBackground,
+        reason: '返回键不该把 App 杀回桌面导致断线',
+      );
+    });
+  });
 }

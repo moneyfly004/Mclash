@@ -62,7 +62,6 @@ class MclashHeartbeatService {
       return;
     }
     _inflight = true;
-    HttpClient? client;
     try {
       if (!MclashApi.isLoggedIn) {
         return;
@@ -77,12 +76,46 @@ class MclashHeartbeatService {
         return;
       }
 
-      final uri = sub.replace(
-        path: '/api/v1/client/heartbeat',
-        queryParameters: <String, String>{'token': token},
-      );
+      // 心跳也要走域名池：旧实现把服务端下发的订阅 URL 直接换成
+      // `/api/v1/client/heartbeat`，host 永远是订阅域那一个 —— 那个域被墙时心跳就
+      // 永远失败（真机日志每 120s 一条 `上报失败 TimeoutException`），既不换域名
+      // 也不向域名池记账。现在按候选域名逐个试，成功/失败都回报给池
+      // （下次优先用能用的那个，与登录/订阅共享同一份"上次可用域名"）。
+      final candidates = MclashDomainPool.subscriptionUrlsFor(subUrl.trim());
+      for (final candidate in candidates) {
+        final parsed = Uri.tryParse(candidate);
+        if (parsed == null) {
+          continue;
+        }
+        final uri = parsed.replace(
+          path: '/api/v1/client/heartbeat',
+          queryParameters: <String, String>{'token': token},
+        );
+        final host = MclashDomainPool.hostOf(candidate);
+        var ok = false;
+        try {
+          ok = await _postHeartbeat(uri);
+        } catch (e) {
+          Log.w("MclashHeartbeat: ${host.isEmpty ? "候选域名" : host} 上报失败 $e");
+        }
+        if (ok) {
+          MclashDomainPool.reportSuccess(host, subscription: true);
+          return;
+        }
+        MclashDomainPool.reportFailure(host, subscription: true);
+      }
+      Log.w("MclashHeartbeat: 所有候选域名都没上报成功（已尝试 ${candidates.length} 个）");
+    } catch (e) {
+      Log.w("MclashHeartbeat: 上报失败 $e");
+    } finally {
+      _inflight = false;
+    }
+  }
 
-      client = HttpClient()..connectionTimeout = _timeout;
+  /// 往指定地址上报一次心跳；成功（200）返回 true。
+  Future<bool> _postHeartbeat(Uri uri) async {
+    final client = HttpClient()..connectionTimeout = _timeout;
+    try {
       final req = await client.postUrl(uri).timeout(_timeout);
       req.headers.set(HttpHeaders.acceptHeader, 'application/json');
       req.headers.set(
@@ -106,14 +139,12 @@ class MclashHeartbeatService {
           .timeout(_timeout);
       if (resp.statusCode != 200) {
         Log.w("MclashHeartbeat: HTTP ${resp.statusCode}");
-        return;
+        return false;
       }
       await _handleBody(body);
-    } catch (e) {
-      Log.w("MclashHeartbeat: 上报失败 $e");
+      return true;
     } finally {
-      client?.close(force: true);
-      _inflight = false;
+      client.close(force: true);
     }
   }
 

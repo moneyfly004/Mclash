@@ -65,6 +65,31 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     return result.yaml;
   }
 
+  /// 内核配置落盘路径：**不能**把配置内容塞进 Intent extra。
+  ///
+  /// 为什么（真机报障，安卓全平台连不上）：
+  ///   config_yaml 会随节点数线性增长（500+ 节点时约 700KB）。它以前是作为
+  ///   `startForegroundService(intent)` 的 extra 传过去的，而 Binder 单次事务
+  ///   上限约 512KB → `TransactionTooLargeException: data parcel size 698536 bytes`
+  ///   → 服务根本没被创建（onStartCommand 不会执行）→ 系统 FGS 看门狗在 30 秒后
+  ///   直接杀掉整个 App（ForegroundServiceDidNotStartInTimeException）。
+  ///   表现就是「点连接连不上 + App 卡死/闪退」。
+  ///
+  /// 现在只传路径，服务在自己的后台线程里读文件（见 MclashVpnService.startBox）。
+  static String configFilePathOf(VpnServiceConfig cfg) {
+    final dir = cfg.work_dir.isNotEmpty
+        ? cfg.work_dir
+        : (cfg.config_file_path.isNotEmpty
+              ? File(cfg.config_file_path).parent.path
+              : "");
+    final sep = Platform.pathSeparator;
+    final name = "service_core_config.yaml";
+    if (dir.isEmpty) {
+      return name;
+    }
+    return dir.endsWith(sep) ? "$dir$name" : "$dir$sep$name";
+  }
+
   @override
   Future<bool> isServiceAuthorized(String path) async {
     final r = await _channel.invokeMethod<bool>("prepare", {});
@@ -95,8 +120,24 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     emitStateChanged(_state, const {});
     try {
       final yaml = await _resolvedConfigYaml(cfg);
+      // 落地到文件，只把**路径**交给服务：内容走 Intent extra 会撞 Binder
+      // 上限（约 512KB）→ TransactionTooLargeException → 服务起不来 + 30 秒后
+      // 被 FGS 看门狗杀进程。500+ 节点时配置约 700KB，必踩。
+      final configPath = configFilePathOf(cfg);
+      var wrotePath = "";
+      try {
+        final f = File(configPath);
+        await f.parent.create(recursive: true);
+        await f.writeAsString(yaml, flush: true);
+        wrotePath = configPath;
+      } catch (e) {
+        stderr.writeln("[mclash] 内核配置落盘失败，回退到内存传递: $e");
+      }
       final args = <String, dynamic>{
-        "config_yaml": yaml,
+        if (wrotePath.isNotEmpty) "config_path": wrotePath,
+        // 只有落盘失败时才走旧的 inline 传递（小配置仍可用；大配置由原生侧
+        // 自行落盘兜底，见 VpnServicePlugin.start）。
+        if (wrotePath.isEmpty) "config_yaml": yaml,
         "need_tun": true,
         "ipv6": cfg.ipv6,
         "home_dir": cfg.work_dir,

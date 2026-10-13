@@ -18,6 +18,8 @@ import 'package:mclash/screens/main_tab_shell.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
+import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 
 class MclashDevicesScreen extends LasyRenderingStatefulWidget {
   const MclashDevicesScreen({super.key, this.autoOpenUpgrade = false});
@@ -94,6 +96,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: PreferredSize(preferredSize: Size.zero, child: AppBar()),
@@ -113,9 +116,9 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                       child: Icon(Icons.arrow_back_ios_outlined, size: 26),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      "设备管理",
+                      t.devicesScreen.title,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -167,6 +170,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   }
 
   Widget _buildUpgradeCard() {
+    final t = Translations.of(context);
     final info = MclashAccountInfo(
       MclashAccountService.instance.dashboard,
       MclashAccountService.instance.subscription,
@@ -181,7 +185,9 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
               children: [
                 Expanded(
                   child: Text(
-                    info.planName.isNotEmpty ? info.planName : "当前套餐",
+                    info.planName.isNotEmpty
+                        ? info.planName
+                        : t.devicesScreen.currentPlan,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: ThemeConfig.kFontWeightListItem,
@@ -189,7 +195,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                   ),
                 ),
                 Text(
-                  "设备 ${info.deviceText ?? "-"}",
+                  t.devicesScreen.devicesText(text: info.deviceText ?? "-"),
                   style: const TextStyle(
                     fontSize: 13,
                     color: ThemeDefine.kColorGrey,
@@ -200,8 +206,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
             const Divider(height: 24, thickness: 0.3),
             _upgradeRow(
               Icons.add_circle_outline,
-              "升级设备数 / 延长时长",
-              "可同时增加台数与天数，一起算价一次支付",
+              t.devicesScreen.upgradeTitle,
+              t.devicesScreen.upgradeSubtitle,
               _showUpgradeSheet,
             ),
             const SizedBox(height: 6),
@@ -229,6 +235,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   );
 
   Future<void> _showUpgradeSheet() async {
+    final t = Translations.of(context);
     var addDevices = 0;
     var addDays = 0;
     Map<String, dynamic> quote = const {};
@@ -309,16 +316,16 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "升级设备数 / 延长时长",
+                  Text(
+                    t.devicesScreen.upgradeTitle,
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: ThemeConfig.kFontWeightTitle,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    "增加台数",
+                  Text(
+                    t.devicesScreen.addDevices,
                     style: TextStyle(
                       fontSize: 12,
                       color: ThemeDefine.kColorGrey,
@@ -331,7 +338,11 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                       for (final n in [0, 1, 2, 5, 10])
                         ChoiceChip(
                           key: ValueKey("upgrade-devices-$n"),
-                          label: Text(n == 0 ? "不增加" : "+$n 台"),
+                          label: Text(
+                          n == 0
+                              ? t.devicesScreen.noAddDevices
+                              : t.devicesScreen.addDevicesCount(n: n),
+                        ),
                           selected: addDevices == n,
                           onSelected: (_) {
                             setSheetState(() => addDevices = n);
@@ -341,8 +352,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    "增加天数",
+                  Text(
+                    t.devicesScreen.addDays,
                     style: TextStyle(
                       fontSize: 12,
                       color: ThemeDefine.kColorGrey,
@@ -357,8 +368,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                           key: ValueKey("upgrade-days-$n"),
                           label: Text(
                             n == 0
-                                ? "不延长"
-                                : "+$n 天（${(n + 29) ~/ 30} 个月）",
+                                ? t.devicesScreen.noExtend
+                                : t.devicesScreen.addDaysCount(n: n, months: (n + 29) ~/ 30),
                           ),
                           selected: addDays == n,
                           onSelected: (_) {
@@ -380,8 +391,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                       else
                         Text(
                           quoteError != null
-                              ? "价格获取失败"
-                              : "应付 ¥${amount.toStringAsFixed(2)}",
+                              ? t.devicesScreen.priceFailed
+                              : t.devicesScreen.amountDue(amount: amount.toStringAsFixed(2)),
                           style: TextStyle(
                             fontSize: 15,
                             color: quoteError != null ? Colors.red : null,
@@ -391,7 +402,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                       const Spacer(),
                       TextButton(
                         onPressed: quoting ? null : refreshQuote,
-                        child: const Text("重新算价"),
+                        child: Text(t.devicesScreen.requote),
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
@@ -404,7 +415,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                                 addDays: addDays,
                               )
                             : null,
-                        child: const Text("去支付"),
+                        child: Text(t.devicesScreen.goPay),
                       ),
                     ],
                   ),
@@ -420,10 +431,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            "升级后："
-                            "${newLimit == null ? "" : "设备上限 $newLimit 台"}"
+                            "${t.devicesScreen.afterUpgrade}"
+                            "${newLimit == null ? "" : t.devicesScreen.afterLimit(limit: newLimit)}"
                             "${newLimit != null && newExpire.isNotEmpty ? " · " : ""}"
-                            "${newExpire.isEmpty ? "" : "到期 $newExpire"}",
+                            "${newExpire.isEmpty ? "" : t.devicesScreen.afterExpire(date: newExpire)}",
                             key: const ValueKey("upgrade-effect"),
                             style: const TextStyle(
                               fontSize: 11,
@@ -443,8 +454,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                   ],
                   if (addDevices <= 0 && addDays <= 0) ...[
                     const SizedBox(height: 8),
-                    const Text(
-                      "请至少选择要增加的台数或天数",
+                    Text(
+                      t.devicesScreen.pickSomething,
                       style: TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
                     ),
                   ],
@@ -465,13 +476,12 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     final text = e.toString();
     if (text.contains("参数错误") || text.contains("40000")) {
       if (addDevices <= 0 && addDays > 0) {
-        return "面板暂不支持「只延长时间」：请把「增加台数」选成 1 台及以上再试"
-            "（或联系客服开通）。";
+        return MclashI18n.t.devicesScreen.daysOnlyUnsupported;
       }
-      return "参数不被接受：请重新选择台数与天数。";
+      return t.devicesScreen.paramsRejected;
     }
     if (text.contains("订阅已到期")) {
-      return "订阅已到期，无法升级：请先续费或重新购买套餐。";
+      return t.devicesScreen.subscriptionExpired;
     }
     return text;
   }
@@ -485,11 +495,12 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
     required int addDevices,
     required int addDays,
   }) async {
+    final t = Translations.of(context);
     if (orderNo.isEmpty) {
       if (!mounted) {
         return;
       }
-      await DialogUtils.showAlertDialog(context, "订单信息不完整，请点「重新算价」再试");
+      await DialogUtils.showAlertDialog(context, t.devicesScreen.orderIncomplete);
       return;
     }
     final method = await _pickPayMethod(amount);
@@ -517,7 +528,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       Log.i("设备管理: 原草稿订单已失效，已按同样配置重新算价 -> $payOrderNo");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("原订单已失效，已按同样配置重新生成订单")),
+          SnackBar(content: Text(t.devicesScreen.orderRegenerated)),
         );
       }
     }
@@ -548,7 +559,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       var orderId = _lastQuoteOrderId;
       if (methodId <= 0 || orderId <= 0) {
         if (mounted) {
-          await DialogUtils.showAlertDialog(context, "订单或支付通道信息不完整，请重新算价后再试");
+          await DialogUtils.showAlertDialog(context, t.devicesScreen.payChannelIncomplete);
         }
         return;
       }
@@ -584,7 +595,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       final payload = MclashPay.payloadOf(r);
       if (payload.isEmpty) {
         if (mounted) {
-          await DialogUtils.showAlertDialog(context, "后端没有返回支付二维码/链接，请换一个支付方式或稍后再试");
+          await DialogUtils.showAlertDialog(context, t.devicesScreen.noQrCode);
         }
         return;
       }
@@ -614,7 +625,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       if (mounted) {
         await DialogUtils.showAlertDialog(
           context,
-          "支付发起失败：${_friendlyPayError(e)}",
+          t.devicesScreen.payStartFailed(err: _friendlyPayError(e)),
         );
       }
       return;
@@ -629,7 +640,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       unawaited(MclashDeviceUpgrade.cancelDraft());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("已取消本次支付；草稿订单已清理")),
+          SnackBar(content: Text(t.devicesScreen.payCancelled)),
         );
       }
     }
@@ -645,6 +656,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   static String _friendlyPayError(Object e) => MclashPay.friendlyError(e);
 
   Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {
+    final t = Translations.of(context);
     final info = MclashAccountInfo(
       MclashAccountService.instance.dashboard,
       MclashAccountService.instance.subscription,
@@ -665,12 +677,12 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
       return null;
     }
     final usable = <Map<String, dynamic>>[
-      if (balanceEnabled) {"id": -1, "key": "balance", "name": "余额支付"},
+      if (balanceEnabled) {"id": -1, "key": "balance", "name": t.devicesScreen.balancePay},
       ...methods.where((m) => !MclashPay.isBalance(MclashPay.payTypeOf(m))),
     ];
     if (usable.isEmpty) {
       if (mounted) {
-        await DialogUtils.showAlertDialog(context, "当前没有可用的支付方式，请稍后再试或联系客服");
+        await DialogUtils.showAlertDialog(context, t.devicesScreen.noPayMethod);
       }
       return null;
     }
@@ -679,7 +691,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
         balance < amount) {
       final go = await DialogUtils.showConfirmDialog(
         context,
-        "余额不足（¥${balance.toStringAsFixed(2)}，需付 ¥${amount.toStringAsFixed(2)}）。\n是否先去充值？",
+        t.devicesScreen.balanceInsufficient(
+        balance: balance.toStringAsFixed(2),
+        amount: amount.toStringAsFixed(2),
+      ),
       );
       if (go == true) {
         MainTabController.instance?.setTab(2);
@@ -699,8 +714,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "选择支付方式",
+            Text(
+              t.devicesScreen.choosePayMethod,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: ThemeConfig.kFontWeightTitle,
@@ -722,8 +737,8 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                 subtitle: MclashPay.isBalance(MclashPay.payTypeOf(m))
                     ? Text(
                         balance >= amount
-                            ? "余额 ¥${balance.toStringAsFixed(2)}"
-                            : "余额 ¥${balance.toStringAsFixed(2)}（不足，请先充值）",
+                            ? t.devicesScreen.balanceText(balance: balance.toStringAsFixed(2))
+                            : t.devicesScreen.balanceShort(balance: balance.toStringAsFixed(2)),
                         style: TextStyle(
                           fontSize: 12,
                           color: balance >= amount
@@ -743,9 +758,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   }
 
   Widget _buildDevice(Map<String, dynamic> d) {
+    final t = Translations.of(context);
     final name = d["device_name"]?.toString().isNotEmpty == true
         ? d["device_name"].toString()
-        : (d["os_name"]?.toString() ?? "未知设备");
+        : (d["os_name"]?.toString() ?? t.devicesScreen.unknownDevice);
     final model = "${d["os_name"] ?? ""} · ${d["device_model"] ?? ""}";
     final online = MclashDeviceView.isOnline(d);
     final ip = d["ip_address"]?.toString() ?? "";
@@ -771,7 +787,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                   ),
                 ),
                 Text(
-                  online ? "● 在线" : "○ 离线",
+                  online ? t.devicesScreen.online : t.devicesScreen.offline,
                   style: TextStyle(
                     fontSize: 11,
                     color: online
@@ -793,7 +809,7 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
               ),
             if (lastSeen.isNotEmpty)
               Text(
-                "最近活跃 $lastSeen",
+                t.devicesScreen.lastActive(text: lastSeen),
                 style: const TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
               ),
             const SizedBox(height: 10),
@@ -802,7 +818,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _remove(id, name),
-                    child: const Text("删除", style: TextStyle(color: Colors.red)),
+                    child: Text(
+                      t.devicesScreen.delete,
+                      style: const TextStyle(color: Colors.red),
+                    ),
                   ),
                 ),
               ],
@@ -814,9 +833,10 @@ class _MclashDevicesScreenState extends LasyRenderingState<MclashDevicesScreen> 
   }
 
   Future<void> _remove(int id, String name) async {
+    final t = Translations.of(context);
     final ok = await DialogUtils.showConfirmDialog(
       context,
-      "确认删除设备「$name」？该设备会被立即踢下线。",
+      t.devicesScreen.deleteConfirm(name: name),
     );
     if (ok != true) return;
     try {

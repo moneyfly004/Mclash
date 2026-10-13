@@ -179,6 +179,8 @@ class CBoardClient {
     HttpClient? httpClient,
   })  : _http = httpClient ?? HttpClient(),
         _baseUrl = _normalize(baseUrl ?? MclashDomainPool.currentApiBaseUrl()) {
+    // 建连超时必须设：默认 null 会一路等 OS 的超时（几十秒到两分钟）。
+    _http.connectionTimeout = kConnectTimeout;
     final list = <String>[];
     if (baseUrl != null && baseUrl.trim().isNotEmpty) {
       // 显式传了 base（构建期 MCLASH_API_BASE、测试）就以它为首选，再补域名池候选。
@@ -195,8 +197,13 @@ class CBoardClient {
         list.add(c);
       }
     }
-    _candidates = List<String>.unmodifiable(list);
+    _explicitBase = list.isNotEmpty ? list.first : "";
+    _explicitCandidates = List<String>.unmodifiable(list);
   }
+
+  /// 构造时显式给的 base（构建期 MCLASH_API_BASE / 测试）——它必须始终排第一。
+  String _explicitBase = "";
+  List<String> _explicitCandidates = const <String>[];
 
   static const kCBoardDefaultHost = 'new.moneyfly.top';
   static const kCBoardDefaultBaseUrl = 'https://new.moneyfly.top/api/v1';
@@ -207,7 +214,28 @@ class CBoardClient {
   String _baseUrl;
 
   /// 本次客户端可用的全部 base 候选（按域名池顺序，已去重）。
-  late final List<String> _candidates;
+  /// 每次取候选都**现算**：域名池的"上次可用域名/失败冷却"是随运行变化的，
+  /// 构造时冻结一次就会让冷却与顺序对本次进程永不生效（冷启动固定先撞默认域名）。
+  List<String> get _candidates {
+    final list = <String>[];
+    if (_explicitBase.isNotEmpty) {
+      list.add(_explicitBase);
+    }
+    for (final c in _explicitCandidates) {
+      if (!list.contains(c)) {
+        list.add(c);
+      }
+    }
+    for (final c in MclashDomainPool.apiBaseUrls()) {
+      if (!list.contains(c)) {
+        list.add(c);
+      }
+    }
+    if (list.isEmpty) {
+      list.add(kCBoardDefaultBaseUrl);
+    }
+    return list;
+  }
 
   /// 正在处理的那次请求实际用的 base：CSRF / refresh 必须打同一个域名，
   /// 否则可能落在两个不同站点上，白白放大调用次数。
@@ -358,7 +386,7 @@ class CBoardClient {
             httpStatus: resp.httpStatus,
           );
         } on CBoardException catch (e) {
-          if (!_shouldRotateOnException(e)) {
+          if (!_shouldRotateOnException(e, method)) {
             // 业务层拒绝：换域名也没用，直接把结果交给调用方。
             rethrow;
           }
@@ -413,17 +441,29 @@ class CBoardClient {
   }
 
   /// 只有「请求根本没到达业务层」的失败才轮换域名。
-  bool _shouldRotateOnException(CBoardException e) {
+  bool _shouldRotateOnException(CBoardException e, String method) {
     // HTTP 状态看着正常、但响应压根不是业务响应（CDN 拦截页 / 结构异常）：
     // 这不是「账号或权限问题」，换域名就能好。
     if (e.retryAnotherDomain) {
-      return true;
+      // 响应根本不是业务响应（CDN 拦截页/结构异常）。GET/HEAD 随便换域名重放；
+      // **写请求只在连接层失败（status==0，服务端没处理过）时才换** ——
+      // 否则一次 HTML 502 可能把"下单/支付"跨域重放，造成重复订单。
+      if (e.httpStatus == 0) {
+        return true;
+      }
+      return methodAllowsFullRotation(method);
     }
     final status = e.httpStatus;
-    if (status >= 300) {
-      // 5xx＝站点整体挂了；3xx 但响应不是 JSON＝典型的边缘节点拦截页。
-      // 两者都值得换域名；401/403/404 之类是账号/权限问题，换域名不会变好。
+    if (status >= 500) {
+      // 5xx＝站点整体挂了，值得换域名。
       return true;
+    }
+    if (status >= 300) {
+      // 3xx/4xx：**不能**因为"响应不是 JSON"就把域名打进 5 分钟冷却 ——
+      // 401/403/404 是账号/权限/路径问题，换域名不会变好，反而会把一个健康域名
+      // 冷却掉、清空"上次可用域名"（真机表现：明明域名好的，却每次都从头撞）。
+      // 只有连接层失败（status==0，见下）与非 JSON 的 5xx 才轮换。
+      return false;
     }
     if (status > 0) {
       return false;
@@ -477,7 +517,7 @@ class CBoardClient {
 
     HttpClientResponse resp;
     try {
-      final req = await _http.openUrl(method, uri);
+      final req = await _http.openUrl(method, uri).timeout(kRequestTimeout);
       _headers(auth: auth, csrf: csrf).forEach(req.headers.set);
       if (body != null) {
         final bytes = utf8.encode(jsonEncode(body));
@@ -485,7 +525,12 @@ class CBoardClient {
         req.headers.contentLength = bytes.length;
         req.add(bytes);
       }
-      resp = await req.close();
+      resp = await req.close().timeout(kRequestTimeout);
+    } on TimeoutException {
+      // 连接层失败（httpStatus 缺省 0）→ 允许换域名重试。
+      throw CBoardException(
+        '请求超时（${kRequestTimeout.inSeconds}s）：$method ${uri.path}',
+      );
     } on SocketException catch (e) {
       throw CBoardException('网络不可达：${e.message}');
     } on HandshakeException {
@@ -493,13 +538,21 @@ class CBoardClient {
     } on HttpException catch (e) {
       // 连接被重置/中断：请求没到业务层，可以换域名。
       throw CBoardException('连接失败：${e.message}');
-    } on TimeoutException {
-      throw CBoardException('请求超时（连接或读取超时）');
     } catch (e) {
       throw CBoardException('请求失败：$e');
     }
 
-    final text = await resp.transform(utf8.decoder).join();
+    final String text;
+    try {
+      text = await resp
+          .transform(utf8.decoder)
+          .join()
+          .timeout(kRequestTimeout);
+    } on TimeoutException {
+      throw CBoardException(
+        '读取响应超时（${kRequestTimeout.inSeconds}s）：$method $path',
+      );
+    }
     final status = resp.statusCode;
 
     dynamic decoded;
@@ -573,6 +626,15 @@ class CBoardClient {
 
   /// refresh 自身的有界超时：刷新只是重试的前置条件，不能让它把用户的请求拖死。
   static const Duration kRefreshTimeout = Duration(seconds: 15);
+
+  /// 建连超时：以前 HttpClient 的 connectionTimeout 是 null（交给 OS）——
+  /// 安卓/Linux 约 127s、macOS 约 75s 才失败，界面就是"一直转圈"。
+  static const Duration kConnectTimeout = Duration(seconds: 10);
+
+  /// 单次请求（含读响应体）的超时：**必须有**，否则服务端接受连接但不响应时
+  /// 客户端永远不返回（本机 loopback 实测裸 HttpClient 20s 仍挂着）。
+  /// 超时按"连接层失败"处理（httpStatus=0）→ 会触发域名轮换，换下一个域名重试。
+  static const Duration kRequestTimeout = Duration(seconds: 20);
 
   Future<bool> _refreshOnce() => _refreshing ??=
       _doRefresh().timeout(kRefreshTimeout, onTimeout: () {

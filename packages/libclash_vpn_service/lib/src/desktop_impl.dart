@@ -1825,14 +1825,23 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     try {
       var anyOk = false;
       final failed = <String>[];
+      final applied = <String>[];
       for (final svc in await _macNetworkServices()) {
         final ok = await _macSetOneService(svc, option, bypass);
         if (ok) {
           anyOk = true;
+          applied.add(svc);
         } else {
           failed.add(svc);
         }
       }
+      // 记录归属：退出时只清这些服务、且只在值仍是我们的时才清。
+      _macAppliedServices
+        ..clear()
+        ..addAll(applied);
+      _macAppliedHost = option.host;
+      _macAppliedPort = option.port;
+      unawaited(_persistMacProxyOwnership());
       if (!anyOk && failed.isNotEmpty) {
         desktopLog(
           "[mclash] 普通权限设置系统代理失败（${failed.take(3).join(", ")}…），"
@@ -1903,15 +1912,130 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
+  /// macOS：我们**改过**哪些网络服务、写成了什么值。
+  ///
+  /// 为什么必须有它（真机现场）：旧实现 `_cleanSystemProxyMacos()` 对
+  /// `networksetup -listallnetworkservices` 里的**所有**服务无条件关代理——
+  /// 本机有 26 个服务，其中还有别的代理软件（如 MoneyFly/Clash 系）留下的伪服务。
+  /// 结果：**启动/退出 Mclash 就会把别人的系统代理一起关掉**（现场 Wi-Fi 代理指向
+  /// 127.0.0.1:2080 是另一个客户端设的，一启动 Mclash 就没了）。
+  /// Windows 侧早就有归属判定 + 快照，macOS 侧一直缺 —— 这里补齐：
+  /// 只清理"确实是我们写过的那些服务"，且**只在该服务当前值仍是我们写的值**时才关。
+  final Set<String> _macAppliedServices = <String>{};
+  String _macAppliedHost = "";
+  int _macAppliedPort = 0;
+
+  static const String kMacProxyOwnershipFile = "macos_proxy_ownership.json";
+
+  Future<File?> _macProxyOwnershipFile() async {
+    try {
+      final base = await getApplicationSupportDir();
+      if (base.isEmpty) {
+        return null;
+      }
+      return File(p.join(base, kMacProxyOwnershipFile));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _persistMacProxyOwnership() async {
+    try {
+      final f = await _macProxyOwnershipFile();
+      if (f == null) {
+        return;
+      }
+      await f.writeAsString(
+        jsonEncode({
+          "services": _macAppliedServices.toList(),
+          "host": _macAppliedHost,
+          "port": _macAppliedPort,
+          "at": DateTime.now().toIso8601String(),
+        }),
+        flush: true,
+      );
+    } catch (e) {
+      desktopLog("[mclash] 写 macOS 代理归属快照失败（忽略）: $e");
+    }
+  }
+
+  /// 读回上次运行留下的归属快照（被强杀时内存丢了，磁盘还在）。
+  Future<void> _loadMacProxyOwnership() async {
+    if (_macAppliedServices.isNotEmpty) {
+      return;
+    }
+    try {
+      final f = await _macProxyOwnershipFile();
+      if (f == null || !await f.exists()) {
+        return;
+      }
+      final decoded = jsonDecode(await f.readAsString());
+      if (decoded is! Map) {
+        return;
+      }
+      final list = decoded["services"];
+      if (list is List) {
+        _macAppliedServices.addAll(list.map((e) => e.toString()));
+      }
+      _macAppliedHost = (decoded["host"] ?? "").toString();
+      _macAppliedPort = (decoded["port"] as num?)?.toInt() ?? 0;
+    } catch (_) {}
+  }
+
+  /// 只关"我们写的那份"代理；别人的代理一律不碰（并如实记账为什么跳过）。
   Future<bool> _cleanSystemProxyMacos() async {
     try {
-      for (final svc in await _macNetworkServices()) {
-        await Process.run("networksetup", ["-setwebproxystate", svc, "off"]);
-        await Process.run("networksetup", [
-          "-setsecurewebproxystate", svc, "off",
-        ]);
+      await _loadMacProxyOwnership();
+      final services = _macAppliedServices.toList();
+      if (services.isEmpty) {
+        desktopLog(
+          "[mclash] macOS 系统代理：没有本程序的归属记录 → 不清理任何服务"
+          "（避免误关其它代理软件设置的代理）",
+        );
+        _systemProxyApplied = false;
+        return true;
       }
+      final owner = ProxyOption(_macAppliedHost, _macAppliedPort, const []);
+      var cleaned = 0;
+      var skipped = 0;
+      // 并发执行：本机 26 个服务 × 2 条 networksetup 串行要 3~5 秒，
+      // 用户会以为"退出卡住"从而去强杀进程（那样反而把内核留成孤儿）。
+      await Future.wait([
+        for (final svc in services)
+          () async {
+            // 归属判定：只有当前值仍是我们写的 host:port 才关。
+            if (_macAppliedPort > 0 &&
+                !await _macServiceProxyMatches(svc, owner)) {
+              skipped++;
+              return;
+            }
+            await Process.run("networksetup", [
+              "-setwebproxystate",
+              svc,
+              "off",
+            ]);
+            await Process.run("networksetup", [
+              "-setsecurewebproxystate",
+              svc,
+              "off",
+            ]);
+            cleaned++;
+          }(),
+      ]);
+      if (skipped > 0) {
+        desktopLog(
+          "[mclash] macOS 系统代理：跳过 $skipped 个服务（当前值不是本程序写的）",
+        );
+      }
+      desktopLog("[mclash] macOS 系统代理：已还原 $cleaned 个服务");
+      _macAppliedServices.clear();
       _systemProxyApplied = false;
+      try {
+        final f = await _macProxyOwnershipFile();
+        if (f != null && await f.exists()) {
+          await f.delete();
+        }
+      } catch (_) {}
       return true;
     } catch (_) {
       return false;

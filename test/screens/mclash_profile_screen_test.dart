@@ -28,6 +28,14 @@ List<String> visibleTexts(WidgetTester tester) => tester
     .toList();
 
 void main() {
+
+  // 固定语言：这一页的文案现在走 i18n，而测试环境的语言取决于宿主系统 ——
+  // 不固定就会"英文机器挂、中文机器过"。这里固定简中，与断言里的中文一致。
+  // ⚠️ 必须异步 setLocale（zh-CN 是 deferred 加载的）且只能在 setUpAll 里调。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   setUp(() {
     MclashAccountService.instance.debugSetData({
       "username": "454487210",

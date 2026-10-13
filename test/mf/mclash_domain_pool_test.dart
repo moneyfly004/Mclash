@@ -28,6 +28,8 @@ void main() {
       expect(MclashDomainPool.apiBaseUrls(), <String>[
         'https://new.moneyfly.top/api/v1',
         'https://dollarsfly.top/api/v1',
+        // 订阅域排最后：只在主/备域都不可用时才顶上（用户要求订阅域也能轮询）
+        'https://sub.dollarsfly.top/api/v1',
       ]);
 
       final subs = MclashDomainPool.subscriptionUrlsFor(
@@ -95,10 +97,11 @@ void main() {
 
       expect(
         MclashDomainPool.apiBaseUrls().length,
-        2,
-        reason: '所有域名都在冷却时若返回空，就等于什么都试不了',
+        3,
+        reason: '所有域名都在冷却时若返回空，就等于什么都试不了'
+            '（现在含订阅域 sub.dollarsfly.top 作为最后兜底）',
       );
-      expect(MclashDomainPool.apiBaseUrls().toSet().length, 2);
+      expect(MclashDomainPool.apiBaseUrls().toSet().length, 3);
     });
 
     test('轮换到好域名后会清掉它的失败记录', () {
@@ -128,7 +131,7 @@ void main() {
       disk[MclashDomainPool.kStorageKey] = '{not json';
       MclashDomainPool.debugReset(resetLoaded: true);
       expect(MclashDomainPool.lastGoodApiHost(), isNull);
-      expect(MclashDomainPool.apiBaseUrls().length, 2);
+      expect(MclashDomainPool.apiBaseUrls().length, 3);
 
       // 干净启动：盘上留的是上一次可用的域名时，要优先用它（读盘是异步的，
       // 第一次读候选会先给默认顺序，随后异步读入磁盘状态）。
@@ -173,7 +176,7 @@ void main() {
     test('API 清单成员判定', () {
       expect(MclashDomainPool.isApiHost('dollarsfly.top'), isTrue);
       expect(MclashDomainPool.isApiHost('DOLLARSFLY.TOP'), isTrue);
-      expect(MclashDomainPool.isApiHost('sub.dollarsfly.top'), isFalse,
+      expect(MclashDomainPool.isApiHost('sub.dollarsfly.top'), isTrue,
           reason: '订阅域名不是 API 域名');
     });
   });

@@ -12,6 +12,15 @@ import 'package:mclash/screens/home_screen_widgets.dart';
 import 'package:mclash/screens/mclash_node_picker_sheet.dart';
 
 void main() {
+
+  // 固定语言：这些页面的文案现在走 i18n，而测试环境的语言取决于**宿主系统** ——
+  // 不固定就会出现"英文机器挂、中文机器过"。这里固定简中，与断言里的中文一致。
+  // ⚠️ zh-CN 是 deferred 加载的，只能在 setUpAll 里异步设置：放进 testWidgets 的
+  //    fake async 里会永远等不到 loadLibrary（会把整套测试挂住）。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   final sample = <MclashNode>[
     MclashNode(name: "🇭🇰 香港 01", type: "ss", server: "1.1.1.1", port: 443)
       ..latencyMs = 120

@@ -315,11 +315,19 @@ void main() {
   });
 
   test('全部候选失败 → 抛出异常，且每轮最多走一遍候选', () async {
-    http.failConnect.addAll(['new.moneyfly.top', 'dollarsfly.top']);
+    http.failConnect.addAll([
+      'new.moneyfly.top',
+      'dollarsfly.top',
+      'sub.dollarsfly.top',
+    ]);
     final c = client();
 
     await expectLater(c.get('/users/me'), throwsA(isA<CBoardException>()));
-    expect(http.hits.length, 2, reason: '不要把候选无限循环重试');
+    expect(
+      http.hits.length,
+      3,
+      reason: '不要把候选无限循环重试（现在是 3 个 API 候选）',
+    );
   });
 
   test('构建期覆盖的 base 也会作为候选之一（自定义后端不会被丢掉）', () async {
@@ -333,8 +341,8 @@ void main() {
     expect(c.baseUrlCandidates.first, 'https://staging.example.com/api/v1');
     expect(
       c.baseUrlCandidates.length,
-      3,
-      reason: '自定义 base + 域名池的两个候选',
+      4,
+      reason: '自定义 base + 域名池的三个候选',
     );
   });
 

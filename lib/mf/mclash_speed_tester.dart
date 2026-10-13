@@ -25,6 +25,12 @@ class MclashSpeedTester {
 
   static const int fatalStreakLimit = 24;
 
+  /// 正在被探测的节点名（界面据此只给这些行显示转圈）。
+  ///
+  /// 以前界面用的是"本轮测速是否在跑"，于是**视口内每一个还没测到的行**都挂一个
+  /// 转圈动画 —— 10~18 个动画同时跑好几分钟，正是"测速时界面卡顿"的主因。
+  final Set<String> inFlight = <String>{};
+
   static int missingInKernel = 0;
 
   static int lastSuccessCount = 0;
@@ -233,7 +239,13 @@ class MclashSpeedTester {
         }
         final n = nodes[queue.removeLast()];
         n.missingInKernel = false;
-        final ms = await testOne(n, kernelUp: kernelUp);
+        inFlight.add(n.name);
+        final int ms;
+        try {
+          ms = await testOne(n, kernelUp: kernelUp);
+        } finally {
+          inFlight.remove(n.name);
+        }
         n.latencyMs = ms;
         if (ms > 0) {
           n.online = true;
@@ -258,6 +270,7 @@ class MclashSpeedTester {
       for (var i = 0; i < tcpCount; i++) worker(tcpQueue),
       for (var i = 0; i < udpCount; i++) worker(udpQueue),
     ]);
+    inFlight.clear();
     if (onProgress != null) {
       onProgress(nodes.length, nodes.length);
     }

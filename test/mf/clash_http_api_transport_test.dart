@@ -32,13 +32,16 @@ void main() {
           ..write(
             jsonEncode({
               "proxies": {
+                // 真实内核每个对象里都带 name（解析器读的是对象里的 name 字段，
+                // 不是外层的 key）—— 夹具也必须带上，否则断言会落空。
                 "🚀 节点选择": {
+                  "name": "🚀 节点选择",
                   "type": "Selector",
                   "now": "节点A",
                   "all": ["节点A", "节点B"],
                 },
-                "节点A": {"type": "Vless", "history": []},
-                "节点B": {"type": "Vless", "history": []},
+                "节点A": {"name": "节点A", "type": "Vless", "history": []},
+                "节点B": {"name": "节点B", "type": "Vless", "history": []},
               },
             }),
           );
@@ -108,7 +111,7 @@ void main() {
     expect(proxiesHits, 2, reason: '失效之后必须重新读，否则界面会显示过期的节点/当前选择');
   });
 
-  test('切节点成功后缓存自动失效（不会读到旧节点表）', () async {
+  test('切节点成功后：缓存里的 now 被就地改掉，且不必再全量拉一次', () async {
     await ClashHttpApi.getProxies();
     expect(proxiesHits, 1);
 
@@ -116,11 +119,20 @@ void main() {
     expect(err, isNull);
     expect(putHits, 1);
 
-    await ClashHttpApi.getProxies();
+    // 既不能读到旧的 now（否则界面/自动选路拿旧数据判断），
+    // 也不能为此清整表缓存 —— 那会强制界面紧接着再拉一次几百 KB 的 /proxies，
+    // 内核忙着测速时就是秒级卡顿（用户点一个节点要等一趟往返）。
+    final again = await ClashHttpApi.getProxies();
     expect(
       proxiesHits,
-      2,
-      reason: '刚切完节点又读缓存 → 自动选路/界面会拿着旧的 now 做判断',
+      1,
+      reason: '切完之后不该再发起第二次全量读取（本地补丁即可）',
+    );
+    final group = again.data?.firstWhere((p) => p.name == "🚀 节点选择");
+    expect(
+      group?.now,
+      "节点B",
+      reason: '缓存里的 now 必须已经是新节点，绝不能是旧值',
     );
   });
 

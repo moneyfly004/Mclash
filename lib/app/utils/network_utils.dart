@@ -1,8 +1,8 @@
 // ignore_for_file: empty_catches, unused_catch_stack
 
 import 'dart:io';
-
 import 'package:punycode_converter/punycode_converter.dart' as punycode;
+
 
 class NetInterfacesInfo {
   InternetAddressType type = InternetAddressType.IPv4;

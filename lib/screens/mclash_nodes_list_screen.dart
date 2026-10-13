@@ -11,6 +11,7 @@ import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/mf/mclash_current_node.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
+import 'package:mclash/screens/mclash_country_label.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_speed_tester.dart';
 import 'package:mclash/screens/dialog_utils.dart';
@@ -18,6 +19,7 @@ import 'package:mclash/screens/proxy_board_screen.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
+import 'package:mclash/i18n/strings.g.dart';
 
 class MclashNodesListScreen extends LasyRenderingStatefulWidget {
   const MclashNodesListScreen({super.key});
@@ -82,12 +84,12 @@ class _MclashNodesListScreenState
     setState(() => _syncing = false);
     final msg = switch (result?.status) {
       MclashSubSyncStatus.ok =>
-        "订阅已更新：${MclashNodesStore.instance.nodes.length} 个节点",
-      MclashSubSyncStatus.noSubscription => "该账号暂无可用套餐",
-      MclashSubSyncStatus.notLoggedIn => "登录已失效，请重新登录",
-      MclashSubSyncStatus.skipped => "正在同步，请稍候",
-      MclashSubSyncStatus.failed => "更新失败：${result?.message ?? ""}",
-      null => "更新失败，请检查网络",
+        t.nodesScreen.updatedCount(count: MclashNodesStore.instance.nodes.length),
+      MclashSubSyncStatus.noSubscription => t.homeScreen.noPlan,
+      MclashSubSyncStatus.notLoggedIn => t.homeScreen.loginExpired,
+      MclashSubSyncStatus.skipped => t.homeScreen.syncingWait,
+      MclashSubSyncStatus.failed => t.nodesScreen.updateFailed(message: result?.message ?? ""),
+      null => t.nodesScreen.updateFailedNetwork,
     };
     ScaffoldMessenger.of(
       context,
@@ -127,7 +129,7 @@ class _MclashNodesListScreenState
     if (total > 3 && fail > 0 && fail * 3 >= total) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("测速完成：$ok 个可用，$fail 个连不上（可能已下线）"),
+          content: Text(t.nodesScreen.testDone(ok: ok, fail: fail)),
           duration: const Duration(seconds: 4),
         ),
       );
@@ -171,6 +173,14 @@ class _MclashNodesListScreenState
   /// （旧实现直接 `setProxiesNode`，既没固定也没通知界面 —— 用户报障
   /// "列表里选了不算固定、也没有选中标志"。）
   Future<void> _pickNode(MclashNode node) async {
+    // 立刻反馈：点一下就要看到"已切换到 …"。内核那次 HTTP（测速/重载期间可能
+    // 超时好几秒）放到后台完成，不再让用户对着列表干等。
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 2),
+        content: Text(t.nodesScreen.switchedTo(name: node.name)),
+      ),
+    );
     final err = await MclashNodeSelector.select(node.name);
     if (!mounted) {
       return;
@@ -178,21 +188,21 @@ class _MclashNodesListScreenState
     if (err != null) {
       await DialogUtils.showAlertDialog(
         context,
-        "切换失败：${err.message}\n（节点切换需要内核运行，请先打开连接开关）",
+        t.nodesScreen.switchFailed(message: err.message),
       );
       return;
     }
     if (!mounted) {
       return;
     }
-    final deferred = MclashNodeSelector.lastSelectDeferred;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          deferred ? "已选择 ${node.name}（连接后生效）" : "已切换到 ${node.name}",
-        ),
-      ),
-    );
+    if (MclashNodeSelector.lastSelectDeferred) {
+      // 替换掉上面那条，而不是排队等它 2 秒 —— 否则"连接后生效"这句要等半天才出现。
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(t.nodesScreen.selectedAfterConnect(name: node.name))),
+        );
+    }
   }
 
   void _pickSort() {
@@ -215,9 +225,9 @@ class _MclashNodesListScreenState
               padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      "节点列表",
+                      t.nodesScreen.title,
                       style: TextStyle(
                         fontWeight: ThemeConfig.kFontWeightTitle,
                         fontSize: ThemeConfig.kFontSizeTitle,
@@ -226,7 +236,7 @@ class _MclashNodesListScreenState
                   ),
                   _iconButton(
                     Icons.search,
-                    tooltip: "搜索节点",
+                    tooltip: t.nodesScreen.searchNode,
                     active: _searching,
                     onTap: () => setState(() {
                       _searching = !_searching;
@@ -238,7 +248,7 @@ class _MclashNodesListScreenState
                   ),
                   _iconButton(
                     Icons.sort,
-                    tooltip: "按延迟排序",
+                    tooltip: t.nodesScreen.sortByLatency,
                     active: _sortByLatency,
                     onTap: _pickSort,
                   ),
@@ -256,12 +266,12 @@ class _MclashNodesListScreenState
                         )
                       : _iconButton(
                           Icons.cloud_sync_outlined,
-                          tooltip: "更新订阅",
+                          tooltip: t.nodesScreen.updateSubscription,
                           onTap: _refreshSubscription,
                         ),
                   _iconButton(
                     Icons.account_tree_outlined,
-                    tooltip: "按代理组查看",
+                    tooltip: t.nodesScreen.viewByGroup,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -300,7 +310,7 @@ class _MclashNodesListScreenState
                         )
                       : _iconButton(
                           Icons.bolt_outlined,
-                          tooltip: "全部测速",
+                          tooltip: t.nodesScreen.testAll,
                           onTap: runSpeedTest,
                         ),
                 ],
@@ -315,7 +325,7 @@ class _MclashNodesListScreenState
                   textInputAction: TextInputAction.search,
                   onChanged: (v) => setState(() => _filter = v),
                   decoration: InputDecoration(
-                    hintText: "搜索节点 / 国家 / 协议",
+                    hintText: t.nodesScreen.searchHint,
                     prefixIcon: const Icon(Icons.search, size: 20),
                     suffixIcon: _filter.isEmpty
                         ? null
@@ -352,11 +362,11 @@ class _MclashNodesListScreenState
     }
     if (_nodes.isEmpty) {
       return _empty(
-        "还没有可用节点。\n订阅会自动同步；若刚登录，请稍候或点下方重试。",
+        t.nodesScreen.emptyNoNodes,
       );
     }
     if (grouped.isEmpty) {
-      return _empty("没有匹配的节点。");
+      return _empty(t.nodesScreen.emptyNoMatch);
     }
     final rows = <_NodeListRow>[];
     for (final g in grouped) {
@@ -401,7 +411,7 @@ class _MclashNodesListScreenState
             ),
           ),
           const SizedBox(height: 14),
-          OutlinedButton(onPressed: _load, child: const Text("重新加载")),
+          OutlinedButton(onPressed: _load, child: Text(t.nodesScreen.reload)),
         ],
       ),
     ),
@@ -452,7 +462,7 @@ class _MclashNodesListScreenState
             ),
             const SizedBox(width: 4),
             Text(
-              "${MclashNodeCountryLabels.flag(g.code)} ${MclashNodeCountryLabels.name(g.code)}",
+              "${MclashNodeCountryLabels.flag(g.code)} ${MclashNodeCountryLabels.name(context, g.code)}",
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: ThemeConfig.kFontWeightListItem,
@@ -483,9 +493,13 @@ class _MclashNodesListScreenState
 
   Widget _nodeRow(MclashNode n) {
     final bool single = _singleTestTarget != null;
+    // 只有**此刻正在被探测**的那几个节点才转圈。
+    //
+    // 旧实现是"本轮测速在跑且这行还没测到"就转圈 —— 视口内 10~18 行同时转，
+    // 持续好几分钟（490 节点），每个都是独立动画层，正是测速期间掉帧的主因。
     final bool testing = single
         ? (n.server == _singleTestTarget && !n.latencyUsable)
-        : (_testing > 0 && !n.latencyUsable);
+        : MclashNodesStore.instance.isNodeInFlight(n.name);
     // 和「切换」弹层共用同一判定：当前节点必须有明确的选中标志。
     final bool selected = MclashCurrentNode.isSelected(
       n.name,
@@ -516,8 +530,8 @@ class _MclashNodesListScreenState
         mainAxisSize: MainAxisSize.min,
         children: [
           if (selected)
-            const Tooltip(
-              message: "当前选中（正在使用的节点）",
+            Tooltip(
+              message: t.nodesScreen.currentInUse,
               child: Padding(
                 padding: EdgeInsets.only(right: 6),
                 child: Row(
@@ -526,7 +540,7 @@ class _MclashNodesListScreenState
                     Icon(Icons.check, size: 16, color: ThemeDefine.kColorBlue),
                     SizedBox(width: 2),
                     Text(
-                      "当前",
+                      t.nodesScreen.current,
                       style: TextStyle(
                         fontSize: 11,
                         color: ThemeDefine.kColorBlue,
@@ -560,8 +574,8 @@ class _MclashNodesListScreenState
                         n.latencyUsable
                             ? "${n.latencyMs}ms"
                             : (n.missingInKernel
-                                  ? "未测到（待重载内核）"
-                                  : (n.online ? "—" : "超时")),
+                                  ? t.nodesScreen.notTested
+                                  : (n.online ? "—" : t.nodesScreen.timeout)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.right,
@@ -629,8 +643,10 @@ abstract final class MclashNodeCountryLabels {
   static String flag(String code) =>
       code == "XX" ? "🏳️" : MclashNodeCountry.flagFor(code);
 
-  static String name(String code) =>
-      code == "XX" ? "其他" : MclashNodeCountry.displayName(code);
+  /// 分组标题的**显示**名（走 i18n：英文环境就是英文）。
+  /// 国家**识别**（节点名 → 国家码）在 `MclashNodeCountry` 里，那部分不能本地化。
+  static String name(BuildContext context, String code) =>
+      MclashCountryLabel.of(context, code);
 
   static int weight(String code) =>
       code == "XX" ? 9999 : MclashNodeCountry.sortWeight(code);

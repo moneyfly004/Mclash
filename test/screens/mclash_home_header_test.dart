@@ -7,6 +7,15 @@ import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 
 void main() {
+
+  // 固定语言：这些页面的文案现在走 i18n，而测试环境的语言取决于**宿主系统** ——
+  // 不固定就会出现"英文机器挂、中文机器过"。这里固定简中，与断言里的中文一致。
+  // ⚠️ zh-CN 是 deferred 加载的，只能在 setUpAll 里异步设置：放进 testWidgets 的
+  //    fake async 里会永远等不到 loadLibrary（会把整套测试挂住）。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   Map<String, dynamic> dash(int limit, {String expire = "2028-06-25"}) => {
     "username": "454487210",
     "balance": 100,
@@ -157,40 +166,46 @@ void main() {
 
   group('新鲜度文案（纯函数）', () {
     final now = DateTime(2026, 9, 17, 12, 0);
+    // 文案现在走 i18n（静态方法拿不到 context，由调用方传字典）。
+    // 这里固定用英文（base 语言，可同步加载），断言英文文案。
+    final en = AppLocale.en.buildSync();
 
     test('从未拉过 → 提示刷新', () {
       expect(
-        MclashHomeHeader.freshnessText(null, now: now),
-        "尚未同步 · 点击刷新",
+        MclashHomeHeader.freshnessText(en, null, now: now),
+        "Not synced yet · tap to refresh",
       );
     });
 
     test('1 分钟内 → 刚刚更新', () {
       expect(
         MclashHomeHeader.freshnessText(
+          en,
           now.subtract(const Duration(seconds: 20)),
           now: now,
         ),
-        contains("刚刚更新"),
+        contains("Updated just now"),
       );
     });
 
     test('5 分钟内 → n 分钟前更新（仍可管理设备）', () {
       final text = MclashHomeHeader.freshnessText(
+        en,
         now.subtract(const Duration(minutes: 3)),
         now: now,
       );
-      expect(text, contains("3 分钟前更新"));
-      expect(text, contains("管理设备"));
+      expect(text, contains("3 min ago"));
+      expect(text, contains("Manage devices"));
     });
 
     test('超过 5 分钟 → 提示点击刷新', () {
       final text = MclashHomeHeader.freshnessText(
+        en,
         now.subtract(const Duration(minutes: 12)),
         now: now,
       );
-      expect(text, contains("12 分钟前更新"));
-      expect(text, contains("点击刷新"));
+      expect(text, contains("12 min ago"));
+      expect(text, contains("tap to refresh"));
     });
 
     test('isStale 的边界', () {
