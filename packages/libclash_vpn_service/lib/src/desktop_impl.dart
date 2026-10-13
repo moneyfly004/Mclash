@@ -2309,11 +2309,20 @@ foreach ($p in $targets) {
             "$pid",
           ]);
           final out = ps.stdout.toString().trim();
-          final parts = out.split(RegExp(r"\s+"));
-          if (parts.length < 2 || int.tryParse(parts.first) != 1) {
+          // ⚠️ 不能拿"第一个空格分隔的 token"当可执行路径：安装路径/家目录里
+          // **只要有空格就永远失配**（`/Applications/My App.app/...`），
+          // 于是残留内核清不掉，用户还会看到端口被占用后静默换端口。
+          // 改成：剥掉 ppid 后，用「命令行里包含我们的内核绝对路径」判定。
+          final firstSpace = out.indexOf(RegExp(r"\s"));
+          if (firstSpace <= 0) {
             continue;
           }
-          if (File(parts[1]).absolute.path != want) {
+          final ppid = int.tryParse(out.substring(0, firstSpace).trim());
+          if (ppid != 1) {
+            continue; // 只清孤儿（父进程已经不在了）
+          }
+          final command = out.substring(firstSpace).trim();
+          if (!command.contains(want)) {
             continue;
           }
           Process.killPid(pid, ProcessSignal.sigkill);
