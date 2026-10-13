@@ -79,6 +79,71 @@ class MclashSubscriptionCard extends StatelessWidget {
   }
 }
 
+/// 设备名额用满时的**非阻断**提示条。
+///
+/// 与 [MclashSubscriptionCard] 的红色受限提示是两件事（真机报障的核心区别）：
+///  · 名额用满（`used == limit`）≠ 本机被拒绝。上限 5 台时第 5 台用的就是最后一个
+///    合法名额，必须能正常更新订阅、正常连接；这里只提示"再加新设备要升级"，
+///    **绝不拦连接**，也绝不置灰首页的连接开关。
+///  · 真正被服务端拒绝的设备（第 6 台：订阅只下发伪节点）走红色受限提示 +
+///    授权闸门（[MclashAccountService.blockKind] 的 deviceFull）。
+class MclashDeviceQuotaBar extends StatelessWidget {
+  const MclashDeviceQuotaBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: MclashAccountService.instance,
+      builder: (context, _) {
+        final hint = MclashAccountService.instance.deviceQuotaHint;
+        if (hint.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          key: const ValueKey("home-device-quota-bar"),
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: ThemeDefine.kColorBlue.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: ThemeDefine.kColorBlue.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.devices_other,
+                size: 18,
+                color: ThemeDefine.kColorBlue,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hint,
+                  style: const TextStyle(fontSize: 12, height: 1.35),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const MclashDevicesScreen(autoOpenUpgrade: true),
+                  ),
+                ),
+                child: const Text("升级"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class MclashQuickCountries extends StatelessWidget {
   const MclashQuickCountries({super.key});
 
@@ -413,6 +478,47 @@ Future<void> showMclashAccountGateDialog(BuildContext context) async {
   }
 }
 
+/// 名额用满时的非阻断提示（同一档 used/limit 每次运行只提示一次，
+/// 避免用户每次点连接都弹一条）。
+String _quotaHintShownKey = "";
+
+/// 名额用满：**只提示，不拦连接**。
+///
+/// 第 5 台设备（上限 5 台）就属于这种情况 —— 它在授权范围内，必须放行。
+void _hintDeviceQuotaIfNeeded(BuildContext context, MclashAccountService acc) {
+  final hint = acc.deviceQuotaHint;
+  if (hint.isEmpty) {
+    return;
+  }
+  final key = "${acc.info.deviceUsed}/${acc.info.deviceLimit}";
+  if (_quotaHintShownKey == key) {
+    return;
+  }
+  _quotaHintShownKey = key;
+  Log.i("mclashCheckAccountGate: 设备名额已用满（$key）→ 放行连接，仅提示升级");
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  messenger?.showSnackBar(
+    SnackBar(
+      content: Text(hint),
+      duration: const Duration(seconds: 6),
+      action: SnackBarAction(
+        label: "升级",
+        onPressed: () {
+          if (!context.mounted) {
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MclashDevicesScreen(autoOpenUpgrade: true),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
 /// 连接前的账号/授权闸门。
 ///
 /// 两道：
@@ -444,6 +550,11 @@ Future<bool> mclashCheckAccountGate(BuildContext context) async {
 
   final acc = MclashAccountService.instance;
   if (!acc.isBlocked) {
+    // 名额用满 ≠ 本机被拒绝：上限 5 台时的第 5 台仍然合法，必须能连上。
+    // 这里只做一次非阻断的升级提示（提示完照样返回 true 放行）。
+    if (context.mounted) {
+      _hintDeviceQuotaIfNeeded(context, acc);
+    }
     return true;
   }
   final kind = await acc.verifyBeforeConnect();

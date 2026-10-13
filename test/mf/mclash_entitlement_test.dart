@@ -115,6 +115,107 @@ void main() {
       expect(purgeCount, 0, reason: '设备超限不该清档，否则用户删完设备还得重新下载订阅');
     });
 
+    test('设备超限（非致命）：复核成功后本机仍超限 → 继续拒绝（第 6 台设备）',
+        () async {
+      await MclashEntitlement.debugSetLease(
+        verifiedAt: fixedNow.subtract(const Duration(hours: 2)),
+        expireAt: DateTime(2026, 6, 1),
+        lastSeenAt: fixedNow,
+        blocked: true,
+        blockFatal: false,
+        reason: "❌ 原因: 设备数量超限",
+      );
+      // 模拟账号层复核：服务端确认本机确实超限（订阅仍只下发伪节点）
+      MclashEntitlement.onlineVerifyOverride = () async {
+        verifyCount++;
+        await MclashEntitlement.debugSetLease(
+          verifiedAt: fixedNow,
+          expireAt: DateTime(2026, 6, 1),
+          lastSeenAt: fixedNow,
+          blocked: true,
+          blockFatal: false,
+          reason: "❌ 原因: 设备数量超限",
+        );
+        return true;
+      };
+
+      final d = await MclashEntitlement.check();
+
+      expect(verifyCount, 1, reason: '陈旧的非致命受限要先联网复核');
+      expect(d.allowed, isFalse, reason: '服务端确认超限的设备必须继续被拒');
+      expect(d.state, MclashEntitlementState.blocked);
+      expect(purgeCount, 0);
+    });
+
+    test('设备超限（非致命）：记录陈旧且复核不上 → 放行（不得长期拒绝合法设备）',
+        () async {
+      // 回归：上限 5 台时的第 5 台完全合法。旧版本把它误判成超限并写进租约，
+      // 之后即使复核不上（离线/接口故障）也一直拒绝 —— 用户表现为
+      // 「更新订阅后点连接连不上、还提示要升级设备」。
+      await MclashEntitlement.debugSetLease(
+        verifiedAt: fixedNow.subtract(const Duration(hours: 2)),
+        expireAt: DateTime(2026, 6, 1),
+        lastSeenAt: fixedNow,
+        blocked: true,
+        blockFatal: false,
+        reason: "设备数量已达上限（5/5）",
+      );
+      verifyResult = false;
+
+      final d = await MclashEntitlement.check();
+
+      expect(verifyCount, 1, reason: '先尝试复核一次');
+      expect(
+        d.allowed,
+        isTrue,
+        reason: '非致命受限不能变成长期拒绝理由（设备名额类限制由服务端每次下发裁决）',
+      );
+      expect(purgeCount, 0);
+    });
+
+    test('服务端恢复下发真节点：解除非致命受限（否则用户恢复了也连不上）',
+        () async {
+      await MclashEntitlement.debugSetLease(
+        verifiedAt: fixedNow,
+        expireAt: DateTime(2026, 6, 1),
+        lastSeenAt: fixedNow,
+        blocked: true,
+        blockFatal: false,
+        reason: "❌ 原因: 设备数量超限",
+      );
+      expect(
+        (await MclashEntitlement.check(allowNetwork: false)).allowed,
+        isFalse,
+      );
+
+      await MclashEntitlement.clearNonFatalBlock();
+
+      final d = await MclashEntitlement.check(allowNetwork: false);
+      expect(d.allowed, isTrue, reason: '名额已经恢复（服务端下发真节点）→ 必须能连');
+      expect(
+        MclashEntitlement.expireAt,
+        DateTime(2026, 6, 1),
+        reason: '解除受限不能顺手把到期时间抹掉',
+      );
+    });
+
+    test('解除非致命受限：不碰致命受限（封禁/到期照旧拒绝）', () async {
+      await MclashEntitlement.debugSetLease(
+        verifiedAt: fixedNow,
+        expireAt: DateTime(2026, 6, 1),
+        lastSeenAt: fixedNow,
+        blocked: true,
+        blockFatal: true,
+        reason: "❌ 原因: 账号已被禁用",
+      );
+
+      await MclashEntitlement.clearNonFatalBlock();
+
+      final d = await MclashEntitlement.check(allowNetwork: false);
+      expect(d.allowed, isFalse, reason: '致命受限不能被"服务端下发真节点"洗掉');
+      expect(d.state, MclashEntitlementState.blocked);
+    });
+
     test('guard() 给服务层的返回值非空（否则连接会被放行）', () async {
       await MclashEntitlement.debugSetLease(
         expireAt: DateTime(2025, 1, 1),

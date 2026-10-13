@@ -303,6 +303,30 @@ abstract final class MclashEntitlement {
     }
   }
 
+  /// 服务端下发「本机可用」（订阅里有真节点）时调用：解除**非致命**受限记录。
+  ///
+  /// 为什么需要它：设备数超限这类限制本来就是服务端在每次下发时重新裁决的
+  /// （超限设备拿到伪节点，用户在面板删掉旧设备后立刻又能拿到真节点）。
+  /// 本地那条"超限"记录要是不解除，用户明明已经恢复名额、订阅也正常，
+  /// 仍然会被授权闸门按旧记录继续拒绝（[check] 最长 [_recheckGap] 才复核一次）。
+  ///
+  /// **不动**致命受限（到期 / 封禁 / 被踢），也**不改** [verifiedAt]／[expireAt]：
+  /// 这只是解除一条可自助恢复的限制，不是一次账号校验。
+  static Future<void> clearNonFatalBlock() async {
+    await load();
+    if (!_blocked || _blockFatal) {
+      return;
+    }
+    Log.i(
+      "MclashEntitlement: 服务端已下发可用订阅 → 解除非致命受限"
+      "（${_blockReason.isEmpty ? "未知" : _blockReason}）",
+    );
+    _blocked = false;
+    _blockReason = "";
+    _blockFatal = true;
+    await _persist();
+  }
+
   /// 首次升级 / 本机没有租约时，用账号缓存里「最后一次成功联网校验的时间」播种，
   /// 避免老用户升级后因为暂时连不上账号接口而被直接拦在门外。
   static Future<bool> seedFromAccountCache({
@@ -405,6 +429,23 @@ abstract final class MclashEntitlement {
       }
       if (_blockFatal) {
         await purge(reason: _blockReason.isEmpty ? "账号受限" : _blockReason);
+        return _blockedDecision();
+      }
+      // 非致命受限（设备数超限、服务端暂时不可用）**不能变成长期拒绝理由**：
+      // 这类限制本来就该由服务端在每次订阅下发里重新裁决（超限设备拿到的是伪节点），
+      // 客户端凭一份陈旧记录一直拒绝，就会把"名额刚好用满、但完全合法"的那台设备
+      // （上限 5 台时的第 5 台）永久拦在门外 —— 真机报障就是这个现象。
+      // 所以只在"刚刚确认过"（[_recheckGap] 之内，含本次复核成功）时才拦。
+      final confirmedAt = _verifiedAt;
+      final stale =
+          confirmedAt == null || at.difference(confirmedAt) > _recheckGap;
+      if (stale) {
+        Log.w(
+          "MclashEntitlement: 非致命受限（${_blockReason.isEmpty ? "未知" : _blockReason}）"
+          "记录已陈旧（${confirmedAt?.toIso8601String() ?? "无"}）且无法联网复核 → 放行；"
+          "设备名额类限制不构成长期拒绝理由",
+        );
+        return MclashEntitlementDecision.allow;
       }
       return _blockedDecision();
     }

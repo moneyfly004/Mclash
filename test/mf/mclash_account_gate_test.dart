@@ -73,9 +73,52 @@ void main() {
     expect(acc.isBlocked, isFalse);
   });
 
-  test('设备满：10/10 时拦截为 deviceFull', () {
+  test('设备名额用满：不拦截（上限 5 台时第 5 台是合法设备，必须能连）', () {
     acc.debugSetData(dash(limit: 10, used: 10), sub(limit: 10, used: 10));
-    expect(acc.blockKind, MclashBlockKind.deviceFull);
+    expect(
+      acc.blockKind,
+      MclashBlockKind.none,
+      reason: '名额用满 ≠ 本机被拒绝；以前 used >= limit 直接判 deviceFull，'
+          '把第 N 台合法设备拦在门外（真机报障：提示要升级设备、点连接连不上）',
+    );
+    expect(acc.isBlocked, isFalse);
+  });
+
+  group('名额用满 → 只做非阻断的升级提示', () {
+    test('恰好用满（5/5）：提示升级，但不拦连接', () {
+      acc.debugSetData(dash(limit: 5, used: 5), sub(limit: 5, used: 5));
+      expect(acc.deviceQuotaReached, isTrue);
+      expect(acc.deviceQuotaHint, contains("5/5"));
+      expect(acc.deviceQuotaHint, contains("可正常连接"));
+      expect(acc.isBlocked, isFalse, reason: '提示不能变成拦截');
+    });
+
+    test('还有余量（3/5）：连提示都不需要', () {
+      acc.debugSetData(dash(limit: 5, used: 3), sub(limit: 5, used: 3));
+      expect(acc.deviceQuotaReached, isFalse);
+      expect(acc.deviceQuotaHint, isEmpty);
+      expect(acc.isBlocked, isFalse);
+    });
+
+    test('服务端已拒绝本机（订阅下发伪节点）：走硬拦截，不再是"软提示"', () {
+      acc.debugSetData(dash(limit: 5, used: 5), sub(limit: 5, used: 5));
+      acc.markPayloadNotice(
+        MclashSubscriptionNotice.parse([
+          "📢 官网: https://new.moneyfly.top",
+          "❌ 原因: 设备数量超限",
+          "💡 解决: 当前设备 6/5，请在官网删除不使用的设备",
+          "💬 客服: 2562866992@qq.com",
+        ]),
+      );
+      expect(acc.blockKind, MclashBlockKind.deviceFull);
+      expect(acc.isBlocked, isTrue);
+      expect(
+        acc.deviceQuotaReached,
+        isFalse,
+        reason: '已经硬拦截了，不该再叠加一条"可正常连接"的软提示（自相矛盾）',
+      );
+      expect(acc.deviceQuotaHint, isEmpty);
+    });
   });
 
   test('订阅被停用：拦截为 subscriptionDisabled', () {

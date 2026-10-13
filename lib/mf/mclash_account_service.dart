@@ -70,6 +70,13 @@ class MclashAccountService extends ChangeNotifier {
           purge: shouldPurgeOnBlock(blockKind),
         ),
       );
+      return;
+    }
+    if (notice.state == MclashNoticeState.ok) {
+      // 服务端这次下发的是真节点 → 本机没有被拒绝。把之前那条非致命的
+      // 「设备超限」记录解除，否则用户已经恢复名额、订阅也正常，
+      // 授权闸门仍会按旧记录继续拒绝（真机表现：订阅更新成功却连不上）。
+      unawaited(MclashEntitlement.clearNonFatalBlock());
     }
   }
 
@@ -348,14 +355,16 @@ class MclashAccountService extends ChangeNotifier {
         _fresh = true;
         _cachedAt = DateTime.now();
         unawaited(_saveCache());
-        // 一次成功的联网校验 → 续上授权租约（到期时间一并落盘，离线也能判到期）
-        unawaited(
-          MclashEntitlement.recordFromAccount(
-            info,
-            blocked: isBlocked,
-            reason: blockText,
-            purgeOnBlock: shouldPurgeOnBlock(blockKind),
-          ),
+        // 一次成功的联网校验 → 续上授权租约（到期时间一并落盘，离线也能判到期）。
+        //
+        // 这里**必须 await**：授权闸门在复核成功后会紧跟着 `load(force:true)` 重读
+        // 租约，如果本次写入还在路上（以前是 unawaited），闸门就会读到上一版旧租约，
+        // 把"刚复核出来的结论"覆盖掉 —— 表现就是"已经复核通过、却仍然被拦"。
+        await MclashEntitlement.recordFromAccount(
+          info,
+          blocked: isBlocked,
+          reason: blockText,
+          purgeOnBlock: shouldPurgeOnBlock(blockKind),
         );
       }
     } finally {
@@ -366,6 +375,37 @@ class MclashAccountService extends ChangeNotifier {
   }
 
   bool get isBlocked => blockKind != MclashBlockKind.none;
+
+  /// 设备名额是否已用满（`used >= limit`）—— **软提示，绝不拦连接**。
+  ///
+  /// 与 [isBlocked] 的分工：
+  ///  · [isBlocked]（含 deviceFull）= 服务端明确拒绝了本机（订阅下发伪节点）；
+  ///  · [deviceQuotaReached] = 名额恰好用满，本机仍在授权范围内。
+  ///    上限 5 台时的第 5 台就是这种：能正常更新订阅、正常连接，
+  ///    只是"再加新设备得先升级/删设备"，所以在界面上提示一下就够了。
+  bool get deviceQuotaReached {
+    if (isBlocked) {
+      return false;
+    }
+    final acc = info;
+    if (!acc.hasData) {
+      return false;
+    }
+    final limit = acc.deviceLimit ?? 0;
+    final used = acc.deviceUsed ?? 0;
+    return limit > 0 && used >= limit;
+  }
+
+  /// 名额用满时的**非阻断**提示文案（空串 = 不提示）。
+  String get deviceQuotaHint {
+    if (!deviceQuotaReached) {
+      return "";
+    }
+    final limit = info.deviceLimit ?? 0;
+    final used = info.deviceUsed ?? 0;
+    return "设备名额已用满（$used/$limit）：本机仍在授权范围内，可正常连接。"
+        "如需再添加新设备，请升级设备数量或先删除不用的设备。";
+  }
 
   bool get blockingDataFresh => _fresh;
 
@@ -403,8 +443,6 @@ class MclashAccountService extends ChangeNotifier {
     final expired = _sub?["is_expired"] == true ||
         status == "expired" ||
         (!subActive && status.isEmpty);
-    final limit = acc.deviceLimit ?? 0;
-    final used = acc.deviceUsed ?? 0;
 
     if (!subActive) {
       return MclashBlockKind.subscriptionDisabled;
@@ -415,9 +453,18 @@ class MclashAccountService extends ChangeNotifier {
     if (expired) {
       return MclashBlockKind.expired;
     }
-    if (limit > 0 && used >= limit) {
-      return MclashBlockKind.deviceFull;
-    }
+
+    // ⚠️ 这里以前有一条 `limit > 0 && used >= limit → deviceFull`。**已删除**：
+    //    「名额用满」不等于「本机不被允许」。上限 5 台时，第 5 台用的就是最后一个
+    //    合法名额，used/limit 恰好是 5/5 —— 旧判定把这一台也当成超限，于是
+    //    第 5 台设备一更新订阅就被拦：VPNService.stop() 主动断开 + 连接闸门拒绝，
+    //    界面上弹「设备数量已达上限 / 升级设备数量」。用户看到的正是
+    //    「还在允许范围内，却提示要升级设备、点连接连不上」。
+    //
+    //    本机到底有没有超限，**只有服务端说了算**：超限设备拿到的是伪节点
+    //    （`❌ 原因: 设备数量超限` + `💡 解决:`），上面 `_payloadNotice` 那条分支
+    //    会把它判成 deviceFull 并硬拦（第 6 台设备走的就是这条）。
+    //    名额满则只做升级引导，见 [deviceQuotaReached] / [deviceQuotaHint]。
 
     if (acc.hasSubscription) {
       return MclashBlockKind.none;
@@ -462,7 +509,7 @@ class MclashAccountService extends ChangeNotifier {
       case MclashBlockKind.deviceFull:
         final limit = info.deviceLimit ?? 0;
         final used = info.deviceUsed ?? 0;
-        return "设备数量已达上限（$used/$limit），无法连接新设备。"
+        return "服务端判定本机已超出套餐设备数上限（$used/$limit），暂时无法连接。"
             "可在「我的 - 设备管理」中删除不常用设备，或升级更高设备数的套餐。";
       case MclashBlockKind.accountDisabled:
         return "您的账号已被禁用，无法使用服务。如有疑问，请联系客服。";

@@ -294,6 +294,7 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
                           HomeScreenWidgetPart1(
                             key: const ValueKey('home-connect-card'),
                           ),
+                          const MclashDeviceQuotaBar(),
                           const SizedBox(height: 12),
                           const MclashQuickCountries(
                             key: ValueKey('home-quick-countries'),
