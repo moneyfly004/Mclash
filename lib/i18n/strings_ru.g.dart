@@ -603,6 +603,7 @@ class _Translations$homeScreen$ru implements Translations$homeScreen$en {
 	@override String syncFailedNetwork({required Object message}) => 'Subscription sync failed: ${message}\nCheck your network and try again.';
 	@override String get syncFailed => 'Subscription sync failed, please try again later.';
 	@override String get resetProxy => 'Reset';
+	@override String latencySuffix({required Object ms}) => ' (${ms}ms)';
 }
 
 // Path: nodesScreen
@@ -1211,6 +1212,7 @@ extension on TranslationsRu {
 			'homeScreen.syncFailedNetwork' => ({required Object message}) => 'Subscription sync failed: ${message}\nCheck your network and try again.',
 			'homeScreen.syncFailed' => 'Subscription sync failed, please try again later.',
 			'homeScreen.resetProxy' => 'Reset',
+			'homeScreen.latencySuffix' => ({required Object ms}) => ' (${ms}ms)',
 			'nodesScreen.updatedCount' => ({required Object count}) => 'Subscription updated: ${count} nodes',
 			'nodesScreen.updateFailed' => ({required Object message}) => 'Update failed: ${message}',
 			'nodesScreen.updateFailedNetwork' => 'Update failed, please check your network',
@@ -1338,9 +1340,9 @@ extension on TranslationsRu {
 			'logScreen.readCoreFailed' => ({required Object e}) => 'Failed to read the kernel log: ${e}',
 			'logScreen.copied' => 'Copied (subscription URLs and other secrets are masked; the log file itself may still contain the raw address)',
 			'logScreen.copy' => 'Copy',
-			'logScreen.refresh' => 'Refresh',
 			_ => null,
 		} ?? switch (path) {
+			'logScreen.refresh' => 'Refresh',
 			'logScreen.empty' => 'No content',
 			'trayShell.closeTitle' => 'Close window',
 			'trayShell.closeBody' => 'Closing the window just puts Mclash in the tray — the kernel and system proxy keep working, and your network stays connected.\n\n· OK: minimize to the tray (to quit completely, right-click the tray icon → Quit)\n· Cancel: quit Mclash completely, stop the kernel and restore the system proxy\n\n(Your choice is remembered; next time you can use the tray icon directly)',

@@ -348,7 +348,11 @@ class MclashQuickCountries extends StatelessWidget {
     if (!context.mounted) {
       return;
     }
-    final ms = node.latencyUsable ? "（${node.latencyMs}ms）" : "";
+    // 延迟后缀也要走 i18n：英文界面下出现全角括号「（30ms）」很奇怪
+    // （真机走查：Switched to the fastest Japan node: 日本线路1（30ms））。
+    final ms = node.latencyUsable
+        ? t.homeScreen.latencySuffix(ms: node.latencyMs)
+        : "";
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

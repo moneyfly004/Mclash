@@ -421,7 +421,8 @@
     "syncingWait": "Syncing subscription, please wait.",
     "syncFailedNetwork": "Subscription sync failed: ${message}\nCheck your network and try again.",
     "syncFailed": "Subscription sync failed, please try again later.",
-    "resetProxy": "Reset"
+    "resetProxy": "Reset",
+    "latencySuffix": " (${ms}ms)"
   },
   "nodesScreen": {
     "updatedCount": "Subscription updated: ${count} nodes",

@@ -603,6 +603,7 @@ class Translations$homeScreen$zh_TW implements Translations$homeScreen$en {
 	@override String syncFailedNetwork({required Object message}) => '订阅同步失败：${message}\n请检查网络后重试。';
 	@override String get syncFailed => '订阅同步失败，请稍后重试。';
 	@override String get resetProxy => '重设';
+	@override String latencySuffix({required Object ms}) => '（${ms}ms）';
 }
 
 // Path: nodesScreen
@@ -1211,6 +1212,7 @@ extension on TranslationsZhTw {
 			'homeScreen.syncFailedNetwork' => ({required Object message}) => '订阅同步失败：${message}\n请检查网络后重试。',
 			'homeScreen.syncFailed' => '订阅同步失败，请稍后重试。',
 			'homeScreen.resetProxy' => '重设',
+			'homeScreen.latencySuffix' => ({required Object ms}) => '（${ms}ms）',
 			'nodesScreen.updatedCount' => ({required Object count}) => '订阅已更新：${count} 个节点',
 			'nodesScreen.updateFailed' => ({required Object message}) => '更新失败：${message}',
 			'nodesScreen.updateFailedNetwork' => '更新失败，请检查网络',
@@ -1338,9 +1340,9 @@ extension on TranslationsZhTw {
 			'logScreen.readCoreFailed' => ({required Object e}) => '读取核心日志失败：${e}',
 			'logScreen.copied' => '已复制（订阅地址等敏感信息已自动打码，日志文件本身仍可能包含原始地址）',
 			'logScreen.copy' => '复制',
-			'logScreen.refresh' => '刷新',
 			_ => null,
 		} ?? switch (path) {
+			'logScreen.refresh' => '刷新',
 			'logScreen.empty' => '暂无内容',
 			'trayShell.closeTitle' => '关闭窗口',
 			'trayShell.closeBody' => '关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n· 点「确定」：最小化到托盘（想彻底退出时，右键托盘图标 → 退出）\n· 点「取消」：完全退出 Mclash，同时停止内核并还原系统代理\n\n（本次选择会被记住；下次可直接右键托盘图标操作）',

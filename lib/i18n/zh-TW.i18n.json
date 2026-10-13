@@ -421,7 +421,8 @@
     "syncingWait": "正在同步订阅，请稍候再试。",
     "syncFailedNetwork": "订阅同步失败：${message}\n请检查网络后重试。",
     "syncFailed": "订阅同步失败，请稍后重试。",
-    "resetProxy": "重设"
+    "resetProxy": "重设",
+    "latencySuffix": "（${ms}ms）"
   },
   "nodesScreen": {
     "updatedCount": "订阅已更新：${count} 个节点",
