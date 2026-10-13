@@ -198,6 +198,9 @@ Future<void> run(List<String> args) async {
 
   registerMclashVpnService();
   registerDesktopLogSink((line) => Log.i(line));
+  // 生成内核配置时剔除了坏节点（例如非法的 REALITY short-id）必须留 warning 级日志：
+  // 用户会看到"少了一个节点"，得能在日志里查到为什么。
+  registerKernelConfigWarnSink((line) => Log.w(line));
 
   // 授权闸门：到期 / 被封禁的账号必须在所有连接路径上都连不上
   // （首页按钮、托盘菜单、clash:// 深链、开机自启、订阅更新后的重连、内核自愈）。

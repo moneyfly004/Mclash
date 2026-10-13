@@ -61,6 +61,7 @@ class AndroidVpnServicePlatform extends VpnServicePlatform {
     for (final note in result.notes) {
       stderr.writeln("[mclash] 内核配置(android): $note");
     }
+    emitKernelConfigWarnings(result.warnings);
     return result.yaml;
   }
 

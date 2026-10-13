@@ -969,6 +969,8 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     for (final note in result.notes) {
       desktopLog("[mclash] 内核配置: $note");
     }
+    // 剔除坏节点这类事必须让用户看见（app 侧接到 Log.w）；desktopLog 只走 Log.i。
+    emitKernelConfigWarnings(result.warnings);
     _mixedPort = result.mixedPort;
     return result;
   }
