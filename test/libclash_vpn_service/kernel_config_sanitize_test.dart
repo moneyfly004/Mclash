@@ -688,9 +688,13 @@ rules:
       expect((group["proxies"] as YamlList).toList(), <String>['香港 01']);
       expect((doc["rules"] as YamlList).toList(), <String>['MATCH,🚀 节点选择']);
 
-      expect(built.warnings.length, 1, reason: '要留一条给用户看的告警');
-      expect(built.warnings.first, contains('荷兰 01'));
-      expect(built.warnings.first, contains('short-id'));
+      expect(built.warnings, isNotEmpty, reason: '要留一条给用户看的告警');
+      expect(
+        built.warnings.any((w) => w.contains('荷兰 01') && w.contains('short-id')),
+        isTrue,
+        reason: '告警里必须指明是哪个节点、因为什么被剔除；'
+            '剔除节点后若连带删掉空分组，会再有额外告警，所以不能断言只有一条',
+      );
       expect(built.notes.join(), contains('内核配置清洗'));
     });
 
