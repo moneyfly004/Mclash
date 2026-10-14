@@ -763,6 +763,9 @@ class Translations$devicesScreen$zh_CN implements Translations$devicesScreen$en 
 	@override String lastActive({required Object text}) => '最近活跃 ${text}';
 	@override String get delete => '删除';
 	@override String deleteConfirm({required Object name}) => '确认删除设备「${name}」？该设备会被立即踢下线。';
+	@override String get lastActiveJustNow => '刚刚';
+	@override String lastActiveMinutes({required Object minutes}) => '${minutes} 分钟前';
+	@override String lastActiveToday({required Object time}) => '今天 ${time}';
 }
 
 // Path: sysProxySheet
@@ -1612,6 +1615,9 @@ extension on TranslationsZhCn {
 			'devicesScreen.lastActive' => ({required Object text}) => '最近活跃 ${text}',
 			'devicesScreen.delete' => '删除',
 			'devicesScreen.deleteConfirm' => ({required Object name}) => '确认删除设备「${name}」？该设备会被立即踢下线。',
+			'devicesScreen.lastActiveJustNow' => '刚刚',
+			'devicesScreen.lastActiveMinutes' => ({required Object minutes}) => '${minutes} 分钟前',
+			'devicesScreen.lastActiveToday' => ({required Object time}) => '今天 ${time}',
 			'sysProxySheet.reading' => '读取中…',
 			'sysProxySheet.unknown' => '未知',
 			'sysProxySheet.kernelNotRunning' => '内核未运行（先在主页打开连接开关）',
@@ -1632,11 +1638,11 @@ extension on TranslationsZhCn {
 			'sysProxySheet.mixedPort' => '混合端口',
 			'sysProxySheet.apply' => '应用',
 			'logScreen.readAppFailed' => ({required Object e}) => '读取应用日志失败：${e}',
+			_ => null,
+		} ?? switch (path) {
 			'logScreen.readCoreFailed' => ({required Object e}) => '读取核心日志失败：${e}',
 			'logScreen.copied' => '已复制（订阅地址等敏感信息已自动打码，日志文件本身仍可能包含原始地址）',
 			'logScreen.copy' => '复制',
-			_ => null,
-		} ?? switch (path) {
 			'logScreen.refresh' => '刷新',
 			'logScreen.empty' => '暂无内容',
 			'trayShell.closeTitle' => '关闭窗口',

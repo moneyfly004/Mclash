@@ -1,7 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_device_view.dart';
 
 void main() {
+  /// 「刚刚 / N 分钟前」现在跟随语言（默认语言是 en），而下面断言的是中文 —— 固定简中。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   Map<String, dynamic> realDevice({
     bool? isOnline = true,
     String lastHeartbeat = "2026-09-17T00:16:30.54207609+08:00",

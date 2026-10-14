@@ -157,8 +157,14 @@ class DialogUtils {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // 两个按钮原来用固定 60px 间隔居中 —— 长文案语言放不下：
+            // 实测西语 360dp 手机下横向溢出 45px（俄语 2.9px，中文/英文没事）。
+            // 改用 OverflowBar：放得下就并排，放不下自动换行居中，任何语言都不溢出。
+            OverflowBar(
+              alignment: MainAxisAlignment.center,
+              spacing: 24,
+              overflowSpacing: 8,
+              overflowAlignment: OverflowBarAlignment.center,
               children: [
                 ElevatedButton(
                   child: Text(tcontext.meta.cancel),
@@ -169,7 +175,6 @@ class DialogUtils {
                     Navigator.pop(context, false);
                   },
                 ),
-                const SizedBox(width: 60),
                 ElevatedButton(
                   child: Text(tcontext.meta.ok),
                   onPressed: () {

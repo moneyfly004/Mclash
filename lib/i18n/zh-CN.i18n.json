@@ -536,7 +536,10 @@
     "offline": "○ 离线",
     "lastActive": "最近活跃 $text",
     "delete": "删除",
-    "deleteConfirm": "确认删除设备「$name」？该设备会被立即踢下线。"
+    "deleteConfirm": "确认删除设备「$name」？该设备会被立即踢下线。",
+    "lastActiveJustNow": "刚刚",
+    "lastActiveMinutes": "${minutes} 分钟前",
+    "lastActiveToday": "今天 ${time}"
   },
   "sysProxySheet": {
     "reading": "读取中…",

@@ -24,6 +24,13 @@ class MclashLoginScreen extends LasyRenderingStatefulWidget {
 }
 
 class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
+  /// 两个文字链接按钮的紧凑样式：内边距收窄，长文案语言才放得下。
+  static final ButtonStyle _kLinkButtonStyle = TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    minimumSize: const Size(0, 36),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
@@ -221,44 +228,57 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  // 两个文字按钮在长文案语言（西语/俄语…）里会挤爆一行 ——
+                  // 实测西语下右侧溢出 2px。这里让它们按剩余宽度自适应，
+                  // 极端窄屏只省略号截断，绝不溢出。
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MclashForgotPasswordScreen(
-                                email: _email.text.trim(),
-                              ),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          t.loginScreen.forgotPassword,
-                          style: const TextStyle(
-                            color: ThemeDefine.kColorBlue,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (_registerEnabled)
-                        TextButton(
+                      Flexible(
+                        child: TextButton(
+                          style: _kLinkButtonStyle,
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    MclashRegisterScreen(siteConfig: _cfg),
+                                builder: (_) => MclashForgotPasswordScreen(
+                                  email: _email.text.trim(),
+                                ),
                               ),
                             );
                           },
                           child: Text(
-                            t.loginScreen.register,
+                            t.loginScreen.forgotPassword,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: ThemeDefine.kColorBlue,
                               fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_registerEnabled)
+                        Flexible(
+                          child: TextButton(
+                            style: _kLinkButtonStyle,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      MclashRegisterScreen(siteConfig: _cfg),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              t.loginScreen.register,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: ThemeDefine.kColorBlue,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),

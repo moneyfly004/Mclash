@@ -1615,6 +1615,15 @@ class Translations$devicesScreen$en {
 
 	/// en: 'Delete device "$name"? It will be kicked offline immediately.'
 	String deleteConfirm({required Object name}) => 'Delete device "${name}"? It will be kicked offline immediately.';
+
+	/// en: 'Just now'
+	String get lastActiveJustNow => 'Just now';
+
+	/// en: '${minutes} min ago'
+	String lastActiveMinutes({required Object minutes}) => '${minutes} min ago';
+
+	/// en: 'Today ${time}'
+	String lastActiveToday({required Object time}) => 'Today ${time}';
 }
 
 // Path: sysProxySheet
@@ -2912,6 +2921,9 @@ extension on Translations {
 			'devicesScreen.lastActive' => ({required Object text}) => 'Last active ${text}',
 			'devicesScreen.delete' => 'Delete',
 			'devicesScreen.deleteConfirm' => ({required Object name}) => 'Delete device "${name}"? It will be kicked offline immediately.',
+			'devicesScreen.lastActiveJustNow' => 'Just now',
+			'devicesScreen.lastActiveMinutes' => ({required Object minutes}) => '${minutes} min ago',
+			'devicesScreen.lastActiveToday' => ({required Object time}) => 'Today ${time}',
 			'sysProxySheet.reading' => 'Reading…',
 			'sysProxySheet.unknown' => 'Unknown',
 			'sysProxySheet.kernelNotRunning' => 'Kernel is not running (turn on the switch on the Home tab first)',
@@ -2932,11 +2944,11 @@ extension on Translations {
 			'sysProxySheet.mixedPort' => 'Mixed port',
 			'sysProxySheet.apply' => 'Apply',
 			'logScreen.readAppFailed' => ({required Object e}) => 'Failed to read the app log: ${e}',
+			_ => null,
+		} ?? switch (path) {
 			'logScreen.readCoreFailed' => ({required Object e}) => 'Failed to read the kernel log: ${e}',
 			'logScreen.copied' => 'Copied (subscription URLs and other secrets are masked; the log file itself may still contain the raw address)',
 			'logScreen.copy' => 'Copy',
-			_ => null,
-		} ?? switch (path) {
 			'logScreen.refresh' => 'Refresh',
 			'logScreen.empty' => 'No content',
 			'trayShell.closeTitle' => 'Close window',

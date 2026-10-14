@@ -10,6 +10,11 @@ import 'package:mclash/screens/home_screen_widgets.dart';
 import 'package:mclash/screens/mclash_tun_setting.dart';
 
 void main() {
+  /// 这三态文案现在走 i18n（并跟随当前语言），而下面断言的是中文 —— 固定简中保证确定性。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   setUp(() {
     SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
     MclashNodesStore.instance.debugSetNodes([], loading: false);

@@ -6,6 +6,7 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/group_helper.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -36,11 +37,11 @@ abstract final class MclashTunSetting {
     _ => t.tunScreen.modeOff,
   };
 
-  static String _legacyLabel(String mode) => switch (mode) {
-    SettingConfig.kTunModeAuto => "自动",
-    SettingConfig.kTunModeForce => "强制",
-    _ => "关闭",
-  };
+  /// 没有 `BuildContext` 的调用方（业务层/旧调用点）：走全局语言取词。
+  ///
+  /// 真机报障：这里原来写死中文，导致**阿语/俄语界面的「我的」页 TUN 行仍是中文**。
+  static String _legacyLabel(String mode) =>
+      _label(MclashI18n.t, mode);
 
   static String description(String mode, [BuildContext? context]) =>
       context == null
@@ -53,11 +54,8 @@ abstract final class MclashTunSetting {
     _ => t.tunScreen.modeOffDesc,
   };
 
-  static String _legacyDescription(String mode) => switch (mode) {
-    SettingConfig.kTunModeAuto => "TUN + 系统代理（双保险）：全部流量走虚拟网卡，含 UDP",
-    SettingConfig.kTunModeForce => "仅 TUN：全部流量走虚拟网卡，不再改系统代理",
-    _ => "仅系统代理：浏览器等遵守系统代理的程序生效，UDP/游戏不走代理",
-  };
+  static String _legacyDescription(String mode) =>
+      _description(MclashI18n.t, mode);
 
   static String optionDesc(String mode, [BuildContext? context]) =>
       context == null
@@ -70,16 +68,8 @@ abstract final class MclashTunSetting {
     _ => t.tunScreen.modeOffOptionDesc,
   };
 
-  static String _legacyOptionDesc(String mode) => switch (mode) {
-    SettingConfig.kTunModeAuto =>
-      "建虚拟网卡接管全部流量（含 UDP、游戏）；同时保留系统代理作为兜底。"
-          "推荐：既能全局生效，又不会因为权限问题彻底没网。",
-    SettingConfig.kTunModeForce =>
-      "只用虚拟网卡，不再改系统代理。全部流量（含 UDP）都进隧道，"
-          "系统里「代理」一项保持原样。",
-    _ => "不改系统路由表，只在系统里设置 127.0.0.1 的代理。"
-        "只有遵守系统代理的程序走代理；UDP 流量与自带代理设置的程序不走。",
-  };
+  static String _legacyOptionDesc(String mode) =>
+      _optionDesc(MclashI18n.t, mode);
 
   static bool prerequisitesMet() => VPNService.tunPrerequisitesMet();
 
@@ -196,11 +186,18 @@ class _TunModeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final admin = MclashTunSetting.prerequisitesMet();
+    // 真机报障：这个弹层内容偏高，360x900 的小屏上**英文就已经纵向溢出 32px**
+    // （西语 48px），底部权限提示会被挤掉。这里限高 + 可滚动，任何语言都放得下。
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 10),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
           Container(
             width: 36,
             height: 4,
@@ -313,11 +310,13 @@ class _TunModeSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
+    ),
+  );
   }
 }

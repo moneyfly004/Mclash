@@ -1,5 +1,7 @@
 library;
 
+import 'package:mclash/mf/mclash_i18n.dart';
+
 abstract final class MclashDeviceView {
   static const Duration onlineWindow = Duration(minutes: 3);
 
@@ -67,14 +69,19 @@ abstract final class MclashDeviceView {
     }
     final ref = now ?? DateTime.now();
     final diff = ref.difference(at);
+    // 真机报障：这里原来写死中文，导致**所有非中文界面的设备卡片都显示中文时间**
+    // （「刚刚」「N 分钟前」「今天 HH:MM」）。改为按当前语言取词。
+    final t = MclashI18n.t;
     if (diff.isNegative || diff.inMinutes < 1) {
-      return "刚刚";
+      return t.devicesScreen.lastActiveJustNow;
     }
     if (diff.inMinutes < 60) {
-      return "${diff.inMinutes} 分钟前";
+      return t.devicesScreen.lastActiveMinutes(minutes: diff.inMinutes);
     }
     if (diff.inHours < 24 && ref.day == at.day) {
-      return "今天 ${_two(at.hour)}:${_two(at.minute)}";
+      return t.devicesScreen.lastActiveToday(
+        time: "${_two(at.hour)}:${_two(at.minute)}",
+      );
     }
     return "${_two(at.month)}-${_two(at.day)} ${_two(at.hour)}:${_two(at.minute)}";
   }

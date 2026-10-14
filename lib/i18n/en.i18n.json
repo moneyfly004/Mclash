@@ -536,7 +536,10 @@
     "offline": "○ Offline",
     "lastActive": "Last active $text",
     "delete": "Delete",
-    "deleteConfirm": "Delete device \"$name\"? It will be kicked offline immediately."
+    "deleteConfirm": "Delete device \"$name\"? It will be kicked offline immediately.",
+    "lastActiveJustNow": "Just now",
+    "lastActiveMinutes": "${minutes} min ago",
+    "lastActiveToday": "Today ${time}"
   },
   "sysProxySheet": {
     "reading": "Reading…",

@@ -385,9 +385,11 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           () => MclashTunSetting.show(context),
           trailingText: MclashTunSetting.label(
             SettingManager.getConfig().tunMode,
+            context,
           ),
           subtitle: MclashTunSetting.description(
             SettingManager.getConfig().tunMode,
+            context,
           ),
         ),
       _settingRow(

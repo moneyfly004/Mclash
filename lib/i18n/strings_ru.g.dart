@@ -68,60 +68,60 @@ class TranslationsRu with BaseTranslations<AppLocale, Translations> implements T
 		'es': 'Español',
 	};
 	@override Map<String, String> get countries => {
-		'HK': 'Hong Kong',
-		'TW': 'Taiwan',
-		'MO': 'Macau',
-		'CN': 'China',
-		'JP': 'Japan',
-		'KR': 'South Korea',
-		'SG': 'Singapore',
-		'MY': 'Malaysia',
-		'TH': 'Thailand',
-		'VN': 'Vietnam',
-		'PH': 'Philippines',
-		'ID': 'Indonesia',
-		'KH': 'Cambodia',
-		'US': 'United States',
-		'CA': 'Canada',
-		'MX': 'Mexico',
-		'GB': 'United Kingdom',
-		'DE': 'Germany',
-		'FR': 'France',
-		'NL': 'Netherlands',
-		'RU': 'Russia',
-		'IT': 'Italy',
-		'ES': 'Spain',
-		'CH': 'Switzerland',
-		'SE': 'Sweden',
-		'NO': 'Norway',
-		'FI': 'Finland',
-		'DK': 'Denmark',
-		'PL': 'Poland',
-		'AT': 'Austria',
-		'IE': 'Ireland',
-		'UA': 'Ukraine',
-		'TR': 'Turkey',
-		'PT': 'Portugal',
-		'CZ': 'Czechia',
-		'RO': 'Romania',
-		'BE': 'Belgium',
-		'GR': 'Greece',
-		'HU': 'Hungary',
-		'IL': 'Israel',
-		'AE': 'United Arab Emirates',
-		'SA': 'Saudi Arabia',
-		'EG': 'Egypt',
-		'ZA': 'South Africa',
-		'NG': 'Nigeria',
-		'AU': 'Australia',
-		'NZ': 'New Zealand',
-		'BR': 'Brazil',
-		'AR': 'Argentina',
-		'CL': 'Chile',
-		'CO': 'Colombia',
-		'IN': 'India',
-		'PK': 'Pakistan',
-		'XX': 'Other',
+		'HK': 'Гонконг',
+		'TW': 'Тайвань',
+		'MO': 'Макао',
+		'CN': 'Китай',
+		'JP': 'Япония',
+		'KR': 'Южная Корея',
+		'SG': 'Сингапур',
+		'MY': 'Малайзия',
+		'TH': 'Таиланд',
+		'VN': 'Вьетнам',
+		'PH': 'Филиппины',
+		'ID': 'Индонезия',
+		'KH': 'Камбоджа',
+		'US': 'США',
+		'CA': 'Канада',
+		'MX': 'Мексика',
+		'GB': 'Великобритания',
+		'DE': 'Германия',
+		'FR': 'Франция',
+		'NL': 'Нидерланды',
+		'RU': 'Россия',
+		'IT': 'Италия',
+		'ES': 'Испания',
+		'CH': 'Швейцария',
+		'SE': 'Швеция',
+		'NO': 'Норвегия',
+		'FI': 'Финляндия',
+		'DK': 'Дания',
+		'PL': 'Польша',
+		'AT': 'Австрия',
+		'IE': 'Ирландия',
+		'UA': 'Украина',
+		'TR': 'Турция',
+		'PT': 'Португалия',
+		'CZ': 'Чехия',
+		'RO': 'Румыния',
+		'BE': 'Бельгия',
+		'GR': 'Греция',
+		'HU': 'Венгрия',
+		'IL': 'Израиль',
+		'AE': 'ОАЭ',
+		'SA': 'Саудовская Аравия',
+		'EG': 'Египет',
+		'ZA': 'ЮАР',
+		'NG': 'Нигерия',
+		'AU': 'Австралия',
+		'NZ': 'Новая Зеландия',
+		'BR': 'Бразилия',
+		'AR': 'Аргентина',
+		'CL': 'Чили',
+		'CO': 'Колумбия',
+		'IN': 'Индия',
+		'PK': 'Пакистан',
+		'XX': 'Другие',
 	};
 	@override late final _Translations$meScreen$ru meScreen = _Translations$meScreen$ru._(_root);
 	@override late final _Translations$homeScreen$ru homeScreen = _Translations$homeScreen$ru._(_root);
@@ -265,7 +265,7 @@ class _Translations$meta$ru implements Translations$meta$en {
 
 	// Translations
 	@override String get enable => 'Включить';
-	@override String get disable => 'Запретить';
+	@override String get disable => 'Отключить';
 	@override String get open => 'Открыть';
 	@override String get close => 'Закрыть';
 	@override String get quit => 'Выйти';
@@ -283,11 +283,11 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get paste => 'Вставить';
 	@override String get cut => 'Вырезать';
 	@override String get save => 'Сохранить';
-	@override String get ok => 'Ок';
-	@override String get cancel => 'Закрыть';
+	@override String get ok => 'ОК';
+	@override String get cancel => 'Отмена';
 	@override String get faq => 'Часто задаваемые вопросы (FAQ)';
 	@override String get doc => 'документ';
-	@override String get htmlTools => 'HTML Toolset';
+	@override String get htmlTools => 'HTML-инструменты';
 	@override String get download => 'Скачать';
 	@override String get loading => 'Загрузка...';
 	@override String get days => 'дни';
@@ -297,8 +297,8 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get milliseconds => 'миллисекунды';
 	@override String get search => 'Поиск';
 	@override String get searchNodeHint => 'Фильтр узлов (имя или протокол)';
-	@override String get connect => 'Соединить';
-	@override String get disconnect => 'Отключить';
+	@override String get connect => 'Подключиться';
+	@override String get disconnect => 'Отключиться';
 	@override String get connected => 'Подключено';
 	@override String get disconnected => 'Отключено';
 	@override String get connecting => 'Подключение';
@@ -315,9 +315,9 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get updateInterval => 'Интервал обновления';
 	@override String get updateInterval5mTips => 'Минимум: 5 м';
 	@override String get updateIntervalPreferByProfile => 'Приоритет настроек провайдера';
-	@override String updateFailed({required Object p}) => 'Не удалось обновить:${p}';
-	@override String get none => 'Ничего не делать';
-	@override String get reset => 'Перезагрузить';
+	@override String updateFailed({required Object p}) => 'Не удалось обновить: ${p}';
+	@override String get none => 'Нет';
+	@override String get reset => 'Сбросить';
 	@override String get authentication => 'Авторизация';
 	@override String get user => 'Пользователь';
 	@override String get account => 'Аккаунт';
@@ -336,17 +336,17 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get overwriteAppend => 'Дополнительное переопределение';
 	@override String get overwriteTips => 'Исходная конфигурация <- Пользовательское переопределение <- Переопределение приложения';
 	@override String get noOverwrite => 'Не перезаписывать';
-	@override String get diversionTemplates => 'Шаблон сортировки пациентов';
+	@override String get diversionTemplates => 'Шаблон разделения трафика';
 	@override String get ruleProviders => 'Поставщик правил';
 	@override String get ruleTemplates => 'Шаблон правила';
-	@override String get proxyGroupsTemplates => 'Шаблон группы агентов';
-	@override String get proxyGroups => 'Группа агентов';
+	@override String get proxyGroupsTemplates => 'Шаблон группы прокси';
+	@override String get proxyGroups => 'Группа прокси';
 	@override String get proxyNodeList => 'Список прокси-узлов';
 	@override String proxyNodeFailure({required Object p}) => 'Срок действия следующих прокси-узлов истек, и они были автоматически удалены: ${p}';
 	@override String get externalController => 'Внешнее управление';
-	@override String get secret => 'Пароль';
-	@override String get tcpConcurrent => 'Параллельное TCP-подтверждение';
-	@override String get globalClientFingerprint => 'Глобальный отпечаток пальца TLS';
+	@override String get secret => 'Секрет';
+	@override String get tcpConcurrent => 'Параллельное TCP-рукопожатие';
+	@override String get globalClientFingerprint => 'Глобальный отпечаток TLS';
 	@override String get allowLanAccess => 'Доступ к локальной сети устройства';
 	@override String get mixedPort => 'Порт mixed-прокси';
 	@override String get logLevel => 'Уровень журнала';
@@ -359,7 +359,7 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get tls => 'TLS';
 	@override String get geoDownloadByProxy => 'Загрузка гео-правил через прокси';
 	@override String get geoRulesetTips => 'Geosite/Geoip будет преобразован в соответствующий RuleSet';
-	@override String get sniffer => 'Обнаружение доменов';
+	@override String get sniffer => 'Сниффер';
 	@override String get userAgent => 'UserAgent';
 	@override String get launchAtStartup => 'Запуск при включении';
 	@override String get launchAtStartupRunAsAdmin => 'Пожалуйста, перезапустите Mclash от имени администратора.';
@@ -406,7 +406,7 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get reconnectTakesEffect => 'Изменения вступят в силу после повторного подключения.';
 	@override String get runtimeProfile => 'Конфигурация времени выполнения';
 	@override String get willCompleteAfterRebootInstall => 'Пожалуйста, перезагрузите устройство, чтобы завершить установку расширения системы.';
-	@override String get requestNeedsUserApproval => '1. Пожалуйста, [разрешите] Mclash устанавливать системные расширения в [Системные настройки] - [Конфиденциальность и безопасность]. 2. : [Системные настройки] - [Основные] - [Элементы входа и расширения - Сетевые расширения] Включите [mclashServiceSE]. После завершения подключитесь снова.';
+	@override String get requestNeedsUserApproval => '1. Пожалуйста, [разрешите] Mclash устанавливать системные расширения в [Системные настройки] - [Конфиденциальность и безопасность].\n2. В [Системные настройки] - [Основные] - [Элементы входа и расширения] - [Сетевые расширения] включите [mclashServiceSE].\nПосле этого подключитесь снова.';
 	@override String get FullDiskAccessPermissionRequired => 'Включите разрешение mclashServiceSE в [Системные настройки]-[Конфиденциальность и безопасность]-[Полный доступ к диску] и переподключитесь.';
 	@override String get proxy => 'Прокси';
 	@override String get theme => 'Тема';
@@ -439,7 +439,7 @@ class _Translations$meta$ru implements Translations$meta$en {
 	@override String get hideAppIcon => 'Скрыть значок приложения';
 	@override String get openDir => 'Открыть каталог файлов';
 	@override String get type => 'Тип';
-	@override String fileNotExist({required Object p}) => 'Файла не существует:${p}';
+	@override String fileNotExist({required Object p}) => 'Файл не существует: ${p}';
 	@override String get buyProfile => 'Купить профиль';
 	@override String get myProfiles => 'Профили';
 	@override String get profileEdit => 'Редактирование профилей';
@@ -474,7 +474,7 @@ class _Translations$tls$ru implements Translations$tls$en {
 	// Translations
 	@override String get certificate => 'Сертификат';
 	@override String get privateKey => 'Закрытый ключ';
-	@override String get customTrustCert => 'Индивидуальные сертификаты';
+	@override String get customTrustCert => 'Пользовательские сертификаты';
 }
 
 // Path: tun
@@ -502,7 +502,7 @@ class _Translations$dns$ru implements Translations$dns$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get listen => 'Аудиторское обращение';
+	@override String get listen => 'Адрес прослушивания';
 	@override String get fakeIp => 'fake-ip';
 	@override String get fallback => 'Fallback';
 	@override String get preferH3 => 'Приоритет DoH H3';
@@ -511,7 +511,7 @@ class _Translations$dns$ru implements Translations$dns$en {
 	@override String get enhancedMode => 'Расширенный режим';
 	@override String get fakeIPFilterMode => '${_root.dns.fakeIp} режим фильтра';
 	@override String get fakeIPFilter => '${_root.dns.fakeIp} фильтрация';
-	@override String get respectRules => 'Соблюдайте правила.';
+	@override String get respectRules => 'Учитывать правила';
 	@override String get nameServer => 'DNS-сервер';
 	@override String get defaultNameServer => '${_root.meta.byDefault} ${_root.dns.nameServer}';
 	@override String get proxyNameServer => '${_root.meta.proxy} ${_root.dns.nameServer}';
@@ -538,7 +538,7 @@ class _Translations$profilePatchMode$ru implements Translations$profilePatchMode
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get currentSelected => 'Текущий сервер';
+	@override String get currentSelected => 'Текущий выбор';
 	@override String get overwrite => 'Встроенная функция переопределения';
 	@override String get noOverwrite => 'Встроенный - не перезаписывается';
 }
@@ -550,22 +550,22 @@ class _Translations$meScreen$ru implements Translations$meScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get accountBalance => 'Balance';
-	@override String get expireAt => 'Expires';
-	@override String get remainingDays => 'Days Left';
-	@override String get deviceCount => 'Devices';
-	@override String get myOrders => 'My Orders';
-	@override String get deviceManagement => 'Device Management';
-	@override String get changePassword => 'Change Password';
-	@override String get clearLocalData => 'Clear local data (before uninstall)';
-	@override String get profileManagementDev => 'Profile management (developer)';
-	@override String get tunAdapter => 'TUN virtual adapter';
-	@override String get checkUpdate => 'Check for updates';
-	@override String get retry => 'Retry';
-	@override String get loadFailed => 'Failed to load account info: the sign-in may have expired or the network is unreachable.\nTap Refresh at the top right to retry; if it keeps failing, sign in again.';
-	@override String get logoutConfirm => 'Sign out?';
-	@override String get boardNoKernel => 'The dashboard shows the kernel\'s live data (connection, traffic, rule hits).\n\nThe kernel is not running, so the dashboard would be an empty shell.\nTap OK to open it anyway, or Cancel to connect on the Home tab first.';
-	@override String get boardOpened => 'Opened the dashboard in your browser; switch nodes or rules there and the app follows within ~5 seconds.';
+	@override String get accountBalance => 'Баланс';
+	@override String get expireAt => 'Действует до';
+	@override String get remainingDays => 'Осталось дней';
+	@override String get deviceCount => 'Устройства';
+	@override String get myOrders => 'Мои заказы';
+	@override String get deviceManagement => 'Управление устройствами';
+	@override String get changePassword => 'Сменить пароль';
+	@override String get clearLocalData => 'Удалить локальные данные (перед удалением)';
+	@override String get profileManagementDev => 'Управление профилями (для разработчика)';
+	@override String get tunAdapter => 'Виртуальный адаптер TUN';
+	@override String get checkUpdate => 'Проверить обновления';
+	@override String get retry => 'Повторить';
+	@override String get loadFailed => 'Не удалось загрузить данные аккаунта: возможно, вход устарел или нет сети.\nНажмите «Обновить» в правом верхнем углу, чтобы повторить; если снова не выйдет — войдите заново.';
+	@override String get logoutConfirm => 'Выйти из аккаунта?';
+	@override String get boardNoKernel => 'Панель показывает данные ядра в реальном времени (подключения, трафик, срабатывания правил).\n\nЯдро не запущено, поэтому панель будет пустой.\nНажмите «ОК», чтобы всё равно открыть её, или «Отмена», чтобы сначала подключиться на главной.';
+	@override String get boardOpened => 'Панель открыта в браузере: меняйте там узлы или правила — приложение подхватит изменения примерно за 5 секунд.';
 }
 
 // Path: homeScreen
@@ -575,45 +575,45 @@ class _Translations$homeScreen$ru implements Translations$homeScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String expiresOn({required Object date}) => 'Expires ${date}';
-	@override String devicesText({required Object text}) => 'Devices ${text}';
-	@override String get upgrade => 'Upgrade';
-	@override String get quickCountries => 'Quick country filter';
-	@override String nodeCount({required Object count}) => '${count} nodes';
-	@override String get autoBestTip => 'Pick the lowest-latency available node across all countries (auto mode)';
-	@override String get autoBest => 'Auto best';
-	@override String pickCountryTip({required Object label}) => 'Auto-select the lowest-latency available node in "${label}" and pin it';
-	@override String get autoNoBetter => 'Already in auto mode (no better node found)';
-	@override String switchedBest({required Object name}) => 'Switched to the best node: ${name}';
-	@override String switchedCountry({required Object country, required Object node, required Object ms}) => 'Switched to the fastest ${country} node: ${node}${ms}';
-	@override String filterCountryFailed({required Object country, required Object err}) => 'Filtered by ${country}; switching failed: ${err}';
-	@override String deviceFullCount({required Object used, required Object limit}) => 'Current devices ${used}/${limit}\n\n';
-	@override String get deviceFullUpgradeHint => 'Upgrading the device limit restores the connection immediately (recommended); you can also delete unused devices to free a slot.';
-	@override String get later => 'Later';
-	@override String get upgradeDeviceCount => 'Upgrade device limit';
-	@override String get cannotConnect => 'Cannot connect';
-	@override String get freshnessNever => 'Not synced yet · tap to refresh';
-	@override String get freshnessJustNow => 'Updated just now · tap Manage devices';
-	@override String freshnessMinutes({required Object minutes}) => '${minutes} min ago · tap Manage devices';
-	@override String freshnessStale({required Object minutes}) => '${minutes} min ago · tap to refresh';
-	@override String get subscriptionAutoSync => 'Auto subscription sync';
-	@override String get connecting => 'Connecting…';
-	@override String get disconnecting => 'Disconnecting…';
-	@override String get tapToDisconnect => 'Tap the switch to disconnect';
-	@override String get tapToConnect => 'Tap the switch to connect';
-	@override String get currentNode => 'Current node';
-	@override String get noNodeSelected => 'No node selected';
-	@override String get switchAction => 'Switch';
-	@override String get realtimeSpeed => 'Real-time speed';
-	@override String get totalTraffic => 'Total traffic';
-	@override String get subSyncedNotReady => 'Subscription downloaded, but the profile is not ready yet. Please try again shortly.';
-	@override String get noPlan => 'This account has no available plan yet. Please purchase one first.';
-	@override String get loginExpired => 'Your sign-in has expired. Please sign in again.';
-	@override String get syncingWait => 'Syncing subscription, please wait.';
-	@override String syncFailedNetwork({required Object message}) => 'Subscription sync failed: ${message}\nCheck your network and try again.';
-	@override String get syncFailed => 'Subscription sync failed, please try again later.';
-	@override String get resetProxy => 'Reset';
-	@override String latencySuffix({required Object ms}) => ' (${ms}ms)';
+	@override String expiresOn({required Object date}) => 'До ${date}';
+	@override String devicesText({required Object text}) => 'Устройства ${text}';
+	@override String get upgrade => 'Улучшить';
+	@override String get quickCountries => 'Быстрый выбор страны';
+	@override String nodeCount({required Object count}) => 'Узлов: ${count}';
+	@override String get autoBestTip => 'Выбрать доступный узел с наименьшей задержкой среди всех стран (автоматический режим)';
+	@override String get autoBest => 'Автовыбор';
+	@override String pickCountryTip({required Object label}) => 'Автоматически выбрать доступный узел с наименьшей задержкой в «${label}» и закрепить его';
+	@override String get autoNoBetter => 'Уже включён автоматический режим (лучший узел не найден)';
+	@override String switchedBest({required Object name}) => 'Переключено на лучший узел: ${name}';
+	@override String switchedCountry({required Object country, required Object node, required Object ms}) => 'Переключено на самый быстрый узел (${country}): ${node}${ms}';
+	@override String filterCountryFailed({required Object country, required Object err}) => 'Фильтр по стране: ${country}; переключение не удалось: ${err}';
+	@override String deviceFullCount({required Object used, required Object limit}) => 'Сейчас устройств ${used}/${limit}\n\n';
+	@override String get deviceFullUpgradeHint => 'После увеличения лимита устройств подключение восстановится сразу (рекомендуется); также можно удалить неиспользуемые устройства, чтобы освободить место.';
+	@override String get later => 'Позже';
+	@override String get upgradeDeviceCount => 'Увеличить лимит устройств';
+	@override String get cannotConnect => 'Не удаётся подключиться';
+	@override String get freshnessNever => 'Ещё не синхронизировано · нажмите, чтобы обновить';
+	@override String get freshnessJustNow => 'Обновлено только что · нажмите «Устройства»';
+	@override String freshnessMinutes({required Object minutes}) => '${minutes} мин назад · нажмите «Устройства»';
+	@override String freshnessStale({required Object minutes}) => '${minutes} мин назад · нажмите, чтобы обновить';
+	@override String get subscriptionAutoSync => 'Автосинхронизация подписки';
+	@override String get connecting => 'Подключение…';
+	@override String get disconnecting => 'Отключение…';
+	@override String get tapToDisconnect => 'Нажмите переключатель, чтобы отключиться';
+	@override String get tapToConnect => 'Нажмите переключатель, чтобы подключиться';
+	@override String get currentNode => 'Текущий узел';
+	@override String get noNodeSelected => 'Узел не выбран';
+	@override String get switchAction => 'Сменить';
+	@override String get realtimeSpeed => 'Скорость сейчас';
+	@override String get totalTraffic => 'Всего трафика';
+	@override String get subSyncedNotReady => 'Подписка загружена, но профиль ещё не готов. Попробуйте чуть позже.';
+	@override String get noPlan => 'У этого аккаунта пока нет доступного тарифа. Сначала оформите тариф.';
+	@override String get loginExpired => 'Ваш вход устарел. Войдите заново.';
+	@override String get syncingWait => 'Идёт синхронизация подписки, подождите.';
+	@override String syncFailedNetwork({required Object message}) => 'Не удалось синхронизировать подписку: ${message}\nПроверьте сеть и повторите.';
+	@override String get syncFailed => 'Не удалось синхронизировать подписку, попробуйте позже.';
+	@override String get resetProxy => 'Сбросить';
+	@override String latencySuffix({required Object ms}) => ' (${ms} мс)';
 }
 
 // Path: nodesScreen
@@ -623,31 +623,31 @@ class _Translations$nodesScreen$ru implements Translations$nodesScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String updatedCount({required Object count}) => 'Subscription updated: ${count} nodes';
-	@override String updateFailed({required Object message}) => 'Update failed: ${message}';
-	@override String get updateFailedNetwork => 'Update failed, please check your network';
-	@override String testDone({required Object ok, required Object fail}) => 'Speed test done: ${ok} reachable, ${fail} unreachable (may be offline)';
-	@override String switchedTo({required Object name}) => 'Switched to ${name}';
-	@override String switchFailed({required Object message}) => 'Switch failed: ${message}\n(Node switching needs a running kernel; turn on the switch on the Home tab first.)';
-	@override String selectedAfterConnect({required Object name}) => 'Selected ${name} (takes effect after connecting)';
-	@override String get title => 'Nodes';
-	@override String get searchNode => 'Search nodes';
-	@override String get sortByLatency => 'Sort by latency';
-	@override String get updateSubscription => 'Update subscription';
-	@override String get viewByGroup => 'View by proxy group';
-	@override String get testAll => 'Test all';
-	@override String get searchHint => 'Search node / country / protocol';
-	@override String get emptyNoNodes => 'No nodes available yet.\nSubscriptions sync automatically; if you just signed in, wait a moment or tap reload below.';
-	@override String get emptyNoMatch => 'No matching nodes.';
-	@override String get reload => 'Reload';
-	@override String get currentInUse => 'Current (in use)';
-	@override String get current => 'Current';
-	@override String get notTested => 'Not measured (kernel reload pending)';
-	@override String get timeout => 'Timeout';
-	@override String get clear => 'Clear';
-	@override String get selectNode => 'Select node';
-	@override String get emptyNoKernel => 'No nodes available yet.\nPlease turn on the connection switch on the Home tab first.';
-	@override String get openFullList => 'Open the full node list (search / speed test / groups)';
+	@override String updatedCount({required Object count}) => 'Подписка обновлена · узлов: ${count}';
+	@override String updateFailed({required Object message}) => 'Не удалось обновить: ${message}';
+	@override String get updateFailedNetwork => 'Не удалось обновить, проверьте сеть';
+	@override String testDone({required Object ok, required Object fail}) => 'Тест скорости завершён: ${ok} доступно, ${fail} недоступно (возможно, офлайн)';
+	@override String switchedTo({required Object name}) => 'Переключено на ${name}';
+	@override String switchFailed({required Object message}) => 'Не удалось переключить: ${message}\n(Для смены узла нужно запущенное ядро; сначала включите переключатель на главной.)';
+	@override String selectedAfterConnect({required Object name}) => 'Выбран ${name} (вступит в силу после подключения)';
+	@override String get title => 'Узлы';
+	@override String get searchNode => 'Поиск узлов';
+	@override String get sortByLatency => 'Сортировать по задержке';
+	@override String get updateSubscription => 'Обновить подписку';
+	@override String get viewByGroup => 'По группам прокси';
+	@override String get testAll => 'Проверить все';
+	@override String get searchHint => 'Поиск: узел / страна / протокол';
+	@override String get emptyNoNodes => 'Доступных узлов пока нет.\nПодписки синхронизируются автоматически; если вы только что вошли, подождите немного или нажмите «Загрузить заново» ниже.';
+	@override String get emptyNoMatch => 'Подходящих узлов нет.';
+	@override String get reload => 'Загрузить заново';
+	@override String get currentInUse => 'Текущий (используется)';
+	@override String get current => 'Текущий';
+	@override String get notTested => 'Не измерено (ожидается перезагрузка ядра)';
+	@override String get timeout => 'Тайм-аут';
+	@override String get clear => 'Очистить';
+	@override String get selectNode => 'Выбрать узел';
+	@override String get emptyNoKernel => 'Доступных узлов пока нет.\nСначала включите переключатель подключения на главной.';
+	@override String get openFullList => 'Открыть полный список узлов (поиск / тест скорости / группы)';
 }
 
 // Path: nodeAuto
@@ -657,15 +657,15 @@ class _Translations$nodeAuto$ru implements Translations$nodeAuto$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get kernelStateUnavailable => 'Node status is temporarily unavailable from the kernel; will retry automatically.';
-	@override String backToFixedNode({required Object fixed}) => 'Back to the pinned node: ${fixed}';
-	@override String get noUsableNodePickOne => 'No usable node found. Please pick one manually in the node list.';
-	@override String get noUsableNodeTryOne => 'No usable node found. Please try picking one in the node list.';
-	@override String autoConnectedBest({required Object bestNode, required Object bestMs}) => 'Auto-connected to the best node: ${bestNode} (${bestMs} ms)';
-	@override String get currentNodeUnreachable => 'The current node cannot reach the internet; switching automatically…';
-	@override String autoSwitchedToUsable({required Object target}) => 'Automatically switched to a usable node: ${target}';
-	@override String newNodesReloading({required Object missing}) => '${missing} new node(s) in the subscription are not in the kernel yet; reloading…';
-	@override String get kernelReloadedRetest => 'The kernel reloaded with the new subscription; run the speed test again.';
+	@override String get kernelStateUnavailable => 'Состояние узлов временно недоступно от ядра; повтор будет автоматически.';
+	@override String backToFixedNode({required Object fixed}) => 'Возврат к закреплённому узлу: ${fixed}';
+	@override String get noUsableNodePickOne => 'Рабочий узел не найден. Выберите его вручную в списке узлов.';
+	@override String get noUsableNodeTryOne => 'Рабочий узел не найден. Попробуйте выбрать другой в списке узлов.';
+	@override String autoConnectedBest({required Object bestNode, required Object bestMs}) => 'Автоматически подключено к лучшему узлу: ${bestNode} (${bestMs} мс)';
+	@override String get currentNodeUnreachable => 'Текущий узел не выходит в интернет; переключаем автоматически…';
+	@override String autoSwitchedToUsable({required Object target}) => 'Автоматически переключено на рабочий узел: ${target}';
+	@override String newNodesReloading({required Object missing}) => '${missing} новых узлов из подписки ещё не в ядре; перезагружаем…';
+	@override String get kernelReloadedRetest => 'Ядро перезагружено с новой подпиской; запустите тест скорости ещё раз.';
 }
 
 // Path: accountBlock
@@ -675,24 +675,24 @@ class _Translations$accountBlock$ru implements Translations$accountBlock$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String quotaFull({required Object used, required Object limit}) => 'Device slots are full (${used}/${limit}): this device is still within the licensed range and can connect normally. To add another device, upgrade the device limit or remove unused ones.';
-	@override String get banFallback => 'Your account has been disabled and can no longer be used.';
-	@override String get titleExpired => 'Plan expired';
-	@override String get titleDeviceFull => 'Device limit reached';
-	@override String get titleAccountDisabled => 'Account disabled';
-	@override String get titlePlanDisabled => 'Plan disabled';
-	@override String get titleNoPlan => 'No plan yet';
-	@override String get titleDeviceRemoved => 'This device was removed';
-	@override String get titleServiceUnavailable => 'Service temporarily unavailable';
-	@override String get textExpired => 'Your plan has expired. Purchase a plan to keep using global nodes.';
-	@override String textDeviceFull({required Object used, required Object limit}) => 'The server has determined this device exceeds the plan device limit (${used}/${limit}), so it cannot connect for now. Remove unused devices in Me - Device Management, or upgrade to a plan with more devices.';
-	@override String get textAccountDisabled => 'Your account has been disabled. Please contact support if you have questions.';
-	@override String get textPlanDisabled => 'Your plan has been disabled or is in an abnormal state, so you cannot connect. Please contact support if you have questions.';
-	@override String get textNoPlan => 'You have not purchased a plan yet. Purchase one to use global nodes.';
-	@override String get textDeviceRemoved => 'This device was removed and signed out. Please sign in again.';
-	@override String get textServiceUnavailable => 'The service is temporarily unavailable. Please try again later; if it persists, take a screenshot and contact support.';
-	@override String remainingDays({required Object days}) => '${days} days left';
-	@override String deviceUsage({required Object used, required Object limit}) => 'Devices ${used}/${limit}';
+	@override String quotaFull({required Object used, required Object limit}) => 'Лимит устройств исчерпан (${used}/${limit}): это устройство всё ещё в пределах лицензии и может подключаться. Чтобы добавить ещё одно, увеличьте лимит устройств или удалите неиспользуемые.';
+	@override String get banFallback => 'Ваш аккаунт заблокирован и больше не может использоваться.';
+	@override String get titleExpired => 'Тариф истёк';
+	@override String get titleDeviceFull => 'Достигнут лимит устройств';
+	@override String get titleAccountDisabled => 'Аккаунт заблокирован';
+	@override String get titlePlanDisabled => 'Тариф отключён';
+	@override String get titleNoPlan => 'Тарифа пока нет';
+	@override String get titleDeviceRemoved => 'Это устройство удалено';
+	@override String get titleServiceUnavailable => 'Сервис временно недоступен';
+	@override String get textExpired => 'Срок действия тарифа истёк. Оформите тариф, чтобы пользоваться узлами по всему миру.';
+	@override String textDeviceFull({required Object used, required Object limit}) => 'Сервер определил, что устройство превышает лимит устройств тарифа (${used}/${limit}), поэтому подключение пока невозможно. Удалите неиспользуемые устройства в разделе «Профиль — Управление устройствами» или перейдите на тариф с большим числом устройств.';
+	@override String get textAccountDisabled => 'Ваш аккаунт заблокирован. Если есть вопросы, обратитесь в поддержку.';
+	@override String get textPlanDisabled => 'Ваш тариф отключён или находится в некорректном состоянии, поэтому подключение невозможно. Если есть вопросы, обратитесь в поддержку.';
+	@override String get textNoPlan => 'Вы ещё не оформили тариф. Оформите его, чтобы пользоваться узлами по всему миру.';
+	@override String get textDeviceRemoved => 'Это устройство было удалено и отключено. Войдите заново.';
+	@override String get textServiceUnavailable => 'Сервис временно недоступен. Попробуйте позже; если это повторяется, сделайте скриншот и обратитесь в поддержку.';
+	@override String remainingDays({required Object days}) => 'Осталось дней: ${days}';
+	@override String deviceUsage({required Object used, required Object limit}) => 'Устройства ${used}/${limit}';
 }
 
 // Path: entitlementMsg
@@ -702,18 +702,18 @@ class _Translations$entitlementMsg$ru implements Translations$entitlementMsg$en 
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get tamperedTitle => 'Authorization state abnormal';
-	@override String get tamperedClock => 'A system clock rollback (or local authorization data tampering) was detected. Please go online to complete a verification before connecting.';
-	@override String get tamperedLocal => 'Local authorization data is corrupted or was modified. Please go online to complete a verification before connecting.';
-	@override String get needVerifyTitle => 'Online verification required';
-	@override String get needVerifyFirst => 'Cannot confirm your plan status: please connect to the network and sign in, then complete one verification before connecting.';
-	@override String get needVerifyRetry => 'Cannot confirm your plan status. Please go online and try again.';
-	@override String get verifyFailedTitle => 'Cannot verify plan status';
-	@override String get verifyFailedText => 'The verification grace period has passed and the server is unreachable. Check your network and try again (if you just renewed, sign in again).';
-	@override String get restrictedTitle => 'Account restricted';
-	@override String get restrictedFallback => 'Your account or plan has been disabled, so you cannot connect.';
-	@override String get expiredTitle => 'Plan expired';
-	@override String expiredText({required Object date}) => 'Your plan expired on ${date}. The local subscription profile has been cleared. Renew and sign in again to restore it.';
+	@override String get tamperedTitle => 'Нарушено состояние авторизации';
+	@override String get tamperedClock => 'Обнаружен откат системных часов (или изменение локальных данных авторизации). Выйдите в сеть и пройдите проверку перед подключением.';
+	@override String get tamperedLocal => 'Локальные данные авторизации повреждены или изменены. Выйдите в сеть и пройдите проверку перед подключением.';
+	@override String get needVerifyTitle => 'Требуется онлайн-проверка';
+	@override String get needVerifyFirst => 'Не удаётся подтвердить состояние тарифа: подключитесь к сети, войдите в аккаунт и пройдите одну проверку перед подключением.';
+	@override String get needVerifyRetry => 'Не удаётся подтвердить состояние тарифа. Выйдите в сеть и повторите.';
+	@override String get verifyFailedTitle => 'Не удаётся проверить состояние тарифа';
+	@override String get verifyFailedText => 'Льготный период проверки истёк, а сервер недоступен. Проверьте сеть и повторите (если вы только что продлили тариф, войдите заново).';
+	@override String get restrictedTitle => 'Аккаунт ограничен';
+	@override String get restrictedFallback => 'Ваш аккаунт или тариф отключён, поэтому подключение невозможно.';
+	@override String get expiredTitle => 'Тариф истёк';
+	@override String expiredText({required Object date}) => 'Срок действия тарифа истёк ${date}. Локальный профиль подписки удалён. Продлите тариф и войдите заново, чтобы восстановить его.';
 }
 
 // Path: devicesScreen
@@ -723,46 +723,49 @@ class _Translations$devicesScreen$ru implements Translations$devicesScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get title => 'Device Management';
-	@override String get currentPlan => 'Current plan';
-	@override String devicesText({required Object text}) => 'Devices ${text}';
-	@override String get upgradeTitle => 'Upgrade devices / extend time';
-	@override String get upgradeSubtitle => 'Add devices and days together; one price, one payment';
-	@override String get addDevices => 'Add devices';
-	@override String get noAddDevices => 'No change';
-	@override String addDevicesCount({required Object n}) => '+${n} devices';
-	@override String get addDays => 'Add days';
-	@override String get noExtend => 'No extension';
-	@override String addDaysCount({required Object n, required Object months}) => '+${n} days (${months} months)';
-	@override String get priceFailed => 'Failed to get the price';
-	@override String amountDue({required Object amount}) => 'Total ¥${amount}';
-	@override String get requote => 'Recalculate';
-	@override String get goPay => 'Pay now';
-	@override String get afterUpgrade => 'After upgrade: ';
-	@override String afterLimit({required Object limit}) => 'device limit ${limit}';
-	@override String afterExpire({required Object date}) => 'expires ${date}';
-	@override String get pickSomething => 'Please add at least some devices or days';
-	@override String get daysOnlyUnsupported => 'The panel does not support "extend time only" yet: please set "Add devices" to 1 or more and try again (or contact support to enable it).';
-	@override String get paramsRejected => 'Parameters rejected: please pick the device count and days again.';
-	@override String get subscriptionExpired => 'The subscription has expired, so it cannot be upgraded. Please renew or purchase a plan first.';
-	@override String get orderIncomplete => 'Order information is incomplete. Tap "Recalculate" and try again.';
-	@override String get orderRegenerated => 'The previous order expired; a new one was created with the same settings.';
-	@override String get payChannelIncomplete => 'Order or payment channel information is incomplete. Please recalculate and try again.';
-	@override String get noQrCode => 'The server did not return a payment QR code / link. Please pick another payment method or try later.';
-	@override String payStartFailed({required Object err}) => 'Failed to start payment: ${err}';
-	@override String get payCancelled => 'Payment cancelled; the draft order has been cleaned up.';
-	@override String get balancePay => 'Balance';
-	@override String get noPayMethod => 'No payment method is available right now. Please try later or contact support.';
-	@override String balanceInsufficient({required Object balance, required Object amount}) => 'Insufficient balance (¥${balance}, need ¥${amount}).\nTop up first?';
-	@override String get choosePayMethod => 'Choose a payment method';
-	@override String balanceText({required Object balance}) => 'Balance ¥${balance}';
-	@override String balanceShort({required Object balance}) => 'Balance ¥${balance} (insufficient, please top up)';
-	@override String get unknownDevice => 'Unknown device';
-	@override String get online => '● Online';
-	@override String get offline => '○ Offline';
-	@override String lastActive({required Object text}) => 'Last active ${text}';
-	@override String get delete => 'Delete';
-	@override String deleteConfirm({required Object name}) => 'Delete device "${name}"? It will be kicked offline immediately.';
+	@override String get title => 'Управление устройствами';
+	@override String get currentPlan => 'Текущий тариф';
+	@override String devicesText({required Object text}) => 'Устройства ${text}';
+	@override String get upgradeTitle => 'Добавить устройства / продлить срок';
+	@override String get upgradeSubtitle => 'Добавьте устройства и дни вместе: одна цена, одна оплата';
+	@override String get addDevices => 'Добавить устройства';
+	@override String get noAddDevices => 'Без изменений';
+	@override String addDevicesCount({required Object n}) => '+${n} устройств';
+	@override String get addDays => 'Добавить дни';
+	@override String get noExtend => 'Без продления';
+	@override String addDaysCount({required Object n, required Object months}) => '+${n} дн. (${months} мес.)';
+	@override String get priceFailed => 'Не удалось получить цену';
+	@override String amountDue({required Object amount}) => 'К оплате ¥${amount}';
+	@override String get requote => 'Пересчитать';
+	@override String get goPay => 'Оплатить';
+	@override String get afterUpgrade => 'После обновления: ';
+	@override String afterLimit({required Object limit}) => 'лимит устройств ${limit}';
+	@override String afterExpire({required Object date}) => 'до ${date}';
+	@override String get pickSomething => 'Добавьте хотя бы устройства или дни';
+	@override String get daysOnlyUnsupported => 'Панель пока не поддерживает «только продление срока»: укажите в поле «Добавить устройства» 1 или больше и повторите (либо обратитесь в поддержку, чтобы это включили).';
+	@override String get paramsRejected => 'Параметры отклонены: выберите количество устройств и дни заново.';
+	@override String get subscriptionExpired => 'Подписка истекла, поэтому обновить её нельзя. Сначала продлите или оформите тариф.';
+	@override String get orderIncomplete => 'Данные заказа неполные. Нажмите «Пересчитать» и повторите.';
+	@override String get orderRegenerated => 'Прежний заказ истёк; создан новый с теми же параметрами.';
+	@override String get payChannelIncomplete => 'Данные заказа или платёжного канала неполные. Пересчитайте стоимость и повторите.';
+	@override String get noQrCode => 'Сервер не вернул QR-код или ссылку для оплаты. Выберите другой способ оплаты или попробуйте позже.';
+	@override String payStartFailed({required Object err}) => 'Не удалось начать оплату: ${err}';
+	@override String get payCancelled => 'Оплата отменена; черновик заказа удалён.';
+	@override String get balancePay => 'Баланс';
+	@override String get noPayMethod => 'Сейчас нет доступных способов оплаты. Попробуйте позже или обратитесь в поддержку.';
+	@override String balanceInsufficient({required Object balance, required Object amount}) => 'Недостаточно средств (¥${balance}, нужно ¥${amount}).\nПополнить баланс?';
+	@override String get choosePayMethod => 'Выберите способ оплаты';
+	@override String balanceText({required Object balance}) => 'Баланс ¥${balance}';
+	@override String balanceShort({required Object balance}) => 'Баланс ¥${balance} (недостаточно, пополните)';
+	@override String get unknownDevice => 'Неизвестное устройство';
+	@override String get online => '● Онлайн';
+	@override String get offline => '○ Офлайн';
+	@override String lastActive({required Object text}) => 'Последняя активность: ${text}';
+	@override String get delete => 'Удалить';
+	@override String deleteConfirm({required Object name}) => 'Удалить устройство «${name}»? Оно будет сразу отключено.';
+	@override String get lastActiveJustNow => 'Только что';
+	@override String lastActiveMinutes({required Object minutes}) => '${minutes} мин назад';
+	@override String lastActiveToday({required Object time}) => 'Сегодня ${time}';
 }
 
 // Path: sysProxySheet
@@ -772,25 +775,25 @@ class _Translations$sysProxySheet$ru implements Translations$sysProxySheet$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get reading => 'Reading…';
-	@override String get unknown => 'Unknown';
-	@override String get kernelNotRunning => 'Kernel is not running (turn on the switch on the Home tab first)';
-	@override String applied({required Object host, required Object port}) => 'Applied · ${host}:${port}';
-	@override String notSet({required Object reason}) => 'System proxy not set — ${reason}';
-	@override String notEffective({required Object port}) => 'Not effective (no system proxy pointing to ${port})';
-	@override String readFailed({required Object err}) => 'Read failed: ${err}';
-	@override String get setRejected => 'Failed to set: the system may have rejected the write (or another proxy app overwrote it)';
-	@override String get disableFailed => 'Failed to turn off';
-	@override String get portRange => 'Port must be between 1 and 65535';
-	@override String portChanged({required Object value}) => 'Port changed to ${value}: disconnect and reconnect once so the kernel listens on the new port';
-	@override String get title => 'System proxy';
-	@override String desc({required Object host}) => 'The system proxy address is fixed to ${host} (local loopback) and the port is the kernel mixed port.';
-	@override String get descWindows => 'This is exactly what you see in Windows Settings → Network & Internet → Proxy.';
-	@override String get reset => 'Set again';
-	@override String get disable => 'Turn off system proxy';
-	@override String get diagnostics => 'Diagnostics (is the UI reading the same values as the registry?)';
-	@override String get mixedPort => 'Mixed port';
-	@override String get apply => 'Apply';
+	@override String get reading => 'Чтение…';
+	@override String get unknown => 'Неизвестно';
+	@override String get kernelNotRunning => 'Ядро не запущено (сначала включите переключатель на главной)';
+	@override String applied({required Object host, required Object port}) => 'Применено · ${host}:${port}';
+	@override String notSet({required Object reason}) => 'Системный прокси не задан — ${reason}';
+	@override String notEffective({required Object port}) => 'Не действует (в системе нет прокси, указывающего на ${port})';
+	@override String readFailed({required Object err}) => 'Не удалось прочитать: ${err}';
+	@override String get setRejected => 'Не удалось задать: возможно, система отклонила запись (или её перезаписала другая прокси-программа)';
+	@override String get disableFailed => 'Не удалось отключить';
+	@override String get portRange => 'Порт должен быть в диапазоне от 1 до 65535';
+	@override String portChanged({required Object value}) => 'Порт изменён на ${value}: отключитесь и подключитесь снова, чтобы ядро слушало новый порт';
+	@override String get title => 'Системный прокси';
+	@override String desc({required Object host}) => 'Адрес системного прокси фиксирован: ${host} (локальная петля), а порт — это смешанный порт ядра.';
+	@override String get descWindows => 'Именно это вы увидите в Windows: Параметры → Сеть и Интернет → Прокси.';
+	@override String get reset => 'Задать снова';
+	@override String get disable => 'Отключить системный прокси';
+	@override String get diagnostics => 'Диагностика (совпадают ли значения в интерфейсе и в реестре?)';
+	@override String get mixedPort => 'Смешанный порт';
+	@override String get apply => 'Применить';
 }
 
 // Path: logScreen
@@ -800,12 +803,12 @@ class _Translations$logScreen$ru implements Translations$logScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String readAppFailed({required Object e}) => 'Failed to read the app log: ${e}';
-	@override String readCoreFailed({required Object e}) => 'Failed to read the kernel log: ${e}';
-	@override String get copied => 'Copied (subscription URLs and other secrets are masked; the log file itself may still contain the raw address)';
-	@override String get copy => 'Copy';
-	@override String get refresh => 'Refresh';
-	@override String get empty => 'No content';
+	@override String readAppFailed({required Object e}) => 'Не удалось прочитать журнал приложения: ${e}';
+	@override String readCoreFailed({required Object e}) => 'Не удалось прочитать журнал ядра: ${e}';
+	@override String get copied => 'Скопировано (адреса подписок и другие секреты замаскированы; сам файл журнала всё ещё может содержать исходный адрес)';
+	@override String get copy => 'Копировать';
+	@override String get refresh => 'Обновить';
+	@override String get empty => 'Нет содержимого';
 }
 
 // Path: trayShell
@@ -815,8 +818,8 @@ class _Translations$trayShell$ru implements Translations$trayShell$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get closeTitle => 'Close window';
-	@override String get closeBody => 'Closing the window just puts Mclash in the tray — the kernel and system proxy keep working, and your network stays connected.\n\n· OK: minimize to the tray (to quit completely, right-click the tray icon → Quit)\n· Cancel: quit Mclash completely, stop the kernel and restore the system proxy\n\n(Your choice is remembered; next time you can use the tray icon directly)';
+	@override String get closeTitle => 'Закрыть окно';
+	@override String get closeBody => 'Закрытие окна лишь сворачивает Mclash в трей — ядро и системный прокси продолжают работать, сеть остаётся подключённой.\n\n· ОК: свернуть в трей (чтобы выйти полностью, нажмите правой кнопкой по значку в трее → «Выйти»)\n· Отмена: полностью выйти из Mclash, остановить ядро и восстановить системный прокси\n\n(Ваш выбор запоминается; в следующий раз можно сразу пользоваться значком в трее)';
 }
 
 // Path: ordersScreen
@@ -826,23 +829,23 @@ class _Translations$ordersScreen$ru implements Translations$ordersScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get title => 'My Orders';
-	@override String get orderInfoIncomplete => 'Order information is incomplete. Pull down to refresh and try again.';
-	@override String get payChannelIncomplete => 'Payment channel information is incomplete. Please try again later.';
-	@override String get noQrPayload => 'The server did not return a payment QR code or link. Please choose another payment method or try again later.';
-	@override String payStartFailed({required Object err}) => 'Failed to start payment: ${err}';
-	@override String get noPayMethod => 'No payment method is available right now. Please try again later or contact support.';
-	@override String get choosePayMethod => 'Choose a payment method';
-	@override String amountDue({required Object amount}) => 'Amount due ¥${amount}';
-	@override String get paidLabel => '● Paid';
-	@override String get pendingLabel => '○ Unpaid';
+	@override String get title => 'Мои заказы';
+	@override String get orderInfoIncomplete => 'Данные заказа неполные. Потяните вниз, чтобы обновить, и повторите.';
+	@override String get payChannelIncomplete => 'Данные платёжного канала неполные. Попробуйте позже.';
+	@override String get noQrPayload => 'Сервер не вернул QR-код или ссылку для оплаты. Выберите другой способ оплаты или попробуйте позже.';
+	@override String payStartFailed({required Object err}) => 'Не удалось начать оплату: ${err}';
+	@override String get noPayMethod => 'Сейчас нет доступных способов оплаты. Попробуйте позже или обратитесь в поддержку.';
+	@override String get choosePayMethod => 'Выберите способ оплаты';
+	@override String amountDue({required Object amount}) => 'К оплате ¥${amount}';
+	@override String get paidLabel => '● Оплачен';
+	@override String get pendingLabel => '○ Не оплачен';
 	@override String unknownStatus({required Object status}) => '✕ ${status}';
-	@override String orderNoText({required Object orderNo}) => 'Order No. ${orderNo}';
-	@override String createdAtText({required Object createdAt}) => 'Created at ${createdAt}';
-	@override String get orderCanceled => 'Order canceled';
-	@override String cancelFailed({required Object err}) => 'Cancel failed: ${err}\n(If the order has already been paid or canceled, pull down to refresh to see the latest status.)';
-	@override String get cancelOrder => 'Cancel order';
-	@override String get continuePay => 'Continue payment';
+	@override String orderNoText({required Object orderNo}) => 'Заказ № ${orderNo}';
+	@override String createdAtText({required Object createdAt}) => 'Создан ${createdAt}';
+	@override String get orderCanceled => 'Заказ отменён';
+	@override String cancelFailed({required Object err}) => 'Не удалось отменить: ${err}\n(Если заказ уже оплачен или отменён, потяните вниз, чтобы увидеть актуальный статус.)';
+	@override String get cancelOrder => 'Отменить заказ';
+	@override String get continuePay => 'Продолжить оплату';
 }
 
 // Path: payment
@@ -852,25 +855,25 @@ class _Translations$payment$ru implements Translations$payment$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get balancePay => 'Balance payment';
-	@override String get qrPay => 'Scan to pay';
-	@override String get deductFromBalance => 'Deducted from your account balance';
-	@override String get openedInBrowser => 'The payment page has been opened in your browser';
-	@override String get scanWithAlipayWechat => 'Scan with Alipay or WeChat';
-	@override String orderNoText({required Object orderNo}) => 'Order No. ${orderNo}';
-	@override String payFailed({required Object err}) => 'Payment failed: ${err}';
-	@override String get notDetected => 'No payment detected. You can continue later in "My Orders".';
-	@override String get charging => 'Charging…';
-	@override String get processing => 'Processing…';
-	@override String get waitingPay => 'Waiting for payment…';
-	@override String get openPageFailed => 'Could not open the payment page. Tap the button below to retry, or scan the QR code instead.';
-	@override String get reopenPayPage => 'Reopen payment page';
-	@override String get payInBrowser => 'Pay in browser';
-	@override String get openAlipay => 'Open Alipay';
-	@override String get cancelOrder => 'Cancel order';
-	@override String get confirmPay => 'Confirm payment';
-	@override String get retry => 'Retry';
-	@override String get paidAlready => 'I have paid';
+	@override String get balancePay => 'Оплата с баланса';
+	@override String get qrPay => 'Оплата по QR-коду';
+	@override String get deductFromBalance => 'Списано с баланса аккаунта';
+	@override String get openedInBrowser => 'Страница оплаты открыта в браузере';
+	@override String get scanWithAlipayWechat => 'Отсканируйте в Alipay или WeChat';
+	@override String orderNoText({required Object orderNo}) => 'Заказ № ${orderNo}';
+	@override String payFailed({required Object err}) => 'Оплата не прошла: ${err}';
+	@override String get notDetected => 'Оплата не обнаружена. Продолжить можно позже в «Мои заказы».';
+	@override String get charging => 'Списание…';
+	@override String get processing => 'Обработка…';
+	@override String get waitingPay => 'Ожидание оплаты…';
+	@override String get openPageFailed => 'Не удалось открыть страницу оплаты. Нажмите кнопку ниже, чтобы повторить, или отсканируйте QR-код.';
+	@override String get reopenPayPage => 'Открыть страницу оплаты снова';
+	@override String get payInBrowser => 'Оплатить в браузере';
+	@override String get openAlipay => 'Открыть Alipay';
+	@override String get cancelOrder => 'Отменить заказ';
+	@override String get confirmPay => 'Подтвердить оплату';
+	@override String get retry => 'Повторить';
+	@override String get paidAlready => 'Я уже оплатил';
 	@override String get channelAlipay => 'Alipay';
 	@override String get channelCodepayAlipay => 'Code Pay · Alipay';
 	@override String get channelCodepayWechat => 'Code Pay · WeChat';
@@ -878,12 +881,12 @@ class _Translations$payment$ru implements Translations$payment$en {
 	@override String get channelWechat => 'WeChat Pay';
 	@override String get channelUsdt => 'USDT';
 	@override String get channelUsdtTrc20 => 'USDT · TRC20';
-	@override String get payFallback => 'Payment';
-	@override String get errCsrf => 'Your login credential has expired (CSRF check failed).\nPull down to refresh on the "Me" tab or sign in again, then retry.';
-	@override String get errAlipayLimit => 'Alipay face-to-face payment has a per-transaction limit (¥1000 for this merchant), and this order exceeds it.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to raise the Alipay limit.';
-	@override String get errNotSigned => 'The Alipay app has not signed up for the matching payment product, so this channel is temporarily unavailable.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to enable it.';
-	@override String get errOrderGone => 'This order has been canceled or has expired (draft orders are valid for 30 minutes).\nTap "Re-quote" to create a new order, then pay.';
-	@override String errNetwork({required Object err}) => 'Network unreachable: ${err}';
+	@override String get payFallback => 'Оплата';
+	@override String get errCsrf => 'Учётные данные входа устарели (проверка CSRF не пройдена).\nПотяните вниз для обновления на вкладке «Профиль» или войдите заново, затем повторите.';
+	@override String get errAlipayLimit => 'У оплаты Alipay «лицом к лицу» есть лимит на одну операцию (для этого продавца ¥1000), и этот заказ его превышает.\nИспользуйте «Оплату с баланса» или «Code Pay» либо обратитесь в поддержку, чтобы поднять лимит Alipay.';
+	@override String get errNotSigned => 'Приложение Alipay не подключено к нужному платёжному продукту, поэтому этот канал временно недоступен.\nИспользуйте «Оплату с баланса» или «Code Pay» либо обратитесь в поддержку, чтобы его включили.';
+	@override String get errOrderGone => 'Этот заказ отменён или истёк (черновики заказов действительны 30 минут).\nНажмите «Пересчитать», чтобы создать новый заказ, и оплатите.';
+	@override String errNetwork({required Object err}) => 'Сеть недоступна: ${err}';
 }
 
 // Path: planScreen
@@ -893,15 +896,15 @@ class _Translations$planScreen$ru implements Translations$planScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get recommended => 'Recommended';
-	@override String get devices => 'Devices';
-	@override String balanceLabel({required Object amount}) => 'Balance ¥${amount}';
-	@override String get balanceInsufficient => ' (Insufficient, please top up first)';
-	@override String get total => 'Total';
-	@override String get payNow => 'Pay Now';
-	@override String get retry => 'Retry';
-	@override String get errIncompleteOrder => 'Order or payment channel information is incomplete; payment cannot be started.';
-	@override String get payBalance => 'Balance Pay';
+	@override String get recommended => 'Рекомендуем';
+	@override String get devices => 'Устройства';
+	@override String balanceLabel({required Object amount}) => 'Баланс ¥${amount}';
+	@override String get balanceInsufficient => ' (Недостаточно, сначала пополните)';
+	@override String get total => 'Итого';
+	@override String get payNow => 'Оплатить сейчас';
+	@override String get retry => 'Повторить';
+	@override String get errIncompleteOrder => 'Данные заказа или платёжного канала неполные; начать оплату невозможно.';
+	@override String get payBalance => 'С баланса';
 	@override String get payAlipay => 'Alipay';
 	@override String get payWechat => 'WeChat Pay';
 	@override String get payCodepay => 'Codepay';
@@ -913,7 +916,7 @@ class _Translations$planScreen$ru implements Translations$planScreen$en {
 	@override String get payUsdtTrc20 => 'USDT · TRC20';
 	@override String get payStripe => 'Stripe';
 	@override String get payPaypal => 'PayPal';
-	@override String get payOnline => 'Online Payment';
+	@override String get payOnline => 'Онлайн-оплата';
 }
 
 // Path: authScreen
@@ -923,42 +926,42 @@ class _Translations$authScreen$ru implements Translations$authScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get saveAccountInfo => 'Save account info';
-	@override String get autoLoginNextTime => 'Sign in automatically next time';
-	@override String get needLoginNextTime => 'You\'ll need to sign in again next time';
-	@override String get invalidEmail => 'Please enter a valid email address';
-	@override String get enterEmailFirst => 'Please enter a valid email address first';
-	@override String get passwordRequired => 'Please enter your password';
-	@override String get wrongCredentials => 'Incorrect email or password';
-	@override String get requestRejected => 'Request rejected. Please try again later.';
-	@override String get tooFrequent => 'Too many attempts. Please try again later.';
-	@override String get loginFailed => 'Login failed';
-	@override String get username => 'Username';
-	@override String get confirmPassword => 'Confirm password';
-	@override String get inviteCode => 'Invite code';
-	@override String get emailCode => 'Email verification code';
-	@override String get getCode => 'Get code';
-	@override String get registerAndLogin => 'Register and log in';
-	@override String usernameMinLength({required Object min}) => 'Username must be at least ${min} characters';
-	@override String get passwordMismatch => 'The passwords do not match';
-	@override String get emailCodeRequired => 'Please enter the email verification code';
-	@override String get inviteCodeRequired => 'Registration on this site requires an invite code';
-	@override String get codeSentCheckEmail => 'Verification code sent. Please check your email.';
-	@override String get registerSuccess => 'Registration successful. You are now logged in.';
-	@override String passwordHint({required Object min}) => 'At least ${min} characters, including both letters and digits';
-	@override String passwordTooShort({required Object min}) => 'Password must be at least ${min} characters';
-	@override String get passwordNeedsLetterAndDigit => 'Password must contain both letters and digits';
-	@override String get registeredEmail => 'Registered email';
-	@override String get newPassword => 'New password';
-	@override String get confirmNewPassword => 'Confirm new password';
-	@override String get resetPassword => 'Reset password';
-	@override String get resetCodeSent => 'If this email is registered, a reset code has been sent (valid for 15 minutes).';
-	@override String get resetSuccess => 'Password reset. Please log in with your new password.';
-	@override String get changePasswordTitle => 'Change password';
-	@override String get currentPassword => 'Current password';
-	@override String get saveNewPassword => 'Save new password';
-	@override String get newPasswordMismatch => 'The new passwords do not match';
-	@override String get changePasswordSuccess => 'Password changed. Please log in again.';
+	@override String get saveAccountInfo => 'Сохранить данные аккаунта';
+	@override String get autoLoginNextTime => 'В следующий раз входить автоматически';
+	@override String get needLoginNextTime => 'В следующий раз нужно будет войти заново';
+	@override String get invalidEmail => 'Введите корректный адрес эл. почты';
+	@override String get enterEmailFirst => 'Сначала введите корректный адрес эл. почты';
+	@override String get passwordRequired => 'Введите пароль';
+	@override String get wrongCredentials => 'Неверная почта или пароль';
+	@override String get requestRejected => 'Запрос отклонён. Попробуйте позже.';
+	@override String get tooFrequent => 'Слишком много попыток. Попробуйте позже.';
+	@override String get loginFailed => 'Не удалось войти';
+	@override String get username => 'Имя пользователя';
+	@override String get confirmPassword => 'Подтвердите пароль';
+	@override String get inviteCode => 'Код приглашения';
+	@override String get emailCode => 'Код из письма';
+	@override String get getCode => 'Получить код';
+	@override String get registerAndLogin => 'Зарегистрироваться и войти';
+	@override String usernameMinLength({required Object min}) => 'Имя пользователя — не менее ${min} символов';
+	@override String get passwordMismatch => 'Пароли не совпадают';
+	@override String get emailCodeRequired => 'Введите код из письма';
+	@override String get inviteCodeRequired => 'Для регистрации на этом сайте нужен код приглашения';
+	@override String get codeSentCheckEmail => 'Код отправлен. Проверьте почту.';
+	@override String get registerSuccess => 'Регистрация выполнена. Вы вошли в аккаунт.';
+	@override String passwordHint({required Object min}) => 'Не менее ${min} символов, буквы и цифры';
+	@override String passwordTooShort({required Object min}) => 'Пароль — не менее ${min} символов';
+	@override String get passwordNeedsLetterAndDigit => 'Пароль должен содержать буквы и цифры';
+	@override String get registeredEmail => 'Почта регистрации';
+	@override String get newPassword => 'Новый пароль';
+	@override String get confirmNewPassword => 'Подтвердите новый пароль';
+	@override String get resetPassword => 'Сбросить пароль';
+	@override String get resetCodeSent => 'Если эта почта зарегистрирована, код для сброса отправлен (действует 15 минут).';
+	@override String get resetSuccess => 'Пароль сброшен. Войдите с новым паролем.';
+	@override String get changePasswordTitle => 'Смена пароля';
+	@override String get currentPassword => 'Текущий пароль';
+	@override String get saveNewPassword => 'Сохранить новый пароль';
+	@override String get newPasswordMismatch => 'Новые пароли не совпадают';
+	@override String get changePasswordSuccess => 'Пароль изменён. Войдите заново.';
 }
 
 // Path: updatePrompt
@@ -968,15 +971,15 @@ class _Translations$updatePrompt$ru implements Translations$updatePrompt$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get checking => 'Checking for updates…';
-	@override String get checkFailed => 'Update check failed. Please check your network and try again.';
-	@override String alreadyLatest({required Object version}) => 'You\'re on the latest version (${version}).';
-	@override String newVersionFound({required Object version}) => 'New version ${version} is available';
-	@override String get installerDownloaded => 'The installer has finished downloading in the background. Tap Update Now to complete the upgrade.';
-	@override String get downloadInBackground => 'Tap Update Now to download and install it (you can keep using the app; the installer downloads in the background).';
-	@override String get later => 'Later';
-	@override String get updateNow => 'Update Now';
-	@override String installerNotReady({required Object version}) => 'The installer has not finished downloading yet.\n\nTap OK to open the download page and manually download the installer that matches your device (version ${version}).';
+	@override String get checking => 'Проверка обновлений…';
+	@override String get checkFailed => 'Не удалось проверить обновления. Проверьте сеть и повторите.';
+	@override String alreadyLatest({required Object version}) => 'У вас последняя версия (${version}).';
+	@override String newVersionFound({required Object version}) => 'Доступна новая версия ${version}';
+	@override String get installerDownloaded => 'Установщик загружен в фоне. Нажмите «Обновить сейчас», чтобы завершить обновление.';
+	@override String get downloadInBackground => 'Нажмите «Обновить сейчас», чтобы скачать и установить обновление (приложением можно пользоваться дальше: установщик загружается в фоне).';
+	@override String get later => 'Позже';
+	@override String get updateNow => 'Обновить сейчас';
+	@override String installerNotReady({required Object version}) => 'Установщик ещё не загружен.\n\nНажмите «ОК», чтобы открыть страницу загрузки и вручную скачать установщик для вашего устройства (версия ${version}).';
 }
 
 // Path: clearData
@@ -986,16 +989,16 @@ class _Translations$clearData$ru implements Translations$clearData$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get itemLoginSession => 'Login session';
-	@override String get itemProfiles => 'Subscription profiles (profiles/)';
-	@override String get itemSettings => 'App and core settings';
-	@override String get itemLatencyCache => 'Node latency cache';
-	@override String get itemLogs => 'Runtime logs';
-	@override String get itemRoutingData => 'Routing data and temporary files';
-	@override String confirmBody({required Object items, required Object dir}) => 'The following data saved on this device will be deleted (this cannot be undone):\n\n${items}\n\nThe account itself and any plan you purchased live on the server and are not affected; sign in again to restore your subscription.\n\nData directory: ${dir}\n(Do this before uninstalling the app: only then will reinstalling start clean and ask you to sign in again)';
-	@override String get confirmAgain => 'Clear now? You will need to sign in again afterwards.';
-	@override String clearedNotice({required Object count, required Object dir}) => 'Cleared ${count} local data items (including the login session, so you will need to sign in again next time you open the app).\n\nYou can now delete the app to finish uninstalling:\n· macOS: drag Mclash.app to the Trash (the data directory has been emptied: ${dir})\n· Windows: uninstall Mclash from Control Panel and choose No when the wizard asks whether to keep your user data';
-	@override String clearFailed({required Object error}) => 'Clear failed: ${error}';
+	@override String get itemLoginSession => 'Сеанс входа';
+	@override String get itemProfiles => 'Профили подписки (profiles/)';
+	@override String get itemSettings => 'Настройки приложения и ядра';
+	@override String get itemLatencyCache => 'Кэш задержек узлов';
+	@override String get itemLogs => 'Журналы работы';
+	@override String get itemRoutingData => 'Данные маршрутизации и временные файлы';
+	@override String confirmBody({required Object items, required Object dir}) => 'Следующие данные, сохранённые на этом устройстве, будут удалены (отменить это нельзя):\n\n${items}\n\nСам аккаунт и купленный тариф хранятся на сервере и не затрагиваются; войдите заново, чтобы восстановить подписку.\n\nКаталог данных: ${dir}\n(Сделайте это перед удалением приложения: только тогда после переустановки всё будет с чистого листа и потребуется войти заново)';
+	@override String get confirmAgain => 'Очистить сейчас? После этого нужно будет войти заново.';
+	@override String clearedNotice({required Object count, required Object dir}) => 'Очищено локальных данных: ${count} (включая сеанс входа, поэтому при следующем запуске нужно будет войти заново).\n\nТеперь можно удалить приложение, чтобы завершить удаление:\n· macOS: перетащите Mclash.app в Корзину (каталог данных очищен: ${dir})\n· Windows: удалите Mclash через Панель управления и выберите «Нет», когда мастер спросит, сохранять ли пользовательские данные';
+	@override String clearFailed({required Object error}) => 'Не удалось очистить: ${error}';
 }
 
 // Path: apiError
@@ -1005,22 +1008,22 @@ class _Translations$apiError$ru implements Translations$apiError$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String requestFailedHttp({required Object status, required Object domain}) => 'Request failed (HTTP ${status}); already tried ${domain}';
-	@override String allDomainsFailed({required Object method, required Object path, required Object count}) => 'Request failed: ${method} ${path} (tried ${count} domains)';
-	@override String requestTimeout({required Object seconds, required Object method, required Object path}) => 'Request timed out (${seconds}s): ${method} ${path}';
-	@override String networkUnreachable({required Object detail}) => 'Network unreachable: ${detail}';
-	@override String get tlsHandshakeFailed => 'TLS handshake failed. Check your network connection or system time.';
-	@override String connectionFailed({required Object detail}) => 'Connection failed: ${detail}';
-	@override String requestError({required Object error}) => 'Request failed: ${error}';
-	@override String responseReadTimeout({required Object seconds, required Object method, required Object path}) => 'Reading the response timed out (${seconds}s): ${method} ${path}';
-	@override String notJson({required Object status, required Object snippet}) => 'Response is not JSON (HTTP ${status}): ${snippet}';
-	@override String badStructure({required Object status}) => 'Unexpected response structure (HTTP ${status})';
-	@override String loginFailed({required Object code}) => 'Login failed (code ${code})';
-	@override String get loginMissingData => 'Login response is missing data';
-	@override String get loginMissingToken => 'Login response is missing access_token';
-	@override String registerFailed({required Object code}) => 'Registration failed (code ${code})';
-	@override String get registerMissingToken => 'Registration response has no access_token - risk control may have been triggered, or the site is configured differently';
-	@override String requestFailedCode({required Object code}) => 'Request failed (code ${code})';
+	@override String requestFailedHttp({required Object status, required Object domain}) => 'Запрос не выполнен (HTTP ${status}); уже пробовали: ${domain}';
+	@override String allDomainsFailed({required Object method, required Object path, required Object count}) => 'Запрос не выполнен: ${method} ${path} (пробовали домены: ${count})';
+	@override String requestTimeout({required Object seconds, required Object method, required Object path}) => 'Истекло время ожидания запроса (${seconds} с): ${method} ${path}';
+	@override String networkUnreachable({required Object detail}) => 'Сеть недоступна: ${detail}';
+	@override String get tlsHandshakeFailed => 'Сбой TLS-рукопожатия. Проверьте подключение к сети или системное время.';
+	@override String connectionFailed({required Object detail}) => 'Не удалось подключиться: ${detail}';
+	@override String requestError({required Object error}) => 'Запрос не выполнен: ${error}';
+	@override String responseReadTimeout({required Object seconds, required Object method, required Object path}) => 'Истекло время ожидания ответа (${seconds} с): ${method} ${path}';
+	@override String notJson({required Object status, required Object snippet}) => 'Ответ не является JSON (HTTP ${status}): ${snippet}';
+	@override String badStructure({required Object status}) => 'Неожиданная структура ответа (HTTP ${status})';
+	@override String loginFailed({required Object code}) => 'Не удалось войти (код ${code})';
+	@override String get loginMissingData => 'В ответе на вход отсутствует data';
+	@override String get loginMissingToken => 'В ответе на вход отсутствует access_token';
+	@override String registerFailed({required Object code}) => 'Не удалось зарегистрироваться (код ${code})';
+	@override String get registerMissingToken => 'В ответе на регистрацию нет access_token — возможно, сработала система контроля рисков или сайт настроен иначе';
+	@override String requestFailedCode({required Object code}) => 'Запрос не выполнен (код ${code})';
 }
 
 // Path: subNotice
@@ -1030,17 +1033,17 @@ class _Translations$subNotice$ru implements Translations$subNotice$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get titleNotFound => 'Subscription not found';
-	@override String get titleExpired => 'Subscription expired';
-	@override String get titleInactive => 'Subscription inactive';
-	@override String get titleDeviceOverLimit => 'Device limit exceeded';
-	@override String get titleUnavailable => 'Subscription unavailable';
+	@override String get titleNotFound => 'Подписка не найдена';
+	@override String get titleExpired => 'Подписка истекла';
+	@override String get titleInactive => 'Подписка неактивна';
+	@override String get titleDeviceOverLimit => 'Превышен лимит устройств';
+	@override String get titleUnavailable => 'Подписка недоступна';
 	@override String titleWithReason({required Object emoji, required Object title, required Object reason}) => '${emoji} ${title} (${reason})';
-	@override String deviceUsedOfLimit({required Object used, required Object limit}) => 'Current devices ${used}/${limit}';
-	@override String deviceUsedOnly({required Object used}) => 'Current devices ${used}';
-	@override String expireAt({required Object expire}) => 'Expires at ${expire}';
-	@override String supportLine({required Object account}) => '💬 Support: ${account}';
-	@override String siteLine({required Object url}) => '📢 Website: ${url}';
+	@override String deviceUsedOfLimit({required Object used, required Object limit}) => 'Сейчас устройств ${used}/${limit}';
+	@override String deviceUsedOnly({required Object used}) => 'Сейчас устройств ${used}';
+	@override String expireAt({required Object expire}) => 'Действует до ${expire}';
+	@override String supportLine({required Object account}) => '💬 Поддержка: ${account}';
+	@override String siteLine({required Object url}) => '📢 Сайт: ${url}';
 }
 
 // Path: settingItems
@@ -1050,28 +1053,28 @@ class _Translations$settingItems$ru implements Translations$settingItems$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get subscriptionAutoUpdateInterval => 'Subscription auto-update interval';
-	@override String get speedTestMode => 'Speed test method';
-	@override String get speedTestModeTcp => 'TCP speed test';
-	@override String get speedTestModeKernel => 'Kernel speed test';
-	@override String get delayTestUrlTip => 'Time for one full HTTP request through this node (it is not a ping)\nDefaults to a plain http 204 empty response; using https adds a TLS handshake and a larger number';
-	@override String get systemProxy => 'System proxy';
-	@override String get systemProxyTip => 'View / reset address and port';
-	@override String get tunMode => 'TUN mode';
-	@override String get tunModeTip => 'off=system proxy only / auto=TUN+system proxy / force=TUN only\nOn desktop, TUN requires administrator privileges (wintun on Windows / utun on macOS)';
-	@override String get tunOverwriteTip => 'overwrite\nOn = the TUN settings on this page override the tun section of the profile\nOff = the profile\'s own tun configuration is used (the app does not interfere)';
-	@override String tunEnableByTunMode({required Object enable}) => '${enable} (decided by TUN mode)';
-	@override String get interval30Minutes => '30 minutes';
-	@override String get interval1Hour => '1 hour';
-	@override String get interval6Hours => '6 hours';
-	@override String get interval12Hours => '12 hours';
-	@override String get interval24Hours => '24 hours';
-	@override String get interval3Days => '3 days';
-	@override String get interval7Days => '7 days';
-	@override String get intervalNever => 'Never';
-	@override String intervalMinutes({required Object minutes}) => '${minutes} minutes';
-	@override String intervalHours({required Object hours}) => '${hours} hours';
-	@override String intervalDays({required Object days}) => '${days} days';
+	@override String get subscriptionAutoUpdateInterval => 'Интервал автообновления подписки';
+	@override String get speedTestMode => 'Способ теста скорости';
+	@override String get speedTestModeTcp => 'Тест скорости TCP';
+	@override String get speedTestModeKernel => 'Тест скорости ядра';
+	@override String get delayTestUrlTip => 'Время одного полного HTTP-запроса через этот узел (это не ping)\nПо умолчанию — пустой ответ http 204; с https добавится TLS-рукопожатие, и число будет больше';
+	@override String get systemProxy => 'Системный прокси';
+	@override String get systemProxyTip => 'Просмотр и сброс адреса и порта';
+	@override String get tunMode => 'Режим TUN';
+	@override String get tunModeTip => 'off = только системный прокси / auto = TUN + системный прокси / force = только TUN\nНа десктопе для TUN нужны права администратора (wintun в Windows / utun в macOS)';
+	@override String get tunOverwriteTip => 'overwrite\nВкл. — настройки TUN на этой странице перекрывают раздел tun из профиля\nВыкл. — используется собственная конфигурация tun из профиля (приложение не вмешивается)';
+	@override String tunEnableByTunMode({required Object enable}) => '${enable} (определяется режимом TUN)';
+	@override String get interval30Minutes => '30 минут';
+	@override String get interval1Hour => '1 час';
+	@override String get interval6Hours => '6 часов';
+	@override String get interval12Hours => '12 часов';
+	@override String get interval24Hours => '24 часа';
+	@override String get interval3Days => '3 дня';
+	@override String get interval7Days => '7 дней';
+	@override String get intervalNever => 'Никогда';
+	@override String intervalMinutes({required Object minutes}) => '${minutes} мин';
+	@override String intervalHours({required Object hours}) => '${hours} ч';
+	@override String intervalDays({required Object days}) => '${days} дн.';
 }
 
 // Path: tunScreen
@@ -1081,27 +1084,27 @@ class _Translations$tunScreen$ru implements Translations$tunScreen$en {
 	final TranslationsRu _root; // ignore: unused_field
 
 	// Translations
-	@override String get modeOff => 'Off';
-	@override String get modeAuto => 'Auto';
-	@override String get modeForce => 'Force';
-	@override String get modeOffDesc => 'System proxy only: works for programs that honor the system proxy (browsers and so on); UDP/games are not proxied';
-	@override String get modeAutoDesc => 'TUN + system proxy (belt and braces): all traffic goes through the virtual adapter, including UDP';
-	@override String get modeForceDesc => 'TUN only: all traffic goes through the virtual adapter, the system proxy is left untouched';
-	@override String get modeOffOptionDesc => 'Does not touch the system routing table; only sets a 127.0.0.1 proxy in the system. Only programs that honor the system proxy use it; UDP traffic and programs with their own proxy settings do not.';
-	@override String get modeAutoOptionDesc => 'Creates a virtual adapter and takes over all traffic (including UDP and games); the system proxy is kept as a fallback. Recommended: it works globally and you are not left without network access if permissions are missing.';
-	@override String get modeForceOptionDesc => 'Uses only the virtual adapter and no longer changes the system proxy. All traffic (including UDP) goes through the tunnel; the "proxy" entry in the system stays as it is.';
-	@override String get adminRequiredDialog => 'The TUN virtual adapter requires administrator privileges (wintun on Windows / utun on macOS).\n\nMclash is not running as administrator right now, so TUN will not take effect after enabling it (in "Auto" mode the system proxy still works as a fallback, so the network stays usable).\n\nOK = restart Mclash as administrator now (a UAC prompt will appear)\nCancel = still save this choice (the system proxy is used automatically when TUN is unavailable)';
-	@override String relaunchFailed({required Object message}) => 'Restart failed: ${message}';
-	@override String switchFailed({required Object message}) => 'Failed to switch TUN mode: ${message}\nThe previous settings have been restored.';
-	@override String get setOffSnack => 'Set to "Off": system proxy only';
-	@override String setModeSnack({required Object mode, required Object effect}) => 'Set to "${mode}", ${effect}';
-	@override String get effectReconnected => 'reconnected and now active';
-	@override String get effectAfterConnect => 'active after connecting';
-	@override String get sheetTitle => 'TUN Virtual Adapter';
-	@override String get advancedTitle => 'Advanced parameters (Core Settings → TUN)';
-	@override String get advancedSubtitle => 'Adapter address / stack / MTU / auto route / DNS hijack / overwrite';
-	@override String get adminOk => 'TUN requires administrator privileges; the current privileges are sufficient (run as administrator on Windows / as root on macOS)';
-	@override String get adminMissing => 'TUN requires administrator privileges: Mclash is not running as administrator, so TUN will not take effect after selecting "Auto/Force" ("Auto" falls back to the system proxy, so the network stays usable)';
+	@override String get modeOff => 'Выкл.';
+	@override String get modeAuto => 'Авто';
+	@override String get modeForce => 'Принудительно';
+	@override String get modeOffDesc => 'Только системный прокси: работает для программ, которые соблюдают системный прокси (браузеры и т. п.); UDP и игры не проксируются';
+	@override String get modeAutoDesc => 'TUN + системный прокси (двойная страховка): весь трафик идёт через виртуальный адаптер, включая UDP';
+	@override String get modeForceDesc => 'Только TUN: весь трафик идёт через виртуальный адаптер, системный прокси не трогается';
+	@override String get modeOffOptionDesc => 'Не изменяет системную таблицу маршрутизации; лишь задаёт в системе прокси 127.0.0.1. Через него идут только программы, соблюдающие системный прокси; UDP-трафик и программы с собственными настройками прокси — нет.';
+	@override String get modeAutoOptionDesc => 'Создаёт виртуальный адаптер и забирает весь трафик (включая UDP и игры); системный прокси остаётся как запасной вариант. Рекомендуется: работает глобально, и при нехватке прав вы не останетесь без сети.';
+	@override String get modeForceOptionDesc => 'Использует только виртуальный адаптер и больше не меняет системный прокси. Весь трафик (включая UDP) идёт через туннель; системный пункт «прокси» остаётся как есть.';
+	@override String get adminRequiredDialog => 'Виртуальный адаптер TUN требует прав администратора (wintun в Windows / utun в macOS).\n\nMclash сейчас запущен не от имени администратора, поэтому после включения TUN не заработает (в режиме «Авто» системный прокси остаётся запасным вариантом, и сеть будет доступна).\n\nОК = перезапустить Mclash от имени администратора сейчас (появится запрос UAC)\nОтмена = всё равно сохранить этот выбор (при недоступности TUN автоматически используется системный прокси)';
+	@override String relaunchFailed({required Object message}) => 'Не удалось перезапустить: ${message}';
+	@override String switchFailed({required Object message}) => 'Не удалось переключить режим TUN: ${message}\nПрежние настройки восстановлены.';
+	@override String get setOffSnack => 'Установлено «Выкл.»: только системный прокси';
+	@override String setModeSnack({required Object mode, required Object effect}) => 'Установлено «${mode}», ${effect}';
+	@override String get effectReconnected => 'переподключено и уже действует';
+	@override String get effectAfterConnect => 'действует после подключения';
+	@override String get sheetTitle => 'Виртуальный адаптер TUN';
+	@override String get advancedTitle => 'Дополнительные параметры (Настройки ядра → TUN)';
+	@override String get advancedSubtitle => 'Адрес адаптера / стек / MTU / авто-маршрут / перехват DNS / overwrite';
+	@override String get adminOk => 'Для TUN нужны права администратора; текущих прав достаточно (запуск от администратора в Windows / от root в macOS)';
+	@override String get adminMissing => 'Для TUN нужны права администратора: Mclash запущен не от администратора, поэтому после выбора «Авто/Принудительно» TUN не заработает (в режиме «Авто» используется системный прокси, и сеть остаётся доступной)';
 }
 
 // Path: main.tray
@@ -1165,7 +1168,7 @@ extension on TranslationsRu {
 			'main.tray.menuOpen' => 'Открыть',
 			'main.tray.menuExit' => 'Выйти',
 			'meta.enable' => 'Включить',
-			'meta.disable' => 'Запретить',
+			'meta.disable' => 'Отключить',
 			'meta.open' => 'Открыть',
 			'meta.close' => 'Закрыть',
 			'meta.quit' => 'Выйти',
@@ -1183,11 +1186,11 @@ extension on TranslationsRu {
 			'meta.paste' => 'Вставить',
 			'meta.cut' => 'Вырезать',
 			'meta.save' => 'Сохранить',
-			'meta.ok' => 'Ок',
-			'meta.cancel' => 'Закрыть',
+			'meta.ok' => 'ОК',
+			'meta.cancel' => 'Отмена',
 			'meta.faq' => 'Часто задаваемые вопросы (FAQ)',
 			'meta.doc' => 'документ',
-			'meta.htmlTools' => 'HTML Toolset',
+			'meta.htmlTools' => 'HTML-инструменты',
 			'meta.download' => 'Скачать',
 			'meta.loading' => 'Загрузка...',
 			'meta.days' => 'дни',
@@ -1197,8 +1200,8 @@ extension on TranslationsRu {
 			'meta.milliseconds' => 'миллисекунды',
 			'meta.search' => 'Поиск',
 			'meta.searchNodeHint' => 'Фильтр узлов (имя или протокол)',
-			'meta.connect' => 'Соединить',
-			'meta.disconnect' => 'Отключить',
+			'meta.connect' => 'Подключиться',
+			'meta.disconnect' => 'Отключиться',
 			'meta.connected' => 'Подключено',
 			'meta.disconnected' => 'Отключено',
 			'meta.connecting' => 'Подключение',
@@ -1215,9 +1218,9 @@ extension on TranslationsRu {
 			'meta.updateInterval' => 'Интервал обновления',
 			'meta.updateInterval5mTips' => 'Минимум: 5 м',
 			'meta.updateIntervalPreferByProfile' => 'Приоритет настроек провайдера',
-			'meta.updateFailed' => ({required Object p}) => 'Не удалось обновить:${p}',
-			'meta.none' => 'Ничего не делать',
-			'meta.reset' => 'Перезагрузить',
+			'meta.updateFailed' => ({required Object p}) => 'Не удалось обновить: ${p}',
+			'meta.none' => 'Нет',
+			'meta.reset' => 'Сбросить',
 			'meta.authentication' => 'Авторизация',
 			'meta.user' => 'Пользователь',
 			'meta.account' => 'Аккаунт',
@@ -1236,17 +1239,17 @@ extension on TranslationsRu {
 			'meta.overwriteAppend' => 'Дополнительное переопределение',
 			'meta.overwriteTips' => 'Исходная конфигурация <- Пользовательское переопределение <- Переопределение приложения',
 			'meta.noOverwrite' => 'Не перезаписывать',
-			'meta.diversionTemplates' => 'Шаблон сортировки пациентов',
+			'meta.diversionTemplates' => 'Шаблон разделения трафика',
 			'meta.ruleProviders' => 'Поставщик правил',
 			'meta.ruleTemplates' => 'Шаблон правила',
-			'meta.proxyGroupsTemplates' => 'Шаблон группы агентов',
-			'meta.proxyGroups' => 'Группа агентов',
+			'meta.proxyGroupsTemplates' => 'Шаблон группы прокси',
+			'meta.proxyGroups' => 'Группа прокси',
 			'meta.proxyNodeList' => 'Список прокси-узлов',
 			'meta.proxyNodeFailure' => ({required Object p}) => 'Срок действия следующих прокси-узлов истек, и они были автоматически удалены: ${p}',
 			'meta.externalController' => 'Внешнее управление',
-			'meta.secret' => 'Пароль',
-			'meta.tcpConcurrent' => 'Параллельное TCP-подтверждение',
-			'meta.globalClientFingerprint' => 'Глобальный отпечаток пальца TLS',
+			'meta.secret' => 'Секрет',
+			'meta.tcpConcurrent' => 'Параллельное TCP-рукопожатие',
+			'meta.globalClientFingerprint' => 'Глобальный отпечаток TLS',
 			'meta.allowLanAccess' => 'Доступ к локальной сети устройства',
 			'meta.mixedPort' => 'Порт mixed-прокси',
 			'meta.logLevel' => 'Уровень журнала',
@@ -1259,7 +1262,7 @@ extension on TranslationsRu {
 			'meta.tls' => 'TLS',
 			'meta.geoDownloadByProxy' => 'Загрузка гео-правил через прокси',
 			'meta.geoRulesetTips' => 'Geosite/Geoip будет преобразован в соответствующий RuleSet',
-			'meta.sniffer' => 'Обнаружение доменов',
+			'meta.sniffer' => 'Сниффер',
 			'meta.userAgent' => 'UserAgent',
 			'meta.launchAtStartup' => 'Запуск при включении',
 			'meta.launchAtStartupRunAsAdmin' => 'Пожалуйста, перезапустите Mclash от имени администратора.',
@@ -1306,7 +1309,7 @@ extension on TranslationsRu {
 			'meta.reconnectTakesEffect' => 'Изменения вступят в силу после повторного подключения.',
 			'meta.runtimeProfile' => 'Конфигурация времени выполнения',
 			'meta.willCompleteAfterRebootInstall' => 'Пожалуйста, перезагрузите устройство, чтобы завершить установку расширения системы.',
-			'meta.requestNeedsUserApproval' => '1. Пожалуйста, [разрешите] Mclash устанавливать системные расширения в [Системные настройки] - [Конфиденциальность и безопасность]. 2. : [Системные настройки] - [Основные] - [Элементы входа и расширения - Сетевые расширения] Включите [mclashServiceSE]. После завершения подключитесь снова.',
+			'meta.requestNeedsUserApproval' => '1. Пожалуйста, [разрешите] Mclash устанавливать системные расширения в [Системные настройки] - [Конфиденциальность и безопасность].\n2. В [Системные настройки] - [Основные] - [Элементы входа и расширения] - [Сетевые расширения] включите [mclashServiceSE].\nПосле этого подключитесь снова.',
 			'meta.FullDiskAccessPermissionRequired' => 'Включите разрешение mclashServiceSE в [Системные настройки]-[Конфиденциальность и безопасность]-[Полный доступ к диску] и переподключитесь.',
 			'meta.proxy' => 'Прокси',
 			'meta.theme' => 'Тема',
@@ -1339,7 +1342,7 @@ extension on TranslationsRu {
 			'meta.hideAppIcon' => 'Скрыть значок приложения',
 			'meta.openDir' => 'Открыть каталог файлов',
 			'meta.type' => 'Тип',
-			'meta.fileNotExist' => ({required Object p}) => 'Файла не существует:${p}',
+			'meta.fileNotExist' => ({required Object p}) => 'Файл не существует: ${p}',
 			'meta.buyProfile' => 'Купить профиль',
 			'meta.myProfiles' => 'Профили',
 			'meta.profileEdit' => 'Редактирование профилей',
@@ -1356,7 +1359,7 @@ extension on TranslationsRu {
 			'permission.requestNeed' => ({required Object p}) => 'Пожалуйста, включите разрешение [${p}]',
 			'tls.certificate' => 'Сертификат',
 			'tls.privateKey' => 'Закрытый ключ',
-			'tls.customTrustCert' => 'Индивидуальные сертификаты',
+			'tls.customTrustCert' => 'Пользовательские сертификаты',
 			'tun.stack' => 'Сетевой стек',
 			'tun.inet4Address' => 'Диапазон IPv4-адресов',
 			'tun.dnsHijack' => 'Перехват DNS',
@@ -1366,7 +1369,7 @@ extension on TranslationsRu {
 			'tun.allowBypass' => 'Разрешить приложениям обходить VPN',
 			'tun.appendHttpProxy' => 'Подключите HTTP-прокси к VPN',
 			'tun.bypassHttpProxyDomain' => 'Домены, которым разрешено обходить HTTP-прокси',
-			'dns.listen' => 'Аудиторское обращение',
+			'dns.listen' => 'Адрес прослушивания',
 			'dns.fakeIp' => 'fake-ip',
 			'dns.fallback' => 'Fallback',
 			'dns.preferH3' => 'Приоритет DoH H3',
@@ -1375,7 +1378,7 @@ extension on TranslationsRu {
 			'dns.enhancedMode' => 'Расширенный режим',
 			'dns.fakeIPFilterMode' => '${_root.dns.fakeIp} режим фильтра',
 			'dns.fakeIPFilter' => '${_root.dns.fakeIp} фильтрация',
-			'dns.respectRules' => 'Соблюдайте правила.',
+			'dns.respectRules' => 'Учитывать правила',
 			'dns.nameServer' => 'DNS-сервер',
 			'dns.defaultNameServer' => '${_root.meta.byDefault} ${_root.dns.nameServer}',
 			'dns.proxyNameServer' => '${_root.meta.proxy} ${_root.dns.nameServer}',
@@ -1384,7 +1387,7 @@ extension on TranslationsRu {
 			'dns.fallbackGeoIp' => '${_root.dns.fallback} GeoIp',
 			'dns.fallbackGeoIpCode' => '${_root.dns.fallback} GeoIpCode',
 			'sniffer.overrideDest' => 'Переназначить',
-			'profilePatchMode.currentSelected' => 'Текущий сервер',
+			'profilePatchMode.currentSelected' => 'Текущий выбор',
 			'profilePatchMode.overwrite' => 'Встроенная функция переопределения',
 			'profilePatchMode.noOverwrite' => 'Встроенный - не перезаписывается',
 			'sendOrReceiveNotMatch' => ({required Object p}) => 'Пожалуйста, используйте [${p}]',
@@ -1399,284 +1402,287 @@ extension on TranslationsRu {
 			'locales.ru' => 'Русский',
 			'locales.fa' => 'فارسی',
 			'locales.es' => 'Español',
-			'countries.HK' => 'Hong Kong',
-			'countries.TW' => 'Taiwan',
-			'countries.MO' => 'Macau',
-			'countries.CN' => 'China',
-			'countries.JP' => 'Japan',
-			'countries.KR' => 'South Korea',
-			'countries.SG' => 'Singapore',
-			'countries.MY' => 'Malaysia',
-			'countries.TH' => 'Thailand',
-			'countries.VN' => 'Vietnam',
-			'countries.PH' => 'Philippines',
-			'countries.ID' => 'Indonesia',
-			'countries.KH' => 'Cambodia',
-			'countries.US' => 'United States',
-			'countries.CA' => 'Canada',
-			'countries.MX' => 'Mexico',
-			'countries.GB' => 'United Kingdom',
-			'countries.DE' => 'Germany',
-			'countries.FR' => 'France',
-			'countries.NL' => 'Netherlands',
-			'countries.RU' => 'Russia',
-			'countries.IT' => 'Italy',
-			'countries.ES' => 'Spain',
-			'countries.CH' => 'Switzerland',
-			'countries.SE' => 'Sweden',
-			'countries.NO' => 'Norway',
-			'countries.FI' => 'Finland',
-			'countries.DK' => 'Denmark',
-			'countries.PL' => 'Poland',
-			'countries.AT' => 'Austria',
-			'countries.IE' => 'Ireland',
-			'countries.UA' => 'Ukraine',
-			'countries.TR' => 'Turkey',
-			'countries.PT' => 'Portugal',
-			'countries.CZ' => 'Czechia',
-			'countries.RO' => 'Romania',
-			'countries.BE' => 'Belgium',
-			'countries.GR' => 'Greece',
-			'countries.HU' => 'Hungary',
-			'countries.IL' => 'Israel',
-			'countries.AE' => 'United Arab Emirates',
-			'countries.SA' => 'Saudi Arabia',
-			'countries.EG' => 'Egypt',
-			'countries.ZA' => 'South Africa',
-			'countries.NG' => 'Nigeria',
-			'countries.AU' => 'Australia',
-			'countries.NZ' => 'New Zealand',
-			'countries.BR' => 'Brazil',
-			'countries.AR' => 'Argentina',
-			'countries.CL' => 'Chile',
-			'countries.CO' => 'Colombia',
-			'countries.IN' => 'India',
-			'countries.PK' => 'Pakistan',
-			'countries.XX' => 'Other',
-			'meScreen.accountBalance' => 'Balance',
-			'meScreen.expireAt' => 'Expires',
-			'meScreen.remainingDays' => 'Days Left',
-			'meScreen.deviceCount' => 'Devices',
-			'meScreen.myOrders' => 'My Orders',
-			'meScreen.deviceManagement' => 'Device Management',
-			'meScreen.changePassword' => 'Change Password',
-			'meScreen.clearLocalData' => 'Clear local data (before uninstall)',
-			'meScreen.profileManagementDev' => 'Profile management (developer)',
-			'meScreen.tunAdapter' => 'TUN virtual adapter',
-			'meScreen.checkUpdate' => 'Check for updates',
-			'meScreen.retry' => 'Retry',
-			'meScreen.loadFailed' => 'Failed to load account info: the sign-in may have expired or the network is unreachable.\nTap Refresh at the top right to retry; if it keeps failing, sign in again.',
-			'meScreen.logoutConfirm' => 'Sign out?',
-			'meScreen.boardNoKernel' => 'The dashboard shows the kernel\'s live data (connection, traffic, rule hits).\n\nThe kernel is not running, so the dashboard would be an empty shell.\nTap OK to open it anyway, or Cancel to connect on the Home tab first.',
-			'meScreen.boardOpened' => 'Opened the dashboard in your browser; switch nodes or rules there and the app follows within ~5 seconds.',
-			'homeScreen.expiresOn' => ({required Object date}) => 'Expires ${date}',
-			'homeScreen.devicesText' => ({required Object text}) => 'Devices ${text}',
-			'homeScreen.upgrade' => 'Upgrade',
-			'homeScreen.quickCountries' => 'Quick country filter',
-			'homeScreen.nodeCount' => ({required Object count}) => '${count} nodes',
-			'homeScreen.autoBestTip' => 'Pick the lowest-latency available node across all countries (auto mode)',
-			'homeScreen.autoBest' => 'Auto best',
-			'homeScreen.pickCountryTip' => ({required Object label}) => 'Auto-select the lowest-latency available node in "${label}" and pin it',
-			'homeScreen.autoNoBetter' => 'Already in auto mode (no better node found)',
-			'homeScreen.switchedBest' => ({required Object name}) => 'Switched to the best node: ${name}',
-			'homeScreen.switchedCountry' => ({required Object country, required Object node, required Object ms}) => 'Switched to the fastest ${country} node: ${node}${ms}',
-			'homeScreen.filterCountryFailed' => ({required Object country, required Object err}) => 'Filtered by ${country}; switching failed: ${err}',
-			'homeScreen.deviceFullCount' => ({required Object used, required Object limit}) => 'Current devices ${used}/${limit}\n\n',
-			'homeScreen.deviceFullUpgradeHint' => 'Upgrading the device limit restores the connection immediately (recommended); you can also delete unused devices to free a slot.',
-			'homeScreen.later' => 'Later',
-			'homeScreen.upgradeDeviceCount' => 'Upgrade device limit',
-			'homeScreen.cannotConnect' => 'Cannot connect',
-			'homeScreen.freshnessNever' => 'Not synced yet · tap to refresh',
-			'homeScreen.freshnessJustNow' => 'Updated just now · tap Manage devices',
-			'homeScreen.freshnessMinutes' => ({required Object minutes}) => '${minutes} min ago · tap Manage devices',
-			'homeScreen.freshnessStale' => ({required Object minutes}) => '${minutes} min ago · tap to refresh',
-			'homeScreen.subscriptionAutoSync' => 'Auto subscription sync',
-			'homeScreen.connecting' => 'Connecting…',
-			'homeScreen.disconnecting' => 'Disconnecting…',
-			'homeScreen.tapToDisconnect' => 'Tap the switch to disconnect',
-			'homeScreen.tapToConnect' => 'Tap the switch to connect',
-			'homeScreen.currentNode' => 'Current node',
-			'homeScreen.noNodeSelected' => 'No node selected',
-			'homeScreen.switchAction' => 'Switch',
-			'homeScreen.realtimeSpeed' => 'Real-time speed',
-			'homeScreen.totalTraffic' => 'Total traffic',
-			'homeScreen.subSyncedNotReady' => 'Subscription downloaded, but the profile is not ready yet. Please try again shortly.',
-			'homeScreen.noPlan' => 'This account has no available plan yet. Please purchase one first.',
-			'homeScreen.loginExpired' => 'Your sign-in has expired. Please sign in again.',
-			'homeScreen.syncingWait' => 'Syncing subscription, please wait.',
-			'homeScreen.syncFailedNetwork' => ({required Object message}) => 'Subscription sync failed: ${message}\nCheck your network and try again.',
-			'homeScreen.syncFailed' => 'Subscription sync failed, please try again later.',
-			'homeScreen.resetProxy' => 'Reset',
-			'homeScreen.latencySuffix' => ({required Object ms}) => ' (${ms}ms)',
-			'nodesScreen.updatedCount' => ({required Object count}) => 'Subscription updated: ${count} nodes',
-			'nodesScreen.updateFailed' => ({required Object message}) => 'Update failed: ${message}',
-			'nodesScreen.updateFailedNetwork' => 'Update failed, please check your network',
-			'nodesScreen.testDone' => ({required Object ok, required Object fail}) => 'Speed test done: ${ok} reachable, ${fail} unreachable (may be offline)',
-			'nodesScreen.switchedTo' => ({required Object name}) => 'Switched to ${name}',
-			'nodesScreen.switchFailed' => ({required Object message}) => 'Switch failed: ${message}\n(Node switching needs a running kernel; turn on the switch on the Home tab first.)',
-			'nodesScreen.selectedAfterConnect' => ({required Object name}) => 'Selected ${name} (takes effect after connecting)',
-			'nodesScreen.title' => 'Nodes',
-			'nodesScreen.searchNode' => 'Search nodes',
-			'nodesScreen.sortByLatency' => 'Sort by latency',
-			'nodesScreen.updateSubscription' => 'Update subscription',
-			'nodesScreen.viewByGroup' => 'View by proxy group',
-			'nodesScreen.testAll' => 'Test all',
-			'nodesScreen.searchHint' => 'Search node / country / protocol',
-			'nodesScreen.emptyNoNodes' => 'No nodes available yet.\nSubscriptions sync automatically; if you just signed in, wait a moment or tap reload below.',
-			'nodesScreen.emptyNoMatch' => 'No matching nodes.',
-			'nodesScreen.reload' => 'Reload',
-			'nodesScreen.currentInUse' => 'Current (in use)',
-			'nodesScreen.current' => 'Current',
-			'nodesScreen.notTested' => 'Not measured (kernel reload pending)',
-			'nodesScreen.timeout' => 'Timeout',
-			'nodesScreen.clear' => 'Clear',
-			'nodesScreen.selectNode' => 'Select node',
-			'nodesScreen.emptyNoKernel' => 'No nodes available yet.\nPlease turn on the connection switch on the Home tab first.',
-			'nodesScreen.openFullList' => 'Open the full node list (search / speed test / groups)',
-			'nodeAuto.kernelStateUnavailable' => 'Node status is temporarily unavailable from the kernel; will retry automatically.',
-			'nodeAuto.backToFixedNode' => ({required Object fixed}) => 'Back to the pinned node: ${fixed}',
-			'nodeAuto.noUsableNodePickOne' => 'No usable node found. Please pick one manually in the node list.',
-			'nodeAuto.noUsableNodeTryOne' => 'No usable node found. Please try picking one in the node list.',
-			'nodeAuto.autoConnectedBest' => ({required Object bestNode, required Object bestMs}) => 'Auto-connected to the best node: ${bestNode} (${bestMs} ms)',
-			'nodeAuto.currentNodeUnreachable' => 'The current node cannot reach the internet; switching automatically…',
-			'nodeAuto.autoSwitchedToUsable' => ({required Object target}) => 'Automatically switched to a usable node: ${target}',
-			'nodeAuto.newNodesReloading' => ({required Object missing}) => '${missing} new node(s) in the subscription are not in the kernel yet; reloading…',
-			'nodeAuto.kernelReloadedRetest' => 'The kernel reloaded with the new subscription; run the speed test again.',
-			'accountBlock.quotaFull' => ({required Object used, required Object limit}) => 'Device slots are full (${used}/${limit}): this device is still within the licensed range and can connect normally. To add another device, upgrade the device limit or remove unused ones.',
-			'accountBlock.banFallback' => 'Your account has been disabled and can no longer be used.',
-			'accountBlock.titleExpired' => 'Plan expired',
-			'accountBlock.titleDeviceFull' => 'Device limit reached',
-			'accountBlock.titleAccountDisabled' => 'Account disabled',
-			'accountBlock.titlePlanDisabled' => 'Plan disabled',
-			'accountBlock.titleNoPlan' => 'No plan yet',
-			'accountBlock.titleDeviceRemoved' => 'This device was removed',
-			'accountBlock.titleServiceUnavailable' => 'Service temporarily unavailable',
-			'accountBlock.textExpired' => 'Your plan has expired. Purchase a plan to keep using global nodes.',
-			'accountBlock.textDeviceFull' => ({required Object used, required Object limit}) => 'The server has determined this device exceeds the plan device limit (${used}/${limit}), so it cannot connect for now. Remove unused devices in Me - Device Management, or upgrade to a plan with more devices.',
-			'accountBlock.textAccountDisabled' => 'Your account has been disabled. Please contact support if you have questions.',
-			'accountBlock.textPlanDisabled' => 'Your plan has been disabled or is in an abnormal state, so you cannot connect. Please contact support if you have questions.',
-			'accountBlock.textNoPlan' => 'You have not purchased a plan yet. Purchase one to use global nodes.',
-			'accountBlock.textDeviceRemoved' => 'This device was removed and signed out. Please sign in again.',
-			'accountBlock.textServiceUnavailable' => 'The service is temporarily unavailable. Please try again later; if it persists, take a screenshot and contact support.',
-			'accountBlock.remainingDays' => ({required Object days}) => '${days} days left',
-			'accountBlock.deviceUsage' => ({required Object used, required Object limit}) => 'Devices ${used}/${limit}',
-			'entitlementMsg.tamperedTitle' => 'Authorization state abnormal',
-			'entitlementMsg.tamperedClock' => 'A system clock rollback (or local authorization data tampering) was detected. Please go online to complete a verification before connecting.',
-			'entitlementMsg.tamperedLocal' => 'Local authorization data is corrupted or was modified. Please go online to complete a verification before connecting.',
-			'entitlementMsg.needVerifyTitle' => 'Online verification required',
-			'entitlementMsg.needVerifyFirst' => 'Cannot confirm your plan status: please connect to the network and sign in, then complete one verification before connecting.',
-			'entitlementMsg.needVerifyRetry' => 'Cannot confirm your plan status. Please go online and try again.',
-			'entitlementMsg.verifyFailedTitle' => 'Cannot verify plan status',
-			'entitlementMsg.verifyFailedText' => 'The verification grace period has passed and the server is unreachable. Check your network and try again (if you just renewed, sign in again).',
-			'entitlementMsg.restrictedTitle' => 'Account restricted',
-			'entitlementMsg.restrictedFallback' => 'Your account or plan has been disabled, so you cannot connect.',
-			'entitlementMsg.expiredTitle' => 'Plan expired',
-			'entitlementMsg.expiredText' => ({required Object date}) => 'Your plan expired on ${date}. The local subscription profile has been cleared. Renew and sign in again to restore it.',
-			'devicesScreen.title' => 'Device Management',
-			'devicesScreen.currentPlan' => 'Current plan',
-			'devicesScreen.devicesText' => ({required Object text}) => 'Devices ${text}',
-			'devicesScreen.upgradeTitle' => 'Upgrade devices / extend time',
-			'devicesScreen.upgradeSubtitle' => 'Add devices and days together; one price, one payment',
-			'devicesScreen.addDevices' => 'Add devices',
-			'devicesScreen.noAddDevices' => 'No change',
-			'devicesScreen.addDevicesCount' => ({required Object n}) => '+${n} devices',
-			'devicesScreen.addDays' => 'Add days',
-			'devicesScreen.noExtend' => 'No extension',
-			'devicesScreen.addDaysCount' => ({required Object n, required Object months}) => '+${n} days (${months} months)',
-			'devicesScreen.priceFailed' => 'Failed to get the price',
-			'devicesScreen.amountDue' => ({required Object amount}) => 'Total ¥${amount}',
-			'devicesScreen.requote' => 'Recalculate',
-			'devicesScreen.goPay' => 'Pay now',
-			'devicesScreen.afterUpgrade' => 'After upgrade: ',
-			'devicesScreen.afterLimit' => ({required Object limit}) => 'device limit ${limit}',
-			'devicesScreen.afterExpire' => ({required Object date}) => 'expires ${date}',
-			'devicesScreen.pickSomething' => 'Please add at least some devices or days',
-			'devicesScreen.daysOnlyUnsupported' => 'The panel does not support "extend time only" yet: please set "Add devices" to 1 or more and try again (or contact support to enable it).',
-			'devicesScreen.paramsRejected' => 'Parameters rejected: please pick the device count and days again.',
-			'devicesScreen.subscriptionExpired' => 'The subscription has expired, so it cannot be upgraded. Please renew or purchase a plan first.',
-			'devicesScreen.orderIncomplete' => 'Order information is incomplete. Tap "Recalculate" and try again.',
-			'devicesScreen.orderRegenerated' => 'The previous order expired; a new one was created with the same settings.',
-			'devicesScreen.payChannelIncomplete' => 'Order or payment channel information is incomplete. Please recalculate and try again.',
-			'devicesScreen.noQrCode' => 'The server did not return a payment QR code / link. Please pick another payment method or try later.',
-			'devicesScreen.payStartFailed' => ({required Object err}) => 'Failed to start payment: ${err}',
-			'devicesScreen.payCancelled' => 'Payment cancelled; the draft order has been cleaned up.',
-			'devicesScreen.balancePay' => 'Balance',
-			'devicesScreen.noPayMethod' => 'No payment method is available right now. Please try later or contact support.',
-			'devicesScreen.balanceInsufficient' => ({required Object balance, required Object amount}) => 'Insufficient balance (¥${balance}, need ¥${amount}).\nTop up first?',
-			'devicesScreen.choosePayMethod' => 'Choose a payment method',
-			'devicesScreen.balanceText' => ({required Object balance}) => 'Balance ¥${balance}',
-			'devicesScreen.balanceShort' => ({required Object balance}) => 'Balance ¥${balance} (insufficient, please top up)',
-			'devicesScreen.unknownDevice' => 'Unknown device',
-			'devicesScreen.online' => '● Online',
-			'devicesScreen.offline' => '○ Offline',
-			'devicesScreen.lastActive' => ({required Object text}) => 'Last active ${text}',
-			'devicesScreen.delete' => 'Delete',
-			'devicesScreen.deleteConfirm' => ({required Object name}) => 'Delete device "${name}"? It will be kicked offline immediately.',
-			'sysProxySheet.reading' => 'Reading…',
-			'sysProxySheet.unknown' => 'Unknown',
-			'sysProxySheet.kernelNotRunning' => 'Kernel is not running (turn on the switch on the Home tab first)',
-			'sysProxySheet.applied' => ({required Object host, required Object port}) => 'Applied · ${host}:${port}',
-			'sysProxySheet.notSet' => ({required Object reason}) => 'System proxy not set — ${reason}',
-			'sysProxySheet.notEffective' => ({required Object port}) => 'Not effective (no system proxy pointing to ${port})',
-			'sysProxySheet.readFailed' => ({required Object err}) => 'Read failed: ${err}',
-			'sysProxySheet.setRejected' => 'Failed to set: the system may have rejected the write (or another proxy app overwrote it)',
-			'sysProxySheet.disableFailed' => 'Failed to turn off',
-			'sysProxySheet.portRange' => 'Port must be between 1 and 65535',
-			'sysProxySheet.portChanged' => ({required Object value}) => 'Port changed to ${value}: disconnect and reconnect once so the kernel listens on the new port',
-			'sysProxySheet.title' => 'System proxy',
-			'sysProxySheet.desc' => ({required Object host}) => 'The system proxy address is fixed to ${host} (local loopback) and the port is the kernel mixed port.',
-			'sysProxySheet.descWindows' => 'This is exactly what you see in Windows Settings → Network & Internet → Proxy.',
-			'sysProxySheet.reset' => 'Set again',
-			'sysProxySheet.disable' => 'Turn off system proxy',
-			'sysProxySheet.diagnostics' => 'Diagnostics (is the UI reading the same values as the registry?)',
-			'sysProxySheet.mixedPort' => 'Mixed port',
-			'sysProxySheet.apply' => 'Apply',
-			'logScreen.readAppFailed' => ({required Object e}) => 'Failed to read the app log: ${e}',
-			'logScreen.readCoreFailed' => ({required Object e}) => 'Failed to read the kernel log: ${e}',
-			'logScreen.copied' => 'Copied (subscription URLs and other secrets are masked; the log file itself may still contain the raw address)',
-			'logScreen.copy' => 'Copy',
+			'countries.HK' => 'Гонконг',
+			'countries.TW' => 'Тайвань',
+			'countries.MO' => 'Макао',
+			'countries.CN' => 'Китай',
+			'countries.JP' => 'Япония',
+			'countries.KR' => 'Южная Корея',
+			'countries.SG' => 'Сингапур',
+			'countries.MY' => 'Малайзия',
+			'countries.TH' => 'Таиланд',
+			'countries.VN' => 'Вьетнам',
+			'countries.PH' => 'Филиппины',
+			'countries.ID' => 'Индонезия',
+			'countries.KH' => 'Камбоджа',
+			'countries.US' => 'США',
+			'countries.CA' => 'Канада',
+			'countries.MX' => 'Мексика',
+			'countries.GB' => 'Великобритания',
+			'countries.DE' => 'Германия',
+			'countries.FR' => 'Франция',
+			'countries.NL' => 'Нидерланды',
+			'countries.RU' => 'Россия',
+			'countries.IT' => 'Италия',
+			'countries.ES' => 'Испания',
+			'countries.CH' => 'Швейцария',
+			'countries.SE' => 'Швеция',
+			'countries.NO' => 'Норвегия',
+			'countries.FI' => 'Финляндия',
+			'countries.DK' => 'Дания',
+			'countries.PL' => 'Польша',
+			'countries.AT' => 'Австрия',
+			'countries.IE' => 'Ирландия',
+			'countries.UA' => 'Украина',
+			'countries.TR' => 'Турция',
+			'countries.PT' => 'Португалия',
+			'countries.CZ' => 'Чехия',
+			'countries.RO' => 'Румыния',
+			'countries.BE' => 'Бельгия',
+			'countries.GR' => 'Греция',
+			'countries.HU' => 'Венгрия',
+			'countries.IL' => 'Израиль',
+			'countries.AE' => 'ОАЭ',
+			'countries.SA' => 'Саудовская Аравия',
+			'countries.EG' => 'Египет',
+			'countries.ZA' => 'ЮАР',
+			'countries.NG' => 'Нигерия',
+			'countries.AU' => 'Австралия',
+			'countries.NZ' => 'Новая Зеландия',
+			'countries.BR' => 'Бразилия',
+			'countries.AR' => 'Аргентина',
+			'countries.CL' => 'Чили',
+			'countries.CO' => 'Колумбия',
+			'countries.IN' => 'Индия',
+			'countries.PK' => 'Пакистан',
+			'countries.XX' => 'Другие',
+			'meScreen.accountBalance' => 'Баланс',
+			'meScreen.expireAt' => 'Действует до',
+			'meScreen.remainingDays' => 'Осталось дней',
+			'meScreen.deviceCount' => 'Устройства',
+			'meScreen.myOrders' => 'Мои заказы',
+			'meScreen.deviceManagement' => 'Управление устройствами',
+			'meScreen.changePassword' => 'Сменить пароль',
+			'meScreen.clearLocalData' => 'Удалить локальные данные (перед удалением)',
+			'meScreen.profileManagementDev' => 'Управление профилями (для разработчика)',
+			'meScreen.tunAdapter' => 'Виртуальный адаптер TUN',
+			'meScreen.checkUpdate' => 'Проверить обновления',
+			'meScreen.retry' => 'Повторить',
+			'meScreen.loadFailed' => 'Не удалось загрузить данные аккаунта: возможно, вход устарел или нет сети.\nНажмите «Обновить» в правом верхнем углу, чтобы повторить; если снова не выйдет — войдите заново.',
+			'meScreen.logoutConfirm' => 'Выйти из аккаунта?',
+			'meScreen.boardNoKernel' => 'Панель показывает данные ядра в реальном времени (подключения, трафик, срабатывания правил).\n\nЯдро не запущено, поэтому панель будет пустой.\nНажмите «ОК», чтобы всё равно открыть её, или «Отмена», чтобы сначала подключиться на главной.',
+			'meScreen.boardOpened' => 'Панель открыта в браузере: меняйте там узлы или правила — приложение подхватит изменения примерно за 5 секунд.',
+			'homeScreen.expiresOn' => ({required Object date}) => 'До ${date}',
+			'homeScreen.devicesText' => ({required Object text}) => 'Устройства ${text}',
+			'homeScreen.upgrade' => 'Улучшить',
+			'homeScreen.quickCountries' => 'Быстрый выбор страны',
+			'homeScreen.nodeCount' => ({required Object count}) => 'Узлов: ${count}',
+			'homeScreen.autoBestTip' => 'Выбрать доступный узел с наименьшей задержкой среди всех стран (автоматический режим)',
+			'homeScreen.autoBest' => 'Автовыбор',
+			'homeScreen.pickCountryTip' => ({required Object label}) => 'Автоматически выбрать доступный узел с наименьшей задержкой в «${label}» и закрепить его',
+			'homeScreen.autoNoBetter' => 'Уже включён автоматический режим (лучший узел не найден)',
+			'homeScreen.switchedBest' => ({required Object name}) => 'Переключено на лучший узел: ${name}',
+			'homeScreen.switchedCountry' => ({required Object country, required Object node, required Object ms}) => 'Переключено на самый быстрый узел (${country}): ${node}${ms}',
+			'homeScreen.filterCountryFailed' => ({required Object country, required Object err}) => 'Фильтр по стране: ${country}; переключение не удалось: ${err}',
+			'homeScreen.deviceFullCount' => ({required Object used, required Object limit}) => 'Сейчас устройств ${used}/${limit}\n\n',
+			'homeScreen.deviceFullUpgradeHint' => 'После увеличения лимита устройств подключение восстановится сразу (рекомендуется); также можно удалить неиспользуемые устройства, чтобы освободить место.',
+			'homeScreen.later' => 'Позже',
+			'homeScreen.upgradeDeviceCount' => 'Увеличить лимит устройств',
+			'homeScreen.cannotConnect' => 'Не удаётся подключиться',
+			'homeScreen.freshnessNever' => 'Ещё не синхронизировано · нажмите, чтобы обновить',
+			'homeScreen.freshnessJustNow' => 'Обновлено только что · нажмите «Устройства»',
+			'homeScreen.freshnessMinutes' => ({required Object minutes}) => '${minutes} мин назад · нажмите «Устройства»',
+			'homeScreen.freshnessStale' => ({required Object minutes}) => '${minutes} мин назад · нажмите, чтобы обновить',
+			'homeScreen.subscriptionAutoSync' => 'Автосинхронизация подписки',
+			'homeScreen.connecting' => 'Подключение…',
+			'homeScreen.disconnecting' => 'Отключение…',
+			'homeScreen.tapToDisconnect' => 'Нажмите переключатель, чтобы отключиться',
+			'homeScreen.tapToConnect' => 'Нажмите переключатель, чтобы подключиться',
+			'homeScreen.currentNode' => 'Текущий узел',
+			'homeScreen.noNodeSelected' => 'Узел не выбран',
+			'homeScreen.switchAction' => 'Сменить',
+			'homeScreen.realtimeSpeed' => 'Скорость сейчас',
+			'homeScreen.totalTraffic' => 'Всего трафика',
+			'homeScreen.subSyncedNotReady' => 'Подписка загружена, но профиль ещё не готов. Попробуйте чуть позже.',
+			'homeScreen.noPlan' => 'У этого аккаунта пока нет доступного тарифа. Сначала оформите тариф.',
+			'homeScreen.loginExpired' => 'Ваш вход устарел. Войдите заново.',
+			'homeScreen.syncingWait' => 'Идёт синхронизация подписки, подождите.',
+			'homeScreen.syncFailedNetwork' => ({required Object message}) => 'Не удалось синхронизировать подписку: ${message}\nПроверьте сеть и повторите.',
+			'homeScreen.syncFailed' => 'Не удалось синхронизировать подписку, попробуйте позже.',
+			'homeScreen.resetProxy' => 'Сбросить',
+			'homeScreen.latencySuffix' => ({required Object ms}) => ' (${ms} мс)',
+			'nodesScreen.updatedCount' => ({required Object count}) => 'Подписка обновлена · узлов: ${count}',
+			'nodesScreen.updateFailed' => ({required Object message}) => 'Не удалось обновить: ${message}',
+			'nodesScreen.updateFailedNetwork' => 'Не удалось обновить, проверьте сеть',
+			'nodesScreen.testDone' => ({required Object ok, required Object fail}) => 'Тест скорости завершён: ${ok} доступно, ${fail} недоступно (возможно, офлайн)',
+			'nodesScreen.switchedTo' => ({required Object name}) => 'Переключено на ${name}',
+			'nodesScreen.switchFailed' => ({required Object message}) => 'Не удалось переключить: ${message}\n(Для смены узла нужно запущенное ядро; сначала включите переключатель на главной.)',
+			'nodesScreen.selectedAfterConnect' => ({required Object name}) => 'Выбран ${name} (вступит в силу после подключения)',
+			'nodesScreen.title' => 'Узлы',
+			'nodesScreen.searchNode' => 'Поиск узлов',
+			'nodesScreen.sortByLatency' => 'Сортировать по задержке',
+			'nodesScreen.updateSubscription' => 'Обновить подписку',
+			'nodesScreen.viewByGroup' => 'По группам прокси',
+			'nodesScreen.testAll' => 'Проверить все',
+			'nodesScreen.searchHint' => 'Поиск: узел / страна / протокол',
+			'nodesScreen.emptyNoNodes' => 'Доступных узлов пока нет.\nПодписки синхронизируются автоматически; если вы только что вошли, подождите немного или нажмите «Загрузить заново» ниже.',
+			'nodesScreen.emptyNoMatch' => 'Подходящих узлов нет.',
+			'nodesScreen.reload' => 'Загрузить заново',
+			'nodesScreen.currentInUse' => 'Текущий (используется)',
+			'nodesScreen.current' => 'Текущий',
+			'nodesScreen.notTested' => 'Не измерено (ожидается перезагрузка ядра)',
+			'nodesScreen.timeout' => 'Тайм-аут',
+			'nodesScreen.clear' => 'Очистить',
+			'nodesScreen.selectNode' => 'Выбрать узел',
+			'nodesScreen.emptyNoKernel' => 'Доступных узлов пока нет.\nСначала включите переключатель подключения на главной.',
+			'nodesScreen.openFullList' => 'Открыть полный список узлов (поиск / тест скорости / группы)',
+			'nodeAuto.kernelStateUnavailable' => 'Состояние узлов временно недоступно от ядра; повтор будет автоматически.',
+			'nodeAuto.backToFixedNode' => ({required Object fixed}) => 'Возврат к закреплённому узлу: ${fixed}',
+			'nodeAuto.noUsableNodePickOne' => 'Рабочий узел не найден. Выберите его вручную в списке узлов.',
+			'nodeAuto.noUsableNodeTryOne' => 'Рабочий узел не найден. Попробуйте выбрать другой в списке узлов.',
+			'nodeAuto.autoConnectedBest' => ({required Object bestNode, required Object bestMs}) => 'Автоматически подключено к лучшему узлу: ${bestNode} (${bestMs} мс)',
+			'nodeAuto.currentNodeUnreachable' => 'Текущий узел не выходит в интернет; переключаем автоматически…',
+			'nodeAuto.autoSwitchedToUsable' => ({required Object target}) => 'Автоматически переключено на рабочий узел: ${target}',
+			'nodeAuto.newNodesReloading' => ({required Object missing}) => '${missing} новых узлов из подписки ещё не в ядре; перезагружаем…',
+			'nodeAuto.kernelReloadedRetest' => 'Ядро перезагружено с новой подпиской; запустите тест скорости ещё раз.',
+			'accountBlock.quotaFull' => ({required Object used, required Object limit}) => 'Лимит устройств исчерпан (${used}/${limit}): это устройство всё ещё в пределах лицензии и может подключаться. Чтобы добавить ещё одно, увеличьте лимит устройств или удалите неиспользуемые.',
+			'accountBlock.banFallback' => 'Ваш аккаунт заблокирован и больше не может использоваться.',
+			'accountBlock.titleExpired' => 'Тариф истёк',
+			'accountBlock.titleDeviceFull' => 'Достигнут лимит устройств',
+			'accountBlock.titleAccountDisabled' => 'Аккаунт заблокирован',
+			'accountBlock.titlePlanDisabled' => 'Тариф отключён',
+			'accountBlock.titleNoPlan' => 'Тарифа пока нет',
+			'accountBlock.titleDeviceRemoved' => 'Это устройство удалено',
+			'accountBlock.titleServiceUnavailable' => 'Сервис временно недоступен',
+			'accountBlock.textExpired' => 'Срок действия тарифа истёк. Оформите тариф, чтобы пользоваться узлами по всему миру.',
+			'accountBlock.textDeviceFull' => ({required Object used, required Object limit}) => 'Сервер определил, что устройство превышает лимит устройств тарифа (${used}/${limit}), поэтому подключение пока невозможно. Удалите неиспользуемые устройства в разделе «Профиль — Управление устройствами» или перейдите на тариф с большим числом устройств.',
+			'accountBlock.textAccountDisabled' => 'Ваш аккаунт заблокирован. Если есть вопросы, обратитесь в поддержку.',
+			'accountBlock.textPlanDisabled' => 'Ваш тариф отключён или находится в некорректном состоянии, поэтому подключение невозможно. Если есть вопросы, обратитесь в поддержку.',
+			'accountBlock.textNoPlan' => 'Вы ещё не оформили тариф. Оформите его, чтобы пользоваться узлами по всему миру.',
+			'accountBlock.textDeviceRemoved' => 'Это устройство было удалено и отключено. Войдите заново.',
+			'accountBlock.textServiceUnavailable' => 'Сервис временно недоступен. Попробуйте позже; если это повторяется, сделайте скриншот и обратитесь в поддержку.',
+			'accountBlock.remainingDays' => ({required Object days}) => 'Осталось дней: ${days}',
+			'accountBlock.deviceUsage' => ({required Object used, required Object limit}) => 'Устройства ${used}/${limit}',
+			'entitlementMsg.tamperedTitle' => 'Нарушено состояние авторизации',
+			'entitlementMsg.tamperedClock' => 'Обнаружен откат системных часов (или изменение локальных данных авторизации). Выйдите в сеть и пройдите проверку перед подключением.',
+			'entitlementMsg.tamperedLocal' => 'Локальные данные авторизации повреждены или изменены. Выйдите в сеть и пройдите проверку перед подключением.',
+			'entitlementMsg.needVerifyTitle' => 'Требуется онлайн-проверка',
+			'entitlementMsg.needVerifyFirst' => 'Не удаётся подтвердить состояние тарифа: подключитесь к сети, войдите в аккаунт и пройдите одну проверку перед подключением.',
+			'entitlementMsg.needVerifyRetry' => 'Не удаётся подтвердить состояние тарифа. Выйдите в сеть и повторите.',
+			'entitlementMsg.verifyFailedTitle' => 'Не удаётся проверить состояние тарифа',
+			'entitlementMsg.verifyFailedText' => 'Льготный период проверки истёк, а сервер недоступен. Проверьте сеть и повторите (если вы только что продлили тариф, войдите заново).',
+			'entitlementMsg.restrictedTitle' => 'Аккаунт ограничен',
+			'entitlementMsg.restrictedFallback' => 'Ваш аккаунт или тариф отключён, поэтому подключение невозможно.',
+			'entitlementMsg.expiredTitle' => 'Тариф истёк',
+			'entitlementMsg.expiredText' => ({required Object date}) => 'Срок действия тарифа истёк ${date}. Локальный профиль подписки удалён. Продлите тариф и войдите заново, чтобы восстановить его.',
+			'devicesScreen.title' => 'Управление устройствами',
+			'devicesScreen.currentPlan' => 'Текущий тариф',
+			'devicesScreen.devicesText' => ({required Object text}) => 'Устройства ${text}',
+			'devicesScreen.upgradeTitle' => 'Добавить устройства / продлить срок',
+			'devicesScreen.upgradeSubtitle' => 'Добавьте устройства и дни вместе: одна цена, одна оплата',
+			'devicesScreen.addDevices' => 'Добавить устройства',
+			'devicesScreen.noAddDevices' => 'Без изменений',
+			'devicesScreen.addDevicesCount' => ({required Object n}) => '+${n} устройств',
+			'devicesScreen.addDays' => 'Добавить дни',
+			'devicesScreen.noExtend' => 'Без продления',
+			'devicesScreen.addDaysCount' => ({required Object n, required Object months}) => '+${n} дн. (${months} мес.)',
+			'devicesScreen.priceFailed' => 'Не удалось получить цену',
+			'devicesScreen.amountDue' => ({required Object amount}) => 'К оплате ¥${amount}',
+			'devicesScreen.requote' => 'Пересчитать',
+			'devicesScreen.goPay' => 'Оплатить',
+			'devicesScreen.afterUpgrade' => 'После обновления: ',
+			'devicesScreen.afterLimit' => ({required Object limit}) => 'лимит устройств ${limit}',
+			'devicesScreen.afterExpire' => ({required Object date}) => 'до ${date}',
+			'devicesScreen.pickSomething' => 'Добавьте хотя бы устройства или дни',
+			'devicesScreen.daysOnlyUnsupported' => 'Панель пока не поддерживает «только продление срока»: укажите в поле «Добавить устройства» 1 или больше и повторите (либо обратитесь в поддержку, чтобы это включили).',
+			'devicesScreen.paramsRejected' => 'Параметры отклонены: выберите количество устройств и дни заново.',
+			'devicesScreen.subscriptionExpired' => 'Подписка истекла, поэтому обновить её нельзя. Сначала продлите или оформите тариф.',
+			'devicesScreen.orderIncomplete' => 'Данные заказа неполные. Нажмите «Пересчитать» и повторите.',
+			'devicesScreen.orderRegenerated' => 'Прежний заказ истёк; создан новый с теми же параметрами.',
+			'devicesScreen.payChannelIncomplete' => 'Данные заказа или платёжного канала неполные. Пересчитайте стоимость и повторите.',
+			'devicesScreen.noQrCode' => 'Сервер не вернул QR-код или ссылку для оплаты. Выберите другой способ оплаты или попробуйте позже.',
+			'devicesScreen.payStartFailed' => ({required Object err}) => 'Не удалось начать оплату: ${err}',
+			'devicesScreen.payCancelled' => 'Оплата отменена; черновик заказа удалён.',
+			'devicesScreen.balancePay' => 'Баланс',
+			'devicesScreen.noPayMethod' => 'Сейчас нет доступных способов оплаты. Попробуйте позже или обратитесь в поддержку.',
+			'devicesScreen.balanceInsufficient' => ({required Object balance, required Object amount}) => 'Недостаточно средств (¥${balance}, нужно ¥${amount}).\nПополнить баланс?',
+			'devicesScreen.choosePayMethod' => 'Выберите способ оплаты',
+			'devicesScreen.balanceText' => ({required Object balance}) => 'Баланс ¥${balance}',
+			'devicesScreen.balanceShort' => ({required Object balance}) => 'Баланс ¥${balance} (недостаточно, пополните)',
+			'devicesScreen.unknownDevice' => 'Неизвестное устройство',
+			'devicesScreen.online' => '● Онлайн',
+			'devicesScreen.offline' => '○ Офлайн',
+			'devicesScreen.lastActive' => ({required Object text}) => 'Последняя активность: ${text}',
+			'devicesScreen.delete' => 'Удалить',
+			'devicesScreen.deleteConfirm' => ({required Object name}) => 'Удалить устройство «${name}»? Оно будет сразу отключено.',
+			'devicesScreen.lastActiveJustNow' => 'Только что',
+			'devicesScreen.lastActiveMinutes' => ({required Object minutes}) => '${minutes} мин назад',
+			'devicesScreen.lastActiveToday' => ({required Object time}) => 'Сегодня ${time}',
+			'sysProxySheet.reading' => 'Чтение…',
+			'sysProxySheet.unknown' => 'Неизвестно',
+			'sysProxySheet.kernelNotRunning' => 'Ядро не запущено (сначала включите переключатель на главной)',
+			'sysProxySheet.applied' => ({required Object host, required Object port}) => 'Применено · ${host}:${port}',
+			'sysProxySheet.notSet' => ({required Object reason}) => 'Системный прокси не задан — ${reason}',
+			'sysProxySheet.notEffective' => ({required Object port}) => 'Не действует (в системе нет прокси, указывающего на ${port})',
+			'sysProxySheet.readFailed' => ({required Object err}) => 'Не удалось прочитать: ${err}',
+			'sysProxySheet.setRejected' => 'Не удалось задать: возможно, система отклонила запись (или её перезаписала другая прокси-программа)',
+			'sysProxySheet.disableFailed' => 'Не удалось отключить',
+			'sysProxySheet.portRange' => 'Порт должен быть в диапазоне от 1 до 65535',
+			'sysProxySheet.portChanged' => ({required Object value}) => 'Порт изменён на ${value}: отключитесь и подключитесь снова, чтобы ядро слушало новый порт',
+			'sysProxySheet.title' => 'Системный прокси',
+			'sysProxySheet.desc' => ({required Object host}) => 'Адрес системного прокси фиксирован: ${host} (локальная петля), а порт — это смешанный порт ядра.',
+			'sysProxySheet.descWindows' => 'Именно это вы увидите в Windows: Параметры → Сеть и Интернет → Прокси.',
+			'sysProxySheet.reset' => 'Задать снова',
+			'sysProxySheet.disable' => 'Отключить системный прокси',
+			'sysProxySheet.diagnostics' => 'Диагностика (совпадают ли значения в интерфейсе и в реестре?)',
+			'sysProxySheet.mixedPort' => 'Смешанный порт',
+			'sysProxySheet.apply' => 'Применить',
+			'logScreen.readAppFailed' => ({required Object e}) => 'Не удалось прочитать журнал приложения: ${e}',
 			_ => null,
 		} ?? switch (path) {
-			'logScreen.refresh' => 'Refresh',
-			'logScreen.empty' => 'No content',
-			'trayShell.closeTitle' => 'Close window',
-			'trayShell.closeBody' => 'Closing the window just puts Mclash in the tray — the kernel and system proxy keep working, and your network stays connected.\n\n· OK: minimize to the tray (to quit completely, right-click the tray icon → Quit)\n· Cancel: quit Mclash completely, stop the kernel and restore the system proxy\n\n(Your choice is remembered; next time you can use the tray icon directly)',
-			'ordersScreen.title' => 'My Orders',
-			'ordersScreen.orderInfoIncomplete' => 'Order information is incomplete. Pull down to refresh and try again.',
-			'ordersScreen.payChannelIncomplete' => 'Payment channel information is incomplete. Please try again later.',
-			'ordersScreen.noQrPayload' => 'The server did not return a payment QR code or link. Please choose another payment method or try again later.',
-			'ordersScreen.payStartFailed' => ({required Object err}) => 'Failed to start payment: ${err}',
-			'ordersScreen.noPayMethod' => 'No payment method is available right now. Please try again later or contact support.',
-			'ordersScreen.choosePayMethod' => 'Choose a payment method',
-			'ordersScreen.amountDue' => ({required Object amount}) => 'Amount due ¥${amount}',
-			'ordersScreen.paidLabel' => '● Paid',
-			'ordersScreen.pendingLabel' => '○ Unpaid',
+			'logScreen.readCoreFailed' => ({required Object e}) => 'Не удалось прочитать журнал ядра: ${e}',
+			'logScreen.copied' => 'Скопировано (адреса подписок и другие секреты замаскированы; сам файл журнала всё ещё может содержать исходный адрес)',
+			'logScreen.copy' => 'Копировать',
+			'logScreen.refresh' => 'Обновить',
+			'logScreen.empty' => 'Нет содержимого',
+			'trayShell.closeTitle' => 'Закрыть окно',
+			'trayShell.closeBody' => 'Закрытие окна лишь сворачивает Mclash в трей — ядро и системный прокси продолжают работать, сеть остаётся подключённой.\n\n· ОК: свернуть в трей (чтобы выйти полностью, нажмите правой кнопкой по значку в трее → «Выйти»)\n· Отмена: полностью выйти из Mclash, остановить ядро и восстановить системный прокси\n\n(Ваш выбор запоминается; в следующий раз можно сразу пользоваться значком в трее)',
+			'ordersScreen.title' => 'Мои заказы',
+			'ordersScreen.orderInfoIncomplete' => 'Данные заказа неполные. Потяните вниз, чтобы обновить, и повторите.',
+			'ordersScreen.payChannelIncomplete' => 'Данные платёжного канала неполные. Попробуйте позже.',
+			'ordersScreen.noQrPayload' => 'Сервер не вернул QR-код или ссылку для оплаты. Выберите другой способ оплаты или попробуйте позже.',
+			'ordersScreen.payStartFailed' => ({required Object err}) => 'Не удалось начать оплату: ${err}',
+			'ordersScreen.noPayMethod' => 'Сейчас нет доступных способов оплаты. Попробуйте позже или обратитесь в поддержку.',
+			'ordersScreen.choosePayMethod' => 'Выберите способ оплаты',
+			'ordersScreen.amountDue' => ({required Object amount}) => 'К оплате ¥${amount}',
+			'ordersScreen.paidLabel' => '● Оплачен',
+			'ordersScreen.pendingLabel' => '○ Не оплачен',
 			'ordersScreen.unknownStatus' => ({required Object status}) => '✕ ${status}',
-			'ordersScreen.orderNoText' => ({required Object orderNo}) => 'Order No. ${orderNo}',
-			'ordersScreen.createdAtText' => ({required Object createdAt}) => 'Created at ${createdAt}',
-			'ordersScreen.orderCanceled' => 'Order canceled',
-			'ordersScreen.cancelFailed' => ({required Object err}) => 'Cancel failed: ${err}\n(If the order has already been paid or canceled, pull down to refresh to see the latest status.)',
-			'ordersScreen.cancelOrder' => 'Cancel order',
-			'ordersScreen.continuePay' => 'Continue payment',
-			'payment.balancePay' => 'Balance payment',
-			'payment.qrPay' => 'Scan to pay',
-			'payment.deductFromBalance' => 'Deducted from your account balance',
-			'payment.openedInBrowser' => 'The payment page has been opened in your browser',
-			'payment.scanWithAlipayWechat' => 'Scan with Alipay or WeChat',
-			'payment.orderNoText' => ({required Object orderNo}) => 'Order No. ${orderNo}',
-			'payment.payFailed' => ({required Object err}) => 'Payment failed: ${err}',
-			'payment.notDetected' => 'No payment detected. You can continue later in "My Orders".',
-			'payment.charging' => 'Charging…',
-			'payment.processing' => 'Processing…',
-			'payment.waitingPay' => 'Waiting for payment…',
-			'payment.openPageFailed' => 'Could not open the payment page. Tap the button below to retry, or scan the QR code instead.',
-			'payment.reopenPayPage' => 'Reopen payment page',
-			'payment.payInBrowser' => 'Pay in browser',
-			'payment.openAlipay' => 'Open Alipay',
-			'payment.cancelOrder' => 'Cancel order',
-			'payment.confirmPay' => 'Confirm payment',
-			'payment.retry' => 'Retry',
-			'payment.paidAlready' => 'I have paid',
+			'ordersScreen.orderNoText' => ({required Object orderNo}) => 'Заказ № ${orderNo}',
+			'ordersScreen.createdAtText' => ({required Object createdAt}) => 'Создан ${createdAt}',
+			'ordersScreen.orderCanceled' => 'Заказ отменён',
+			'ordersScreen.cancelFailed' => ({required Object err}) => 'Не удалось отменить: ${err}\n(Если заказ уже оплачен или отменён, потяните вниз, чтобы увидеть актуальный статус.)',
+			'ordersScreen.cancelOrder' => 'Отменить заказ',
+			'ordersScreen.continuePay' => 'Продолжить оплату',
+			'payment.balancePay' => 'Оплата с баланса',
+			'payment.qrPay' => 'Оплата по QR-коду',
+			'payment.deductFromBalance' => 'Списано с баланса аккаунта',
+			'payment.openedInBrowser' => 'Страница оплаты открыта в браузере',
+			'payment.scanWithAlipayWechat' => 'Отсканируйте в Alipay или WeChat',
+			'payment.orderNoText' => ({required Object orderNo}) => 'Заказ № ${orderNo}',
+			'payment.payFailed' => ({required Object err}) => 'Оплата не прошла: ${err}',
+			'payment.notDetected' => 'Оплата не обнаружена. Продолжить можно позже в «Мои заказы».',
+			'payment.charging' => 'Списание…',
+			'payment.processing' => 'Обработка…',
+			'payment.waitingPay' => 'Ожидание оплаты…',
+			'payment.openPageFailed' => 'Не удалось открыть страницу оплаты. Нажмите кнопку ниже, чтобы повторить, или отсканируйте QR-код.',
+			'payment.reopenPayPage' => 'Открыть страницу оплаты снова',
+			'payment.payInBrowser' => 'Оплатить в браузере',
+			'payment.openAlipay' => 'Открыть Alipay',
+			'payment.cancelOrder' => 'Отменить заказ',
+			'payment.confirmPay' => 'Подтвердить оплату',
+			'payment.retry' => 'Повторить',
+			'payment.paidAlready' => 'Я уже оплатил',
 			'payment.channelAlipay' => 'Alipay',
 			'payment.channelCodepayAlipay' => 'Code Pay · Alipay',
 			'payment.channelCodepayWechat' => 'Code Pay · WeChat',
@@ -1684,21 +1690,21 @@ extension on TranslationsRu {
 			'payment.channelWechat' => 'WeChat Pay',
 			'payment.channelUsdt' => 'USDT',
 			'payment.channelUsdtTrc20' => 'USDT · TRC20',
-			'payment.payFallback' => 'Payment',
-			'payment.errCsrf' => 'Your login credential has expired (CSRF check failed).\nPull down to refresh on the "Me" tab or sign in again, then retry.',
-			'payment.errAlipayLimit' => 'Alipay face-to-face payment has a per-transaction limit (¥1000 for this merchant), and this order exceeds it.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to raise the Alipay limit.',
-			'payment.errNotSigned' => 'The Alipay app has not signed up for the matching payment product, so this channel is temporarily unavailable.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to enable it.',
-			'payment.errOrderGone' => 'This order has been canceled or has expired (draft orders are valid for 30 minutes).\nTap "Re-quote" to create a new order, then pay.',
-			'payment.errNetwork' => ({required Object err}) => 'Network unreachable: ${err}',
-			'planScreen.recommended' => 'Recommended',
-			'planScreen.devices' => 'Devices',
-			'planScreen.balanceLabel' => ({required Object amount}) => 'Balance ¥${amount}',
-			'planScreen.balanceInsufficient' => ' (Insufficient, please top up first)',
-			'planScreen.total' => 'Total',
-			'planScreen.payNow' => 'Pay Now',
-			'planScreen.retry' => 'Retry',
-			'planScreen.errIncompleteOrder' => 'Order or payment channel information is incomplete; payment cannot be started.',
-			'planScreen.payBalance' => 'Balance Pay',
+			'payment.payFallback' => 'Оплата',
+			'payment.errCsrf' => 'Учётные данные входа устарели (проверка CSRF не пройдена).\nПотяните вниз для обновления на вкладке «Профиль» или войдите заново, затем повторите.',
+			'payment.errAlipayLimit' => 'У оплаты Alipay «лицом к лицу» есть лимит на одну операцию (для этого продавца ¥1000), и этот заказ его превышает.\nИспользуйте «Оплату с баланса» или «Code Pay» либо обратитесь в поддержку, чтобы поднять лимит Alipay.',
+			'payment.errNotSigned' => 'Приложение Alipay не подключено к нужному платёжному продукту, поэтому этот канал временно недоступен.\nИспользуйте «Оплату с баланса» или «Code Pay» либо обратитесь в поддержку, чтобы его включили.',
+			'payment.errOrderGone' => 'Этот заказ отменён или истёк (черновики заказов действительны 30 минут).\nНажмите «Пересчитать», чтобы создать новый заказ, и оплатите.',
+			'payment.errNetwork' => ({required Object err}) => 'Сеть недоступна: ${err}',
+			'planScreen.recommended' => 'Рекомендуем',
+			'planScreen.devices' => 'Устройства',
+			'planScreen.balanceLabel' => ({required Object amount}) => 'Баланс ¥${amount}',
+			'planScreen.balanceInsufficient' => ' (Недостаточно, сначала пополните)',
+			'planScreen.total' => 'Итого',
+			'planScreen.payNow' => 'Оплатить сейчас',
+			'planScreen.retry' => 'Повторить',
+			'planScreen.errIncompleteOrder' => 'Данные заказа или платёжного канала неполные; начать оплату невозможно.',
+			'planScreen.payBalance' => 'С баланса',
 			'planScreen.payAlipay' => 'Alipay',
 			'planScreen.payWechat' => 'WeChat Pay',
 			'planScreen.payCodepay' => 'Codepay',
@@ -1710,132 +1716,132 @@ extension on TranslationsRu {
 			'planScreen.payUsdtTrc20' => 'USDT · TRC20',
 			'planScreen.payStripe' => 'Stripe',
 			'planScreen.payPaypal' => 'PayPal',
-			'planScreen.payOnline' => 'Online Payment',
-			'authScreen.saveAccountInfo' => 'Save account info',
-			'authScreen.autoLoginNextTime' => 'Sign in automatically next time',
-			'authScreen.needLoginNextTime' => 'You\'ll need to sign in again next time',
-			'authScreen.invalidEmail' => 'Please enter a valid email address',
-			'authScreen.enterEmailFirst' => 'Please enter a valid email address first',
-			'authScreen.passwordRequired' => 'Please enter your password',
-			'authScreen.wrongCredentials' => 'Incorrect email or password',
-			'authScreen.requestRejected' => 'Request rejected. Please try again later.',
-			'authScreen.tooFrequent' => 'Too many attempts. Please try again later.',
-			'authScreen.loginFailed' => 'Login failed',
-			'authScreen.username' => 'Username',
-			'authScreen.confirmPassword' => 'Confirm password',
-			'authScreen.inviteCode' => 'Invite code',
-			'authScreen.emailCode' => 'Email verification code',
-			'authScreen.getCode' => 'Get code',
-			'authScreen.registerAndLogin' => 'Register and log in',
-			'authScreen.usernameMinLength' => ({required Object min}) => 'Username must be at least ${min} characters',
-			'authScreen.passwordMismatch' => 'The passwords do not match',
-			'authScreen.emailCodeRequired' => 'Please enter the email verification code',
-			'authScreen.inviteCodeRequired' => 'Registration on this site requires an invite code',
-			'authScreen.codeSentCheckEmail' => 'Verification code sent. Please check your email.',
-			'authScreen.registerSuccess' => 'Registration successful. You are now logged in.',
-			'authScreen.passwordHint' => ({required Object min}) => 'At least ${min} characters, including both letters and digits',
-			'authScreen.passwordTooShort' => ({required Object min}) => 'Password must be at least ${min} characters',
-			'authScreen.passwordNeedsLetterAndDigit' => 'Password must contain both letters and digits',
-			'authScreen.registeredEmail' => 'Registered email',
-			'authScreen.newPassword' => 'New password',
-			'authScreen.confirmNewPassword' => 'Confirm new password',
-			'authScreen.resetPassword' => 'Reset password',
-			'authScreen.resetCodeSent' => 'If this email is registered, a reset code has been sent (valid for 15 minutes).',
-			'authScreen.resetSuccess' => 'Password reset. Please log in with your new password.',
-			'authScreen.changePasswordTitle' => 'Change password',
-			'authScreen.currentPassword' => 'Current password',
-			'authScreen.saveNewPassword' => 'Save new password',
-			'authScreen.newPasswordMismatch' => 'The new passwords do not match',
-			'authScreen.changePasswordSuccess' => 'Password changed. Please log in again.',
-			'updatePrompt.checking' => 'Checking for updates…',
-			'updatePrompt.checkFailed' => 'Update check failed. Please check your network and try again.',
-			'updatePrompt.alreadyLatest' => ({required Object version}) => 'You\'re on the latest version (${version}).',
-			'updatePrompt.newVersionFound' => ({required Object version}) => 'New version ${version} is available',
-			'updatePrompt.installerDownloaded' => 'The installer has finished downloading in the background. Tap Update Now to complete the upgrade.',
-			'updatePrompt.downloadInBackground' => 'Tap Update Now to download and install it (you can keep using the app; the installer downloads in the background).',
-			'updatePrompt.later' => 'Later',
-			'updatePrompt.updateNow' => 'Update Now',
-			'updatePrompt.installerNotReady' => ({required Object version}) => 'The installer has not finished downloading yet.\n\nTap OK to open the download page and manually download the installer that matches your device (version ${version}).',
-			'clearData.itemLoginSession' => 'Login session',
-			'clearData.itemProfiles' => 'Subscription profiles (profiles/)',
-			'clearData.itemSettings' => 'App and core settings',
-			'clearData.itemLatencyCache' => 'Node latency cache',
-			'clearData.itemLogs' => 'Runtime logs',
-			'clearData.itemRoutingData' => 'Routing data and temporary files',
-			'clearData.confirmBody' => ({required Object items, required Object dir}) => 'The following data saved on this device will be deleted (this cannot be undone):\n\n${items}\n\nThe account itself and any plan you purchased live on the server and are not affected; sign in again to restore your subscription.\n\nData directory: ${dir}\n(Do this before uninstalling the app: only then will reinstalling start clean and ask you to sign in again)',
-			'clearData.confirmAgain' => 'Clear now? You will need to sign in again afterwards.',
-			'clearData.clearedNotice' => ({required Object count, required Object dir}) => 'Cleared ${count} local data items (including the login session, so you will need to sign in again next time you open the app).\n\nYou can now delete the app to finish uninstalling:\n· macOS: drag Mclash.app to the Trash (the data directory has been emptied: ${dir})\n· Windows: uninstall Mclash from Control Panel and choose No when the wizard asks whether to keep your user data',
-			'clearData.clearFailed' => ({required Object error}) => 'Clear failed: ${error}',
-			'apiError.requestFailedHttp' => ({required Object status, required Object domain}) => 'Request failed (HTTP ${status}); already tried ${domain}',
-			'apiError.allDomainsFailed' => ({required Object method, required Object path, required Object count}) => 'Request failed: ${method} ${path} (tried ${count} domains)',
-			'apiError.requestTimeout' => ({required Object seconds, required Object method, required Object path}) => 'Request timed out (${seconds}s): ${method} ${path}',
-			'apiError.networkUnreachable' => ({required Object detail}) => 'Network unreachable: ${detail}',
-			'apiError.tlsHandshakeFailed' => 'TLS handshake failed. Check your network connection or system time.',
-			'apiError.connectionFailed' => ({required Object detail}) => 'Connection failed: ${detail}',
-			'apiError.requestError' => ({required Object error}) => 'Request failed: ${error}',
-			'apiError.responseReadTimeout' => ({required Object seconds, required Object method, required Object path}) => 'Reading the response timed out (${seconds}s): ${method} ${path}',
-			'apiError.notJson' => ({required Object status, required Object snippet}) => 'Response is not JSON (HTTP ${status}): ${snippet}',
-			'apiError.badStructure' => ({required Object status}) => 'Unexpected response structure (HTTP ${status})',
-			'apiError.loginFailed' => ({required Object code}) => 'Login failed (code ${code})',
-			'apiError.loginMissingData' => 'Login response is missing data',
-			'apiError.loginMissingToken' => 'Login response is missing access_token',
-			'apiError.registerFailed' => ({required Object code}) => 'Registration failed (code ${code})',
-			'apiError.registerMissingToken' => 'Registration response has no access_token - risk control may have been triggered, or the site is configured differently',
-			'apiError.requestFailedCode' => ({required Object code}) => 'Request failed (code ${code})',
-			'subNotice.titleNotFound' => 'Subscription not found',
-			'subNotice.titleExpired' => 'Subscription expired',
-			'subNotice.titleInactive' => 'Subscription inactive',
-			'subNotice.titleDeviceOverLimit' => 'Device limit exceeded',
-			'subNotice.titleUnavailable' => 'Subscription unavailable',
+			'planScreen.payOnline' => 'Онлайн-оплата',
+			'authScreen.saveAccountInfo' => 'Сохранить данные аккаунта',
+			'authScreen.autoLoginNextTime' => 'В следующий раз входить автоматически',
+			'authScreen.needLoginNextTime' => 'В следующий раз нужно будет войти заново',
+			'authScreen.invalidEmail' => 'Введите корректный адрес эл. почты',
+			'authScreen.enterEmailFirst' => 'Сначала введите корректный адрес эл. почты',
+			'authScreen.passwordRequired' => 'Введите пароль',
+			'authScreen.wrongCredentials' => 'Неверная почта или пароль',
+			'authScreen.requestRejected' => 'Запрос отклонён. Попробуйте позже.',
+			'authScreen.tooFrequent' => 'Слишком много попыток. Попробуйте позже.',
+			'authScreen.loginFailed' => 'Не удалось войти',
+			'authScreen.username' => 'Имя пользователя',
+			'authScreen.confirmPassword' => 'Подтвердите пароль',
+			'authScreen.inviteCode' => 'Код приглашения',
+			'authScreen.emailCode' => 'Код из письма',
+			'authScreen.getCode' => 'Получить код',
+			'authScreen.registerAndLogin' => 'Зарегистрироваться и войти',
+			'authScreen.usernameMinLength' => ({required Object min}) => 'Имя пользователя — не менее ${min} символов',
+			'authScreen.passwordMismatch' => 'Пароли не совпадают',
+			'authScreen.emailCodeRequired' => 'Введите код из письма',
+			'authScreen.inviteCodeRequired' => 'Для регистрации на этом сайте нужен код приглашения',
+			'authScreen.codeSentCheckEmail' => 'Код отправлен. Проверьте почту.',
+			'authScreen.registerSuccess' => 'Регистрация выполнена. Вы вошли в аккаунт.',
+			'authScreen.passwordHint' => ({required Object min}) => 'Не менее ${min} символов, буквы и цифры',
+			'authScreen.passwordTooShort' => ({required Object min}) => 'Пароль — не менее ${min} символов',
+			'authScreen.passwordNeedsLetterAndDigit' => 'Пароль должен содержать буквы и цифры',
+			'authScreen.registeredEmail' => 'Почта регистрации',
+			'authScreen.newPassword' => 'Новый пароль',
+			'authScreen.confirmNewPassword' => 'Подтвердите новый пароль',
+			'authScreen.resetPassword' => 'Сбросить пароль',
+			'authScreen.resetCodeSent' => 'Если эта почта зарегистрирована, код для сброса отправлен (действует 15 минут).',
+			'authScreen.resetSuccess' => 'Пароль сброшен. Войдите с новым паролем.',
+			'authScreen.changePasswordTitle' => 'Смена пароля',
+			'authScreen.currentPassword' => 'Текущий пароль',
+			'authScreen.saveNewPassword' => 'Сохранить новый пароль',
+			'authScreen.newPasswordMismatch' => 'Новые пароли не совпадают',
+			'authScreen.changePasswordSuccess' => 'Пароль изменён. Войдите заново.',
+			'updatePrompt.checking' => 'Проверка обновлений…',
+			'updatePrompt.checkFailed' => 'Не удалось проверить обновления. Проверьте сеть и повторите.',
+			'updatePrompt.alreadyLatest' => ({required Object version}) => 'У вас последняя версия (${version}).',
+			'updatePrompt.newVersionFound' => ({required Object version}) => 'Доступна новая версия ${version}',
+			'updatePrompt.installerDownloaded' => 'Установщик загружен в фоне. Нажмите «Обновить сейчас», чтобы завершить обновление.',
+			'updatePrompt.downloadInBackground' => 'Нажмите «Обновить сейчас», чтобы скачать и установить обновление (приложением можно пользоваться дальше: установщик загружается в фоне).',
+			'updatePrompt.later' => 'Позже',
+			'updatePrompt.updateNow' => 'Обновить сейчас',
+			'updatePrompt.installerNotReady' => ({required Object version}) => 'Установщик ещё не загружен.\n\nНажмите «ОК», чтобы открыть страницу загрузки и вручную скачать установщик для вашего устройства (версия ${version}).',
+			'clearData.itemLoginSession' => 'Сеанс входа',
+			'clearData.itemProfiles' => 'Профили подписки (profiles/)',
+			'clearData.itemSettings' => 'Настройки приложения и ядра',
+			'clearData.itemLatencyCache' => 'Кэш задержек узлов',
+			'clearData.itemLogs' => 'Журналы работы',
+			'clearData.itemRoutingData' => 'Данные маршрутизации и временные файлы',
+			'clearData.confirmBody' => ({required Object items, required Object dir}) => 'Следующие данные, сохранённые на этом устройстве, будут удалены (отменить это нельзя):\n\n${items}\n\nСам аккаунт и купленный тариф хранятся на сервере и не затрагиваются; войдите заново, чтобы восстановить подписку.\n\nКаталог данных: ${dir}\n(Сделайте это перед удалением приложения: только тогда после переустановки всё будет с чистого листа и потребуется войти заново)',
+			'clearData.confirmAgain' => 'Очистить сейчас? После этого нужно будет войти заново.',
+			'clearData.clearedNotice' => ({required Object count, required Object dir}) => 'Очищено локальных данных: ${count} (включая сеанс входа, поэтому при следующем запуске нужно будет войти заново).\n\nТеперь можно удалить приложение, чтобы завершить удаление:\n· macOS: перетащите Mclash.app в Корзину (каталог данных очищен: ${dir})\n· Windows: удалите Mclash через Панель управления и выберите «Нет», когда мастер спросит, сохранять ли пользовательские данные',
+			'clearData.clearFailed' => ({required Object error}) => 'Не удалось очистить: ${error}',
+			'apiError.requestFailedHttp' => ({required Object status, required Object domain}) => 'Запрос не выполнен (HTTP ${status}); уже пробовали: ${domain}',
+			'apiError.allDomainsFailed' => ({required Object method, required Object path, required Object count}) => 'Запрос не выполнен: ${method} ${path} (пробовали домены: ${count})',
+			'apiError.requestTimeout' => ({required Object seconds, required Object method, required Object path}) => 'Истекло время ожидания запроса (${seconds} с): ${method} ${path}',
+			'apiError.networkUnreachable' => ({required Object detail}) => 'Сеть недоступна: ${detail}',
+			'apiError.tlsHandshakeFailed' => 'Сбой TLS-рукопожатия. Проверьте подключение к сети или системное время.',
+			'apiError.connectionFailed' => ({required Object detail}) => 'Не удалось подключиться: ${detail}',
+			'apiError.requestError' => ({required Object error}) => 'Запрос не выполнен: ${error}',
+			'apiError.responseReadTimeout' => ({required Object seconds, required Object method, required Object path}) => 'Истекло время ожидания ответа (${seconds} с): ${method} ${path}',
+			'apiError.notJson' => ({required Object status, required Object snippet}) => 'Ответ не является JSON (HTTP ${status}): ${snippet}',
+			'apiError.badStructure' => ({required Object status}) => 'Неожиданная структура ответа (HTTP ${status})',
+			'apiError.loginFailed' => ({required Object code}) => 'Не удалось войти (код ${code})',
+			'apiError.loginMissingData' => 'В ответе на вход отсутствует data',
+			'apiError.loginMissingToken' => 'В ответе на вход отсутствует access_token',
+			'apiError.registerFailed' => ({required Object code}) => 'Не удалось зарегистрироваться (код ${code})',
+			'apiError.registerMissingToken' => 'В ответе на регистрацию нет access_token — возможно, сработала система контроля рисков или сайт настроен иначе',
+			'apiError.requestFailedCode' => ({required Object code}) => 'Запрос не выполнен (код ${code})',
+			'subNotice.titleNotFound' => 'Подписка не найдена',
+			'subNotice.titleExpired' => 'Подписка истекла',
+			'subNotice.titleInactive' => 'Подписка неактивна',
+			'subNotice.titleDeviceOverLimit' => 'Превышен лимит устройств',
+			'subNotice.titleUnavailable' => 'Подписка недоступна',
 			'subNotice.titleWithReason' => ({required Object emoji, required Object title, required Object reason}) => '${emoji} ${title} (${reason})',
-			'subNotice.deviceUsedOfLimit' => ({required Object used, required Object limit}) => 'Current devices ${used}/${limit}',
-			'subNotice.deviceUsedOnly' => ({required Object used}) => 'Current devices ${used}',
-			'subNotice.expireAt' => ({required Object expire}) => 'Expires at ${expire}',
-			'subNotice.supportLine' => ({required Object account}) => '💬 Support: ${account}',
-			'subNotice.siteLine' => ({required Object url}) => '📢 Website: ${url}',
-			'settingItems.subscriptionAutoUpdateInterval' => 'Subscription auto-update interval',
-			'settingItems.speedTestMode' => 'Speed test method',
-			'settingItems.speedTestModeTcp' => 'TCP speed test',
-			'settingItems.speedTestModeKernel' => 'Kernel speed test',
-			'settingItems.delayTestUrlTip' => 'Time for one full HTTP request through this node (it is not a ping)\nDefaults to a plain http 204 empty response; using https adds a TLS handshake and a larger number',
-			'settingItems.systemProxy' => 'System proxy',
-			'settingItems.systemProxyTip' => 'View / reset address and port',
-			'settingItems.tunMode' => 'TUN mode',
-			'settingItems.tunModeTip' => 'off=system proxy only / auto=TUN+system proxy / force=TUN only\nOn desktop, TUN requires administrator privileges (wintun on Windows / utun on macOS)',
-			'settingItems.tunOverwriteTip' => 'overwrite\nOn = the TUN settings on this page override the tun section of the profile\nOff = the profile\'s own tun configuration is used (the app does not interfere)',
-			'settingItems.tunEnableByTunMode' => ({required Object enable}) => '${enable} (decided by TUN mode)',
-			'settingItems.interval30Minutes' => '30 minutes',
-			'settingItems.interval1Hour' => '1 hour',
-			'settingItems.interval6Hours' => '6 hours',
-			'settingItems.interval12Hours' => '12 hours',
-			'settingItems.interval24Hours' => '24 hours',
-			'settingItems.interval3Days' => '3 days',
-			'settingItems.interval7Days' => '7 days',
-			'settingItems.intervalNever' => 'Never',
-			'settingItems.intervalMinutes' => ({required Object minutes}) => '${minutes} minutes',
-			'settingItems.intervalHours' => ({required Object hours}) => '${hours} hours',
-			'settingItems.intervalDays' => ({required Object days}) => '${days} days',
-			'tunScreen.modeOff' => 'Off',
-			'tunScreen.modeAuto' => 'Auto',
-			'tunScreen.modeForce' => 'Force',
-			'tunScreen.modeOffDesc' => 'System proxy only: works for programs that honor the system proxy (browsers and so on); UDP/games are not proxied',
-			'tunScreen.modeAutoDesc' => 'TUN + system proxy (belt and braces): all traffic goes through the virtual adapter, including UDP',
-			'tunScreen.modeForceDesc' => 'TUN only: all traffic goes through the virtual adapter, the system proxy is left untouched',
-			'tunScreen.modeOffOptionDesc' => 'Does not touch the system routing table; only sets a 127.0.0.1 proxy in the system. Only programs that honor the system proxy use it; UDP traffic and programs with their own proxy settings do not.',
-			'tunScreen.modeAutoOptionDesc' => 'Creates a virtual adapter and takes over all traffic (including UDP and games); the system proxy is kept as a fallback. Recommended: it works globally and you are not left without network access if permissions are missing.',
-			'tunScreen.modeForceOptionDesc' => 'Uses only the virtual adapter and no longer changes the system proxy. All traffic (including UDP) goes through the tunnel; the "proxy" entry in the system stays as it is.',
-			'tunScreen.adminRequiredDialog' => 'The TUN virtual adapter requires administrator privileges (wintun on Windows / utun on macOS).\n\nMclash is not running as administrator right now, so TUN will not take effect after enabling it (in "Auto" mode the system proxy still works as a fallback, so the network stays usable).\n\nOK = restart Mclash as administrator now (a UAC prompt will appear)\nCancel = still save this choice (the system proxy is used automatically when TUN is unavailable)',
-			'tunScreen.relaunchFailed' => ({required Object message}) => 'Restart failed: ${message}',
-			'tunScreen.switchFailed' => ({required Object message}) => 'Failed to switch TUN mode: ${message}\nThe previous settings have been restored.',
-			'tunScreen.setOffSnack' => 'Set to "Off": system proxy only',
-			'tunScreen.setModeSnack' => ({required Object mode, required Object effect}) => 'Set to "${mode}", ${effect}',
-			'tunScreen.effectReconnected' => 'reconnected and now active',
-			'tunScreen.effectAfterConnect' => 'active after connecting',
-			'tunScreen.sheetTitle' => 'TUN Virtual Adapter',
-			'tunScreen.advancedTitle' => 'Advanced parameters (Core Settings → TUN)',
-			'tunScreen.advancedSubtitle' => 'Adapter address / stack / MTU / auto route / DNS hijack / overwrite',
-			'tunScreen.adminOk' => 'TUN requires administrator privileges; the current privileges are sufficient (run as administrator on Windows / as root on macOS)',
-			'tunScreen.adminMissing' => 'TUN requires administrator privileges: Mclash is not running as administrator, so TUN will not take effect after selecting "Auto/Force" ("Auto" falls back to the system proxy, so the network stays usable)',
+			'subNotice.deviceUsedOfLimit' => ({required Object used, required Object limit}) => 'Сейчас устройств ${used}/${limit}',
+			'subNotice.deviceUsedOnly' => ({required Object used}) => 'Сейчас устройств ${used}',
+			'subNotice.expireAt' => ({required Object expire}) => 'Действует до ${expire}',
+			'subNotice.supportLine' => ({required Object account}) => '💬 Поддержка: ${account}',
+			'subNotice.siteLine' => ({required Object url}) => '📢 Сайт: ${url}',
+			'settingItems.subscriptionAutoUpdateInterval' => 'Интервал автообновления подписки',
+			'settingItems.speedTestMode' => 'Способ теста скорости',
+			'settingItems.speedTestModeTcp' => 'Тест скорости TCP',
+			'settingItems.speedTestModeKernel' => 'Тест скорости ядра',
+			'settingItems.delayTestUrlTip' => 'Время одного полного HTTP-запроса через этот узел (это не ping)\nПо умолчанию — пустой ответ http 204; с https добавится TLS-рукопожатие, и число будет больше',
+			'settingItems.systemProxy' => 'Системный прокси',
+			'settingItems.systemProxyTip' => 'Просмотр и сброс адреса и порта',
+			'settingItems.tunMode' => 'Режим TUN',
+			'settingItems.tunModeTip' => 'off = только системный прокси / auto = TUN + системный прокси / force = только TUN\nНа десктопе для TUN нужны права администратора (wintun в Windows / utun в macOS)',
+			'settingItems.tunOverwriteTip' => 'overwrite\nВкл. — настройки TUN на этой странице перекрывают раздел tun из профиля\nВыкл. — используется собственная конфигурация tun из профиля (приложение не вмешивается)',
+			'settingItems.tunEnableByTunMode' => ({required Object enable}) => '${enable} (определяется режимом TUN)',
+			'settingItems.interval30Minutes' => '30 минут',
+			'settingItems.interval1Hour' => '1 час',
+			'settingItems.interval6Hours' => '6 часов',
+			'settingItems.interval12Hours' => '12 часов',
+			'settingItems.interval24Hours' => '24 часа',
+			'settingItems.interval3Days' => '3 дня',
+			'settingItems.interval7Days' => '7 дней',
+			'settingItems.intervalNever' => 'Никогда',
+			'settingItems.intervalMinutes' => ({required Object minutes}) => '${minutes} мин',
+			'settingItems.intervalHours' => ({required Object hours}) => '${hours} ч',
+			'settingItems.intervalDays' => ({required Object days}) => '${days} дн.',
+			'tunScreen.modeOff' => 'Выкл.',
+			'tunScreen.modeAuto' => 'Авто',
+			'tunScreen.modeForce' => 'Принудительно',
+			'tunScreen.modeOffDesc' => 'Только системный прокси: работает для программ, которые соблюдают системный прокси (браузеры и т. п.); UDP и игры не проксируются',
+			'tunScreen.modeAutoDesc' => 'TUN + системный прокси (двойная страховка): весь трафик идёт через виртуальный адаптер, включая UDP',
+			'tunScreen.modeForceDesc' => 'Только TUN: весь трафик идёт через виртуальный адаптер, системный прокси не трогается',
+			'tunScreen.modeOffOptionDesc' => 'Не изменяет системную таблицу маршрутизации; лишь задаёт в системе прокси 127.0.0.1. Через него идут только программы, соблюдающие системный прокси; UDP-трафик и программы с собственными настройками прокси — нет.',
+			'tunScreen.modeAutoOptionDesc' => 'Создаёт виртуальный адаптер и забирает весь трафик (включая UDP и игры); системный прокси остаётся как запасной вариант. Рекомендуется: работает глобально, и при нехватке прав вы не останетесь без сети.',
+			'tunScreen.modeForceOptionDesc' => 'Использует только виртуальный адаптер и больше не меняет системный прокси. Весь трафик (включая UDP) идёт через туннель; системный пункт «прокси» остаётся как есть.',
+			'tunScreen.adminRequiredDialog' => 'Виртуальный адаптер TUN требует прав администратора (wintun в Windows / utun в macOS).\n\nMclash сейчас запущен не от имени администратора, поэтому после включения TUN не заработает (в режиме «Авто» системный прокси остаётся запасным вариантом, и сеть будет доступна).\n\nОК = перезапустить Mclash от имени администратора сейчас (появится запрос UAC)\nОтмена = всё равно сохранить этот выбор (при недоступности TUN автоматически используется системный прокси)',
+			'tunScreen.relaunchFailed' => ({required Object message}) => 'Не удалось перезапустить: ${message}',
+			'tunScreen.switchFailed' => ({required Object message}) => 'Не удалось переключить режим TUN: ${message}\nПрежние настройки восстановлены.',
+			'tunScreen.setOffSnack' => 'Установлено «Выкл.»: только системный прокси',
+			'tunScreen.setModeSnack' => ({required Object mode, required Object effect}) => 'Установлено «${mode}», ${effect}',
+			'tunScreen.effectReconnected' => 'переподключено и уже действует',
+			'tunScreen.effectAfterConnect' => 'действует после подключения',
+			'tunScreen.sheetTitle' => 'Виртуальный адаптер TUN',
+			'tunScreen.advancedTitle' => 'Дополнительные параметры (Настройки ядра → TUN)',
+			'tunScreen.advancedSubtitle' => 'Адрес адаптера / стек / MTU / авто-маршрут / перехват DNS / overwrite',
+			'tunScreen.adminOk' => 'Для TUN нужны права администратора; текущих прав достаточно (запуск от администратора в Windows / от root в macOS)',
+			'tunScreen.adminMissing' => 'Для TUN нужны права администратора: Mclash запущен не от администратора, поэтому после выбора «Авто/Принудительно» TUN не заработает (в режиме «Авто» используется системный прокси, и сеть остаётся доступной)',
 			_ => null,
 		};
 	}
