@@ -8,6 +8,7 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/app_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/url_launcher_utils.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_update_check.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/theme_define.dart';
@@ -71,7 +72,7 @@ abstract final class MclashUpdatePrompt {
     }
     final loading = DialogUtils.showLoadingDialogHandle(
       context,
-      text: "正在检查更新…",
+      text: Translations.of(context).updatePrompt.checking,
     );
     MclashUpdateInfo? info;
     var failed = false;
@@ -93,11 +94,14 @@ abstract final class MclashUpdatePrompt {
       return;
     }
     if (info == null) {
+      final t = Translations.of(context);
       await DialogUtils.showAlertDialog(
         context,
         failed
-            ? "检查更新失败，请检查网络后重试。"
-            : "已是最新版本（${AppUtils.getBuildinVersion()}）。",
+            ? t.updatePrompt.checkFailed
+            : t.updatePrompt.alreadyLatest(
+                version: AppUtils.getBuildinVersion(),
+              ),
       );
       return;
     }
@@ -145,20 +149,21 @@ abstract final class MclashUpdatePrompt {
       return;
     }
     final downloaded = ready != null;
+    final t = Translations.of(context);
 
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: !force,
       builder: (ctx) => AlertDialog(
-        title: Text("发现新版本 $version"),
+        title: Text(t.updatePrompt.newVersionFound(version: version)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               downloaded
-                  ? "安装包已在后台下载完成，点「立即更新」完成升级。"
-                  : "点「立即更新」开始下载并安装（也可继续使用，安装包会在后台下载）。",
+                  ? t.updatePrompt.installerDownloaded
+                  : t.updatePrompt.downloadInBackground,
               style: const TextStyle(fontSize: 13),
             ),
             if (notes.trim().isNotEmpty) ...[
@@ -181,11 +186,11 @@ abstract final class MclashUpdatePrompt {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("稍后"),
+            child: Text(t.updatePrompt.later),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("立即更新"),
+            child: Text(t.updatePrompt.updateNow),
           ),
         ],
       ),
@@ -234,8 +239,7 @@ abstract final class MclashUpdatePrompt {
     }
     final ok = await DialogUtils.showConfirmDialog(
       context,
-      "安装包还没下载完成。\n\n"
-      "点「确定」打开下载页，手动下载适合你设备的安装包（版本 $version）。",
+      Translations.of(context).updatePrompt.installerNotReady(version: version),
     );
     if (ok == true && url.isNotEmpty) {
       await openDownloadUrl(url);

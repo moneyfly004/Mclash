@@ -10,6 +10,11 @@ import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/version_update_screen.dart';
 
 void main() {
+  /// 更新提示的文案走 i18n（默认英文），而下面断言的是中文 —— 固定简中保证确定性。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   late List<String> openedUrls;
 
   void setNewVersion(String version, {String url = ""}) {

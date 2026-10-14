@@ -9,6 +9,7 @@ import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/app/utils/http_utils.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/app/utils/move_to_background_utils.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_heartbeat_service.dart';
@@ -206,17 +207,18 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    switch (stageFor(
+    final stage = stageFor(
       _loggedIn,
       preparing: _preparing,
       prepareFailed: _prepareFailed,
-    )) {
+    );
+    switch (stage) {
       case MclashGateStage.login:
-        return const MclashLoginScreen();
+        return _wrapBack(const MclashLoginScreen());
       case MclashGateStage.preparing:
-        return _buildPreparing(context);
+        return _wrapBack(_buildPreparing(context));
       case MclashGateStage.prepareFailed:
-        return _buildPrepareFailed(context);
+        return _wrapBack(_buildPrepareFailed(context));
       case MclashGateStage.main:
         return MainTabShell(
           launchUrl: widget.launchUrl.isNotEmpty
@@ -224,8 +226,27 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
               : _initialUrl,
         );
       case MclashGateStage.loading:
-        return _buildLoading(context);
+        return _wrapBack(_buildLoading(context));
     }
+  }
+
+  /// 未登录/准备阶段的返回键：移到后台（不退出 App）。
+  ///
+  /// 真机报障：登录后在「我的订单」这类子页按返回会**直接回到桌面**。
+  /// 根因是这里（原来在 `main.dart` 的 `home:` 上）挂了一个 `canPop: false`
+  /// 的 `PopScope`，它和 `MainTabShell` 自己的 `PopScope` 注册在**同一条路由**上，
+  /// 一次返回会依次回调两者：外壳把子页弹掉了，这里却无脑把 App 切到后台。
+  /// 修法：主界面（`MainTabShell`）阶段**不再外套** PopScope，返回键由外壳独占决策。
+  Widget _wrapBack(Widget child) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          MoveToBackgroundUtils.moveToBackground();
+        }
+      },
+      child: child,
+    );
   }
 
   Widget _buildPreparing(BuildContext context) {

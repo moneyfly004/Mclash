@@ -400,21 +400,20 @@ class MyAppState extends State<MyApp>
               supportedLocales: AppLocaleUtils.supportedLocales,
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
               navigatorObservers: observers,
-              home: PopScope(
-                canPop: false,
-                onPopInvokedWithResult: (didPop, result) {
-                  if (Platform.isAndroid) {
-                    MoveToBackgroundUtils.moveToBackground();
-                  }
-                },
-
-                child: startFailedReason != null
-                    ? LaunchFailedScreen(
+              home: startFailedReason != null
+                  ? PopScope(
+                      canPop: false,
+                      onPopInvokedWithResult: (didPop, result) {
+                        if (!didPop && Platform.isAndroid) {
+                          MoveToBackgroundUtils.moveToBackground();
+                        }
+                      },
+                      child: LaunchFailedScreen(
                         startFailedReason: startFailedReason!,
                         startFailedReasonDesc: startFailedReasonDesc,
-                      )
-                    : MclashGate(launchUrl: schemeArg.trim()),
-              ),
+                      ),
+                    )
+                  : MclashGate(launchUrl: schemeArg.trim()),
               builder: SettingManager.getConfig().ui.disableFontScaler
                   ? (context, widget) {
                       return MediaQuery(

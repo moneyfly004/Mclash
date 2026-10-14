@@ -46,7 +46,6 @@ import 'package:mclash/screens/qrcode_scan_screen.dart';
 import 'package:mclash/screens/rule_providers_screen.dart';
 import 'package:mclash/screens/rule_templates_screen.dart';
 import 'package:mclash/screens/proxygroup_templates_screen.dart';
-import 'package:mclash/screens/mclash_tun_setting.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/mclash_update_prompt.dart';
 import 'package:mclash/screens/themes.dart';
@@ -61,6 +60,65 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tuple/tuple.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+/// 把 TUN 模式的任意输入归一到**持久化常量**（`off` / `auto` / `force`）。
+///
+/// 显示文案（`t.tunScreen.mode*`）只在 UI 层使用，永远不参与
+/// `SettingConfig.tunMode` 的赋值与比较，避免语言切换改坏已保存的设置。
+String _normalizeTunMode(String? value) =>
+    value == SettingConfig.kTunModeAuto || value == SettingConfig.kTunModeForce
+        ? value!
+        : SettingConfig.kTunModeOff;
+
+/// 自动更新间隔：把已保存的时长换算成 `intervalChoices` 里的稳定 key
+/// （找不到对应项时返回 null，调用方退回展示文案）。
+String? _intervalKeyOf(Duration? interval) {
+  for (final e in MclashSubscriptionService.intervalChoices.entries) {
+    if (e.value == interval) {
+      return e.key;
+    }
+  }
+  return null;
+}
+
+/// 自动更新间隔的**显示文案**（按当前语言取词）。
+///
+/// 显示与存储严格分离：下拉项的 key、写入值、比较值都走
+/// `intervalChoices` 的 key，这里只负责上屏，语言切换不会改坏已保存的设置。
+String _intervalLabel(Translations t, Duration? interval) {
+  if (interval == null) {
+    return t.settingItems.intervalNever;
+  }
+  if (interval == const Duration(minutes: 30)) {
+    return t.settingItems.interval30Minutes;
+  }
+  if (interval == const Duration(hours: 1)) {
+    return t.settingItems.interval1Hour;
+  }
+  if (interval == const Duration(hours: 6)) {
+    return t.settingItems.interval6Hours;
+  }
+  if (interval == const Duration(hours: 12)) {
+    return t.settingItems.interval12Hours;
+  }
+  if (interval == const Duration(hours: 24)) {
+    return t.settingItems.interval24Hours;
+  }
+  if (interval == const Duration(days: 3)) {
+    return t.settingItems.interval3Days;
+  }
+  if (interval == const Duration(days: 7)) {
+    return t.settingItems.interval7Days;
+  }
+  // 配置档里自定义的非标准间隔：按最接近的粒度展示
+  if (interval.inHours >= 24) {
+    return t.settingItems.intervalDays(days: interval.inDays);
+  }
+  if (interval.inHours >= 1) {
+    return t.settingItems.intervalHours(hours: interval.inHours);
+  }
+  return t.settingItems.intervalMinutes(minutes: interval.inMinutes);
+}
 
 class GroupHelper {
   static Future<void> newVersionUpdate(BuildContext context) async {
@@ -810,11 +868,19 @@ class GroupHelper {
       List<GroupItemOptions> options01 = [
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
-            name: "订阅自动更新间隔",
-            selected: MclashSubscriptionService.intervalLabel(
-              MclashSubscriptionService.accountInterval(),
-            ),
-            strings: MclashSubscriptionService.intervalChoices.keys.toList(),
+            name: tcontext.settingItems.subscriptionAutoUpdateInterval,
+            // 展示层按当前语言取词；写入层仍用 intervalChoices 的 key（稳定值），
+            // 语言切换不会影响已经保存的自动更新间隔。
+            selected:
+                _intervalKeyOf(MclashSubscriptionService.accountInterval()) ??
+                _intervalLabel(
+                  tcontext,
+                  MclashSubscriptionService.accountInterval(),
+                ),
+            tupleStrings: [
+              for (final e in MclashSubscriptionService.intervalChoices.entries)
+                Tuple2(e.key, _intervalLabel(tcontext, e.value)),
+            ],
             textWidthPercent: 0.35,
             onPicker: (String? selected) async {
               if (selected == null) {
@@ -865,17 +931,29 @@ class GroupHelper {
       List<GroupItemOptions> options2 = [
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
-            name: "测速方式",
+            name: tcontext.settingItems.speedTestMode,
+            // 选中值 = 持久化常量（tcp/kernel）；显示文案来自语言包，
+            // 切换语言后这里随 build 重新取词，不再缓存中文字面量。
             selected: setting.speedTestMode == SettingConfig.kSpeedTestModeKernel
-                ? "内核测速"
-                : "TCP 测速",
-            strings: const ["TCP 测速", "内核测速"],
+                ? SettingConfig.kSpeedTestModeKernel
+                : SettingConfig.kSpeedTestModeTcp,
+            tupleStrings: [
+              Tuple2(
+                SettingConfig.kSpeedTestModeTcp,
+                tcontext.settingItems.speedTestModeTcp,
+              ),
+              Tuple2(
+                SettingConfig.kSpeedTestModeKernel,
+                tcontext.settingItems.speedTestModeKernel,
+              ),
+            ],
             textWidthPercent: 0.35,
             onPicker: (String? selected) async {
               if (selected == null) {
                 return;
               }
-              setting.speedTestMode = selected == "内核测速"
+              setting.speedTestMode =
+                  selected == SettingConfig.kSpeedTestModeKernel
                   ? SettingConfig.kSpeedTestModeKernel
                   : SettingConfig.kSpeedTestModeTcp;
             },
@@ -884,8 +962,7 @@ class GroupHelper {
         GroupItemOptions(
           textFormFieldOptions: GroupItemTextFieldOptions(
             name: tcontext.meta.delayTestUrl,
-            tips: "经该节点完整走一次 HTTP 请求的耗时（非 ping）\n"
-                "默认用明文 http 的 204 空响应；换成 https 会多一次 TLS 握手，数字更大",
+            tips: tcontext.settingItems.delayTestUrlTip,
             text: setting.delayTestUrl,
             textWidthPercent: 0.5,
             onChanged: (String value) {
@@ -1015,8 +1092,8 @@ class GroupHelper {
           ),
           GroupItemOptions(
             pushOptions: GroupItemPushOptions(
-              name: "系统代理",
-              tips: "查看/重设地址与端口",
+              name: tcontext.settingItems.systemProxy,
+              tips: tcontext.settingItems.systemProxyTip,
               onPush: () => showMclashSystemProxySheet(context),
             ),
           ),
@@ -1657,6 +1734,10 @@ class GroupHelper {
       BuildContext context,
       SetStateCallback? setstate,
     ) async {
+      // 每次 build 都按**当前语言**取词：既把本页注册成语言依赖（切换语言会
+      // 触发本页重建），又不会把第一次取到的文案缓存下来 —— TUN 模式的下拉
+      // 选项与提示文案在切换语言后立刻是新语言。
+      final t = Translations.of(context);
       var setting = ClashSettingManager.getConfig();
 
       var tun = setting.Tun!;
@@ -1665,17 +1746,19 @@ class GroupHelper {
       List<GroupItemOptions> options = [
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
-            name: "TUN 模式",
-            tips: "off=仅系统代理 / auto=TUN+系统代理 / force=仅 TUN\n"
-                "桌面端 TUN 需要管理员权限（Windows 建 wintun / macOS 建 utun）",
-            selected: MclashTunSetting.label(SettingManager.getConfig().tunMode),
-            strings: const ["关闭", "自动", "强制"],
+            name: t.settingItems.tunMode,
+            tips: t.settingItems.tunModeTip,
+            // 选中值 = 持久化常量（off/auto/force），显示文案来自语言包。
+            // 旧的 `strings: const ["关闭","自动","强制"]` 既缓存了中文，又把
+            // 显示文案当成了写入值 —— 这里彻底拆开：显示走 t.*，存储走常量。
+            selected: _normalizeTunMode(SettingManager.getConfig().tunMode),
+            tupleStrings: [
+              Tuple2(SettingConfig.kTunModeOff, t.tunScreen.modeOff),
+              Tuple2(SettingConfig.kTunModeAuto, t.tunScreen.modeAuto),
+              Tuple2(SettingConfig.kTunModeForce, t.tunScreen.modeForce),
+            ],
             onPicker: (String? selected) async {
-              final mode = switch (selected) {
-                "自动" => SettingConfig.kTunModeAuto,
-                "强制" => SettingConfig.kTunModeForce,
-                _ => SettingConfig.kTunModeOff,
-              };
+              final mode = _normalizeTunMode(selected);
               SettingManager.getConfig().tunMode = mode;
               SettingManager.save();
               ClashSettingManager.syncTunSwitch();
@@ -1686,10 +1769,8 @@ class GroupHelper {
         ),
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
-            name: tcontext.meta.overwrite,
-            tips: "overwrite\n"
-                "开 = 用这里的 TUN 设置覆盖订阅里的 tun 段\n"
-                "关 = 让订阅自己的 tun 配置生效（App 不插手）",
+            name: t.meta.overwrite,
+            tips: t.settingItems.tunOverwriteTip,
             switchValue: tun.OverWrite,
             onSwitch: (bool value) async {
               tun.OverWrite = value;
@@ -1698,7 +1779,9 @@ class GroupHelper {
         ),
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
-            name: "${tcontext.meta.enable}（由 TUN 模式决定）",
+            name: t.settingItems.tunEnableByTunMode(
+              enable: t.meta.enable,
+            ),
             tips: "tun.enable",
             switchValue: SettingManager.getConfig().tunEnabled,
             onSwitch: null,
@@ -1706,7 +1789,7 @@ class GroupHelper {
         ),
         GroupItemOptions(
           textFormFieldOptions: GroupItemTextFieldOptions(
-            name: tcontext.tun.inet4Address,
+            name: t.tun.inet4Address,
             text: tun.Inet4Address?.first ?? ClashSettingManager.iNet4Address,
             textWidthPercent: 0.6,
             onChanged: (String value) {
@@ -1723,7 +1806,7 @@ class GroupHelper {
         ),
         GroupItemOptions(
           stringPickerOptions: GroupItemStringPickerOptions(
-            name: tcontext.tun.stack,
+            name: t.tun.stack,
             tips: "stack",
             selected: tunStacks.contains(tun.Stack)
                 ? tun.Stack
@@ -1752,7 +1835,7 @@ class GroupHelper {
         ),
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
-            name: tcontext.tun.dnsHijack,
+            name: t.tun.dnsHijack,
             tips: "dns-hijack",
             switchValue: tun.DNSHijack?.isNotEmpty,
             onSwitch: tun.OverWrite != true || tun.Enable != true
@@ -1766,7 +1849,7 @@ class GroupHelper {
         ),
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
-            name: tcontext.tun.strictRoute,
+            name: t.tun.strictRoute,
             tips: "strict-route",
             switchValue: tun.StrictRoute,
             onSwitch: tun.OverWrite != true || tun.Enable != true
@@ -1779,7 +1862,7 @@ class GroupHelper {
         if (Platform.isMacOS) ...[
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
-              name: tcontext.tun.tunDefaultRoute,
+              name: t.tun.tunDefaultRoute,
               switchValue:
                   extensions.Tun.autoRouteUseSubRangesByDefault != true,
               onSwitch: tun.OverWrite != true || tun.Enable != true
@@ -1864,7 +1947,7 @@ class GroupHelper {
         ],
         GroupItemOptions(
           switchOptions: GroupItemSwitchOptions(
-            name: tcontext.tun.icmpForward,
+            name: t.tun.icmpForward,
             tips: "disable-icmp-forwarding",
             switchValue: tun.DisableICMPForwarding != true,
             onSwitch: tun.OverWrite != true || tun.Enable != true
@@ -1880,7 +1963,7 @@ class GroupHelper {
         options1.addAll([
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
-              name: tcontext.tun.allowBypass,
+              name: t.tun.allowBypass,
               switchValue: extensions.Tun.httpProxy.AllowBypass,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1895,7 +1978,7 @@ class GroupHelper {
         options1.addAll([
           GroupItemOptions(
             switchOptions: GroupItemSwitchOptions(
-              name: tcontext.tun.appendHttpProxy,
+              name: t.tun.appendHttpProxy,
               switchValue: extensions.Tun.httpProxy.Enable,
               onSwitch: tun.OverWrite != true || tun.Enable != true
                   ? null
@@ -1912,7 +1995,7 @@ class GroupHelper {
           ),
           GroupItemOptions(
             pushOptions: GroupItemPushOptions(
-              name: tcontext.tun.bypassHttpProxyDomain,
+              name: t.tun.bypassHttpProxyDomain,
               onPush: tun.OverWrite != true || tun.Enable != true
                   ? null
                   : () async {
@@ -1924,7 +2007,7 @@ class GroupHelper {
                             "HttpProxyBypassDomain",
                           ),
                           builder: (context) => ListAddScreen(
-                            title: tcontext.tun.bypassHttpProxyDomain,
+                            title: t.tun.bypassHttpProxyDomain,
                             data: extensions.Tun.httpProxy.BypassDomain!,
                           ),
                         ),

@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/app_utils.dart';
@@ -636,21 +637,81 @@ class MclashHomeHeader extends StatelessWidget {
     return (now ?? DateTime.now()).difference(cachedAt) >= kStaleAfter;
   }
 
+  /// 顶栏右上信息条要显示的文本（真机报障：换语言后顶栏错位，故文本与排版分开算）。
+  static String subscriptionText(
+    Translations t,
+    MclashAccountInfo info, {
+    required bool blocked,
+    required String blockedTitle,
+  }) {
+    if (blocked) {
+      return blockedTitle;
+    }
+    final used = info.deviceUsed;
+    final limit = info.deviceLimit;
+    final deviceText = (used != null || limit != null)
+        ? "${used ?? "-"}/${limit ?? "-"}"
+        : (info.deviceText ?? "").replaceAll(" ", "");
+    final bits = <String>[
+      if (info.expireDate.isNotEmpty)
+        t.homeScreen.expiresOn(date: info.expireDate),
+      if (deviceText.isNotEmpty) t.homeScreen.devicesText(text: deviceText),
+    ];
+    return bits.join(" · ");
+  }
+
+  /// 用真实字体量一段文本的宽度（含系统字体缩放）。
+  ///
+  /// 真机报障：中文界面下顶栏排列正常，**切成其它语言（俄语/西语/阿拉伯语…）就乱了** ——
+  /// 文案变长后原来那套固定排版会顶出屏幕。所以这里按语言实测宽度再决定"一行"还是"上下两行"。
+  static double measureTextWidth(
+    BuildContext context,
+    String text,
+    TextStyle style,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    return painter.width;
+  }
+
+  static const TextStyle _kBrandNameStyle = TextStyle(
+    fontSize: 15,
+    fontWeight: ThemeConfig.kFontWeightTitle,
+    height: 1.15,
+  );
+
+  static const TextStyle _kBrandSubStyle = TextStyle(
+    fontSize: 10.5,
+    color: ThemeDefine.kColorGrey,
+    height: 1.2,
+  );
+
+  static const double _kLogoSize = 24;
+  static const double _kLogoGap = 8;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: MclashAccountService.instance,
       builder: (context, _) {
+        final t = Translations.of(context);
         final acc = MclashAccountService.instance;
         final info = MclashAccountInfo(acc.dashboard, acc.subscription);
         final blocked = acc.isBlocked;
         final cachedAt = acc.cachedAt;
-        final pill = _subscriptionPill(
-          context,
-          info: info,
+        final pillText = subscriptionText(
+          t,
+          info,
           blocked: blocked,
           blockedTitle: blocked ? "${acc.blockEmoji} ${acc.blockTitle}" : "",
         );
+        final pill = pillText.isEmpty
+            ? const SizedBox.shrink()
+            : _subscriptionPill(context, text: pillText, blocked: blocked);
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
           child: Column(
@@ -658,23 +719,49 @@ class MclashHomeHeader extends StatelessWidget {
             children: [
               LayoutBuilder(
                 builder: (context, c) {
-                  final brand = _brand();
-                  if (c.maxWidth < 300) {
+                  final brand = _brand(t);
+                  // 估算两块内容各要多少宽：品牌块 = logo + 间距 + 两行文字里较宽的一行；
+                  // 信息条 = 内边距 + 图标 + 文字 + 展开箭头。
+                  final brandNeed = _kLogoSize +
+                      _kLogoGap +
+                      math.max(
+                        measureTextWidth(context, AppUtils.getName(),
+                            _kBrandNameStyle),
+                        measureTextWidth(
+                            context, t.homeScreen.subscriptionAutoSync,
+                            _kBrandSubStyle),
+                      );
+                  final pillNeed = pillText.isEmpty
+                      ? 0.0
+                      : 10 +
+                          14 +
+                          5 +
+                          measureTextWidth(
+                              context, pillText, const TextStyle(fontSize: 12)) +
+                          15 +
+                          8;
+                  final fits =
+                      brandNeed + 10 + pillNeed <= c.maxWidth && pillNeed > 0;
+                  if (!fits) {
+                    // 放不下就上下排（不裁字、不溢出）：长文案语言与窄屏走这里。
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         brand,
-                        const SizedBox(height: 6),
-                        pill,
+                        if (pillText.isNotEmpty) const SizedBox(height: 6),
+                        if (pillText.isNotEmpty) pill,
                       ],
                     );
                   }
-                  return Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [brand, pill],
+                  // 品牌块占剩余宽度，信息条按内容宽度靠右（spaceBetween 的等效写法，
+                  // 且任何语言下都不会互相挤压）。
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(child: brand),
+                      const SizedBox(width: 10),
+                      pill,
+                    ],
                   );
                 },
               ),
@@ -687,9 +774,9 @@ class MclashHomeHeader extends StatelessWidget {
                   }
                 },
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 32),
+                  // 缩进对齐品牌文字：用方向相关的 start，阿拉伯语等 RTL 语言才不会露馅。
+                  padding: const EdgeInsetsDirectional.only(start: 32),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         isStale(cachedAt)
@@ -699,11 +786,15 @@ class MclashHomeHeader extends StatelessWidget {
                         color: ThemeDefine.kColorGrey,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        freshnessText(t, cachedAt),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          color: ThemeDefine.kColorGrey,
+                      Flexible(
+                        child: Text(
+                          freshnessText(t, cachedAt),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: ThemeDefine.kColorGrey,
+                          ),
                         ),
                       ),
                     ],
@@ -717,38 +808,36 @@ class MclashHomeHeader extends StatelessWidget {
     );
   }
 
-  Widget _brand() {
+  Widget _brand(Translations t) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
           "assets/images/logo-round.png",
-          width: 24,
-          height: 24,
+          width: _kLogoSize,
+          height: _kLogoSize,
           filterQuality: FilterQuality.medium,
         ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AppUtils.getName(),
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: ThemeConfig.kFontWeightTitle,
-                height: 1.15,
+        const SizedBox(width: _kLogoGap),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                AppUtils.getName(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _kBrandNameStyle,
               ),
-            ),
-            Text(
-              t.homeScreen.subscriptionAutoSync,
-              style: TextStyle(
-                fontSize: 10.5,
-                color: ThemeDefine.kColorGrey,
-                height: 1.2,
+              Text(
+                t.homeScreen.subscriptionAutoSync,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _kBrandSubStyle,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -756,24 +845,9 @@ class MclashHomeHeader extends StatelessWidget {
 
   Widget _subscriptionPill(
     BuildContext context, {
-    required MclashAccountInfo info,
+    required String text,
     required bool blocked,
-    required String blockedTitle,
   }) {
-    final t = Translations.of(context);
-    final used = info.deviceUsed;
-    final limit = info.deviceLimit;
-    final deviceText = (used != null || limit != null)
-        ? "${used ?? "-"}/${limit ?? "-"}"
-        : (info.deviceText ?? "").replaceAll(" ", "");
-    final bits = <String>[
-      if (info.expireDate.isNotEmpty) t.homeScreen.expiresOn(date: info.expireDate),
-      if (deviceText.isNotEmpty) t.homeScreen.devicesText(text: deviceText),
-    ];
-    final text = blocked ? blockedTitle : bits.join(" · ");
-    if (text.isEmpty) {
-      return const SizedBox.shrink();
-    }
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       key: const ValueKey("home-sub-pill"),
@@ -815,8 +889,11 @@ class MclashHomeHeader extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
+            Icon(
+              // RTL 语言（阿拉伯语/波斯语）箭头要朝左，否则方向感是反的。
+              Directionality.of(context) == TextDirection.rtl
+                  ? Icons.chevron_left
+                  : Icons.chevron_right,
               size: 15,
               color: ThemeDefine.kColorGrey,
             ),

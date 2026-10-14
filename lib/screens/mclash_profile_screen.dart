@@ -545,6 +545,7 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
   }
 
   Future<void> _clearLocalData() async {
+    final t = Translations.of(context);
     final items = MclashDataCleaner.items.map((e) => "· $e").join("\n");
     final dataDir = await MclashDataCleaner.dataDir();
     if (!mounted) {
@@ -552,17 +553,14 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     }
     final first = await DialogUtils.showConfirmDialog(
       context,
-      "将删除本机保存的以下数据（不可恢复）：\n\n$items\n\n"
-      "账号本身、已购买的套餐都在服务器上，不受影响；重新登录即可恢复订阅。\n\n"
-      "数据目录：$dataDir\n"
-      "（卸载 App 之前先点这里，重装后才会是干净的、需要重新登录的状态）",
+      t.clearData.confirmBody(items: items, dir: dataDir),
     );
     if (first != true || !mounted) {
       return;
     }
     final second = await DialogUtils.showConfirmDialog(
       context,
-      "确认清除？清除后需要重新登录。",
+      t.clearData.confirmAgain,
     );
     if (second != true || !mounted) {
       return;
@@ -587,16 +585,16 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       }
       await DialogUtils.showAlertDialog(
         context,
-        "已清除 $removed 项本地数据（含登录会话，下次打开需要重新登录）。\n\n"
-        "现在可以删除 App 完成卸载：\n"
-        "· macOS：把 Mclash.app 拖进废纸篓（数据目录已清空：$dir）\n"
-        "· Windows：控制面板卸载 Mclash，卸载向导里的「是否保留用户数据」选「否」",
+        t.clearData.clearedNotice(count: removed, dir: dir),
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
-      await DialogUtils.showAlertDialog(context, "清除失败：$e");
+      await DialogUtils.showAlertDialog(
+        context,
+        t.clearData.clearFailed(error: e),
+      );
     }
   }
 

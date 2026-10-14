@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 import 'package:path/path.dart' as path;
 
 abstract final class MclashDataCleaner {
@@ -14,13 +15,15 @@ abstract final class MclashDataCleaner {
   static Future<String> dataDir() async =>
       debugDataDirOverride?.call() ?? PathUtils.profileDir();
 
-  static const List<String> items = [
-    "登录会话",
-    "订阅配置档（profiles/）",
-    "应用与内核设置",
-    "节点延迟缓存",
-    "运行日志",
-    "分流数据与临时文件",
+  /// 会上屏的数据项名称（清除本地数据确认框里的清单），走 i18n：
+  /// 业务层拿不到 context，用 [MclashI18n.t]，语言切换后下次取值即新语言。
+  static List<String> get items => [
+    MclashI18n.t.clearData.itemLoginSession,
+    MclashI18n.t.clearData.itemProfiles,
+    MclashI18n.t.clearData.itemSettings,
+    MclashI18n.t.clearData.itemLatencyCache,
+    MclashI18n.t.clearData.itemLogs,
+    MclashI18n.t.clearData.itemRoutingData,
   ];
 
   static const List<String> legacyFileNames = [

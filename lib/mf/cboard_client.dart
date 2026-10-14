@@ -8,6 +8,7 @@ import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/secure_storage.dart';
 import 'package:mclash/mf/mclash_domains.dart';
+import 'package:mclash/mf/mclash_i18n.dart';
 
 class CBoardResponse<T> {
   CBoardResponse({
@@ -381,7 +382,8 @@ class CBoardClient {
           }
           MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
           lastFailure = CBoardException(
-            '请求失败（HTTP ${resp.httpStatus}），已尝试域名 $candidate',
+            MclashI18n.t.apiError
+                .requestFailedHttp(status: resp.httpStatus, domain: candidate),
             code: resp.code,
             httpStatus: resp.httpStatus,
           );
@@ -405,7 +407,11 @@ class CBoardClient {
         );
       }
       throw lastFailure ??
-          CBoardException('请求失败：$method $path（已尝试 ${order.length} 个域名）');
+          CBoardException(MclashI18n.t.apiError.allDomainsFailed(
+            method: method,
+            path: path,
+            count: order.length,
+          ));
     } finally {
       _activeBase = null;
     }
@@ -529,17 +535,23 @@ class CBoardClient {
     } on TimeoutException {
       // 连接层失败（httpStatus 缺省 0）→ 允许换域名重试。
       throw CBoardException(
-        '请求超时（${kRequestTimeout.inSeconds}s）：$method ${uri.path}',
+        MclashI18n.t.apiError.requestTimeout(
+          seconds: kRequestTimeout.inSeconds,
+          method: method,
+          path: uri.path,
+        ),
       );
     } on SocketException catch (e) {
-      throw CBoardException('网络不可达：${e.message}');
+      throw CBoardException(
+          MclashI18n.t.apiError.networkUnreachable(detail: e.message));
     } on HandshakeException {
-      throw CBoardException('TLS 握手失败，请检查网络或系统时间');
+      throw CBoardException(MclashI18n.t.apiError.tlsHandshakeFailed);
     } on HttpException catch (e) {
       // 连接被重置/中断：请求没到业务层，可以换域名。
-      throw CBoardException('连接失败：${e.message}');
+      throw CBoardException(
+          MclashI18n.t.apiError.connectionFailed(detail: e.message));
     } catch (e) {
-      throw CBoardException('请求失败：$e');
+      throw CBoardException(MclashI18n.t.apiError.requestError(error: '$e'));
     }
 
     final String text;
@@ -550,7 +562,11 @@ class CBoardClient {
           .timeout(kRequestTimeout);
     } on TimeoutException {
       throw CBoardException(
-        '读取响应超时（${kRequestTimeout.inSeconds}s）：$method $path',
+        MclashI18n.t.apiError.responseReadTimeout(
+          seconds: kRequestTimeout.inSeconds,
+          method: method,
+          path: path,
+        ),
       );
     }
     final status = resp.statusCode;
@@ -560,12 +576,14 @@ class CBoardClient {
       decoded = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
     } catch (_) {
 
-      throw CBoardException('响应不是 JSON（HTTP $status）：${_snip(text)}',
-          httpStatus: status, retryAnotherDomain: true);
+      throw CBoardException(
+          MclashI18n.t.apiError.notJson(status: status, snippet: _snip(text)),
+          httpStatus: status,
+          retryAnotherDomain: true);
     }
 
     if (decoded is! Map) {
-      throw CBoardException('响应结构异常（HTTP $status）',
+      throw CBoardException(MclashI18n.t.apiError.badStructure(status: status),
           httpStatus: status, retryAnotherDomain: true);
     }
 
@@ -705,16 +723,22 @@ class CBoardClient {
         retryAuth: false);
     if (!r.ok) {
       throw CBoardException(
-        r.message.isNotEmpty ? r.message : '登录失败（code ${r.code}）',
+        r.message.isNotEmpty
+            ? r.message
+            : MclashI18n.t.apiError.loginFailed(code: r.code),
         code: r.code,
         httpStatus: r.httpStatus,
       );
     }
     final d = r.data;
-    if (d is! Map) throw CBoardException('登录响应缺少 data');
+    if (d is! Map) {
+      throw CBoardException(MclashI18n.t.apiError.loginMissingData);
+    }
     final at = (d['access_token'] ?? '').toString();
     final rt = (d['refresh_token'] ?? '').toString();
-    if (at.isEmpty) throw CBoardException('登录响应缺少 access_token');
+    if (at.isEmpty) {
+      throw CBoardException(MclashI18n.t.apiError.loginMissingToken);
+    }
     final u = d['user'];
     final s = CBoardSession(
       accessToken: at,
@@ -761,7 +785,9 @@ class CBoardClient {
     });
     if (!r.ok) {
       throw CBoardException(
-        r.message.isNotEmpty ? r.message : '注册失败（code ${r.code}）',
+        r.message.isNotEmpty
+            ? r.message
+            : MclashI18n.t.apiError.registerFailed(code: r.code),
         code: r.code,
         httpStatus: r.httpStatus,
       );
@@ -777,7 +803,7 @@ class CBoardClient {
       return s;
     }
 
-    throw CBoardException('注册响应未包含 access_token，可能触发了风控或站点配置不同',
+    throw CBoardException(MclashI18n.t.apiError.registerMissingToken,
         code: r.code);
   }
 
@@ -888,7 +914,9 @@ class CBoardClient {
     final r = await f;
     if (!r.ok) {
       throw CBoardException(
-        r.message.isNotEmpty ? r.message : '请求失败（code ${r.code}）',
+        r.message.isNotEmpty
+            ? r.message
+            : MclashI18n.t.apiError.requestFailedCode(code: r.code),
         code: r.code,
         httpStatus: r.httpStatus,
       );

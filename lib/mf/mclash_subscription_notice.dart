@@ -1,5 +1,7 @@
 library;
 
+import 'package:mclash/mf/mclash_i18n.dart';
+
 enum MclashNoticeState {
   unknown,
 
@@ -56,18 +58,24 @@ class MclashSubscriptionNotice {
       state == MclashNoticeState.deviceOverLimit ||
       state == MclashNoticeState.other;
 
+  /// 展示用标题（会拼进 [fullText] 上屏）。业务层没有 BuildContext，所以走
+  /// [MclashI18n.t]，按当前全局语言取词。
+  ///
+  /// 注意 `other` 状态返回的是**服务端下发的原因原文**——那是数据，不做翻译。
   String get title {
     switch (state) {
       case MclashNoticeState.notFound:
-        return "订阅不存在";
+        return MclashI18n.t.subNotice.titleNotFound;
       case MclashNoticeState.expired:
-        return "订阅已过期";
+        return MclashI18n.t.subNotice.titleExpired;
       case MclashNoticeState.inactive:
-        return "订阅已失效";
+        return MclashI18n.t.subNotice.titleInactive;
       case MclashNoticeState.deviceOverLimit:
-        return "设备数量超限";
+        return MclashI18n.t.subNotice.titleDeviceOverLimit;
       case MclashNoticeState.other:
-        return reason.isEmpty ? "订阅不可用" : reason;
+        return reason.isEmpty
+            ? MclashI18n.t.subNotice.titleUnavailable
+            : reason;
       case MclashNoticeState.ok:
       case MclashNoticeState.unknown:
         return "";
@@ -200,29 +208,42 @@ class MclashSubscriptionNotice {
     return MclashNoticeState.other;
   }
 
+  /// 上屏用的整段提示（主页提示条 / 拦截弹窗都取这里）。
+  ///
+  /// 只翻译**本地拼出来的框架文案**（标题前缀 / 设备数 / 到期 / 客服 / 官网）；
+  /// `reason`、`solution`、`expire` 等是服务端下发的数据，一律原样透传。
   String get fullText {
     final parts = <String>[];
     if (reason.isNotEmpty) {
-      parts.add("${emoji.isEmpty ? "❌" : emoji} $title${reason == title ? "" : "（$reason）"}");
+      final e = emoji.isEmpty ? "❌" : emoji;
+      // reason == title（other 状态）时 title 就是服务端原文，不必再加括号。
+      parts.add(
+        reason == title
+            ? "$e $title"
+            : MclashI18n.t.subNotice
+                .titleWithReason(emoji: e, title: title, reason: reason),
+      );
     } else if (title.isNotEmpty) {
       parts.add("$emoji $title");
     }
     if (deviceLimit > 0) {
-      parts.add("当前设备 $deviceUsed/$deviceLimit");
+      parts.add(MclashI18n.t.subNotice
+          .deviceUsedOfLimit(used: deviceUsed, limit: deviceLimit));
     } else if (deviceUsed > 0) {
-      parts.add("当前设备 $deviceUsed");
+      parts.add(MclashI18n.t.subNotice.deviceUsedOnly(used: deviceUsed));
     }
     if (expire.isNotEmpty) {
-      parts.add("到期时间 $expire");
+      parts.add(MclashI18n.t.subNotice.expireAt(expire: expire));
     }
     if (solution.isNotEmpty) {
+      // solution 是服务端原文，这里只补一个提示图标。
       parts.add("💡 $solution");
     }
     if (support.isNotEmpty) {
-      parts.add("💬 客服: $support");
+      parts.add(MclashI18n.t.subNotice.supportLine(account: support));
     }
     if (site.isNotEmpty) {
-      parts.add("📢 官网: $site");
+      parts.add(MclashI18n.t.subNotice.siteLine(url: site));
     }
     return parts.join("\n");
   }

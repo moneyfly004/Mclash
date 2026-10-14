@@ -1,4 +1,3 @@
-
 library;
 
 import 'dart:async';
@@ -133,10 +132,11 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         _error = null;
         _selectedPlanId ??= plans.isNotEmpty
             ? ((plans.firstWhere(
-                    (p) => p["is_recommended"] == true,
-                    orElse: () => plans.first,
-                  )["id"]) as num?)
-                ?.toInt()
+                        (p) => p["is_recommended"] == true,
+                        orElse: () => plans.first,
+                      )["id"])
+                      as num?)
+                  ?.toInt()
             : null;
         _selectedMethod ??= methods.isNotEmpty ? methods.first : null;
         _loading = false;
@@ -295,9 +295,9 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
                         ),
                       ),
                       if (p["is_recommended"] == true)
-                        const Text(
-                          "推荐",
-                          style: TextStyle(
+                        Text(
+                          t.planScreen.recommended,
+                          style: const TextStyle(
                             fontSize: 12,
                             color: ThemeDefine.kColorBlue,
                           ),
@@ -328,7 +328,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
                   const SizedBox(height: 6),
                   Text(
                     "${p["duration_days"] ?? 30} ${t.meta.days} · "
-                    "${p["device_limit"] ?? 1} 设备 · "
+                    "${p["device_limit"] ?? 1} ${t.planScreen.devices} · "
                     "${p["traffic_limit"] ?? "-"}",
                     style: const TextStyle(
                       fontSize: 12,
@@ -361,9 +361,11 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
             final selected =
                 payType == (_selectedMethod?["pay_type"] ?? "").toString();
 
-            final label = (m["label"] ?? "").toString().isNotEmpty
-                ? m["label"].toString()
-                : MclashApi.paymentMethodLabel(payType);
+            final label = _methodLabel(
+              t,
+              payType,
+              (m["label"] ?? "").toString().trim(),
+            );
 
             final isBalance = payType == "balance";
             final info = MclashAccountInfo(
@@ -387,8 +389,10 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
               ),
               subtitle: isBalance
                   ? Text(
-                      "余额 ¥${info.balance.toStringAsFixed(2)}"
-                      "${notEnough ? "（不足，请先充值）" : ""}",
+                      t.planScreen.balanceLabel(
+                            amount: info.balance.toStringAsFixed(2),
+                          ) +
+                          (notEnough ? t.planScreen.balanceInsufficient : ""),
                       style: TextStyle(
                         fontSize: 12,
                         color: notEnough ? Colors.red : ThemeDefine.kColorGrey,
@@ -406,6 +410,45 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
     );
   }
 
+  /// 支付通道名：已知通道用本地文案（英文界面下必须全英文），
+  /// 未知通道透传服务端下发的 label（服务端原始数据不翻译）。
+  static String _methodLabel(Translations t, String payType, String rawLabel) {
+    switch (payType.trim().toLowerCase()) {
+      case "balance":
+        return t.planScreen.payBalance;
+      case "alipay":
+        return t.planScreen.payAlipay;
+      case "wxpay":
+      case "wechat":
+        return t.planScreen.payWechat;
+      case "codepay":
+        return t.planScreen.payCodepay;
+      case "codepay_alipay":
+        return t.planScreen.payCodepayAlipay;
+      case "codepay_wxpay":
+      case "codepay_wechat":
+        return t.planScreen.payCodepayWechat;
+      case "epay_alipay":
+        return t.planScreen.payEpayAlipay;
+      case "epay_wxpay":
+        return t.planScreen.payEpayWechat;
+      case "stripe":
+        return t.planScreen.payStripe;
+      case "paypal":
+        return t.planScreen.payPaypal;
+      case "usdt_trc20":
+        return t.planScreen.payUsdtTrc20;
+      case "usdt":
+      case "crypto":
+        return t.planScreen.payUsdt;
+    }
+    if (rawLabel.isNotEmpty) {
+      return rawLabel;
+    }
+    final key = payType.trim();
+    return key.isEmpty ? t.planScreen.payOnline : key;
+  }
+
   Widget _buildCheckout(Translations t) {
     final plan = _plans.firstWhere(
       (p) => _asInt(p["id"]) == _selectedPlanId,
@@ -420,7 +463,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
         child: Row(
           children: [
-            const Text("合计", style: TextStyle(fontSize: 12.5)),
+            Text(t.planScreen.total, style: const TextStyle(fontSize: 12.5)),
             const SizedBox(width: 6),
             Text(
               "¥${payable.toStringAsFixed(2)}",
@@ -432,7 +475,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
             const Spacer(),
             ElevatedButton(
               onPressed: canPay ? () => _pay(payable) : null,
-              child: const Text("立即支付"),
+              child: Text(t.planScreen.payNow),
             ),
           ],
         ),
@@ -441,6 +484,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
   }
 
   Future<void> _pay(double amount) async {
+    final t = Translations.of(context);
     try {
       final order = await MclashApi.createOrder(
         _selectedPlanId!,
@@ -474,9 +518,8 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
           return;
         }
       } else {
-
         if (orderId == null || methodId == null) {
-          throw MclashApiError("订单或支付通道信息不完整，无法发起支付", 0);
+          throw MclashApiError(t.planScreen.errIncompleteOrder, 0);
         }
         final r = await MclashApi.createPayment(
           orderId: orderId,
@@ -538,7 +581,7 @@ class _MclashPlanScreenState extends LasyRenderingState<MclashPlanScreen> {
               style: const TextStyle(fontSize: 14, color: Colors.red),
             ),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _load, child: const Text("重试")),
+            ElevatedButton(onPressed: _load, child: Text(t.planScreen.retry)),
           ],
         ),
       ),

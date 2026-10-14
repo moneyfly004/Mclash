@@ -143,6 +143,16 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$sysProxySheet$en sysProxySheet = Translations$sysProxySheet$en._(_root);
 	late final Translations$logScreen$en logScreen = Translations$logScreen$en._(_root);
 	late final Translations$trayShell$en trayShell = Translations$trayShell$en._(_root);
+	late final Translations$ordersScreen$en ordersScreen = Translations$ordersScreen$en._(_root);
+	late final Translations$payment$en payment = Translations$payment$en._(_root);
+	late final Translations$planScreen$en planScreen = Translations$planScreen$en._(_root);
+	late final Translations$authScreen$en authScreen = Translations$authScreen$en._(_root);
+	late final Translations$updatePrompt$en updatePrompt = Translations$updatePrompt$en._(_root);
+	late final Translations$clearData$en clearData = Translations$clearData$en._(_root);
+	late final Translations$apiError$en apiError = Translations$apiError$en._(_root);
+	late final Translations$subNotice$en subNotice = Translations$subNotice$en._(_root);
+	late final Translations$settingItems$en settingItems = Translations$settingItems$en._(_root);
+	late final Translations$tunScreen$en tunScreen = Translations$tunScreen$en._(_root);
 }
 
 // Path: BackupAndSyncWebdavScreen
@@ -1715,6 +1725,681 @@ class Translations$trayShell$en {
 	String get closeBody => 'Closing the window just puts Mclash in the tray — the kernel and system proxy keep working, and your network stays connected.\n\n· OK: minimize to the tray (to quit completely, right-click the tray icon → Quit)\n· Cancel: quit Mclash completely, stop the kernel and restore the system proxy\n\n(Your choice is remembered; next time you can use the tray icon directly)';
 }
 
+// Path: ordersScreen
+class Translations$ordersScreen$en {
+	Translations$ordersScreen$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'My Orders'
+	String get title => 'My Orders';
+
+	/// en: 'Order information is incomplete. Pull down to refresh and try again.'
+	String get orderInfoIncomplete => 'Order information is incomplete. Pull down to refresh and try again.';
+
+	/// en: 'Payment channel information is incomplete. Please try again later.'
+	String get payChannelIncomplete => 'Payment channel information is incomplete. Please try again later.';
+
+	/// en: 'The server did not return a payment QR code or link. Please choose another payment method or try again later.'
+	String get noQrPayload => 'The server did not return a payment QR code or link. Please choose another payment method or try again later.';
+
+	/// en: 'Failed to start payment: ${err}'
+	String payStartFailed({required Object err}) => 'Failed to start payment: ${err}';
+
+	/// en: 'No payment method is available right now. Please try again later or contact support.'
+	String get noPayMethod => 'No payment method is available right now. Please try again later or contact support.';
+
+	/// en: 'Choose a payment method'
+	String get choosePayMethod => 'Choose a payment method';
+
+	/// en: 'Amount due ¥${amount}'
+	String amountDue({required Object amount}) => 'Amount due ¥${amount}';
+
+	/// en: '● Paid'
+	String get paidLabel => '● Paid';
+
+	/// en: '○ Unpaid'
+	String get pendingLabel => '○ Unpaid';
+
+	/// en: '✕ ${status}'
+	String unknownStatus({required Object status}) => '✕ ${status}';
+
+	/// en: 'Order No. ${orderNo}'
+	String orderNoText({required Object orderNo}) => 'Order No. ${orderNo}';
+
+	/// en: 'Created at ${createdAt}'
+	String createdAtText({required Object createdAt}) => 'Created at ${createdAt}';
+
+	/// en: 'Order canceled'
+	String get orderCanceled => 'Order canceled';
+
+	/// en: 'Cancel failed: ${err} (If the order has already been paid or canceled, pull down to refresh to see the latest status.)'
+	String cancelFailed({required Object err}) => 'Cancel failed: ${err}\n(If the order has already been paid or canceled, pull down to refresh to see the latest status.)';
+
+	/// en: 'Cancel order'
+	String get cancelOrder => 'Cancel order';
+
+	/// en: 'Continue payment'
+	String get continuePay => 'Continue payment';
+}
+
+// Path: payment
+class Translations$payment$en {
+	Translations$payment$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Balance payment'
+	String get balancePay => 'Balance payment';
+
+	/// en: 'Scan to pay'
+	String get qrPay => 'Scan to pay';
+
+	/// en: 'Deducted from your account balance'
+	String get deductFromBalance => 'Deducted from your account balance';
+
+	/// en: 'The payment page has been opened in your browser'
+	String get openedInBrowser => 'The payment page has been opened in your browser';
+
+	/// en: 'Scan with Alipay or WeChat'
+	String get scanWithAlipayWechat => 'Scan with Alipay or WeChat';
+
+	/// en: 'Order No. ${orderNo}'
+	String orderNoText({required Object orderNo}) => 'Order No. ${orderNo}';
+
+	/// en: 'Payment failed: ${err}'
+	String payFailed({required Object err}) => 'Payment failed: ${err}';
+
+	/// en: 'No payment detected. You can continue later in "My Orders".'
+	String get notDetected => 'No payment detected. You can continue later in "My Orders".';
+
+	/// en: 'Charging…'
+	String get charging => 'Charging…';
+
+	/// en: 'Processing…'
+	String get processing => 'Processing…';
+
+	/// en: 'Waiting for payment…'
+	String get waitingPay => 'Waiting for payment…';
+
+	/// en: 'Could not open the payment page. Tap the button below to retry, or scan the QR code instead.'
+	String get openPageFailed => 'Could not open the payment page. Tap the button below to retry, or scan the QR code instead.';
+
+	/// en: 'Reopen payment page'
+	String get reopenPayPage => 'Reopen payment page';
+
+	/// en: 'Pay in browser'
+	String get payInBrowser => 'Pay in browser';
+
+	/// en: 'Open Alipay'
+	String get openAlipay => 'Open Alipay';
+
+	/// en: 'Cancel order'
+	String get cancelOrder => 'Cancel order';
+
+	/// en: 'Confirm payment'
+	String get confirmPay => 'Confirm payment';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'I have paid'
+	String get paidAlready => 'I have paid';
+
+	/// en: 'Alipay'
+	String get channelAlipay => 'Alipay';
+
+	/// en: 'Code Pay · Alipay'
+	String get channelCodepayAlipay => 'Code Pay · Alipay';
+
+	/// en: 'Code Pay · WeChat'
+	String get channelCodepayWechat => 'Code Pay · WeChat';
+
+	/// en: 'Code Pay'
+	String get channelCodepay => 'Code Pay';
+
+	/// en: 'WeChat Pay'
+	String get channelWechat => 'WeChat Pay';
+
+	/// en: 'USDT'
+	String get channelUsdt => 'USDT';
+
+	/// en: 'USDT · TRC20'
+	String get channelUsdtTrc20 => 'USDT · TRC20';
+
+	/// en: 'Payment'
+	String get payFallback => 'Payment';
+
+	/// en: 'Your login credential has expired (CSRF check failed). Pull down to refresh on the "Me" tab or sign in again, then retry.'
+	String get errCsrf => 'Your login credential has expired (CSRF check failed).\nPull down to refresh on the "Me" tab or sign in again, then retry.';
+
+	/// en: 'Alipay face-to-face payment has a per-transaction limit (¥1000 for this merchant), and this order exceeds it. Please use "Balance payment" or "Code Pay" instead, or contact support to raise the Alipay limit.'
+	String get errAlipayLimit => 'Alipay face-to-face payment has a per-transaction limit (¥1000 for this merchant), and this order exceeds it.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to raise the Alipay limit.';
+
+	/// en: 'The Alipay app has not signed up for the matching payment product, so this channel is temporarily unavailable. Please use "Balance payment" or "Code Pay" instead, or contact support to enable it.'
+	String get errNotSigned => 'The Alipay app has not signed up for the matching payment product, so this channel is temporarily unavailable.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to enable it.';
+
+	/// en: 'This order has been canceled or has expired (draft orders are valid for 30 minutes). Tap "Re-quote" to create a new order, then pay.'
+	String get errOrderGone => 'This order has been canceled or has expired (draft orders are valid for 30 minutes).\nTap "Re-quote" to create a new order, then pay.';
+
+	/// en: 'Network unreachable: ${err}'
+	String errNetwork({required Object err}) => 'Network unreachable: ${err}';
+}
+
+// Path: planScreen
+class Translations$planScreen$en {
+	Translations$planScreen$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Recommended'
+	String get recommended => 'Recommended';
+
+	/// en: 'Devices'
+	String get devices => 'Devices';
+
+	/// en: 'Balance ¥${amount}'
+	String balanceLabel({required Object amount}) => 'Balance ¥${amount}';
+
+	/// en: ' (Insufficient, please top up first)'
+	String get balanceInsufficient => ' (Insufficient, please top up first)';
+
+	/// en: 'Total'
+	String get total => 'Total';
+
+	/// en: 'Pay Now'
+	String get payNow => 'Pay Now';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Order or payment channel information is incomplete; payment cannot be started.'
+	String get errIncompleteOrder => 'Order or payment channel information is incomplete; payment cannot be started.';
+
+	/// en: 'Balance Pay'
+	String get payBalance => 'Balance Pay';
+
+	/// en: 'Alipay'
+	String get payAlipay => 'Alipay';
+
+	/// en: 'WeChat Pay'
+	String get payWechat => 'WeChat Pay';
+
+	/// en: 'Codepay'
+	String get payCodepay => 'Codepay';
+
+	/// en: 'Codepay · Alipay'
+	String get payCodepayAlipay => 'Codepay · Alipay';
+
+	/// en: 'Codepay · WeChat'
+	String get payCodepayWechat => 'Codepay · WeChat';
+
+	/// en: 'Epay · Alipay'
+	String get payEpayAlipay => 'Epay · Alipay';
+
+	/// en: 'Epay · WeChat'
+	String get payEpayWechat => 'Epay · WeChat';
+
+	/// en: 'USDT'
+	String get payUsdt => 'USDT';
+
+	/// en: 'USDT · TRC20'
+	String get payUsdtTrc20 => 'USDT · TRC20';
+
+	/// en: 'Stripe'
+	String get payStripe => 'Stripe';
+
+	/// en: 'PayPal'
+	String get payPaypal => 'PayPal';
+
+	/// en: 'Online Payment'
+	String get payOnline => 'Online Payment';
+}
+
+// Path: authScreen
+class Translations$authScreen$en {
+	Translations$authScreen$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Save account info'
+	String get saveAccountInfo => 'Save account info';
+
+	/// en: 'Sign in automatically next time'
+	String get autoLoginNextTime => 'Sign in automatically next time';
+
+	/// en: 'You'll need to sign in again next time'
+	String get needLoginNextTime => 'You\'ll need to sign in again next time';
+
+	/// en: 'Please enter a valid email address'
+	String get invalidEmail => 'Please enter a valid email address';
+
+	/// en: 'Please enter a valid email address first'
+	String get enterEmailFirst => 'Please enter a valid email address first';
+
+	/// en: 'Please enter your password'
+	String get passwordRequired => 'Please enter your password';
+
+	/// en: 'Incorrect email or password'
+	String get wrongCredentials => 'Incorrect email or password';
+
+	/// en: 'Request rejected. Please try again later.'
+	String get requestRejected => 'Request rejected. Please try again later.';
+
+	/// en: 'Too many attempts. Please try again later.'
+	String get tooFrequent => 'Too many attempts. Please try again later.';
+
+	/// en: 'Login failed'
+	String get loginFailed => 'Login failed';
+
+	/// en: 'Username'
+	String get username => 'Username';
+
+	/// en: 'Confirm password'
+	String get confirmPassword => 'Confirm password';
+
+	/// en: 'Invite code'
+	String get inviteCode => 'Invite code';
+
+	/// en: 'Email verification code'
+	String get emailCode => 'Email verification code';
+
+	/// en: 'Get code'
+	String get getCode => 'Get code';
+
+	/// en: 'Register and log in'
+	String get registerAndLogin => 'Register and log in';
+
+	/// en: 'Username must be at least ${min} characters'
+	String usernameMinLength({required Object min}) => 'Username must be at least ${min} characters';
+
+	/// en: 'The passwords do not match'
+	String get passwordMismatch => 'The passwords do not match';
+
+	/// en: 'Please enter the email verification code'
+	String get emailCodeRequired => 'Please enter the email verification code';
+
+	/// en: 'Registration on this site requires an invite code'
+	String get inviteCodeRequired => 'Registration on this site requires an invite code';
+
+	/// en: 'Verification code sent. Please check your email.'
+	String get codeSentCheckEmail => 'Verification code sent. Please check your email.';
+
+	/// en: 'Registration successful. You are now logged in.'
+	String get registerSuccess => 'Registration successful. You are now logged in.';
+
+	/// en: 'At least ${min} characters, including both letters and digits'
+	String passwordHint({required Object min}) => 'At least ${min} characters, including both letters and digits';
+
+	/// en: 'Password must be at least ${min} characters'
+	String passwordTooShort({required Object min}) => 'Password must be at least ${min} characters';
+
+	/// en: 'Password must contain both letters and digits'
+	String get passwordNeedsLetterAndDigit => 'Password must contain both letters and digits';
+
+	/// en: 'Registered email'
+	String get registeredEmail => 'Registered email';
+
+	/// en: 'New password'
+	String get newPassword => 'New password';
+
+	/// en: 'Confirm new password'
+	String get confirmNewPassword => 'Confirm new password';
+
+	/// en: 'Reset password'
+	String get resetPassword => 'Reset password';
+
+	/// en: 'If this email is registered, a reset code has been sent (valid for 15 minutes).'
+	String get resetCodeSent => 'If this email is registered, a reset code has been sent (valid for 15 minutes).';
+
+	/// en: 'Password reset. Please log in with your new password.'
+	String get resetSuccess => 'Password reset. Please log in with your new password.';
+
+	/// en: 'Change password'
+	String get changePasswordTitle => 'Change password';
+
+	/// en: 'Current password'
+	String get currentPassword => 'Current password';
+
+	/// en: 'Save new password'
+	String get saveNewPassword => 'Save new password';
+
+	/// en: 'The new passwords do not match'
+	String get newPasswordMismatch => 'The new passwords do not match';
+
+	/// en: 'Password changed. Please log in again.'
+	String get changePasswordSuccess => 'Password changed. Please log in again.';
+}
+
+// Path: updatePrompt
+class Translations$updatePrompt$en {
+	Translations$updatePrompt$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Checking for updates…'
+	String get checking => 'Checking for updates…';
+
+	/// en: 'Update check failed. Please check your network and try again.'
+	String get checkFailed => 'Update check failed. Please check your network and try again.';
+
+	/// en: 'You're on the latest version (${version}).'
+	String alreadyLatest({required Object version}) => 'You\'re on the latest version (${version}).';
+
+	/// en: 'New version ${version} is available'
+	String newVersionFound({required Object version}) => 'New version ${version} is available';
+
+	/// en: 'The installer has finished downloading in the background. Tap Update Now to complete the upgrade.'
+	String get installerDownloaded => 'The installer has finished downloading in the background. Tap Update Now to complete the upgrade.';
+
+	/// en: 'Tap Update Now to download and install it (you can keep using the app; the installer downloads in the background).'
+	String get downloadInBackground => 'Tap Update Now to download and install it (you can keep using the app; the installer downloads in the background).';
+
+	/// en: 'Later'
+	String get later => 'Later';
+
+	/// en: 'Update Now'
+	String get updateNow => 'Update Now';
+
+	/// en: 'The installer has not finished downloading yet. Tap OK to open the download page and manually download the installer that matches your device (version ${version}).'
+	String installerNotReady({required Object version}) => 'The installer has not finished downloading yet.\n\nTap OK to open the download page and manually download the installer that matches your device (version ${version}).';
+}
+
+// Path: clearData
+class Translations$clearData$en {
+	Translations$clearData$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Login session'
+	String get itemLoginSession => 'Login session';
+
+	/// en: 'Subscription profiles (profiles/)'
+	String get itemProfiles => 'Subscription profiles (profiles/)';
+
+	/// en: 'App and core settings'
+	String get itemSettings => 'App and core settings';
+
+	/// en: 'Node latency cache'
+	String get itemLatencyCache => 'Node latency cache';
+
+	/// en: 'Runtime logs'
+	String get itemLogs => 'Runtime logs';
+
+	/// en: 'Routing data and temporary files'
+	String get itemRoutingData => 'Routing data and temporary files';
+
+	/// en: 'The following data saved on this device will be deleted (this cannot be undone): ${items} The account itself and any plan you purchased live on the server and are not affected; sign in again to restore your subscription. Data directory: ${dir} (Do this before uninstalling the app: only then will reinstalling start clean and ask you to sign in again)'
+	String confirmBody({required Object items, required Object dir}) => 'The following data saved on this device will be deleted (this cannot be undone):\n\n${items}\n\nThe account itself and any plan you purchased live on the server and are not affected; sign in again to restore your subscription.\n\nData directory: ${dir}\n(Do this before uninstalling the app: only then will reinstalling start clean and ask you to sign in again)';
+
+	/// en: 'Clear now? You will need to sign in again afterwards.'
+	String get confirmAgain => 'Clear now? You will need to sign in again afterwards.';
+
+	/// en: 'Cleared ${count} local data items (including the login session, so you will need to sign in again next time you open the app). You can now delete the app to finish uninstalling: · macOS: drag Mclash.app to the Trash (the data directory has been emptied: ${dir}) · Windows: uninstall Mclash from Control Panel and choose No when the wizard asks whether to keep your user data'
+	String clearedNotice({required Object count, required Object dir}) => 'Cleared ${count} local data items (including the login session, so you will need to sign in again next time you open the app).\n\nYou can now delete the app to finish uninstalling:\n· macOS: drag Mclash.app to the Trash (the data directory has been emptied: ${dir})\n· Windows: uninstall Mclash from Control Panel and choose No when the wizard asks whether to keep your user data';
+
+	/// en: 'Clear failed: ${error}'
+	String clearFailed({required Object error}) => 'Clear failed: ${error}';
+}
+
+// Path: apiError
+class Translations$apiError$en {
+	Translations$apiError$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Request failed (HTTP ${status}); already tried ${domain}'
+	String requestFailedHttp({required Object status, required Object domain}) => 'Request failed (HTTP ${status}); already tried ${domain}';
+
+	/// en: 'Request failed: ${method} ${path} (tried ${count} domains)'
+	String allDomainsFailed({required Object method, required Object path, required Object count}) => 'Request failed: ${method} ${path} (tried ${count} domains)';
+
+	/// en: 'Request timed out (${seconds}s): ${method} ${path}'
+	String requestTimeout({required Object seconds, required Object method, required Object path}) => 'Request timed out (${seconds}s): ${method} ${path}';
+
+	/// en: 'Network unreachable: ${detail}'
+	String networkUnreachable({required Object detail}) => 'Network unreachable: ${detail}';
+
+	/// en: 'TLS handshake failed. Check your network connection or system time.'
+	String get tlsHandshakeFailed => 'TLS handshake failed. Check your network connection or system time.';
+
+	/// en: 'Connection failed: ${detail}'
+	String connectionFailed({required Object detail}) => 'Connection failed: ${detail}';
+
+	/// en: 'Request failed: ${error}'
+	String requestError({required Object error}) => 'Request failed: ${error}';
+
+	/// en: 'Reading the response timed out (${seconds}s): ${method} ${path}'
+	String responseReadTimeout({required Object seconds, required Object method, required Object path}) => 'Reading the response timed out (${seconds}s): ${method} ${path}';
+
+	/// en: 'Response is not JSON (HTTP ${status}): ${snippet}'
+	String notJson({required Object status, required Object snippet}) => 'Response is not JSON (HTTP ${status}): ${snippet}';
+
+	/// en: 'Unexpected response structure (HTTP ${status})'
+	String badStructure({required Object status}) => 'Unexpected response structure (HTTP ${status})';
+
+	/// en: 'Login failed (code ${code})'
+	String loginFailed({required Object code}) => 'Login failed (code ${code})';
+
+	/// en: 'Login response is missing data'
+	String get loginMissingData => 'Login response is missing data';
+
+	/// en: 'Login response is missing access_token'
+	String get loginMissingToken => 'Login response is missing access_token';
+
+	/// en: 'Registration failed (code ${code})'
+	String registerFailed({required Object code}) => 'Registration failed (code ${code})';
+
+	/// en: 'Registration response has no access_token - risk control may have been triggered, or the site is configured differently'
+	String get registerMissingToken => 'Registration response has no access_token - risk control may have been triggered, or the site is configured differently';
+
+	/// en: 'Request failed (code ${code})'
+	String requestFailedCode({required Object code}) => 'Request failed (code ${code})';
+}
+
+// Path: subNotice
+class Translations$subNotice$en {
+	Translations$subNotice$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Subscription not found'
+	String get titleNotFound => 'Subscription not found';
+
+	/// en: 'Subscription expired'
+	String get titleExpired => 'Subscription expired';
+
+	/// en: 'Subscription inactive'
+	String get titleInactive => 'Subscription inactive';
+
+	/// en: 'Device limit exceeded'
+	String get titleDeviceOverLimit => 'Device limit exceeded';
+
+	/// en: 'Subscription unavailable'
+	String get titleUnavailable => 'Subscription unavailable';
+
+	/// en: '${emoji} ${title} (${reason})'
+	String titleWithReason({required Object emoji, required Object title, required Object reason}) => '${emoji} ${title} (${reason})';
+
+	/// en: 'Current devices ${used}/${limit}'
+	String deviceUsedOfLimit({required Object used, required Object limit}) => 'Current devices ${used}/${limit}';
+
+	/// en: 'Current devices ${used}'
+	String deviceUsedOnly({required Object used}) => 'Current devices ${used}';
+
+	/// en: 'Expires at ${expire}'
+	String expireAt({required Object expire}) => 'Expires at ${expire}';
+
+	/// en: '💬 Support: ${account}'
+	String supportLine({required Object account}) => '💬 Support: ${account}';
+
+	/// en: '📢 Website: ${url}'
+	String siteLine({required Object url}) => '📢 Website: ${url}';
+}
+
+// Path: settingItems
+class Translations$settingItems$en {
+	Translations$settingItems$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Subscription auto-update interval'
+	String get subscriptionAutoUpdateInterval => 'Subscription auto-update interval';
+
+	/// en: 'Speed test method'
+	String get speedTestMode => 'Speed test method';
+
+	/// en: 'TCP speed test'
+	String get speedTestModeTcp => 'TCP speed test';
+
+	/// en: 'Kernel speed test'
+	String get speedTestModeKernel => 'Kernel speed test';
+
+	/// en: 'Time for one full HTTP request through this node (it is not a ping) Defaults to a plain http 204 empty response; using https adds a TLS handshake and a larger number'
+	String get delayTestUrlTip => 'Time for one full HTTP request through this node (it is not a ping)\nDefaults to a plain http 204 empty response; using https adds a TLS handshake and a larger number';
+
+	/// en: 'System proxy'
+	String get systemProxy => 'System proxy';
+
+	/// en: 'View / reset address and port'
+	String get systemProxyTip => 'View / reset address and port';
+
+	/// en: 'TUN mode'
+	String get tunMode => 'TUN mode';
+
+	/// en: 'off=system proxy only / auto=TUN+system proxy / force=TUN only On desktop, TUN requires administrator privileges (wintun on Windows / utun on macOS)'
+	String get tunModeTip => 'off=system proxy only / auto=TUN+system proxy / force=TUN only\nOn desktop, TUN requires administrator privileges (wintun on Windows / utun on macOS)';
+
+	/// en: 'overwrite On = the TUN settings on this page override the tun section of the profile Off = the profile's own tun configuration is used (the app does not interfere)'
+	String get tunOverwriteTip => 'overwrite\nOn = the TUN settings on this page override the tun section of the profile\nOff = the profile\'s own tun configuration is used (the app does not interfere)';
+
+	/// en: '${enable} (decided by TUN mode)'
+	String tunEnableByTunMode({required Object enable}) => '${enable} (decided by TUN mode)';
+
+	/// en: '30 minutes'
+	String get interval30Minutes => '30 minutes';
+
+	/// en: '1 hour'
+	String get interval1Hour => '1 hour';
+
+	/// en: '6 hours'
+	String get interval6Hours => '6 hours';
+
+	/// en: '12 hours'
+	String get interval12Hours => '12 hours';
+
+	/// en: '24 hours'
+	String get interval24Hours => '24 hours';
+
+	/// en: '3 days'
+	String get interval3Days => '3 days';
+
+	/// en: '7 days'
+	String get interval7Days => '7 days';
+
+	/// en: 'Never'
+	String get intervalNever => 'Never';
+
+	/// en: '${minutes} minutes'
+	String intervalMinutes({required Object minutes}) => '${minutes} minutes';
+
+	/// en: '${hours} hours'
+	String intervalHours({required Object hours}) => '${hours} hours';
+
+	/// en: '${days} days'
+	String intervalDays({required Object days}) => '${days} days';
+}
+
+// Path: tunScreen
+class Translations$tunScreen$en {
+	Translations$tunScreen$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Off'
+	String get modeOff => 'Off';
+
+	/// en: 'Auto'
+	String get modeAuto => 'Auto';
+
+	/// en: 'Force'
+	String get modeForce => 'Force';
+
+	/// en: 'System proxy only: works for programs that honor the system proxy (browsers and so on); UDP/games are not proxied'
+	String get modeOffDesc => 'System proxy only: works for programs that honor the system proxy (browsers and so on); UDP/games are not proxied';
+
+	/// en: 'TUN + system proxy (belt and braces): all traffic goes through the virtual adapter, including UDP'
+	String get modeAutoDesc => 'TUN + system proxy (belt and braces): all traffic goes through the virtual adapter, including UDP';
+
+	/// en: 'TUN only: all traffic goes through the virtual adapter, the system proxy is left untouched'
+	String get modeForceDesc => 'TUN only: all traffic goes through the virtual adapter, the system proxy is left untouched';
+
+	/// en: 'Does not touch the system routing table; only sets a 127.0.0.1 proxy in the system. Only programs that honor the system proxy use it; UDP traffic and programs with their own proxy settings do not.'
+	String get modeOffOptionDesc => 'Does not touch the system routing table; only sets a 127.0.0.1 proxy in the system. Only programs that honor the system proxy use it; UDP traffic and programs with their own proxy settings do not.';
+
+	/// en: 'Creates a virtual adapter and takes over all traffic (including UDP and games); the system proxy is kept as a fallback. Recommended: it works globally and you are not left without network access if permissions are missing.'
+	String get modeAutoOptionDesc => 'Creates a virtual adapter and takes over all traffic (including UDP and games); the system proxy is kept as a fallback. Recommended: it works globally and you are not left without network access if permissions are missing.';
+
+	/// en: 'Uses only the virtual adapter and no longer changes the system proxy. All traffic (including UDP) goes through the tunnel; the "proxy" entry in the system stays as it is.'
+	String get modeForceOptionDesc => 'Uses only the virtual adapter and no longer changes the system proxy. All traffic (including UDP) goes through the tunnel; the "proxy" entry in the system stays as it is.';
+
+	/// en: 'The TUN virtual adapter requires administrator privileges (wintun on Windows / utun on macOS). Mclash is not running as administrator right now, so TUN will not take effect after enabling it (in "Auto" mode the system proxy still works as a fallback, so the network stays usable). OK = restart Mclash as administrator now (a UAC prompt will appear) Cancel = still save this choice (the system proxy is used automatically when TUN is unavailable)'
+	String get adminRequiredDialog => 'The TUN virtual adapter requires administrator privileges (wintun on Windows / utun on macOS).\n\nMclash is not running as administrator right now, so TUN will not take effect after enabling it (in "Auto" mode the system proxy still works as a fallback, so the network stays usable).\n\nOK = restart Mclash as administrator now (a UAC prompt will appear)\nCancel = still save this choice (the system proxy is used automatically when TUN is unavailable)';
+
+	/// en: 'Restart failed: ${message}'
+	String relaunchFailed({required Object message}) => 'Restart failed: ${message}';
+
+	/// en: 'Failed to switch TUN mode: ${message} The previous settings have been restored.'
+	String switchFailed({required Object message}) => 'Failed to switch TUN mode: ${message}\nThe previous settings have been restored.';
+
+	/// en: 'Set to "Off": system proxy only'
+	String get setOffSnack => 'Set to "Off": system proxy only';
+
+	/// en: 'Set to "${mode}", ${effect}'
+	String setModeSnack({required Object mode, required Object effect}) => 'Set to "${mode}", ${effect}';
+
+	/// en: 'reconnected and now active'
+	String get effectReconnected => 'reconnected and now active';
+
+	/// en: 'active after connecting'
+	String get effectAfterConnect => 'active after connecting';
+
+	/// en: 'TUN Virtual Adapter'
+	String get sheetTitle => 'TUN Virtual Adapter';
+
+	/// en: 'Advanced parameters (Core Settings → TUN)'
+	String get advancedTitle => 'Advanced parameters (Core Settings → TUN)';
+
+	/// en: 'Adapter address / stack / MTU / auto route / DNS hijack / overwrite'
+	String get advancedSubtitle => 'Adapter address / stack / MTU / auto route / DNS hijack / overwrite';
+
+	/// en: 'TUN requires administrator privileges; the current privileges are sufficient (run as administrator on Windows / as root on macOS)'
+	String get adminOk => 'TUN requires administrator privileges; the current privileges are sufficient (run as administrator on Windows / as root on macOS)';
+
+	/// en: 'TUN requires administrator privileges: Mclash is not running as administrator, so TUN will not take effect after selecting "Auto/Force" ("Auto" falls back to the system proxy, so the network stays usable)'
+	String get adminMissing => 'TUN requires administrator privileges: Mclash is not running as administrator, so TUN will not take effect after selecting "Auto/Force" ("Auto" falls back to the system proxy, so the network stays usable)';
+}
+
 // Path: main.tray
 class Translations$main$tray$en {
 	Translations$main$tray$en._(this._root);
@@ -2256,6 +2941,201 @@ extension on Translations {
 			'logScreen.empty' => 'No content',
 			'trayShell.closeTitle' => 'Close window',
 			'trayShell.closeBody' => 'Closing the window just puts Mclash in the tray — the kernel and system proxy keep working, and your network stays connected.\n\n· OK: minimize to the tray (to quit completely, right-click the tray icon → Quit)\n· Cancel: quit Mclash completely, stop the kernel and restore the system proxy\n\n(Your choice is remembered; next time you can use the tray icon directly)',
+			'ordersScreen.title' => 'My Orders',
+			'ordersScreen.orderInfoIncomplete' => 'Order information is incomplete. Pull down to refresh and try again.',
+			'ordersScreen.payChannelIncomplete' => 'Payment channel information is incomplete. Please try again later.',
+			'ordersScreen.noQrPayload' => 'The server did not return a payment QR code or link. Please choose another payment method or try again later.',
+			'ordersScreen.payStartFailed' => ({required Object err}) => 'Failed to start payment: ${err}',
+			'ordersScreen.noPayMethod' => 'No payment method is available right now. Please try again later or contact support.',
+			'ordersScreen.choosePayMethod' => 'Choose a payment method',
+			'ordersScreen.amountDue' => ({required Object amount}) => 'Amount due ¥${amount}',
+			'ordersScreen.paidLabel' => '● Paid',
+			'ordersScreen.pendingLabel' => '○ Unpaid',
+			'ordersScreen.unknownStatus' => ({required Object status}) => '✕ ${status}',
+			'ordersScreen.orderNoText' => ({required Object orderNo}) => 'Order No. ${orderNo}',
+			'ordersScreen.createdAtText' => ({required Object createdAt}) => 'Created at ${createdAt}',
+			'ordersScreen.orderCanceled' => 'Order canceled',
+			'ordersScreen.cancelFailed' => ({required Object err}) => 'Cancel failed: ${err}\n(If the order has already been paid or canceled, pull down to refresh to see the latest status.)',
+			'ordersScreen.cancelOrder' => 'Cancel order',
+			'ordersScreen.continuePay' => 'Continue payment',
+			'payment.balancePay' => 'Balance payment',
+			'payment.qrPay' => 'Scan to pay',
+			'payment.deductFromBalance' => 'Deducted from your account balance',
+			'payment.openedInBrowser' => 'The payment page has been opened in your browser',
+			'payment.scanWithAlipayWechat' => 'Scan with Alipay or WeChat',
+			'payment.orderNoText' => ({required Object orderNo}) => 'Order No. ${orderNo}',
+			'payment.payFailed' => ({required Object err}) => 'Payment failed: ${err}',
+			'payment.notDetected' => 'No payment detected. You can continue later in "My Orders".',
+			'payment.charging' => 'Charging…',
+			'payment.processing' => 'Processing…',
+			'payment.waitingPay' => 'Waiting for payment…',
+			'payment.openPageFailed' => 'Could not open the payment page. Tap the button below to retry, or scan the QR code instead.',
+			'payment.reopenPayPage' => 'Reopen payment page',
+			'payment.payInBrowser' => 'Pay in browser',
+			'payment.openAlipay' => 'Open Alipay',
+			'payment.cancelOrder' => 'Cancel order',
+			'payment.confirmPay' => 'Confirm payment',
+			'payment.retry' => 'Retry',
+			'payment.paidAlready' => 'I have paid',
+			'payment.channelAlipay' => 'Alipay',
+			'payment.channelCodepayAlipay' => 'Code Pay · Alipay',
+			'payment.channelCodepayWechat' => 'Code Pay · WeChat',
+			'payment.channelCodepay' => 'Code Pay',
+			'payment.channelWechat' => 'WeChat Pay',
+			'payment.channelUsdt' => 'USDT',
+			'payment.channelUsdtTrc20' => 'USDT · TRC20',
+			'payment.payFallback' => 'Payment',
+			'payment.errCsrf' => 'Your login credential has expired (CSRF check failed).\nPull down to refresh on the "Me" tab or sign in again, then retry.',
+			'payment.errAlipayLimit' => 'Alipay face-to-face payment has a per-transaction limit (¥1000 for this merchant), and this order exceeds it.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to raise the Alipay limit.',
+			'payment.errNotSigned' => 'The Alipay app has not signed up for the matching payment product, so this channel is temporarily unavailable.\nPlease use "Balance payment" or "Code Pay" instead, or contact support to enable it.',
+			'payment.errOrderGone' => 'This order has been canceled or has expired (draft orders are valid for 30 minutes).\nTap "Re-quote" to create a new order, then pay.',
+			'payment.errNetwork' => ({required Object err}) => 'Network unreachable: ${err}',
+			'planScreen.recommended' => 'Recommended',
+			'planScreen.devices' => 'Devices',
+			'planScreen.balanceLabel' => ({required Object amount}) => 'Balance ¥${amount}',
+			'planScreen.balanceInsufficient' => ' (Insufficient, please top up first)',
+			'planScreen.total' => 'Total',
+			'planScreen.payNow' => 'Pay Now',
+			'planScreen.retry' => 'Retry',
+			'planScreen.errIncompleteOrder' => 'Order or payment channel information is incomplete; payment cannot be started.',
+			'planScreen.payBalance' => 'Balance Pay',
+			'planScreen.payAlipay' => 'Alipay',
+			'planScreen.payWechat' => 'WeChat Pay',
+			'planScreen.payCodepay' => 'Codepay',
+			'planScreen.payCodepayAlipay' => 'Codepay · Alipay',
+			'planScreen.payCodepayWechat' => 'Codepay · WeChat',
+			'planScreen.payEpayAlipay' => 'Epay · Alipay',
+			'planScreen.payEpayWechat' => 'Epay · WeChat',
+			'planScreen.payUsdt' => 'USDT',
+			'planScreen.payUsdtTrc20' => 'USDT · TRC20',
+			'planScreen.payStripe' => 'Stripe',
+			'planScreen.payPaypal' => 'PayPal',
+			'planScreen.payOnline' => 'Online Payment',
+			'authScreen.saveAccountInfo' => 'Save account info',
+			'authScreen.autoLoginNextTime' => 'Sign in automatically next time',
+			'authScreen.needLoginNextTime' => 'You\'ll need to sign in again next time',
+			'authScreen.invalidEmail' => 'Please enter a valid email address',
+			'authScreen.enterEmailFirst' => 'Please enter a valid email address first',
+			'authScreen.passwordRequired' => 'Please enter your password',
+			'authScreen.wrongCredentials' => 'Incorrect email or password',
+			'authScreen.requestRejected' => 'Request rejected. Please try again later.',
+			'authScreen.tooFrequent' => 'Too many attempts. Please try again later.',
+			'authScreen.loginFailed' => 'Login failed',
+			'authScreen.username' => 'Username',
+			'authScreen.confirmPassword' => 'Confirm password',
+			'authScreen.inviteCode' => 'Invite code',
+			'authScreen.emailCode' => 'Email verification code',
+			'authScreen.getCode' => 'Get code',
+			'authScreen.registerAndLogin' => 'Register and log in',
+			'authScreen.usernameMinLength' => ({required Object min}) => 'Username must be at least ${min} characters',
+			'authScreen.passwordMismatch' => 'The passwords do not match',
+			'authScreen.emailCodeRequired' => 'Please enter the email verification code',
+			'authScreen.inviteCodeRequired' => 'Registration on this site requires an invite code',
+			'authScreen.codeSentCheckEmail' => 'Verification code sent. Please check your email.',
+			'authScreen.registerSuccess' => 'Registration successful. You are now logged in.',
+			'authScreen.passwordHint' => ({required Object min}) => 'At least ${min} characters, including both letters and digits',
+			'authScreen.passwordTooShort' => ({required Object min}) => 'Password must be at least ${min} characters',
+			'authScreen.passwordNeedsLetterAndDigit' => 'Password must contain both letters and digits',
+			'authScreen.registeredEmail' => 'Registered email',
+			'authScreen.newPassword' => 'New password',
+			'authScreen.confirmNewPassword' => 'Confirm new password',
+			'authScreen.resetPassword' => 'Reset password',
+			'authScreen.resetCodeSent' => 'If this email is registered, a reset code has been sent (valid for 15 minutes).',
+			'authScreen.resetSuccess' => 'Password reset. Please log in with your new password.',
+			'authScreen.changePasswordTitle' => 'Change password',
+			'authScreen.currentPassword' => 'Current password',
+			'authScreen.saveNewPassword' => 'Save new password',
+			'authScreen.newPasswordMismatch' => 'The new passwords do not match',
+			'authScreen.changePasswordSuccess' => 'Password changed. Please log in again.',
+			'updatePrompt.checking' => 'Checking for updates…',
+			'updatePrompt.checkFailed' => 'Update check failed. Please check your network and try again.',
+			'updatePrompt.alreadyLatest' => ({required Object version}) => 'You\'re on the latest version (${version}).',
+			'updatePrompt.newVersionFound' => ({required Object version}) => 'New version ${version} is available',
+			'updatePrompt.installerDownloaded' => 'The installer has finished downloading in the background. Tap Update Now to complete the upgrade.',
+			'updatePrompt.downloadInBackground' => 'Tap Update Now to download and install it (you can keep using the app; the installer downloads in the background).',
+			'updatePrompt.later' => 'Later',
+			'updatePrompt.updateNow' => 'Update Now',
+			'updatePrompt.installerNotReady' => ({required Object version}) => 'The installer has not finished downloading yet.\n\nTap OK to open the download page and manually download the installer that matches your device (version ${version}).',
+			'clearData.itemLoginSession' => 'Login session',
+			'clearData.itemProfiles' => 'Subscription profiles (profiles/)',
+			'clearData.itemSettings' => 'App and core settings',
+			'clearData.itemLatencyCache' => 'Node latency cache',
+			'clearData.itemLogs' => 'Runtime logs',
+			'clearData.itemRoutingData' => 'Routing data and temporary files',
+			'clearData.confirmBody' => ({required Object items, required Object dir}) => 'The following data saved on this device will be deleted (this cannot be undone):\n\n${items}\n\nThe account itself and any plan you purchased live on the server and are not affected; sign in again to restore your subscription.\n\nData directory: ${dir}\n(Do this before uninstalling the app: only then will reinstalling start clean and ask you to sign in again)',
+			'clearData.confirmAgain' => 'Clear now? You will need to sign in again afterwards.',
+			'clearData.clearedNotice' => ({required Object count, required Object dir}) => 'Cleared ${count} local data items (including the login session, so you will need to sign in again next time you open the app).\n\nYou can now delete the app to finish uninstalling:\n· macOS: drag Mclash.app to the Trash (the data directory has been emptied: ${dir})\n· Windows: uninstall Mclash from Control Panel and choose No when the wizard asks whether to keep your user data',
+			'clearData.clearFailed' => ({required Object error}) => 'Clear failed: ${error}',
+			'apiError.requestFailedHttp' => ({required Object status, required Object domain}) => 'Request failed (HTTP ${status}); already tried ${domain}',
+			'apiError.allDomainsFailed' => ({required Object method, required Object path, required Object count}) => 'Request failed: ${method} ${path} (tried ${count} domains)',
+			'apiError.requestTimeout' => ({required Object seconds, required Object method, required Object path}) => 'Request timed out (${seconds}s): ${method} ${path}',
+			'apiError.networkUnreachable' => ({required Object detail}) => 'Network unreachable: ${detail}',
+			'apiError.tlsHandshakeFailed' => 'TLS handshake failed. Check your network connection or system time.',
+			'apiError.connectionFailed' => ({required Object detail}) => 'Connection failed: ${detail}',
+			'apiError.requestError' => ({required Object error}) => 'Request failed: ${error}',
+			'apiError.responseReadTimeout' => ({required Object seconds, required Object method, required Object path}) => 'Reading the response timed out (${seconds}s): ${method} ${path}',
+			'apiError.notJson' => ({required Object status, required Object snippet}) => 'Response is not JSON (HTTP ${status}): ${snippet}',
+			'apiError.badStructure' => ({required Object status}) => 'Unexpected response structure (HTTP ${status})',
+			'apiError.loginFailed' => ({required Object code}) => 'Login failed (code ${code})',
+			'apiError.loginMissingData' => 'Login response is missing data',
+			'apiError.loginMissingToken' => 'Login response is missing access_token',
+			'apiError.registerFailed' => ({required Object code}) => 'Registration failed (code ${code})',
+			'apiError.registerMissingToken' => 'Registration response has no access_token - risk control may have been triggered, or the site is configured differently',
+			'apiError.requestFailedCode' => ({required Object code}) => 'Request failed (code ${code})',
+			'subNotice.titleNotFound' => 'Subscription not found',
+			'subNotice.titleExpired' => 'Subscription expired',
+			'subNotice.titleInactive' => 'Subscription inactive',
+			'subNotice.titleDeviceOverLimit' => 'Device limit exceeded',
+			'subNotice.titleUnavailable' => 'Subscription unavailable',
+			'subNotice.titleWithReason' => ({required Object emoji, required Object title, required Object reason}) => '${emoji} ${title} (${reason})',
+			'subNotice.deviceUsedOfLimit' => ({required Object used, required Object limit}) => 'Current devices ${used}/${limit}',
+			'subNotice.deviceUsedOnly' => ({required Object used}) => 'Current devices ${used}',
+			'subNotice.expireAt' => ({required Object expire}) => 'Expires at ${expire}',
+			'subNotice.supportLine' => ({required Object account}) => '💬 Support: ${account}',
+			'subNotice.siteLine' => ({required Object url}) => '📢 Website: ${url}',
+			'settingItems.subscriptionAutoUpdateInterval' => 'Subscription auto-update interval',
+			'settingItems.speedTestMode' => 'Speed test method',
+			'settingItems.speedTestModeTcp' => 'TCP speed test',
+			'settingItems.speedTestModeKernel' => 'Kernel speed test',
+			'settingItems.delayTestUrlTip' => 'Time for one full HTTP request through this node (it is not a ping)\nDefaults to a plain http 204 empty response; using https adds a TLS handshake and a larger number',
+			'settingItems.systemProxy' => 'System proxy',
+			'settingItems.systemProxyTip' => 'View / reset address and port',
+			'settingItems.tunMode' => 'TUN mode',
+			'settingItems.tunModeTip' => 'off=system proxy only / auto=TUN+system proxy / force=TUN only\nOn desktop, TUN requires administrator privileges (wintun on Windows / utun on macOS)',
+			'settingItems.tunOverwriteTip' => 'overwrite\nOn = the TUN settings on this page override the tun section of the profile\nOff = the profile\'s own tun configuration is used (the app does not interfere)',
+			'settingItems.tunEnableByTunMode' => ({required Object enable}) => '${enable} (decided by TUN mode)',
+			'settingItems.interval30Minutes' => '30 minutes',
+			'settingItems.interval1Hour' => '1 hour',
+			'settingItems.interval6Hours' => '6 hours',
+			'settingItems.interval12Hours' => '12 hours',
+			'settingItems.interval24Hours' => '24 hours',
+			'settingItems.interval3Days' => '3 days',
+			'settingItems.interval7Days' => '7 days',
+			'settingItems.intervalNever' => 'Never',
+			'settingItems.intervalMinutes' => ({required Object minutes}) => '${minutes} minutes',
+			'settingItems.intervalHours' => ({required Object hours}) => '${hours} hours',
+			'settingItems.intervalDays' => ({required Object days}) => '${days} days',
+			'tunScreen.modeOff' => 'Off',
+			'tunScreen.modeAuto' => 'Auto',
+			'tunScreen.modeForce' => 'Force',
+			'tunScreen.modeOffDesc' => 'System proxy only: works for programs that honor the system proxy (browsers and so on); UDP/games are not proxied',
+			'tunScreen.modeAutoDesc' => 'TUN + system proxy (belt and braces): all traffic goes through the virtual adapter, including UDP',
+			'tunScreen.modeForceDesc' => 'TUN only: all traffic goes through the virtual adapter, the system proxy is left untouched',
+			'tunScreen.modeOffOptionDesc' => 'Does not touch the system routing table; only sets a 127.0.0.1 proxy in the system. Only programs that honor the system proxy use it; UDP traffic and programs with their own proxy settings do not.',
+			'tunScreen.modeAutoOptionDesc' => 'Creates a virtual adapter and takes over all traffic (including UDP and games); the system proxy is kept as a fallback. Recommended: it works globally and you are not left without network access if permissions are missing.',
+			'tunScreen.modeForceOptionDesc' => 'Uses only the virtual adapter and no longer changes the system proxy. All traffic (including UDP) goes through the tunnel; the "proxy" entry in the system stays as it is.',
+			'tunScreen.adminRequiredDialog' => 'The TUN virtual adapter requires administrator privileges (wintun on Windows / utun on macOS).\n\nMclash is not running as administrator right now, so TUN will not take effect after enabling it (in "Auto" mode the system proxy still works as a fallback, so the network stays usable).\n\nOK = restart Mclash as administrator now (a UAC prompt will appear)\nCancel = still save this choice (the system proxy is used automatically when TUN is unavailable)',
+			'tunScreen.relaunchFailed' => ({required Object message}) => 'Restart failed: ${message}',
+			'tunScreen.switchFailed' => ({required Object message}) => 'Failed to switch TUN mode: ${message}\nThe previous settings have been restored.',
+			'tunScreen.setOffSnack' => 'Set to "Off": system proxy only',
+			'tunScreen.setModeSnack' => ({required Object mode, required Object effect}) => 'Set to "${mode}", ${effect}',
+			'tunScreen.effectReconnected' => 'reconnected and now active',
+			'tunScreen.effectAfterConnect' => 'active after connecting',
+			'tunScreen.sheetTitle' => 'TUN Virtual Adapter',
+			'tunScreen.advancedTitle' => 'Advanced parameters (Core Settings → TUN)',
+			'tunScreen.advancedSubtitle' => 'Adapter address / stack / MTU / auto route / DNS hijack / overwrite',
+			'tunScreen.adminOk' => 'TUN requires administrator privileges; the current privileges are sufficient (run as administrator on Windows / as root on macOS)',
+			'tunScreen.adminMissing' => 'TUN requires administrator privileges: Mclash is not running as administrator, so TUN will not take effect after selecting "Auto/Force" ("Auto" falls back to the system proxy, so the network stays usable)',
 			_ => null,
 		};
 	}

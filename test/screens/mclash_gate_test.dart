@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/screens/mclash_gate.dart';
 import 'package:mclash/screens/mclash_login_screen.dart';
@@ -11,6 +12,11 @@ Future<void> _disposeAndSettleTimers(WidgetTester tester) async {
 }
 
 void main() {
+  /// 登录页文案走 i18n（默认英文），而断言用的是中文 —— 固定简中保证确定性。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   group('stageFor：首屏阶段判定', () {
     test('未判定（restore 未完成）→ 加载态，不能直接给登录页', () {
       expect(stageFor(null), MclashGateStage.loading);
@@ -52,7 +58,9 @@ void main() {
       SettingManager.getConfig().rememberAccount = true;
       CBoardSessionStore.rememberOverride = () => false;
 
-      await tester.pumpWidget(const MaterialApp(home: MclashLoginScreen()));
+      await tester.pumpWidget(
+        TranslationProvider(child: const MaterialApp(home: MclashLoginScreen())),
+      );
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.text('保存账号信息'), findsOneWidget, reason: '登录页必须有这个开关');
@@ -79,7 +87,9 @@ void main() {
 
   group('登录页真实渲染', () {
     testWidgets('含应用名、登录按钮、忘记密码入口与输入框', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: MclashLoginScreen()));
+      await tester.pumpWidget(
+        TranslationProvider(child: const MaterialApp(home: MclashLoginScreen())),
+      );
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.text('Mclash'), findsOneWidget, reason: '应有应用名标题');
@@ -91,7 +101,9 @@ void main() {
     });
 
     testWidgets('邮箱为空时点登录会就地报错（不发起请求）', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: MclashLoginScreen()));
+      await tester.pumpWidget(
+        TranslationProvider(child: const MaterialApp(home: MclashLoginScreen())),
+      );
       await tester.pump(const Duration(milliseconds: 50));
 
       await tester.tap(find.text('登录'));

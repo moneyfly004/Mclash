@@ -5,6 +5,7 @@ import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/group_helper.dart';
 import 'package:mclash/screens/theme_config.dart';
@@ -13,19 +14,63 @@ import 'package:mclash/screens/theme_define.dart';
 abstract final class MclashTunSetting {
   static bool _applying = false;
 
-  static String label(String mode) => switch (mode) {
+  /// 取词入口：`context != null` 时走 slang（`Translations.of(context)`），
+  /// 语言切换后立即是新语言；为 `null` 时走下面的 `_legacy*` 分支。
+  ///
+  /// 为什么保留 `_legacy*` 中文分支：它的唯一调用方
+  /// `lib/screens/mclash_profile_screen.dart` 拿不到 `context`，而
+  /// `test/screens/mclash_home_tun_switch_test.dart` 又逐条断言这三段中文文案。
+  /// 这两个文件不在本次改造范围（只能改本文件与 group_helper.dart），所以
+  /// 无 context 的行为与改造前逐字一致，零回归。
+  /// 若后续把这两个文件一起改造，删掉 `_legacy*` 即可。
+  ///
+  /// 本 App 内所有界面（TUN 设置页 + 核心设置页）一律传 `context`。
+
+  static String label(String mode, [BuildContext? context]) => context == null
+      ? _legacyLabel(mode)
+      : _label(Translations.of(context), mode);
+
+  static String _label(Translations t, String mode) => switch (mode) {
+    SettingConfig.kTunModeAuto => t.tunScreen.modeAuto,
+    SettingConfig.kTunModeForce => t.tunScreen.modeForce,
+    _ => t.tunScreen.modeOff,
+  };
+
+  static String _legacyLabel(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto => "自动",
     SettingConfig.kTunModeForce => "强制",
     _ => "关闭",
   };
 
-  static String description(String mode) => switch (mode) {
+  static String description(String mode, [BuildContext? context]) =>
+      context == null
+      ? _legacyDescription(mode)
+      : _description(Translations.of(context), mode);
+
+  static String _description(Translations t, String mode) => switch (mode) {
+    SettingConfig.kTunModeAuto => t.tunScreen.modeAutoDesc,
+    SettingConfig.kTunModeForce => t.tunScreen.modeForceDesc,
+    _ => t.tunScreen.modeOffDesc,
+  };
+
+  static String _legacyDescription(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto => "TUN + 系统代理（双保险）：全部流量走虚拟网卡，含 UDP",
     SettingConfig.kTunModeForce => "仅 TUN：全部流量走虚拟网卡，不再改系统代理",
     _ => "仅系统代理：浏览器等遵守系统代理的程序生效，UDP/游戏不走代理",
   };
 
-  static String optionDesc(String mode) => switch (mode) {
+  static String optionDesc(String mode, [BuildContext? context]) =>
+      context == null
+      ? _legacyOptionDesc(mode)
+      : _optionDesc(Translations.of(context), mode);
+
+  static String _optionDesc(Translations t, String mode) => switch (mode) {
+    SettingConfig.kTunModeAuto => t.tunScreen.modeAutoOptionDesc,
+    SettingConfig.kTunModeForce => t.tunScreen.modeForceOptionDesc,
+    _ => t.tunScreen.modeOffOptionDesc,
+  };
+
+  static String _legacyOptionDesc(String mode) => switch (mode) {
     SettingConfig.kTunModeAuto =>
       "建虚拟网卡接管全部流量（含 UDP、游戏）；同时保留系统代理作为兜底。"
           "推荐：既能全局生效，又不会因为权限问题彻底没网。",
@@ -71,6 +116,7 @@ abstract final class MclashTunSetting {
     if (!context.mounted) {
       return;
     }
+    final t = Translations.of(context);
     final needsAdmin =
         mode != SettingConfig.kTunModeOff &&
         PlatformUtils.isPC() &&
@@ -78,11 +124,7 @@ abstract final class MclashTunSetting {
     if (needsAdmin) {
       final go = await DialogUtils.showConfirmDialog(
         context,
-        "TUN 虚拟网卡需要管理员权限（Windows 建 wintun / macOS 建 utun）。\n\n"
-        "当前 Mclash 不是以管理员身份运行的，开启后 TUN 不会生效"
-        "（「自动」模式下系统代理仍会兜底，网络可用）。\n\n"
-        "点「确定」= 现在以管理员身份重启 Mclash（会弹 UAC）\n"
-        "点「取消」= 仍要保存这个选择（TUN 不生效时会自动用系统代理）",
+        t.tunScreen.adminRequiredDialog,
       );
       if (!context.mounted) {
         return;
@@ -93,7 +135,10 @@ abstract final class MclashTunSetting {
           return;
         }
         if (err != null) {
-          await DialogUtils.showAlertDialog(context, "重启失败：${err.message}");
+          await DialogUtils.showAlertDialog(
+            context,
+            t.tunScreen.relaunchFailed(message: err.message),
+          );
           return;
         }
         return;
@@ -116,7 +161,7 @@ abstract final class MclashTunSetting {
         if (context.mounted) {
           await DialogUtils.showAlertDialog(
             context,
-            "切换 TUN 模式失败：${err.message}\n已恢复原来的设置。",
+            t.tunScreen.switchFailed(message: err.message),
           );
         }
         return;
@@ -129,8 +174,13 @@ abstract final class MclashTunSetting {
       SnackBar(
         content: Text(
           mode == SettingConfig.kTunModeOff
-              ? "已设为「关闭」：只使用系统代理"
-              : "已设为「${label(mode)}」，${connected ? "已重连生效" : "连接后生效"}",
+              ? t.tunScreen.setOffSnack
+              : t.tunScreen.setModeSnack(
+                  mode: _label(t, mode),
+                  effect: connected
+                      ? t.tunScreen.effectReconnected
+                      : t.tunScreen.effectAfterConnect,
+                ),
         ),
       ),
     );
@@ -144,6 +194,7 @@ class _TunModeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     final admin = MclashTunSetting.prerequisitesMet();
     return SafeArea(
       child: Column(
@@ -162,17 +213,17 @@ class _TunModeSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    "TUN 虚拟网卡",
-                    style: TextStyle(
+                    t.tunScreen.sheetTitle,
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: ThemeConfig.kFontWeightTitle,
                     ),
                   ),
                 ),
                 IconButton(
-                  tooltip: "关闭",
+                  tooltip: t.meta.close,
                   icon: const Icon(Icons.close, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
@@ -195,7 +246,7 @@ class _TunModeSheet extends StatelessWidget {
                     : ThemeDefine.kColorGrey,
               ),
               title: Text(
-                MclashTunSetting.label(mode),
+                MclashTunSetting.label(mode, context),
                 style: TextStyle(
                   fontWeight: current == mode
                       ? ThemeConfig.kFontWeightListItem
@@ -204,7 +255,7 @@ class _TunModeSheet extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                MclashTunSetting.optionDesc(mode),
+                MclashTunSetting.optionDesc(mode, context),
                 style: const TextStyle(
                   fontSize: 11.5,
                   height: 1.4,
@@ -228,13 +279,13 @@ class _TunModeSheet extends StatelessWidget {
             size: 18,
             color: ThemeDefine.kColorBlue,
           ),
-          title: const Text(
-            "高级参数（核心设置 → TUN）",
-            style: TextStyle(fontSize: 13, color: ThemeDefine.kColorBlue),
+          title: Text(
+            t.tunScreen.advancedTitle,
+            style: const TextStyle(fontSize: 13, color: ThemeDefine.kColorBlue),
           ),
-          subtitle: const Text(
-            "虚拟网卡地址 / 栈 / MTU / 自动路由 / DNS 劫持 / 覆写",
-            style: TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
+          subtitle: Text(
+            t.tunScreen.advancedSubtitle,
+            style: const TextStyle(fontSize: 11, color: ThemeDefine.kColorGrey),
           ),
           onTap: () {
             Navigator.of(context).pop();
@@ -254,10 +305,7 @@ class _TunModeSheet extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    admin
-                        ? "TUN 需要管理员权限；当前权限满足（Windows 以管理员运行 / macOS 以 root 运行）"
-                        : "TUN 需要管理员权限：当前未以管理员身份运行，选中「自动/强制」后 TUN 不会生效"
-                              "（「自动」会用系统代理兜底，网络仍可用）",
+                    admin ? t.tunScreen.adminOk : t.tunScreen.adminMissing,
                     style: TextStyle(
                       fontSize: 11,
                       height: 1.4,

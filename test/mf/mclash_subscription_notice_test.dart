@@ -1,9 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_subscription_nodes.dart';
 import 'package:mclash/mf/mclash_subscription_notice.dart';
 
 void main() {
+  /// 业务层文案现在走 i18n（默认英文），而下面断言的是中文 —— 固定简中保证确定性。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   const site = "📢 官网: https://new.moneyfly.top";
   const support = "💬 客服: 2562866992@qq.com | QQ:2562866992";
 

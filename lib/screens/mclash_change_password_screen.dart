@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/password_policy.dart';
 import 'package:mclash/screens/dialog_utils.dart';
@@ -32,10 +33,21 @@ class _MclashChangePasswordScreenState
     super.dispose();
   }
 
-  static String? _check(String pwd) => PasswordPolicy.validate(pwd);
+  /// 密码策略校验（文案走 i18n，规则仍以 PasswordPolicy 为准）。
+  String? _check(Translations t, String pwd) {
+    final raw = PasswordPolicy.validate(pwd);
+    if (raw == null) {
+      return null;
+    }
+    if (pwd.length < PasswordPolicy.kMinLength) {
+      return t.authScreen.passwordTooShort(min: PasswordPolicy.kMinLength);
+    }
+    return t.authScreen.passwordNeedsLetterAndDigit;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: PreferredSize(preferredSize: Size.zero, child: AppBar()),
@@ -55,11 +67,11 @@ class _MclashChangePasswordScreenState
                       child: Icon(Icons.arrow_back_ios_outlined, size: 26),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      "修改密码",
+                      t.authScreen.changePasswordTitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: ThemeConfig.kFontWeightTitle,
                         fontSize: ThemeConfig.kFontSizeTitle,
                       ),
@@ -74,9 +86,9 @@ class _MclashChangePasswordScreenState
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   children: [
                     const SizedBox(height: 8),
-                    _field("当前密码", _old),
-                    _field("新密码", _new),
-                    _field("确认新密码", _confirm),
+                    _field(t.authScreen.currentPassword, _old),
+                    _field(t.authScreen.newPassword, _new),
+                    _field(t.authScreen.confirmNewPassword, _confirm),
                     if (_err != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -96,7 +108,7 @@ class _MclashChangePasswordScreenState
                                 height: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text("保存新密码"),
+                            : Text(t.authScreen.saveNewPassword),
                       ),
                     ),
                   ],
@@ -119,13 +131,14 @@ class _MclashChangePasswordScreenState
       );
 
   Future<void> _submit() async {
-    final err = _check(_new.text);
+    final t = Translations.of(context);
+    final err = _check(t, _new.text);
     if (err != null) {
       setState(() => _err = err);
       return;
     }
     if (_new.text != _confirm.text) {
-      setState(() => _err = "两次输入的新密码不一致");
+      setState(() => _err = t.authScreen.newPasswordMismatch);
       return;
     }
     setState(() {
@@ -138,7 +151,8 @@ class _MclashChangePasswordScreenState
         "new_password": _new.text,
       });
       if (!mounted) return;
-      await DialogUtils.showAlertDialog(context, "密码已修改，请重新登录");
+      await DialogUtils.showAlertDialog(
+          context, t.authScreen.changePasswordSuccess);
       if (!mounted) return;
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {

@@ -133,6 +133,16 @@ class TranslationsZhCn with BaseTranslations<AppLocale, Translations> implements
 	@override late final Translations$sysProxySheet$zh_CN sysProxySheet = Translations$sysProxySheet$zh_CN.internal(_root);
 	@override late final Translations$logScreen$zh_CN logScreen = Translations$logScreen$zh_CN.internal(_root);
 	@override late final Translations$trayShell$zh_CN trayShell = Translations$trayShell$zh_CN.internal(_root);
+	@override late final Translations$ordersScreen$zh_CN ordersScreen = Translations$ordersScreen$zh_CN.internal(_root);
+	@override late final Translations$payment$zh_CN payment = Translations$payment$zh_CN.internal(_root);
+	@override late final Translations$planScreen$zh_CN planScreen = Translations$planScreen$zh_CN.internal(_root);
+	@override late final Translations$authScreen$zh_CN authScreen = Translations$authScreen$zh_CN.internal(_root);
+	@override late final Translations$updatePrompt$zh_CN updatePrompt = Translations$updatePrompt$zh_CN.internal(_root);
+	@override late final Translations$clearData$zh_CN clearData = Translations$clearData$zh_CN.internal(_root);
+	@override late final Translations$apiError$zh_CN apiError = Translations$apiError$zh_CN.internal(_root);
+	@override late final Translations$subNotice$zh_CN subNotice = Translations$subNotice$zh_CN.internal(_root);
+	@override late final Translations$settingItems$zh_CN settingItems = Translations$settingItems$zh_CN.internal(_root);
+	@override late final Translations$tunScreen$zh_CN tunScreen = Translations$tunScreen$zh_CN.internal(_root);
 }
 
 // Path: BackupAndSyncWebdavScreen
@@ -809,6 +819,291 @@ class Translations$trayShell$zh_CN implements Translations$trayShell$en {
 	@override String get closeBody => '关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n· 点「确定」：最小化到托盘（想彻底退出时，右键托盘图标 → 退出）\n· 点「取消」：完全退出 Mclash，同时停止内核并还原系统代理\n\n（本次选择会被记住；下次可直接右键托盘图标操作）';
 }
 
+// Path: ordersScreen
+class Translations$ordersScreen$zh_CN implements Translations$ordersScreen$en {
+	Translations$ordersScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '我的订单';
+	@override String get orderInfoIncomplete => '订单信息不完整，请下拉刷新后重试';
+	@override String get payChannelIncomplete => '支付通道信息不完整，请稍后重试';
+	@override String get noQrPayload => '后端没有返回支付二维码/链接，请换一个支付方式或稍后再试';
+	@override String payStartFailed({required Object err}) => '发起支付失败：${err}';
+	@override String get noPayMethod => '当前没有可用的支付方式，请稍后再试或联系客服';
+	@override String get choosePayMethod => '选择支付方式';
+	@override String amountDue({required Object amount}) => '应付 ¥${amount}';
+	@override String get paidLabel => '● 已支付';
+	@override String get pendingLabel => '○ 待支付';
+	@override String unknownStatus({required Object status}) => '✕ ${status}';
+	@override String orderNoText({required Object orderNo}) => '订单号 ${orderNo}';
+	@override String createdAtText({required Object createdAt}) => '下单时间 ${createdAt}';
+	@override String get orderCanceled => '订单已取消';
+	@override String cancelFailed({required Object err}) => '取消失败：${err}\n（若订单已被支付/已取消，下拉刷新即可看到最新状态）';
+	@override String get cancelOrder => '取消订单';
+	@override String get continuePay => '继续支付';
+}
+
+// Path: payment
+class Translations$payment$zh_CN implements Translations$payment$en {
+	Translations$payment$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get balancePay => '余额支付';
+	@override String get qrPay => '扫码支付';
+	@override String get deductFromBalance => '从账户余额扣款';
+	@override String get openedInBrowser => '已在浏览器中打开支付页面';
+	@override String get scanWithAlipayWechat => '请使用支付宝 / 微信扫码';
+	@override String orderNoText({required Object orderNo}) => '订单号 ${orderNo}';
+	@override String payFailed({required Object err}) => '支付失败：${err}';
+	@override String get notDetected => '未检测到支付。可稍后在「我的订单」中继续。';
+	@override String get charging => '正在扣款…';
+	@override String get processing => '处理中…';
+	@override String get waitingPay => '等待支付…';
+	@override String get openPageFailed => '没能打开支付页面，请点下方按钮重试，或改用扫码支付';
+	@override String get reopenPayPage => '重新打开支付页面';
+	@override String get payInBrowser => '在浏览器中支付';
+	@override String get openAlipay => '打开支付宝支付';
+	@override String get cancelOrder => '取消订单';
+	@override String get confirmPay => '确认支付';
+	@override String get retry => '重试';
+	@override String get paidAlready => '我已支付';
+	@override String get channelAlipay => '支付宝';
+	@override String get channelCodepayAlipay => '码支付 · 支付宝';
+	@override String get channelCodepayWechat => '码支付 · 微信';
+	@override String get channelCodepay => '码支付';
+	@override String get channelWechat => '微信支付';
+	@override String get channelUsdt => 'USDT';
+	@override String get channelUsdtTrc20 => 'USDT · TRC20';
+	@override String get payFallback => '支付';
+	@override String get errCsrf => '登录凭证已过期（CSRF 校验失败）。\n请到「我的」下拉刷新或重新登录后重试。';
+	@override String get errAlipayLimit => '支付宝当面付单笔限额（本商户 ¥1000），本单金额超出。\n请改用「余额支付」或「码支付」，或联系客服提高支付宝限额。';
+	@override String get errNotSigned => '支付宝应用未签约对应的支付产品，暂时无法用这个通道。\n请改用「余额支付」或「码支付」，或联系客服开通。';
+	@override String get errOrderGone => '这笔订单已被取消或已过期（草稿订单 30 分钟有效期）。\n请点「重新算价」生成新订单再支付。';
+	@override String errNetwork({required Object err}) => '网络不通：${err}';
+}
+
+// Path: planScreen
+class Translations$planScreen$zh_CN implements Translations$planScreen$en {
+	Translations$planScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get recommended => '推荐';
+	@override String get devices => '设备';
+	@override String balanceLabel({required Object amount}) => '余额 ¥${amount}';
+	@override String get balanceInsufficient => '（不足，请先充值）';
+	@override String get total => '合计';
+	@override String get payNow => '立即支付';
+	@override String get retry => '重试';
+	@override String get errIncompleteOrder => '订单或支付通道信息不完整，无法发起支付';
+	@override String get payBalance => '余额支付';
+	@override String get payAlipay => '支付宝';
+	@override String get payWechat => '微信支付';
+	@override String get payCodepay => '码支付';
+	@override String get payCodepayAlipay => '码支付 · 支付宝';
+	@override String get payCodepayWechat => '码支付 · 微信';
+	@override String get payEpayAlipay => '易支付 · 支付宝';
+	@override String get payEpayWechat => '易支付 · 微信';
+	@override String get payUsdt => 'USDT';
+	@override String get payUsdtTrc20 => 'USDT · TRC20';
+	@override String get payStripe => 'Stripe';
+	@override String get payPaypal => 'PayPal';
+	@override String get payOnline => '在线支付';
+}
+
+// Path: authScreen
+class Translations$authScreen$zh_CN implements Translations$authScreen$en {
+	Translations$authScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get saveAccountInfo => '保存账号信息';
+	@override String get autoLoginNextTime => '下次打开自动登录';
+	@override String get needLoginNextTime => '下次打开需要重新登录';
+	@override String get invalidEmail => '请填写有效邮箱';
+	@override String get enterEmailFirst => '请先填写有效邮箱';
+	@override String get passwordRequired => '请填写密码';
+	@override String get wrongCredentials => '邮箱或密码错误';
+	@override String get requestRejected => '请求被拒绝，请稍后重试';
+	@override String get tooFrequent => '操作过于频繁，请稍后再试';
+	@override String get loginFailed => '登录失败';
+	@override String get username => '用户名';
+	@override String get confirmPassword => '确认密码';
+	@override String get inviteCode => '邀请码';
+	@override String get emailCode => '邮箱验证码';
+	@override String get getCode => '获取验证码';
+	@override String get registerAndLogin => '注册并登录';
+	@override String usernameMinLength({required Object min}) => '用户名至少 ${min} 位';
+	@override String get passwordMismatch => '两次输入的密码不一致';
+	@override String get emailCodeRequired => '请填写邮箱验证码';
+	@override String get inviteCodeRequired => '本站注册需要邀请码';
+	@override String get codeSentCheckEmail => '验证码已发送，请查收邮件';
+	@override String get registerSuccess => '注册成功，已自动登录';
+	@override String passwordHint({required Object min}) => '至少 ${min} 位，且同时包含字母和数字';
+	@override String passwordTooShort({required Object min}) => '密码长度不能少于 ${min} 位';
+	@override String get passwordNeedsLetterAndDigit => '密码必须包含字母和数字';
+	@override String get registeredEmail => '注册邮箱';
+	@override String get newPassword => '新密码';
+	@override String get confirmNewPassword => '确认新密码';
+	@override String get resetPassword => '重置密码';
+	@override String get resetCodeSent => '如果该邮箱已注册，重置验证码已发送（15 分钟内有效）。';
+	@override String get resetSuccess => '密码已重置，请用新密码登录';
+	@override String get changePasswordTitle => '修改密码';
+	@override String get currentPassword => '当前密码';
+	@override String get saveNewPassword => '保存新密码';
+	@override String get newPasswordMismatch => '两次输入的新密码不一致';
+	@override String get changePasswordSuccess => '密码已修改，请重新登录';
+}
+
+// Path: updatePrompt
+class Translations$updatePrompt$zh_CN implements Translations$updatePrompt$en {
+	Translations$updatePrompt$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get checking => '正在检查更新…';
+	@override String get checkFailed => '检查更新失败，请检查网络后重试。';
+	@override String alreadyLatest({required Object version}) => '已是最新版本（${version}）。';
+	@override String newVersionFound({required Object version}) => '发现新版本 ${version}';
+	@override String get installerDownloaded => '安装包已在后台下载完成，点「立即更新」完成升级。';
+	@override String get downloadInBackground => '点「立即更新」开始下载并安装（也可继续使用，安装包会在后台下载）。';
+	@override String get later => '稍后';
+	@override String get updateNow => '立即更新';
+	@override String installerNotReady({required Object version}) => '安装包还没下载完成。\n\n点「确定」打开下载页，手动下载适合你设备的安装包（版本 ${version}）。';
+}
+
+// Path: clearData
+class Translations$clearData$zh_CN implements Translations$clearData$en {
+	Translations$clearData$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get itemLoginSession => '登录会话';
+	@override String get itemProfiles => '订阅配置档（profiles/）';
+	@override String get itemSettings => '应用与内核设置';
+	@override String get itemLatencyCache => '节点延迟缓存';
+	@override String get itemLogs => '运行日志';
+	@override String get itemRoutingData => '分流数据与临时文件';
+	@override String confirmBody({required Object items, required Object dir}) => '将删除本机保存的以下数据（不可恢复）：\n\n${items}\n\n账号本身、已购买的套餐都在服务器上，不受影响；重新登录即可恢复订阅。\n\n数据目录：${dir}\n（卸载 App 之前先点这里，重装后才会是干净的、需要重新登录的状态）';
+	@override String get confirmAgain => '确认清除？清除后需要重新登录。';
+	@override String clearedNotice({required Object count, required Object dir}) => '已清除 ${count} 项本地数据（含登录会话，下次打开需要重新登录）。\n\n现在可以删除 App 完成卸载：\n· macOS：把 Mclash.app 拖进废纸篓（数据目录已清空：${dir}）\n· Windows：控制面板卸载 Mclash，卸载向导里的「是否保留用户数据」选「否」';
+	@override String clearFailed({required Object error}) => '清除失败：${error}';
+}
+
+// Path: apiError
+class Translations$apiError$zh_CN implements Translations$apiError$en {
+	Translations$apiError$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String requestFailedHttp({required Object status, required Object domain}) => '请求失败（HTTP ${status}），已尝试域名 ${domain}';
+	@override String allDomainsFailed({required Object method, required Object path, required Object count}) => '请求失败：${method} ${path}（已尝试 ${count} 个域名）';
+	@override String requestTimeout({required Object seconds, required Object method, required Object path}) => '请求超时（${seconds}s）：${method} ${path}';
+	@override String networkUnreachable({required Object detail}) => '网络不可达：${detail}';
+	@override String get tlsHandshakeFailed => 'TLS 握手失败，请检查网络或系统时间';
+	@override String connectionFailed({required Object detail}) => '连接失败：${detail}';
+	@override String requestError({required Object error}) => '请求失败：${error}';
+	@override String responseReadTimeout({required Object seconds, required Object method, required Object path}) => '读取响应超时（${seconds}s）：${method} ${path}';
+	@override String notJson({required Object status, required Object snippet}) => '响应不是 JSON（HTTP ${status}）：${snippet}';
+	@override String badStructure({required Object status}) => '响应结构异常（HTTP ${status}）';
+	@override String loginFailed({required Object code}) => '登录失败（code ${code}）';
+	@override String get loginMissingData => '登录响应缺少 data';
+	@override String get loginMissingToken => '登录响应缺少 access_token';
+	@override String registerFailed({required Object code}) => '注册失败（code ${code}）';
+	@override String get registerMissingToken => '注册响应未包含 access_token，可能触发了风控或站点配置不同';
+	@override String requestFailedCode({required Object code}) => '请求失败（code ${code}）';
+}
+
+// Path: subNotice
+class Translations$subNotice$zh_CN implements Translations$subNotice$en {
+	Translations$subNotice$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get titleNotFound => '订阅不存在';
+	@override String get titleExpired => '订阅已过期';
+	@override String get titleInactive => '订阅已失效';
+	@override String get titleDeviceOverLimit => '设备数量超限';
+	@override String get titleUnavailable => '订阅不可用';
+	@override String titleWithReason({required Object emoji, required Object title, required Object reason}) => '${emoji} ${title}（${reason}）';
+	@override String deviceUsedOfLimit({required Object used, required Object limit}) => '当前设备 ${used}/${limit}';
+	@override String deviceUsedOnly({required Object used}) => '当前设备 ${used}';
+	@override String expireAt({required Object expire}) => '到期时间 ${expire}';
+	@override String supportLine({required Object account}) => '💬 客服: ${account}';
+	@override String siteLine({required Object url}) => '📢 官网: ${url}';
+}
+
+// Path: settingItems
+class Translations$settingItems$zh_CN implements Translations$settingItems$en {
+	Translations$settingItems$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get subscriptionAutoUpdateInterval => '订阅自动更新间隔';
+	@override String get speedTestMode => '测速方式';
+	@override String get speedTestModeTcp => 'TCP 测速';
+	@override String get speedTestModeKernel => '内核测速';
+	@override String get delayTestUrlTip => '经该节点完整走一次 HTTP 请求的耗时（非 ping）\n默认用明文 http 的 204 空响应；换成 https 会多一次 TLS 握手，数字更大';
+	@override String get systemProxy => '系统代理';
+	@override String get systemProxyTip => '查看/重设地址与端口';
+	@override String get tunMode => 'TUN 模式';
+	@override String get tunModeTip => 'off=仅系统代理 / auto=TUN+系统代理 / force=仅 TUN\n桌面端 TUN 需要管理员权限（Windows 建 wintun / macOS 建 utun）';
+	@override String get tunOverwriteTip => 'overwrite\n开 = 用这里的 TUN 设置覆盖订阅里的 tun 段\n关 = 让订阅自己的 tun 配置生效（App 不插手）';
+	@override String tunEnableByTunMode({required Object enable}) => '${enable}（由 TUN 模式决定）';
+	@override String get interval30Minutes => '30 分钟';
+	@override String get interval1Hour => '1 小时';
+	@override String get interval6Hours => '6 小时';
+	@override String get interval12Hours => '12 小时';
+	@override String get interval24Hours => '24 小时';
+	@override String get interval3Days => '3 天';
+	@override String get interval7Days => '7 天';
+	@override String get intervalNever => '从不';
+	@override String intervalMinutes({required Object minutes}) => '${minutes} 分钟';
+	@override String intervalHours({required Object hours}) => '${hours} 小时';
+	@override String intervalDays({required Object days}) => '${days} 天';
+}
+
+// Path: tunScreen
+class Translations$tunScreen$zh_CN implements Translations$tunScreen$en {
+	Translations$tunScreen$zh_CN.internal(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get modeOff => '关闭';
+	@override String get modeAuto => '自动';
+	@override String get modeForce => '强制';
+	@override String get modeOffDesc => '仅系统代理：浏览器等遵守系统代理的程序生效，UDP/游戏不走代理';
+	@override String get modeAutoDesc => 'TUN + 系统代理（双保险）：全部流量走虚拟网卡，含 UDP';
+	@override String get modeForceDesc => '仅 TUN：全部流量走虚拟网卡，不再改系统代理';
+	@override String get modeOffOptionDesc => '不改系统路由表，只在系统里设置 127.0.0.1 的代理。只有遵守系统代理的程序走代理；UDP 流量与自带代理设置的程序不走。';
+	@override String get modeAutoOptionDesc => '建虚拟网卡接管全部流量（含 UDP、游戏）；同时保留系统代理作为兜底。推荐：既能全局生效，又不会因为权限问题彻底没网。';
+	@override String get modeForceOptionDesc => '只用虚拟网卡，不再改系统代理。全部流量（含 UDP）都进隧道，系统里「代理」一项保持原样。';
+	@override String get adminRequiredDialog => 'TUN 虚拟网卡需要管理员权限（Windows 建 wintun / macOS 建 utun）。\n\n当前 Mclash 不是以管理员身份运行的，开启后 TUN 不会生效（「自动」模式下系统代理仍会兜底，网络可用）。\n\n点「确定」= 现在以管理员身份重启 Mclash（会弹 UAC）\n点「取消」= 仍要保存这个选择（TUN 不生效时会自动用系统代理）';
+	@override String relaunchFailed({required Object message}) => '重启失败：${message}';
+	@override String switchFailed({required Object message}) => '切换 TUN 模式失败：${message}\n已恢复原来的设置。';
+	@override String get setOffSnack => '已设为「关闭」：只使用系统代理';
+	@override String setModeSnack({required Object mode, required Object effect}) => '已设为「${mode}」，${effect}';
+	@override String get effectReconnected => '已重连生效';
+	@override String get effectAfterConnect => '连接后生效';
+	@override String get sheetTitle => 'TUN 虚拟网卡';
+	@override String get advancedTitle => '高级参数（核心设置 → TUN）';
+	@override String get advancedSubtitle => '虚拟网卡地址 / 栈 / MTU / 自动路由 / DNS 劫持 / 覆写';
+	@override String get adminOk => 'TUN 需要管理员权限；当前权限满足（Windows 以管理员运行 / macOS 以 root 运行）';
+	@override String get adminMissing => 'TUN 需要管理员权限：当前未以管理员身份运行，选中「自动/强制」后 TUN 不会生效（「自动」会用系统代理兜底，网络仍可用）';
+}
+
 // Path: main.tray
 class Translations$main$tray$zh_CN implements Translations$main$tray$en {
 	Translations$main$tray$zh_CN.internal(this._root);
@@ -1346,6 +1641,201 @@ extension on TranslationsZhCn {
 			'logScreen.empty' => '暂无内容',
 			'trayShell.closeTitle' => '关闭窗口',
 			'trayShell.closeBody' => '关闭窗口只是把 Mclash 收进托盘 —— 内核与系统代理会继续工作，网照旧能上。\n\n· 点「确定」：最小化到托盘（想彻底退出时，右键托盘图标 → 退出）\n· 点「取消」：完全退出 Mclash，同时停止内核并还原系统代理\n\n（本次选择会被记住；下次可直接右键托盘图标操作）',
+			'ordersScreen.title' => '我的订单',
+			'ordersScreen.orderInfoIncomplete' => '订单信息不完整，请下拉刷新后重试',
+			'ordersScreen.payChannelIncomplete' => '支付通道信息不完整，请稍后重试',
+			'ordersScreen.noQrPayload' => '后端没有返回支付二维码/链接，请换一个支付方式或稍后再试',
+			'ordersScreen.payStartFailed' => ({required Object err}) => '发起支付失败：${err}',
+			'ordersScreen.noPayMethod' => '当前没有可用的支付方式，请稍后再试或联系客服',
+			'ordersScreen.choosePayMethod' => '选择支付方式',
+			'ordersScreen.amountDue' => ({required Object amount}) => '应付 ¥${amount}',
+			'ordersScreen.paidLabel' => '● 已支付',
+			'ordersScreen.pendingLabel' => '○ 待支付',
+			'ordersScreen.unknownStatus' => ({required Object status}) => '✕ ${status}',
+			'ordersScreen.orderNoText' => ({required Object orderNo}) => '订单号 ${orderNo}',
+			'ordersScreen.createdAtText' => ({required Object createdAt}) => '下单时间 ${createdAt}',
+			'ordersScreen.orderCanceled' => '订单已取消',
+			'ordersScreen.cancelFailed' => ({required Object err}) => '取消失败：${err}\n（若订单已被支付/已取消，下拉刷新即可看到最新状态）',
+			'ordersScreen.cancelOrder' => '取消订单',
+			'ordersScreen.continuePay' => '继续支付',
+			'payment.balancePay' => '余额支付',
+			'payment.qrPay' => '扫码支付',
+			'payment.deductFromBalance' => '从账户余额扣款',
+			'payment.openedInBrowser' => '已在浏览器中打开支付页面',
+			'payment.scanWithAlipayWechat' => '请使用支付宝 / 微信扫码',
+			'payment.orderNoText' => ({required Object orderNo}) => '订单号 ${orderNo}',
+			'payment.payFailed' => ({required Object err}) => '支付失败：${err}',
+			'payment.notDetected' => '未检测到支付。可稍后在「我的订单」中继续。',
+			'payment.charging' => '正在扣款…',
+			'payment.processing' => '处理中…',
+			'payment.waitingPay' => '等待支付…',
+			'payment.openPageFailed' => '没能打开支付页面，请点下方按钮重试，或改用扫码支付',
+			'payment.reopenPayPage' => '重新打开支付页面',
+			'payment.payInBrowser' => '在浏览器中支付',
+			'payment.openAlipay' => '打开支付宝支付',
+			'payment.cancelOrder' => '取消订单',
+			'payment.confirmPay' => '确认支付',
+			'payment.retry' => '重试',
+			'payment.paidAlready' => '我已支付',
+			'payment.channelAlipay' => '支付宝',
+			'payment.channelCodepayAlipay' => '码支付 · 支付宝',
+			'payment.channelCodepayWechat' => '码支付 · 微信',
+			'payment.channelCodepay' => '码支付',
+			'payment.channelWechat' => '微信支付',
+			'payment.channelUsdt' => 'USDT',
+			'payment.channelUsdtTrc20' => 'USDT · TRC20',
+			'payment.payFallback' => '支付',
+			'payment.errCsrf' => '登录凭证已过期（CSRF 校验失败）。\n请到「我的」下拉刷新或重新登录后重试。',
+			'payment.errAlipayLimit' => '支付宝当面付单笔限额（本商户 ¥1000），本单金额超出。\n请改用「余额支付」或「码支付」，或联系客服提高支付宝限额。',
+			'payment.errNotSigned' => '支付宝应用未签约对应的支付产品，暂时无法用这个通道。\n请改用「余额支付」或「码支付」，或联系客服开通。',
+			'payment.errOrderGone' => '这笔订单已被取消或已过期（草稿订单 30 分钟有效期）。\n请点「重新算价」生成新订单再支付。',
+			'payment.errNetwork' => ({required Object err}) => '网络不通：${err}',
+			'planScreen.recommended' => '推荐',
+			'planScreen.devices' => '设备',
+			'planScreen.balanceLabel' => ({required Object amount}) => '余额 ¥${amount}',
+			'planScreen.balanceInsufficient' => '（不足，请先充值）',
+			'planScreen.total' => '合计',
+			'planScreen.payNow' => '立即支付',
+			'planScreen.retry' => '重试',
+			'planScreen.errIncompleteOrder' => '订单或支付通道信息不完整，无法发起支付',
+			'planScreen.payBalance' => '余额支付',
+			'planScreen.payAlipay' => '支付宝',
+			'planScreen.payWechat' => '微信支付',
+			'planScreen.payCodepay' => '码支付',
+			'planScreen.payCodepayAlipay' => '码支付 · 支付宝',
+			'planScreen.payCodepayWechat' => '码支付 · 微信',
+			'planScreen.payEpayAlipay' => '易支付 · 支付宝',
+			'planScreen.payEpayWechat' => '易支付 · 微信',
+			'planScreen.payUsdt' => 'USDT',
+			'planScreen.payUsdtTrc20' => 'USDT · TRC20',
+			'planScreen.payStripe' => 'Stripe',
+			'planScreen.payPaypal' => 'PayPal',
+			'planScreen.payOnline' => '在线支付',
+			'authScreen.saveAccountInfo' => '保存账号信息',
+			'authScreen.autoLoginNextTime' => '下次打开自动登录',
+			'authScreen.needLoginNextTime' => '下次打开需要重新登录',
+			'authScreen.invalidEmail' => '请填写有效邮箱',
+			'authScreen.enterEmailFirst' => '请先填写有效邮箱',
+			'authScreen.passwordRequired' => '请填写密码',
+			'authScreen.wrongCredentials' => '邮箱或密码错误',
+			'authScreen.requestRejected' => '请求被拒绝，请稍后重试',
+			'authScreen.tooFrequent' => '操作过于频繁，请稍后再试',
+			'authScreen.loginFailed' => '登录失败',
+			'authScreen.username' => '用户名',
+			'authScreen.confirmPassword' => '确认密码',
+			'authScreen.inviteCode' => '邀请码',
+			'authScreen.emailCode' => '邮箱验证码',
+			'authScreen.getCode' => '获取验证码',
+			'authScreen.registerAndLogin' => '注册并登录',
+			'authScreen.usernameMinLength' => ({required Object min}) => '用户名至少 ${min} 位',
+			'authScreen.passwordMismatch' => '两次输入的密码不一致',
+			'authScreen.emailCodeRequired' => '请填写邮箱验证码',
+			'authScreen.inviteCodeRequired' => '本站注册需要邀请码',
+			'authScreen.codeSentCheckEmail' => '验证码已发送，请查收邮件',
+			'authScreen.registerSuccess' => '注册成功，已自动登录',
+			'authScreen.passwordHint' => ({required Object min}) => '至少 ${min} 位，且同时包含字母和数字',
+			'authScreen.passwordTooShort' => ({required Object min}) => '密码长度不能少于 ${min} 位',
+			'authScreen.passwordNeedsLetterAndDigit' => '密码必须包含字母和数字',
+			'authScreen.registeredEmail' => '注册邮箱',
+			'authScreen.newPassword' => '新密码',
+			'authScreen.confirmNewPassword' => '确认新密码',
+			'authScreen.resetPassword' => '重置密码',
+			'authScreen.resetCodeSent' => '如果该邮箱已注册，重置验证码已发送（15 分钟内有效）。',
+			'authScreen.resetSuccess' => '密码已重置，请用新密码登录',
+			'authScreen.changePasswordTitle' => '修改密码',
+			'authScreen.currentPassword' => '当前密码',
+			'authScreen.saveNewPassword' => '保存新密码',
+			'authScreen.newPasswordMismatch' => '两次输入的新密码不一致',
+			'authScreen.changePasswordSuccess' => '密码已修改，请重新登录',
+			'updatePrompt.checking' => '正在检查更新…',
+			'updatePrompt.checkFailed' => '检查更新失败，请检查网络后重试。',
+			'updatePrompt.alreadyLatest' => ({required Object version}) => '已是最新版本（${version}）。',
+			'updatePrompt.newVersionFound' => ({required Object version}) => '发现新版本 ${version}',
+			'updatePrompt.installerDownloaded' => '安装包已在后台下载完成，点「立即更新」完成升级。',
+			'updatePrompt.downloadInBackground' => '点「立即更新」开始下载并安装（也可继续使用，安装包会在后台下载）。',
+			'updatePrompt.later' => '稍后',
+			'updatePrompt.updateNow' => '立即更新',
+			'updatePrompt.installerNotReady' => ({required Object version}) => '安装包还没下载完成。\n\n点「确定」打开下载页，手动下载适合你设备的安装包（版本 ${version}）。',
+			'clearData.itemLoginSession' => '登录会话',
+			'clearData.itemProfiles' => '订阅配置档（profiles/）',
+			'clearData.itemSettings' => '应用与内核设置',
+			'clearData.itemLatencyCache' => '节点延迟缓存',
+			'clearData.itemLogs' => '运行日志',
+			'clearData.itemRoutingData' => '分流数据与临时文件',
+			'clearData.confirmBody' => ({required Object items, required Object dir}) => '将删除本机保存的以下数据（不可恢复）：\n\n${items}\n\n账号本身、已购买的套餐都在服务器上，不受影响；重新登录即可恢复订阅。\n\n数据目录：${dir}\n（卸载 App 之前先点这里，重装后才会是干净的、需要重新登录的状态）',
+			'clearData.confirmAgain' => '确认清除？清除后需要重新登录。',
+			'clearData.clearedNotice' => ({required Object count, required Object dir}) => '已清除 ${count} 项本地数据（含登录会话，下次打开需要重新登录）。\n\n现在可以删除 App 完成卸载：\n· macOS：把 Mclash.app 拖进废纸篓（数据目录已清空：${dir}）\n· Windows：控制面板卸载 Mclash，卸载向导里的「是否保留用户数据」选「否」',
+			'clearData.clearFailed' => ({required Object error}) => '清除失败：${error}',
+			'apiError.requestFailedHttp' => ({required Object status, required Object domain}) => '请求失败（HTTP ${status}），已尝试域名 ${domain}',
+			'apiError.allDomainsFailed' => ({required Object method, required Object path, required Object count}) => '请求失败：${method} ${path}（已尝试 ${count} 个域名）',
+			'apiError.requestTimeout' => ({required Object seconds, required Object method, required Object path}) => '请求超时（${seconds}s）：${method} ${path}',
+			'apiError.networkUnreachable' => ({required Object detail}) => '网络不可达：${detail}',
+			'apiError.tlsHandshakeFailed' => 'TLS 握手失败，请检查网络或系统时间',
+			'apiError.connectionFailed' => ({required Object detail}) => '连接失败：${detail}',
+			'apiError.requestError' => ({required Object error}) => '请求失败：${error}',
+			'apiError.responseReadTimeout' => ({required Object seconds, required Object method, required Object path}) => '读取响应超时（${seconds}s）：${method} ${path}',
+			'apiError.notJson' => ({required Object status, required Object snippet}) => '响应不是 JSON（HTTP ${status}）：${snippet}',
+			'apiError.badStructure' => ({required Object status}) => '响应结构异常（HTTP ${status}）',
+			'apiError.loginFailed' => ({required Object code}) => '登录失败（code ${code}）',
+			'apiError.loginMissingData' => '登录响应缺少 data',
+			'apiError.loginMissingToken' => '登录响应缺少 access_token',
+			'apiError.registerFailed' => ({required Object code}) => '注册失败（code ${code}）',
+			'apiError.registerMissingToken' => '注册响应未包含 access_token，可能触发了风控或站点配置不同',
+			'apiError.requestFailedCode' => ({required Object code}) => '请求失败（code ${code}）',
+			'subNotice.titleNotFound' => '订阅不存在',
+			'subNotice.titleExpired' => '订阅已过期',
+			'subNotice.titleInactive' => '订阅已失效',
+			'subNotice.titleDeviceOverLimit' => '设备数量超限',
+			'subNotice.titleUnavailable' => '订阅不可用',
+			'subNotice.titleWithReason' => ({required Object emoji, required Object title, required Object reason}) => '${emoji} ${title}（${reason}）',
+			'subNotice.deviceUsedOfLimit' => ({required Object used, required Object limit}) => '当前设备 ${used}/${limit}',
+			'subNotice.deviceUsedOnly' => ({required Object used}) => '当前设备 ${used}',
+			'subNotice.expireAt' => ({required Object expire}) => '到期时间 ${expire}',
+			'subNotice.supportLine' => ({required Object account}) => '💬 客服: ${account}',
+			'subNotice.siteLine' => ({required Object url}) => '📢 官网: ${url}',
+			'settingItems.subscriptionAutoUpdateInterval' => '订阅自动更新间隔',
+			'settingItems.speedTestMode' => '测速方式',
+			'settingItems.speedTestModeTcp' => 'TCP 测速',
+			'settingItems.speedTestModeKernel' => '内核测速',
+			'settingItems.delayTestUrlTip' => '经该节点完整走一次 HTTP 请求的耗时（非 ping）\n默认用明文 http 的 204 空响应；换成 https 会多一次 TLS 握手，数字更大',
+			'settingItems.systemProxy' => '系统代理',
+			'settingItems.systemProxyTip' => '查看/重设地址与端口',
+			'settingItems.tunMode' => 'TUN 模式',
+			'settingItems.tunModeTip' => 'off=仅系统代理 / auto=TUN+系统代理 / force=仅 TUN\n桌面端 TUN 需要管理员权限（Windows 建 wintun / macOS 建 utun）',
+			'settingItems.tunOverwriteTip' => 'overwrite\n开 = 用这里的 TUN 设置覆盖订阅里的 tun 段\n关 = 让订阅自己的 tun 配置生效（App 不插手）',
+			'settingItems.tunEnableByTunMode' => ({required Object enable}) => '${enable}（由 TUN 模式决定）',
+			'settingItems.interval30Minutes' => '30 分钟',
+			'settingItems.interval1Hour' => '1 小时',
+			'settingItems.interval6Hours' => '6 小时',
+			'settingItems.interval12Hours' => '12 小时',
+			'settingItems.interval24Hours' => '24 小时',
+			'settingItems.interval3Days' => '3 天',
+			'settingItems.interval7Days' => '7 天',
+			'settingItems.intervalNever' => '从不',
+			'settingItems.intervalMinutes' => ({required Object minutes}) => '${minutes} 分钟',
+			'settingItems.intervalHours' => ({required Object hours}) => '${hours} 小时',
+			'settingItems.intervalDays' => ({required Object days}) => '${days} 天',
+			'tunScreen.modeOff' => '关闭',
+			'tunScreen.modeAuto' => '自动',
+			'tunScreen.modeForce' => '强制',
+			'tunScreen.modeOffDesc' => '仅系统代理：浏览器等遵守系统代理的程序生效，UDP/游戏不走代理',
+			'tunScreen.modeAutoDesc' => 'TUN + 系统代理（双保险）：全部流量走虚拟网卡，含 UDP',
+			'tunScreen.modeForceDesc' => '仅 TUN：全部流量走虚拟网卡，不再改系统代理',
+			'tunScreen.modeOffOptionDesc' => '不改系统路由表，只在系统里设置 127.0.0.1 的代理。只有遵守系统代理的程序走代理；UDP 流量与自带代理设置的程序不走。',
+			'tunScreen.modeAutoOptionDesc' => '建虚拟网卡接管全部流量（含 UDP、游戏）；同时保留系统代理作为兜底。推荐：既能全局生效，又不会因为权限问题彻底没网。',
+			'tunScreen.modeForceOptionDesc' => '只用虚拟网卡，不再改系统代理。全部流量（含 UDP）都进隧道，系统里「代理」一项保持原样。',
+			'tunScreen.adminRequiredDialog' => 'TUN 虚拟网卡需要管理员权限（Windows 建 wintun / macOS 建 utun）。\n\n当前 Mclash 不是以管理员身份运行的，开启后 TUN 不会生效（「自动」模式下系统代理仍会兜底，网络可用）。\n\n点「确定」= 现在以管理员身份重启 Mclash（会弹 UAC）\n点「取消」= 仍要保存这个选择（TUN 不生效时会自动用系统代理）',
+			'tunScreen.relaunchFailed' => ({required Object message}) => '重启失败：${message}',
+			'tunScreen.switchFailed' => ({required Object message}) => '切换 TUN 模式失败：${message}\n已恢复原来的设置。',
+			'tunScreen.setOffSnack' => '已设为「关闭」：只使用系统代理',
+			'tunScreen.setModeSnack' => ({required Object mode, required Object effect}) => '已设为「${mode}」，${effect}',
+			'tunScreen.effectReconnected' => '已重连生效',
+			'tunScreen.effectAfterConnect' => '连接后生效',
+			'tunScreen.sheetTitle' => 'TUN 虚拟网卡',
+			'tunScreen.advancedTitle' => '高级参数（核心设置 → TUN）',
+			'tunScreen.advancedSubtitle' => '虚拟网卡地址 / 栈 / MTU / 自动路由 / DNS 劫持 / 覆写',
+			'tunScreen.adminOk' => 'TUN 需要管理员权限；当前权限满足（Windows 以管理员运行 / macOS 以 root 运行）',
+			'tunScreen.adminMissing' => 'TUN 需要管理员权限：当前未以管理员身份运行，选中「自动/强制」后 TUN 不会生效（「自动」会用系统代理兜底，网络仍可用）',
 			_ => null,
 		};
 	}

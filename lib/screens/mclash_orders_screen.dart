@@ -1,9 +1,9 @@
-
 library;
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/mf/mclash_payment.dart';
@@ -55,6 +55,7 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: PreferredSize(preferredSize: Size.zero, child: AppBar()),
@@ -63,7 +64,11 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
           padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
           child: Column(
             children: [
-              _TopBar(title: "我的订单", onRefresh: _load, loading: _loading),
+              _TopBar(
+                title: t.ordersScreen.title,
+                onRefresh: _load,
+                loading: _loading,
+              ),
               const SizedBox(height: 10),
               Expanded(
                 child: _error != null
@@ -76,7 +81,7 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                     : ListView.builder(
                         padding: const EdgeInsets.only(bottom: 24),
                         itemCount: _items.length,
-                        itemBuilder: (_, i) => _buildOrder(_items[i]),
+                        itemBuilder: (_, i) => _buildOrder(t, _items[i]),
                       ),
               ),
             ],
@@ -86,15 +91,22 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
     );
   }
 
-  Future<void> _resumePayment(Map<String, dynamic> o, double amount) async {
+  Future<void> _resumePayment(
+    Translations t,
+    Map<String, dynamic> o,
+    double amount,
+  ) async {
     final orderNo = o["order_no"]?.toString() ?? "";
     final orderId = (o["id"] as num?)?.toInt() ?? 0;
     if (orderNo.isEmpty || orderId <= 0) {
-      await DialogUtils.showAlertDialog(context, "订单信息不完整，请下拉刷新后重试");
+      await DialogUtils.showAlertDialog(
+        context,
+        t.ordersScreen.orderInfoIncomplete,
+      );
       return;
     }
     try {
-      final method = await _pickPayMethod(amount);
+      final method = await _pickPayMethod(t, amount);
       if (method == null || !mounted) {
         return;
       }
@@ -114,7 +126,10 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
       }
       final methodId = (method["id"] as num?)?.toInt() ?? 0;
       if (methodId <= 0) {
-        await DialogUtils.showAlertDialog(context, "支付通道信息不完整，请稍后重试");
+        await DialogUtils.showAlertDialog(
+          context,
+          t.ordersScreen.payChannelIncomplete,
+        );
         return;
       }
       final r = await MclashApi.createPayment(
@@ -127,10 +142,7 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
         return;
       }
       if (payload.isEmpty) {
-        await DialogUtils.showAlertDialog(
-          context,
-          "后端没有返回支付二维码/链接，请换一个支付方式或稍后再试",
-        );
+        await DialogUtils.showAlertDialog(context, t.ordersScreen.noQrPayload);
         return;
       }
       final channel = MclashPay.classify(
@@ -154,11 +166,17 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
       if (!mounted) {
         return;
       }
-      await DialogUtils.showAlertDialog(context, "发起支付失败：${MclashPay.friendlyError(e)}");
+      await DialogUtils.showAlertDialog(
+        context,
+        t.ordersScreen.payStartFailed(err: MclashPay.friendlyError(e)),
+      );
     }
   }
 
-  Future<Map<String, dynamic>?> _pickPayMethod(double amount) async {
+  Future<Map<String, dynamic>?> _pickPayMethod(
+    Translations t,
+    double amount,
+  ) async {
     List<Map<String, dynamic>> methods = const [];
     try {
       methods = await MclashApi.paymentMethods();
@@ -173,11 +191,12 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
       return null;
     }
     final usable = <Map<String, dynamic>>[
-      if (balanceEnabled) {"id": -1, "key": "balance", "name": "余额支付"},
+      if (balanceEnabled)
+        {"id": -1, "key": "balance", "name": t.payment.balancePay},
       ...methods.where((m) => !MclashPay.isBalance(MclashPay.payTypeOf(m))),
     ];
     if (usable.isEmpty) {
-      await DialogUtils.showAlertDialog(context, "当前没有可用的支付方式，请稍后再试或联系客服");
+      await DialogUtils.showAlertDialog(context, t.ordersScreen.noPayMethod);
       return null;
     }
     return showModalBottomSheet<Map<String, dynamic>>(
@@ -190,13 +209,13 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
                   Text(
-                    "选择支付方式",
-                    style: TextStyle(
+                    t.ordersScreen.choosePayMethod,
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: ThemeConfig.kFontWeightTitle,
                     ),
@@ -210,7 +229,9 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                 title: Text(MclashPay.nameOf(m)),
                 subtitle: MclashPay.isBalance(MclashPay.payTypeOf(m))
                     ? Text(
-                        "应付 ¥${amount.toStringAsFixed(2)}",
+                        t.ordersScreen.amountDue(
+                          amount: amount.toStringAsFixed(2),
+                        ),
                         style: const TextStyle(fontSize: 11),
                       )
                     : null,
@@ -223,11 +244,12 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
     );
   }
 
-  Widget _buildOrder(Map<String, dynamic> o) {
+  Widget _buildOrder(Translations t, Map<String, dynamic> o) {
     final status = o["status"]?.toString() ?? "";
     final paid = status == "paid" || status == "completed";
     final pending = status == "pending" || status == "waiting";
-    final amount = (o["final_amount"] as num?)?.toDouble() ??
+    final amount =
+        (o["final_amount"] as num?)?.toDouble() ??
         (o["amount"] as num?)?.toDouble() ??
         0;
     final orderNo = o["order_no"]?.toString() ?? "";
@@ -254,7 +276,11 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                   ),
                 ),
                 Text(
-                  paid ? "● 已支付" : (pending ? "○ 待支付" : "✕ $status"),
+                  paid
+                      ? t.ordersScreen.paidLabel
+                      : (pending
+                            ? t.ordersScreen.pendingLabel
+                            : t.ordersScreen.unknownStatus(status: status)),
                   style: TextStyle(
                     fontSize: 11,
                     color: paid
@@ -274,13 +300,19 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              "订单号 $orderNo",
-              style: const TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
+              t.ordersScreen.orderNoText(orderNo: orderNo),
+              style: const TextStyle(
+                fontSize: 12,
+                color: ThemeDefine.kColorGrey,
+              ),
             ),
             if (createdAt.isNotEmpty)
               Text(
-                "下单时间 $createdAt",
-                style: const TextStyle(fontSize: 12, color: ThemeDefine.kColorGrey),
+                t.ordersScreen.createdAtText(createdAt: createdAt),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: ThemeDefine.kColorGrey,
+                ),
               ),
             if (pending) ...[
               const SizedBox(height: 10),
@@ -296,7 +328,9 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                             return;
                           }
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("订单已取消")),
+                            SnackBar(
+                              content: Text(t.ordersScreen.orderCanceled),
+                            ),
                           );
                         } catch (e) {
                           if (!mounted) {
@@ -304,18 +338,21 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
                           }
                           await DialogUtils.showAlertDialog(
                             context,
-                            "取消失败：$e\n（若订单已被支付/已取消，下拉刷新即可看到最新状态）",
+                            t.ordersScreen.cancelFailed(err: "$e"),
                           );
                         }
                       },
-                      child: const Text("取消订单", style: TextStyle(color: Colors.red)),
+                      child: Text(
+                        t.ordersScreen.cancelOrder,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => _resumePayment(o, amount),
-                      child: const Text("继续支付"),
+                      onPressed: () => _resumePayment(t, o, amount),
+                      child: Text(t.ordersScreen.continuePay),
                     ),
                   ),
                 ],
@@ -329,11 +366,7 @@ class _MclashOrdersScreenState extends LasyRenderingState<MclashOrdersScreen> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.title,
-    this.onRefresh,
-    this.loading = false,
-  });
+  const _TopBar({required this.title, this.onRefresh, this.loading = false});
 
   final String title;
   final Future<void> Function()? onRefresh;
@@ -375,11 +408,11 @@ class _TopBar extends StatelessWidget {
                   ),
                 )
               : (onRefresh == null
-                  ? const SizedBox()
-                  : InkWell(
-                      onTap: onRefresh,
-                      child: const Icon(Icons.refresh, size: 26),
-                    )),
+                    ? const SizedBox()
+                    : InkWell(
+                        onTap: onRefresh,
+                        child: const Icon(Icons.refresh, size: 26),
+                      )),
         ),
       ],
     );

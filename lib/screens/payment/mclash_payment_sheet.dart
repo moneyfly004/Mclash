@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/qrcode_utils.dart';
 import 'package:mclash/app/utils/url_launcher_utils.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_payment.dart';
 import 'package:mclash/screens/widgets/sheet.dart';
@@ -207,7 +208,9 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
         _autoOpened = true;
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("没能打开支付页面，请点下方按钮重试，或改用扫码支付")),
+          SnackBar(
+            content: Text(Translations.of(context).payment.openPageFailed),
+          ),
         );
       }
     } finally {
@@ -244,20 +247,21 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
     return MclashPay.canLaunchApp(widget.channel, isMobile: _isMobile);
   }
 
-  String get _launchLabel {
+  String _launchLabel(Translations t) {
     if (widget.channel == MclashPayChannel.cashierUrl) {
-      return _autoOpened ? "重新打开支付页面" : "在浏览器中支付";
+      return _autoOpened ? t.payment.reopenPayPage : t.payment.payInBrowser;
     }
-    return "打开支付宝支付";
+    return t.payment.openAlipay;
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     final title = widget.payWithBalance
-        ? "余额支付"
-        : (widget.methodName.isNotEmpty ? widget.methodName : "扫码支付");
-    final showQr = !widget.payWithBalance &&
-        widget.channel != MclashPayChannel.cashierUrl;
+        ? t.payment.balancePay
+        : (widget.methodName.isNotEmpty ? widget.methodName : t.payment.qrPay);
+    final showQr =
+        !widget.payWithBalance && widget.channel != MclashPayChannel.cashierUrl;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
@@ -270,10 +274,10 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
           const SizedBox(height: 4),
           Text(
             widget.payWithBalance
-                ? "从账户余额扣款"
+                ? t.payment.deductFromBalance
                 : (widget.channel == MclashPayChannel.cashierUrl
-                      ? "已在浏览器中打开支付页面"
-                      : "请使用支付宝 / 微信扫码"),
+                      ? t.payment.openedInBrowser
+                      : t.payment.scanWithAlipayWechat),
             style: const TextStyle(fontSize: 12, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
@@ -304,20 +308,20 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
           ),
           const SizedBox(height: 4),
           Text(
-            "订单号 ${widget.orderNo}",
+            t.payment.orderNoText(orderNo: widget.orderNo),
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 14),
           if (_payError != null)
             Text(
-              "支付失败：$_payError",
+              t.payment.payFailed(err: _payError!),
               style: const TextStyle(fontSize: 12, color: Colors.red),
               textAlign: TextAlign.center,
             )
           else if (_timedOut)
-            const Text(
-              "未检测到支付。可稍后在「我的订单」中继续。",
-              style: TextStyle(fontSize: 12, color: Colors.red),
+            Text(
+              t.payment.notDetected,
+              style: const TextStyle(fontSize: 12, color: Colors.red),
               textAlign: TextAlign.center,
             )
           else
@@ -332,8 +336,8 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
                 const SizedBox(width: 8),
                 Text(
                   widget.payWithBalance
-                      ? (_paying ? "正在扣款…" : "处理中…")
-                      : "等待支付…",
+                      ? (_paying ? t.payment.charging : t.payment.processing)
+                      : t.payment.waitingPay,
                   style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
               ],
@@ -351,7 +355,7 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.open_in_new, size: 16),
-                label: Text(_launchLabel),
+                label: Text(_launchLabel(t)),
               ),
             ),
           ],
@@ -361,7 +365,7 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
               Expanded(
                 child: OutlinedButton(
                   onPressed: _cancel,
-                  child: const Text("取消订单"),
+                  child: Text(t.payment.cancelOrder),
                 ),
               ),
               const SizedBox(width: 10),
@@ -372,8 +376,10 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
                       : () => _poll(),
                   child: Text(
                     widget.payWithBalance
-                        ? (_payError == null ? "确认支付" : "重试")
-                        : "我已支付",
+                        ? (_payError == null
+                              ? t.payment.confirmPay
+                              : t.payment.retry)
+                        : t.payment.paidAlready,
                   ),
                 ),
               ),

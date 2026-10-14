@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
@@ -88,6 +89,7 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     final siteName = (_cfg["site_name"] ?? "").toString();
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -126,7 +128,7 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(labelText: "邮箱"),
+                    decoration: InputDecoration(labelText: t.loginScreen.email),
                   ),
                   const SizedBox(height: 14),
                   TextField(
@@ -135,7 +137,7 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                     autofillHints: const [AutofillHints.password],
                     onSubmitted: (_) => _busy ? null : _login(),
                     decoration: InputDecoration(
-                      labelText: "密码",
+                      labelText: t.loginScreen.password,
                       suffixIcon: InkWell(
                         onTap: () => setState(() => _obscure = !_obscure),
                         child: Icon(
@@ -155,12 +157,14 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: const Text(
-                      "保存账号信息",
-                      style: TextStyle(fontSize: 14),
+                    title: Text(
+                      t.authScreen.saveAccountInfo,
+                      style: const TextStyle(fontSize: 14),
                     ),
                     subtitle: Text(
-                      _remember ? "下次打开自动登录" : "下次打开需要重新登录",
+                      _remember
+                          ? t.authScreen.autoLoginNextTime
+                          : t.authScreen.needLoginNextTime,
                       style: const TextStyle(
                         fontSize: 12,
                         color: ThemeDefine.kColorGrey,
@@ -204,9 +208,9 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                                     ),
                                   ),
                                 )
-                              : const Text(
-                                  "登录",
-                                  style: TextStyle(
+                              : Text(
+                                  t.loginScreen.login,
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
@@ -231,9 +235,9 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                             ),
                           );
                         },
-                        child: const Text(
-                          "忘记密码",
-                          style: TextStyle(
+                        child: Text(
+                          t.loginScreen.forgotPassword,
+                          style: const TextStyle(
                             color: ThemeDefine.kColorBlue,
                             fontWeight: FontWeight.w500,
                           ),
@@ -250,9 +254,9 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
                               ),
                             );
                           },
-                          child: const Text(
-                            "注册",
-                            style: TextStyle(
+                          child: Text(
+                            t.loginScreen.register,
+                            style: const TextStyle(
                               color: ThemeDefine.kColorBlue,
                               fontWeight: FontWeight.w500,
                             ),
@@ -272,13 +276,14 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
   static const Color _primaryPurple = Color(0xFF7B5FF5);
 
   Future<void> _login() async {
+    final t = Translations.of(context);
     final email = _email.text.trim();
     if (email.isEmpty || !email.contains("@")) {
-      setState(() => _err = "请填写有效邮箱");
+      setState(() => _err = t.authScreen.invalidEmail);
       return;
     }
     if (_password.text.isEmpty) {
-      setState(() => _err = "请填写密码");
+      setState(() => _err = t.authScreen.passwordRequired);
       return;
     }
     setState(() {
@@ -293,7 +298,7 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
       if (!mounted) {
         return;
       }
-      final text = _friendly(e);
+      final text = _friendly(e, t);
       setState(() {
         _busy = false;
         _err = text;
@@ -311,18 +316,18 @@ class _MclashLoginScreenState extends LasyRenderingState<MclashLoginScreen> {
     }
   }
 
-  String _friendly(Object e) {
+  String _friendly(Object e, Translations t) {
     if (e is CBoardException) {
       if (e.code == 40100 || e.httpStatus == 401) {
-        return "邮箱或密码错误";
+        return t.authScreen.wrongCredentials;
       }
       if (e.code == 40300) {
-        return "请求被拒绝，请稍后重试";
+        return t.authScreen.requestRejected;
       }
       if (e.httpStatus == 429) {
-        return "操作过于频繁，请稍后再试";
+        return t.authScreen.tooFrequent;
       }
-      return e.message.isEmpty ? "登录失败" : e.message;
+      return e.message.isEmpty ? t.authScreen.loginFailed : e.message;
     }
     return "$e";
   }

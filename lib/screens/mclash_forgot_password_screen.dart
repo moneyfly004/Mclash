@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/password_policy.dart';
 import 'package:mclash/screens/dialog_utils.dart';
@@ -50,6 +51,7 @@ class _MclashForgotPasswordScreenState
 
   @override
   Widget build(BuildContext context) {
+    final t = Translations.of(context);
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: PreferredSize(preferredSize: Size.zero, child: AppBar()),
@@ -69,11 +71,11 @@ class _MclashForgotPasswordScreenState
                       child: Icon(Icons.arrow_back_ios_outlined, size: 26),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      "找回密码",
+                      t.loginScreen.forgotPassword,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: ThemeConfig.kFontWeightTitle,
                         fontSize: ThemeConfig.kFontSizeTitle,
                       ),
@@ -92,7 +94,8 @@ class _MclashForgotPasswordScreenState
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       enabled: !_codeSent,
-                      decoration: const InputDecoration(labelText: "注册邮箱"),
+                      decoration: InputDecoration(
+                          labelText: t.authScreen.registeredEmail),
                     ),
                     const SizedBox(height: 14),
                     Row(
@@ -102,8 +105,8 @@ class _MclashForgotPasswordScreenState
                           child: TextField(
                             controller: _code,
                             keyboardType: TextInputType.number,
-                            decoration:
-                                const InputDecoration(labelText: "邮箱验证码"),
+                            decoration: InputDecoration(
+                                labelText: t.authScreen.emailCode),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -112,8 +115,9 @@ class _MclashForgotPasswordScreenState
                           child: OutlinedButton(
                             onPressed:
                                 (_sending || _countdown > 0) ? null : _sendCode,
-                            child: Text(
-                                _countdown > 0 ? "${_countdown}s" : "获取验证码"),
+                            child: Text(_countdown > 0
+                                ? "${_countdown}s"
+                                : t.authScreen.getCode),
                           ),
                         ),
                       ],
@@ -122,11 +126,12 @@ class _MclashForgotPasswordScreenState
                     TextField(
                       controller: _password,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: "新密码"),
+                      decoration:
+                          InputDecoration(labelText: t.authScreen.newPassword),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      PasswordPolicy.hint(),
+                      t.authScreen.passwordHint(min: PasswordPolicy.kMinLength),
                       style: const TextStyle(
                         fontSize: 12,
                         color: ThemeDefine.kColorGrey,
@@ -136,7 +141,8 @@ class _MclashForgotPasswordScreenState
                     TextField(
                       controller: _confirm,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: "确认新密码"),
+                      decoration: InputDecoration(
+                          labelText: t.authScreen.confirmNewPassword),
                     ),
                     if (_info != null)
                       Padding(
@@ -170,7 +176,7 @@ class _MclashForgotPasswordScreenState
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text("重置密码"),
+                            : Text(t.authScreen.resetPassword),
                       ),
                     ),
                   ],
@@ -198,10 +204,23 @@ class _MclashForgotPasswordScreenState
     });
   }
 
+  /// 密码策略校验（文案走 i18n，规则仍以 PasswordPolicy 为准）。
+  String? _policyError(Translations t, String pwd) {
+    final raw = PasswordPolicy.validate(pwd);
+    if (raw == null) {
+      return null;
+    }
+    if (pwd.length < PasswordPolicy.kMinLength) {
+      return t.authScreen.passwordTooShort(min: PasswordPolicy.kMinLength);
+    }
+    return t.authScreen.passwordNeedsLetterAndDigit;
+  }
+
   Future<void> _sendCode() async {
+    final t = Translations.of(context);
     final email = _email.text.trim();
     if (email.isEmpty || !email.contains("@")) {
-      setState(() => _err = "请填写有效邮箱");
+      setState(() => _err = t.authScreen.invalidEmail);
       return;
     }
     setState(() {
@@ -215,7 +234,7 @@ class _MclashForgotPasswordScreenState
         _sending = false;
         _codeSent = true;
 
-        _info = "如果该邮箱已注册，重置验证码已发送（15 分钟内有效）。";
+        _info = t.authScreen.resetCodeSent;
       });
       _startCountdown();
     } catch (e) {
@@ -228,22 +247,23 @@ class _MclashForgotPasswordScreenState
   }
 
   Future<void> _submit() async {
+    final t = Translations.of(context);
     final email = _email.text.trim();
     if (email.isEmpty || !email.contains("@")) {
-      setState(() => _err = "请填写有效邮箱");
+      setState(() => _err = t.authScreen.invalidEmail);
       return;
     }
     if (_code.text.trim().isEmpty) {
-      setState(() => _err = "请填写邮箱验证码");
+      setState(() => _err = t.authScreen.emailCodeRequired);
       return;
     }
-    final pwdErr = PasswordPolicy.validate(_password.text);
+    final pwdErr = _policyError(t, _password.text);
     if (pwdErr != null) {
       setState(() => _err = pwdErr);
       return;
     }
     if (_password.text != _confirm.text) {
-      setState(() => _err = "两次输入的密码不一致");
+      setState(() => _err = t.authScreen.passwordMismatch);
       return;
     }
 
@@ -258,7 +278,7 @@ class _MclashForgotPasswordScreenState
         password: _password.text,
       );
       if (!mounted) return;
-      await DialogUtils.showAlertDialog(context, "密码已重置，请用新密码登录");
+      await DialogUtils.showAlertDialog(context, t.authScreen.resetSuccess);
       if (!mounted) return;
 
       Navigator.of(context).popUntil((r) => r.isFirst);

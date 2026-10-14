@@ -1,7 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_payment.dart';
 
 void main() {
+  // 通道展示名 / 支付失败原因已走 i18n。这些用例断言的是中文文案，
+  // 所以要先把语言钉死在 zh-CN（base 语言是 en，不钉就拿到英文）。
+  // ⚠️ zh-CN 是 deferred 加载的，只能用异步 setLocale，且只能在 setUpAll 里调。
+  setUpAll(() async {
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
+
   group('支付载荷分类', () {
     test('余额：直接扣款，不弹二维码', () {
       expect(MclashPay.classify("", payType: "balance"), MclashPayChannel.balance);
@@ -168,6 +176,34 @@ void main() {
       expect(MclashPay.payloadOf({"qr_code": "  "}), "", reason: '空串要跳过');
       expect(MclashPay.payloadOf({}), "");
       expect(MclashPay.payloadOf(null), "");
+    });
+  });
+
+  // 收官：英文界面下这些文案必须是英文（真机报障的原症状是"界面英文、弹窗中文"）。
+  group('英文界面：通道名与失败原因不给中文', () {
+    setUpAll(() async {
+      await LocaleSettings.setLocale(AppLocale.en);
+    });
+
+    tearDownAll(() async {
+      await LocaleSettings.setLocale(AppLocale.zhCn);
+    });
+
+    test('通道展示名走英文', () {
+      expect(MclashPay.nameOf({"key": "alipay"}), "Alipay");
+      expect(MclashPay.nameOf({"key": "codepay_alipay"}), "Code Pay · Alipay");
+      expect(MclashPay.nameOf({"key": "wechat"}), "WeChat Pay");
+      expect(MclashPay.nameOf({}), "Payment");
+    });
+
+    test('支付失败原因走英文', () {
+      final msg = MclashPay.friendlyError(Exception("CSRF 校验失败 40300"));
+      expect(msg.contains("login credential"), isTrue, reason: msg);
+      expect(RegExp(r'[\u4e00-\u9fff]').hasMatch(msg), isFalse, reason: msg);
+    });
+
+    test('后端下发的 name 原样保留（是数据，不是文案）', () {
+      expect(MclashPay.nameOf({"key": "alipay", "name": "支付宝"}), "支付宝");
     });
   });
 }
