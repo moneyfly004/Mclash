@@ -447,7 +447,7 @@ class _ProfilesSettingsEditScreenState
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("rules"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.rule, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.rule, titleBuilder: (t) => t.meta.rule, getOptions: getOptions),
       ),
     );
   }

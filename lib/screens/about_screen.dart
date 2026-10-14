@@ -187,6 +187,7 @@ class AboutScreenState extends LasyRenderingState<AboutScreen> {
         settings: GroupScreen.routeSettings("devOptions"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.devOptions,
+          titleBuilder: (t) => t.meta.devOptions,
           getOptions: getOptions,
         ),
       ),

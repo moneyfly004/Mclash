@@ -198,6 +198,7 @@ class GroupHelper {
         settings: GroupScreen.routeSettings("backupAndSync"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.backupAndSync,
+          titleBuilder: (t) => t.meta.backupAndSync,
           getOptions: getOptions,
         ),
       ),
@@ -221,7 +222,10 @@ class GroupHelper {
                 MaterialPageRoute(
                   settings: BackupAndSyncLanSyncScreen.routeSettings(),
                   builder: (context) =>
-                      BackupAndSyncLanSyncScreen(title: tcontext.meta.send),
+                      BackupAndSyncLanSyncScreen(
+                        title: tcontext.meta.send,
+                        titleBuilder: (t) => t.meta.send,
+                      ),
                 ),
               );
             },
@@ -249,7 +253,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("send"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.send, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.send, titleBuilder: (t) => t.meta.send, getOptions: getOptions),
       ),
     );
   }
@@ -282,7 +286,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("BackupAndSyncLanSyncScreen"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.lanSync, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.lanSync, titleBuilder: (t) => t.meta.lanSync, getOptions: getOptions),
       ),
     );
   }
@@ -488,6 +492,7 @@ class GroupHelper {
         settings: GroupScreen.routeSettings("importAndExport"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.export,
+          titleBuilder: (t) => t.meta.export,
           getOptions: getOptions,
         ),
       ),
@@ -727,7 +732,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("help"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.help, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.help, titleBuilder: (t) => t.meta.help, getOptions: getOptions),
       ),
     );
     SettingManager.save();
@@ -1110,7 +1115,7 @@ class GroupHelper {
                             "systemProxyBypassDomain",
                           ),
                           builder: (context) => ListAddScreen(
-                            title: tcontext.meta.bypassSystemProxy,
+                            title: tcontext.meta.bypassSystemProxy, titleBuilder: (t) => t.meta.bypassSystemProxy,
                             data: setting.systemProxyBypassDomain,
                           ),
                         ),
@@ -1250,6 +1255,7 @@ class GroupHelper {
         settings: GroupScreen.routeSettings("appSettings"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.settingApp,
+          titleBuilder: (t) => t.meta.settingApp,
           getOptions: getOptions,
         ),
       ),
@@ -1616,6 +1622,7 @@ class GroupHelper {
         settings: GroupScreen.routeSettings("coreSettings"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.settingCore,
+          titleBuilder: (t) => t.meta.settingCore,
           getOptions: getOptions,
           onDone: (context) async {
             final profile = ProfileManager.getCurrent();
@@ -1722,6 +1729,7 @@ class GroupHelper {
         settings: GroupScreen.routeSettings("lanAccess"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.allowLanAccess,
+          titleBuilder: (t) => t.meta.allowLanAccess,
           getOptions: getOptions,
         ),
       ),
@@ -2026,7 +2034,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("tun"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.tun, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.tun, titleBuilder: (t) => t.meta.tun, getOptions: getOptions),
       ),
     );
   }
@@ -2177,7 +2185,7 @@ class GroupHelper {
                       MaterialPageRoute(
                         settings: ListAddScreen.routeSettings("FakeIPFilter"),
                         builder: (context) => ListAddScreen(
-                          title: tcontext.dns.fakeIPFilter,
+                          title: tcontext.dns.fakeIPFilter, titleBuilder: (t) => t.dns.fakeIPFilter,
                           data: dns.FakeIPFilter!,
                         ),
                       ),
@@ -2214,7 +2222,7 @@ class GroupHelper {
                           "DefaultNameserver",
                         ),
                         builder: (context) => ListAddScreen(
-                          title: tcontext.dns.defaultNameServer,
+                          title: tcontext.dns.defaultNameServer, titleBuilder: (t) => t.dns.defaultNameServer,
                           data: dns.DefaultNameserver!,
                         ),
                       ),
@@ -2235,7 +2243,7 @@ class GroupHelper {
                       MaterialPageRoute(
                         settings: ListAddScreen.routeSettings("NameServer"),
                         builder: (context) => ListAddScreen(
-                          title: tcontext.dns.nameServer,
+                          title: tcontext.dns.nameServer, titleBuilder: (t) => t.dns.nameServer,
                           data: dns.NameServer!,
                         ),
                       ),
@@ -2258,7 +2266,7 @@ class GroupHelper {
                           "ProxyServerNameserver",
                         ),
                         builder: (context) => ListAddScreen(
-                          title: tcontext.dns.proxyNameServer,
+                          title: tcontext.dns.proxyNameServer, titleBuilder: (t) => t.dns.proxyNameServer,
                           data: dns.ProxyServerNameserver!,
                         ),
                       ),
@@ -2281,7 +2289,7 @@ class GroupHelper {
                           "DirectNameServer",
                         ),
                         builder: (context) => ListAddScreen(
-                          title: tcontext.dns.directNameServer,
+                          title: tcontext.dns.directNameServer, titleBuilder: (t) => t.dns.directNameServer,
                           data: dns.DirectNameServer!,
                         ),
                       ),
@@ -2302,7 +2310,7 @@ class GroupHelper {
                       MaterialPageRoute(
                         settings: ListAddScreen.routeSettings("Fallback"),
                         builder: (context) => ListAddScreen(
-                          title: tcontext.dns.fallbackNameServer,
+                          title: tcontext.dns.fallbackNameServer, titleBuilder: (t) => t.dns.fallbackNameServer,
                           data: dns.Fallback!,
                         ),
                       ),
@@ -2351,7 +2359,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("dns"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.dns, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.dns, titleBuilder: (t) => t.meta.dns, getOptions: getOptions),
       ),
     );
   }
@@ -2485,7 +2493,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("ntp"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.ntp, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.ntp, titleBuilder: (t) => t.meta.ntp, getOptions: getOptions),
       ),
     );
   }
@@ -2565,7 +2573,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("tls"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.tls, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.tls, titleBuilder: (t) => t.meta.tls, getOptions: getOptions),
       ),
     );
   }
@@ -2622,7 +2630,7 @@ class GroupHelper {
       MaterialPageRoute(
         settings: GroupScreen.routeSettings("sniffer"),
         builder: (context) =>
-            GroupScreen(title: tcontext.meta.sniffer, getOptions: getOptions),
+            GroupScreen(title: tcontext.meta.sniffer, titleBuilder: (t) => t.meta.sniffer, getOptions: getOptions),
       ),
     );
   }
@@ -2692,6 +2700,7 @@ class GroupHelper {
         settings: GroupScreen.routeSettings("diversionTemplates"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.diversionTemplates,
+          titleBuilder: (t) => t.meta.diversionTemplates,
           getOptions: getOptions,
         ),
       ),

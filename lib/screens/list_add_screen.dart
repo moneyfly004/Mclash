@@ -15,12 +15,15 @@ class ListAddScreen extends LasyRenderingStatefulWidget {
   final String title;
   List<String> data;
   final Set<String> invalidData;
+  /// 语言切换后已压栈页面的标题也要跟着变（见 GroupScreen.titleBuilder）。
+  final String Function(Translations t)? titleBuilder;
   final String dialogTitle;
   final String dialogTextHit;
   final Future<String?> Function()? onTapAdd;
   ListAddScreen({
     super.key,
     required this.title,
+    this.titleBuilder,
     required this.data,
     this.invalidData = const {},
     this.dialogTitle = "",
@@ -69,7 +72,8 @@ class _ListAddScreenState extends LasyRenderingState<ListAddScreen> {
                     SizedBox(
                       width: windowSize.width - 50 * 2,
                       child: Text(
-                        widget.title,
+                        widget.titleBuilder?.call(Translations.of(context)) ??
+                            widget.title,
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

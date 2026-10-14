@@ -503,6 +503,7 @@ class _BackupAndSyncWebdavScreenState
         settings: GroupScreen.routeSettings("webdav"),
         builder: (context) => GroupScreen(
           title: tcontext.meta.webdav,
+          titleBuilder: (t) => t.meta.webdav,
           getOptions: getOptions,
           onDone: (BuildContext context) async {
             if (!mounted) {

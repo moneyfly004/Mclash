@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:after_layout/after_layout.dart';
+import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/group_item_creator.dart';
 import 'package:mclash/screens/group_item_options.dart';
@@ -16,6 +17,13 @@ class GroupScreen extends LasyRenderingStatefulWidget {
   }
 
   final String title;
+
+  /// 语言切换后，**已经压在导航栈里的页面**标题也要跟着变。
+  ///
+  /// 真机报障：语言从英文切到波斯语后，之前打开的「应用设置」页标题仍显示
+  /// 「App Settings」—— 标题是 push 那一刻按当时语言取词、当构造参数存下来的。
+  /// 传这个 builder 就会在每次 build 时按当前语言取词（`title` 留给字面量标题）。
+  final String Function(Translations t)? titleBuilder;
   final Future<List<GroupItem>> Function(
     BuildContext context,
     SetStateCallback? setstate,
@@ -29,6 +37,7 @@ class GroupScreen extends LasyRenderingStatefulWidget {
   const GroupScreen({
     super.key,
     required this.title,
+    this.titleBuilder,
     required this.getOptions,
     this.hasReturn = true,
     this.onDone,
@@ -99,7 +108,8 @@ class GroupScreenState extends LasyRenderingState<GroupScreen>
                     SizedBox(
                       width: windowSize.width - 50 * 2,
                       child: Text(
-                        widget.title,
+                        widget.titleBuilder?.call(Translations.of(context)) ??
+                            widget.title,
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

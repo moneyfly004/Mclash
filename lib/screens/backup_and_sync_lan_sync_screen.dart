@@ -25,7 +25,14 @@ class BackupAndSyncLanSyncScreen extends LasyRenderingStatefulWidget {
   }
 
   final String? title;
-  const BackupAndSyncLanSyncScreen({super.key, required this.title});
+
+  /// 语言切换后已压栈页面的标题也要跟着变（见 GroupScreen.titleBuilder）。
+  final String? Function(Translations t)? titleBuilder;
+  const BackupAndSyncLanSyncScreen({
+    super.key,
+    required this.title,
+    this.titleBuilder,
+  });
 
   @override
   State<BackupAndSyncLanSyncScreen> createState() =>
@@ -252,7 +259,8 @@ class _BackupAndSyncLanSyncScreenState
                     SizedBox(
                       width: windowSize.width - 50 * 2,
                       child: Text(
-                        widget.title!,
+                        widget.titleBuilder?.call(Translations.of(context)) ??
+                            widget.title!,
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
