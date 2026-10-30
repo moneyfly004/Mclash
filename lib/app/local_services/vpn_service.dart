@@ -24,9 +24,10 @@ import 'package:mclash/app/utils/network_utils.dart';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:mclash/mf/mclash_subscription_revision.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
+import 'package:mclash/app/local_services/mac_tun_helper.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:libclash_vpn_service/libclash_vpn_service.dart'
-    show lastSystemProxyCleanSkip;
+    show lastSystemProxyCleanSkip, DesktopVpnServiceImpl;
 import 'package:libclash_vpn_service/proxy_manager.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
@@ -36,6 +37,10 @@ import 'package:path/path.dart' as path;
 class VPNService {
   static const localhost = "127.0.0.1";
   static bool _runAsAdmin = false;
+
+  /// macOS：是否已获「免密 sudo 运行内核」授权（/etc/sudoers.d/mclash-tun）。
+  /// 由 refreshTunPrerequisites() 异步刷新，tunPrerequisitesMet() 读取。
+  static bool _macTunGranted = false;
   static final bool _systemExtension = true;
   static List<String> _abis = [];
   static final List<
@@ -373,6 +378,7 @@ class VPNService {
     _opLock = gate.future;
 
     Future<T> run() async {
+      final swWait = Stopwatch()..start();
       final waited = _opHolder.isNotEmpty;
       if (waited) {
         Log.i("VPNService: $name 等待前一个操作($_opHolder)完成");
@@ -381,6 +387,13 @@ class VPNService {
       try {
         return await action();
       } finally {
+        // 队列等待耗时单独打点：连接慢到底慢在"等前一个操作"还是"自己干活"，
+        // 之前混在一个数字里（5.6s 的真相是排队 5.3s + 启动 0.25s）。
+        if (waited) {
+          Log.i(
+            "[perf] $name 排队等待 ${swWait.elapsedMilliseconds} ms",
+          );
+        }
         _opHolder = "";
         if (!gate.isCompleted) {
           gate.complete();
@@ -401,8 +414,29 @@ class VPNService {
         });
   }
 
-  static Future<ReturnResultError?> restart(Duration timeout) =>
-      _serialOp("restart", () => _restartInner(timeout));
+  /// 用户是否处于「主动断开」意图。
+  ///
+  /// stop / restart 都排在同一个串行队列里。用户点断开时，队列里可能已经排着一个
+  /// 由订阅同步或自动选路触发的 restart —— 串行执行的结果就是「先连上、再断开」，
+  /// 用户看到的现象正是「我断开之后它自己又连了一次」。
+  /// 这个标记让排队中的 restart 直接放弃，而不是先连上再被 stop 杀掉。
+  static bool _userWantsDisconnected = false;
+
+  static bool get userWantsDisconnected => _userWantsDisconnected;
+
+  static Future<ReturnResultError?> restart(Duration timeout) {
+    if (_userWantsDisconnected) {
+      Log.i("VPNService: 用户已主动断开，restart 直接跳过（不再连一次）");
+      return Future.value(null);
+    }
+    return _serialOp("restart", () async {
+      if (_userWantsDisconnected) {
+        Log.i("VPNService: 用户已主动断开，跳过排队中的 restart");
+        return null;
+      }
+      return _restartInner(timeout);
+    });
+  }
 
   static Future<ReturnResultError?> _restartInner(Duration timeout) async {
     final gateError = await _runConnectGate();
@@ -491,8 +525,11 @@ class VPNService {
     return null;
   }
 
-  static Future<ReturnResultError?> start(Duration timeout) =>
-      _serialOp("start", () => _startInner(timeout));
+  static Future<ReturnResultError?> start(Duration timeout) {
+    // 显式连接：清除「用户要求断开」的意图
+    _userWantsDisconnected = false;
+    return _serialOp("start", () => _startInner(timeout));
+  }
 
   static Future<ReturnResultError?> _startInner(Duration timeout) async {
     // 幂等：内核已经在跑（或正在起）时，再调一次 start() 绝不能起第二个内核。
@@ -843,25 +880,31 @@ class VPNService {
     systemProxyWarning.value = "";
   }
 
-  static Future<void> stop() => _serialOp("stop", _stopInner);
+  static Future<void> stop() {
+    // 必须在入队**之前**同步置位：这样已经排在队列里的 restart 执行时会看到
+    // 「用户要断开」而直接放弃，不会先连上再被这次 stop 杀掉。
+    _userWantsDisconnected = true;
+    return _serialOp("stop", _stopInner);
+  }
 
   static Future<void> _stopInner() async {
     final sw = Stopwatch()..start();
     _stopProxyWatchdog();
-    final tasks = <Future<void>>[
-      _quiet("撤系统代理", setSystemProxy(false)),
-      _quiet("停止内核", FlutterVpnService.stop()),
-    ];
+    // 只等「内核停」。内核层已把杀进程提到最前面（毫秒级），系统代理与 TUN
+    // 的收尾由它在后台完成 —— 这里再 await 一次 setSystemProxy(false) 是重复
+    // 劳动：两边会并发跑同一批 networksetup，互相抢系统配置锁，把断开拖到 4 秒。
+    await _quiet("停止内核", FlutterVpnService.stop());
+    Log.i("[perf] 断开：内核已停 ${sw.elapsedMilliseconds} ms");
+
     if (Platform.isMacOS) {
-      tasks.add(_quiet("关闭 always-on", FlutterVpnService.setAlwaysOn(false)));
+      // always-on 关闭可能走特权 helper，别挡住断开的体感
+      unawaited(_quiet("关闭 always-on", FlutterVpnService.setAlwaysOn(false)));
     }
-    await Future.wait(tasks);
     if (Platform.isWindows) {
-      await uninstall();
+      unawaited(uninstall());
     }
     ClashHttpApi.resetControlConnection();
     ClashHttpApi.invalidateProxiesCache();
-    Log.i("[perf] 断开：撤系统代理 + 停内核用时 ${sw.elapsedMilliseconds} ms");
   }
 
   static Future<void> _quiet(String what, Future<void> f) async {
@@ -984,12 +1027,52 @@ class VPNService {
     if (Platform.isWindows && !_runAsAdmin) {
       return false;
     }
+    // macOS：TUN 需要 root 创建 utun / 改路由表，权限来自
+    // /etc/sudoers.d/mclash-tun（由 MacTunHelper 一次性授权写入）。
+    // 这里用缓存值，异步探测见 refreshTunPrerequisites()。
+    if (Platform.isMacOS) {
+      return _macTunGranted;
+    }
     return true;
   }
 
+  /// macOS：探测「免密 sudo 运行内核」的授权是否仍然有效。
+  /// 内核路径变化（升级后落到 Application Support/kernel）会让旧规则失效，
+  /// 所以每次进主页/设置页都应重新探测一次。
+  static Future<bool> refreshTunPrerequisites() async {
+    if (!Platform.isMacOS) {
+      return true;
+    }
+    try {
+      final corePath = await DesktopVpnServiceImpl.resolveKernelPath();
+      _macTunGranted = await MacTunHelper.isGranted(corePath ?? "");
+    } catch (e) {
+      Log.w("VPNService: 探测 macOS TUN 授权失败: $e");
+      _macTunGranted = false;
+    }
+    return _macTunGranted;
+  }
+
+  /// 请求提权：Windows 以管理员重启；macOS 弹一次系统密码框并写入免密规则。
   static Future<ReturnResultError?> relaunchAsAdmin() async {
+    if (Platform.isMacOS) {
+      try {
+        final corePath = await DesktopVpnServiceImpl.resolveKernelPath();
+        if (corePath == null || corePath.isEmpty) {
+          return ReturnResultError("找不到内核文件，无法授权");
+        }
+        final ok = await MacTunHelper.grant(corePath);
+        if (!ok) {
+          return ReturnResultError("未获得管理员授权（已取消或密码错误）");
+        }
+        _macTunGranted = true;
+        return null;
+      } catch (err) {
+        return ReturnResultError(err.toString());
+      }
+    }
     if (!Platform.isWindows) {
-      return ReturnResultError("只有 Windows 需要以管理员身份重启");
+      return ReturnResultError("当前平台无需提权");
     }
     try {
       final exe = Platform.resolvedExecutable;

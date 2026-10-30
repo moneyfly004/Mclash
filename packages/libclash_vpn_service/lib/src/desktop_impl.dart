@@ -215,6 +215,12 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   bool _wantConnected = false;
 
+  /// 生命周期代号：每次 start / stop 自增。
+  /// 断开的「后台代理清理」要跑好几秒，期间用户可能已经重新连上 ——
+  /// 清理任务发现代号变了就必须放弃，否则会把新会话刚写好的系统代理
+  /// 又还原成「原始状态」（= 关闭），表现为「一连上就断、反复抖动」。
+  int _lifecycleGen = 0;
+
   int _autoRecoveries = 0;
   static const int kMaxAutoRecover = 3;
 
@@ -337,6 +343,8 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
     _starting = true;
     try {
+      // 新的启动开始：让上一次断开遗留的「后台代理清理」失效
+      _lifecycleGen++;
       final cfg = _config;
       if (cfg == null) {
         return VpnServiceWaitResult(
@@ -439,11 +447,20 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           } catch (_) {}
         }
       }
+      // macOS + TUN：创建 utun 网卡、改路由表都必须 root。
+      // 这里走 `sudo -n`（免密），权限由 App 侧 MacTunHelper 一次性写入
+      // /etc/sudoers.d/mclash-tun 授予；未授权时 sudo 会立即失败，
+      // 上层据此判断「需要提权」并引导用户。
+      final useSudo = Platform.isMacOS && cfg.tun_enabled;
+      final execPath = useSudo ? "/usr/bin/sudo" : kernel;
+      final execArgs = useSudo
+          ? ["-n", kernel, "-d", workDir, "-f", configFile.path]
+          : ["-d", workDir, "-f", configFile.path];
       Process proc;
       try {
         proc = await Process.start(
-          kernel,
-          ["-d", workDir, "-f", configFile.path],
+          execPath,
+          execArgs,
           environment: {"PATH": Platform.environment["PATH"] ?? ""},
           workingDirectory: workDir,
         );
@@ -890,13 +907,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     _stopKernelWatchdog();
     _setState(FlutterVpnServiceState.disconnecting);
     try {
-      final swProxy = Stopwatch()..start();
-      final cleanFuture =
-          _systemProxyApplied ? cleanSystemProxy() : Future.value();
-      await Future.wait([cleanFuture, _disableTunBeforeStop()]);
-      swProxy.stop();
-      desktopLog("[perf] 断开：撤系统代理 + 拆 TUN 用时 ${swProxy.elapsedMilliseconds} ms");
-      _systemProxyFallbackActive = false;
+      final sw = Stopwatch()..start();
+      // 1) 先杀内核 —— 用户点「断开」的体感就等于这一刻。
+      //    mihomo 收到 SIGTERM 会自行拆 utun/路由，最多等 800ms，
+      //    超时直接 SIGKILL，别让僵进程把断开拖到 1.5 秒以上。
       final proc = _proc;
       _proc = null;
       if (proc != null) {
@@ -908,14 +922,43 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           }
         } catch (_) {}
         try {
-          await proc.exitCode.timeout(const Duration(milliseconds: 1500));
+          await proc.exitCode.timeout(const Duration(milliseconds: 800));
         } catch (_) {
           try {
             proc.kill(ProcessSignal.sigkill);
           } catch (_) {}
         }
       }
-      desktopLog("[perf] 断开总用时 ${swProxy.elapsedMilliseconds} ms");
+      _systemProxyFallbackActive = false;
+      desktopLog("[perf] 断开：内核已停 ${sw.elapsedMilliseconds} ms");
+
+      // 2) 系统代理 / TUN 收尾放后台。每个网络服务一条 networksetup，
+      //    本机 7 个服务就要 3~5 秒，绝不能挡住「已断开」的体感。
+      //    始终跑一次 cleanSystemProxy：TUN 模式虽不写系统代理，但上一轮
+      //    非 TUN 会话可能留下归属记录，必须收干净（否则流量打到死端口）。
+      //    若期间用户已重新连接，则跳过，避免把新会话刚设好的代理又关掉。
+      unawaited(() async {
+        final gen = ++_lifecycleGen;
+        bool stillSame() =>
+            gen == _lifecycleGen && _proc == null && !_wantConnected;
+        try {
+          if (!stillSame()) {
+            desktopLog("[mclash] 断开后台清理跳过：期间已重新连接");
+            return;
+          }
+          await _disableTunBeforeStop();
+          // 拆 TUN 也要几百毫秒，期间用户可能又连上了——必须再确认一次。
+          // 少了这道检查，就会出现「连上 → 旧清理把代理还原 → 断网 → 重连」的抖动。
+          if (!stillSame()) {
+            desktopLog("[mclash] 断开后台清理跳过：拆 TUN 期间已重新连接");
+            return;
+          }
+          await cleanSystemProxy();
+          desktopLog("[perf] 断开：后台清理完成 ${sw.elapsedMilliseconds} ms");
+        } catch (e) {
+          desktopLog("[mclash] 断开后台清理失败: $e");
+        }
+      }());
     } finally {
       _teardownInProgress = false;
       _setState(FlutterVpnServiceState.disconnected);
@@ -1865,6 +1908,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     ProxyOption option,
     List<String> bypass,
   ) async {
+    // 写入之前先拍快照（每个服务只拍一次，保活 reassert 不覆盖）：
+    // 断开时要还原成用户原来的样子，而不是一律关掉。
+    if (!_macOriginal.containsKey(svc)) {
+      final snap = await _macReadProxyState(svc);
+      if (snap != null) {
+        _macOriginal[svc] = snap;
+      }
+    }
     Future<void> run(List<String> args) async {
       final r = await Process.run("networksetup", args);
       if (r.exitCode != 0) {
@@ -1925,6 +1976,15 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   String _macAppliedHost = "";
   int _macAppliedPort = 0;
 
+  /// 每个网络服务在**我们第一次写入之前**的原始代理状态。
+  ///
+  /// 只记「我改过哪些服务」是不够的：别的代理软件（或用户手动）原本设的代理，
+  /// 在我们断开后应当**原样回来**，而不是被一律关掉。这正是「系统代理被争抢」
+  /// 的典型表现 —— 关掉 Mclash 之后，另一个软件的代理也跟着没了 / 直接断网。
+  /// 结构：service → {web_enabled, web_server, web_port, secureweb_*}。
+  final Map<String, Map<String, String>> _macOriginal =
+      <String, Map<String, String>>{};
+
   static const String kMacProxyOwnershipFile = "macos_proxy_ownership.json";
 
   Future<File?> _macProxyOwnershipFile() async {
@@ -1950,6 +2010,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           "services": _macAppliedServices.toList(),
           "host": _macAppliedHost,
           "port": _macAppliedPort,
+          // 连原始快照一起落盘：被强杀后下次启动才能把用户原来的代理还回去，
+          // 而不是只能一律关掉。
+          "original": _macOriginal,
           "at": DateTime.now().toIso8601String(),
         }),
         flush: true,
@@ -1979,7 +2042,84 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       _macAppliedHost = (decoded["host"] ?? "").toString();
       _macAppliedPort = (decoded["port"] as num?)?.toInt() ?? 0;
+      final orig = decoded["original"];
+      if (orig is Map) {
+        orig.forEach((k, v) {
+          if (v is Map) {
+            _macOriginal[k.toString()] = v.map(
+              (ik, iv) => MapEntry(ik.toString(), iv.toString()),
+            );
+          }
+        });
+      }
     } catch (_) {}
+  }
+
+  /// 读一个网络服务的 web / secure web 代理现状。
+  /// 返回 null 表示读不到（那就退化成"断开时一律关掉"的旧行为）。
+  Future<Map<String, String>?> _macReadProxyState(String svc) async {
+    try {
+      final out = <String, String>{};
+      for (final kind in ["web", "secureweb"]) {
+        final r = await Process.run("networksetup", ["-get${kind}proxy", svc]);
+        if (r.exitCode != 0) {
+          continue;
+        }
+        bool? enabled;
+        var server = "";
+        var port = "";
+        for (final line in r.stdout.toString().split("\n")) {
+          final i = line.indexOf(":");
+          if (i < 0) {
+            continue;
+          }
+          final k = line.substring(0, i).trim().toLowerCase();
+          final v = line.substring(i + 1).trim();
+          if (k == "enabled") {
+            final lv = v.toLowerCase();
+            if (lv == "yes") enabled = true;
+            if (lv == "no") enabled = false;
+          } else if (k == "server") {
+            server = v;
+          } else if (k == "port") {
+            port = v;
+          }
+        }
+        if (enabled == null) {
+          continue;
+        }
+        out["${kind}_enabled"] = enabled ? "1" : "0";
+        out["${kind}_server"] = server;
+        out["${kind}_port"] = port;
+      }
+      return out.isEmpty ? null : out;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 把一个服务还原成快照里的状态（可能是"开着且指向别的软件"）。
+  Future<void> _macRestoreService(String svc, Map<String, String> orig) async {
+    for (final kind in ["web", "secureweb"]) {
+      final enabled = orig["${kind}_enabled"];
+      if (enabled == null) {
+        continue;
+      }
+      final setName = kind == "web" ? "-setwebproxy" : "-setsecurewebproxy";
+      final setState = kind == "web"
+          ? "-setwebproxystate"
+          : "-setsecurewebproxystate";
+      if (enabled == "1") {
+        final server = orig["${kind}_server"] ?? "";
+        final port = orig["${kind}_port"] ?? "0";
+        if (server.isNotEmpty && port != "0") {
+          await Process.run("networksetup", [setName, svc, server, port]);
+        }
+        await Process.run("networksetup", [setState, svc, "on"]);
+      } else {
+        await Process.run("networksetup", [setState, svc, "off"]);
+      }
+    }
   }
 
   /// 只关"我们写的那份"代理；别人的代理一律不碰（并如实记账为什么跳过）。
@@ -1997,16 +2137,26 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       final owner = ProxyOption(_macAppliedHost, _macAppliedPort, const []);
       var cleaned = 0;
+      var restored = 0;
       var skipped = 0;
       // 并发执行：本机 26 个服务 × 2 条 networksetup 串行要 3~5 秒，
       // 用户会以为"退出卡住"从而去强杀进程（那样反而把内核留成孤儿）。
       await Future.wait([
         for (final svc in services)
           () async {
-            // 归属判定：只有当前值仍是我们写的 host:port 才关。
+            // 归属判定：只有当前值仍是我们写的 host:port 才动。
+            // 已被别人改走 → 说明有其它代理软件接管了，绝不碰它的设置。
             if (_macAppliedPort > 0 &&
                 !await _macServiceProxyMatches(svc, owner)) {
               skipped++;
+              return;
+            }
+            final orig = _macOriginal[svc];
+            if (orig != null) {
+              // 有快照就还原成用户原来的配置：可能是「开着，指向别的软件」，
+              // 也可能本来就是关的。只按"关掉"处理会连带毁掉别人的代理。
+              await _macRestoreService(svc, orig);
+              restored++;
               return;
             }
             await Process.run("networksetup", [
@@ -2027,8 +2177,12 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           "[mclash] macOS 系统代理：跳过 $skipped 个服务（当前值不是本程序写的）",
         );
       }
-      desktopLog("[mclash] macOS 系统代理：已还原 $cleaned 个服务");
+      desktopLog(
+        "[mclash] macOS 系统代理：还原原始配置 $restored 个服务，"
+        "无快照直接关闭 $cleaned 个服务",
+      );
       _macAppliedServices.clear();
+      _macOriginal.clear();
       _systemProxyApplied = false;
       try {
         final f = await _macProxyOwnershipFile();

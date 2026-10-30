@@ -758,6 +758,9 @@ class CBoardClient {
 
     }
     await _setSession(null);
+    // 老版本把同一条令牌也存在钥匙串里；只清文件的话，下次读取会被迁移逻辑
+    // 搬回来，用户就会「退出登录无效、重启又变回已登录」。这里一并删掉。
+    await SecureStorage.deleteKeychainCopy(CBoardSessionStore._key);
   }
 
   Future<void> sendVerificationCode(String email, {String purpose = 'register'}) =>

@@ -527,6 +527,10 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     try {
       await MclashApi.logout();
     } catch (_) {}
+    // 光清会话不够：账号缓存还会把套餐/到期信息喂给界面，看起来像「没退出去」。
+    try {
+      await MclashAccountService.instance.clearLocalCache();
+    } catch (_) {}
     MclashHeartbeatService.instance.stop();
     SettingManager.save();
     if (!mounted) {

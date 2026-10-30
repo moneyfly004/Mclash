@@ -28,6 +28,7 @@ import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/home_mclash_widgets.dart';
 import 'package:mclash/screens/mclash_mode_action.dart';
+import 'package:mclash/screens/mclash_tun_setting.dart';
 import 'package:mclash/screens/mclash_node_picker_sheet.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/segmented_elevated_button.dart';
@@ -462,14 +463,36 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                   value: ClashConfigsMode.global.index,
                   text: tcontext.meta.global,
                 ),
-                SegemntedElevatedButtonItem(
-                  value: ClashConfigsMode.direct.index,
-                  text: tcontext.meta.direct,
-                ),
+                // 第三段由「直连」改为「TUN」。
+                // 直连（完全不代理）在主页上没有使用场景，而 TUN 是桌面端高频
+                // 切换的开关（接管全部流量）。分段值 2 与 ClashConfigsMode.direct
+                // 的 index 相同，但语义是「TUN 开关状态」，不再走 mclashSetMode。
+                const SegemntedElevatedButtonItem(value: 2, text: "TUN"),
               ],
-              selected: ClashSettingManager.getConfigsMode().index,
+              selected: _homeSegmentIndex(),
               padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
               onPressed: (int value) async {
+                if (value == 2) {
+                  final tunOn = SettingManager.getConfig().tunEnabled;
+                  // 开 TUN 前若还停在「直连」，先回到规则模式：直连 + TUN
+                  // 会让内核不起代理，用户会以为 TUN 没生效。
+                  if (!tunOn &&
+                      ClashSettingManager.getConfigsMode() ==
+                          ClashConfigsMode.direct) {
+                    await mclashSetMode(ClashConfigsMode.rule);
+                    if (!context.mounted) {
+                      return;
+                    }
+                  }
+                  await MclashTunSetting.apply(
+                    context,
+                    tunOn
+                        ? SettingConfig.kTunModeOff
+                        : SettingConfig.kTunModeForce,
+                  );
+                  _updateProxyNow();
+                  return;
+                }
                 ClashConfigsMode type = ClashConfigsMode.values[value];
                 var error = await mclashSetMode(type);
                 if (!context.mounted) {
@@ -491,6 +514,17 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
         ),
       ),
     );
+  }
+
+  /// 主页三段式的高亮项：TUN 开启时高亮第三段，否则按内核分流模式。
+  /// 历史上 index 2 表示「直连」，该段已被换成 TUN；直连模式下没有可高亮
+  /// 的分段，回落到「规则」，避免把 TUN 误显示为已开启。
+  int _homeSegmentIndex() {
+    if (SettingManager.getConfig().tunEnabled) {
+      return 2;
+    }
+    final idx = ClashSettingManager.getConfigsMode().index;
+    return idx == 2 ? 0 : idx;
   }
 
   String _stateText(BuildContext context, bool connected) {
@@ -774,9 +808,33 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     setState(() {});
   }
 
+  String _lastCurrentId = "";
+  DateTime _lastCurrentAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   Future<void> _onCurrentChanged(String id) async {
+    // 订阅同步 / 自动选路会把 current-changed 连发多次，每次都会走
+    // restart()（= stop + start）。不拦的话就是「自动连接 → 自动断开 →
+    // 又连接」的抖动，用户完全没法用。这里做两件事：
+    //   1. 同一 id 在 10 秒内重复触发 → 忽略；
+    //   2. 当前本来就没连接 → 只更新界面，不触发重连。
+    final now = DateTime.now();
+    if (id == _lastCurrentId &&
+        now.difference(_lastCurrentAt) < const Duration(seconds: 10)) {
+      Log.i("HomeScreen: 忽略重复的 current 变更（$id）");
+      return;
+    }
+    _lastCurrentId = id;
+    _lastCurrentAt = now;
+
     if (id.isEmpty) {
-      await VPNService.stop();
+      if (await VPNService.getStarted()) {
+        await VPNService.stop();
+      }
+      return;
+    }
+
+    if (!await VPNService.getStarted()) {
+      Log.i("HomeScreen: 未连接，current 变更不触发重连（$id）");
       return;
     }
 

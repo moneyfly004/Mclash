@@ -73,6 +73,11 @@ abstract final class MclashTunSetting {
 
   static bool prerequisitesMet() => VPNService.tunPrerequisitesMet();
 
+  /// 供主页 TUN 分段直接调用：复用设置页的「管理员授权引导 + 重连」逻辑，
+  /// 避免主页与设置页出现两套不同的提权行为。
+  static Future<void> apply(BuildContext context, String mode) =>
+      _apply(context, mode);
+
   static Future<void> show(BuildContext context) async {
     final current = SettingManager.getConfig().tunMode;
     final selected = await showModalBottomSheet<String>(

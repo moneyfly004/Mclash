@@ -198,6 +198,49 @@ class MclashAccountService extends ChangeNotifier {
     }
   }
 
+  /// 退出登录 / 令牌失效时把**账号缓存**也清掉。
+  ///
+  /// 只清会话（CBoardSessionStore）不够：account_cache.json 还会把套餐、到期
+  /// 时间喂给界面，用户看到的仍是「已登录」的账号卡片，于是出现
+  /// 「点退出登录没反应 / 退不出去也回不到登录页」的死锁。
+  ///
+  /// 注意：这里**不能**调 MclashEntitlement.purge() —— 那会连带删掉本地订阅
+  /// 与配置档，退出登录不该有这种破坏性。
+  Future<void> clearLocalCache() async {
+    _dash = null;
+    _sub = null;
+    _cachedAt = null;
+    _fresh = false;
+    _kicked = false;
+    try {
+      final f = await _cacheFile();
+      if (await f.exists()) {
+        await f.delete();
+      }
+    } catch (e) {
+      Log.w("MclashAccountService.clearLocalCache 删除缓存失败 $e");
+    }
+    notifyListeners();
+  }
+
+  /// 会话被服务端判定无效（40100 = Token 无效或已过期）。
+  /// 命中后自动清理本地登录态，让界面回到登录页，避免卡在死锁里。
+  static bool isTokenInvalid(Object e) {
+    final s = e.toString();
+    return s.contains("40100") ||
+        s.contains("Token 无效") ||
+        s.contains("Token invalid") ||
+        s.contains("Unauthorized");
+  }
+
+  Future<void> forceSignOutLocally(String reason) async {
+    Log.w("MclashAccountService: 本地强制退出登录（$reason）");
+    try {
+      await MclashApi.logout();
+    } catch (_) {}
+    await clearLocalCache();
+  }
+
   Timer? _timer;
 
   bool _started = false;
@@ -323,6 +366,8 @@ class MclashAccountService extends ChangeNotifier {
     } catch (e) {
       Log.w("MclashAccountService: 强制退出登录失败（忽略）$e");
     }
+    // 一起清掉账号缓存，否则界面还挂着被封账号的套餐信息
+    await clearLocalCache();
   }
 
   Future<void> refresh() async {
@@ -339,6 +384,9 @@ class MclashAccountService extends ChangeNotifier {
       await Future.wait([
         MclashApi.dashboard().then((v) => dash = v).catchError((e) {
           Log.w("account: dashboard failed $e");
+          if (isTokenInvalid(e) && MclashApi.isLoggedIn) {
+            unawaited(forceSignOutLocally("dashboard: $e"));
+          }
           return null;
         }),
         MclashApi.subscription().then((v) => sub = v).catchError((e) {

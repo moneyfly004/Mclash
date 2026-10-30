@@ -70,6 +70,9 @@ void main(List<String> args) async {
   await RemoteConfigManager.init();
   await SettingManager.init();
   Log.setLevel(SettingManager.getConfig().logLevel);
+  // macOS：探测「免密 sudo 运行内核」的授权是否仍有效（内核路径变了会失效）。
+  // 不阻塞启动 —— 失败时按未授权处理，用户点 TUN 会走一次授权引导。
+  unawaited(VPNService.refreshTunPrerequisites());
   if (Platform.isWindows || Platform.isMacOS) {
     await _ensureSingleInstanceOrExit();
   }

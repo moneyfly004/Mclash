@@ -44,7 +44,11 @@ class PathUtils {
       return _serviceWorkDirCache;
     }
     final assets = appAssetsDir();
-    if (assets.isNotEmpty && await _isWritable(assets)) {
+    // macOS: .app 包内必须保持只读。内核工作目录若落在 App.framework/Resources，
+    // 内核每次写 config.yaml 都会改动包内容、破坏代码签名封印，
+    // 导致系统无法校验 App 身份 -> 钥匙串 ACL 永远匹配失败 -> 每次启动都弹授权框。
+    // geo 数据由 _ensureGeoDataOnDisk() 复制到工作目录，不依赖包内可写。
+    if (!Platform.isMacOS && assets.isNotEmpty && await _isWritable(assets)) {
       _serviceWorkDirCache = assets;
       return assets;
     }
