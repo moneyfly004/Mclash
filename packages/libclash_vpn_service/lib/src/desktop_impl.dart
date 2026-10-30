@@ -2335,7 +2335,6 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       null;
 
   @override
-  @override
   Future<Directory?> getAppGroupDirectory(String groupId) async =>
       Directory(await getApplicationSupportDir());
 

@@ -107,10 +107,6 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
     });
   }
 
-  Future<bool> futureBool(bool value) async {
-    return value;
-  }
-
   void showAgreement() async {
     String? agreement;
     try {

@@ -210,9 +210,12 @@ class PathUtils {
     return "app.log";
   }
 
+  static Future<String> _profileFilePath(String fileName) async {
+    return path.join(await profileDir(), fileName);
+  }
+
   static Future<String> logFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, logFileName());
+    return _profileFilePath(logFileName());
   }
 
   static String serviceStdErrorFileName() {
@@ -220,8 +223,7 @@ class PathUtils {
   }
 
   static Future<String> serviceStdErrorFilePath() async {
-    String filePath = await PathUtils.profileDir();
-    return path.join(filePath, serviceStdErrorFileName());
+    return _profileFilePath(serviceStdErrorFileName());
   }
 
   static String serviceLogFileName() {
@@ -229,8 +231,7 @@ class PathUtils {
   }
 
   static Future<String> serviceLogFilePath() async {
-    String filePath = await PathUtils.profileDir();
-    return path.join(filePath, serviceLogFileName());
+    return _profileFilePath(serviceLogFileName());
   }
 
   static String serviceConfigFileName() {
@@ -238,8 +239,7 @@ class PathUtils {
   }
 
   static Future<String> serviceConfigFilePath() async {
-    String filePath = await PathUtils.profileDir();
-    return path.join(filePath, serviceConfigFileName());
+    return _profileFilePath(serviceConfigFileName());
   }
 
   static String settingFileName() {
@@ -247,18 +247,15 @@ class PathUtils {
   }
 
   static Future<String> diversionTemplateConfigFilePath() async {
-    String filePath = await PathUtils.profileDir();
-    return path.join(filePath, diversionTemplateFileName());
+    return _profileFilePath(diversionTemplateFileName());
   }
 
   static Future<String> profilesConfigFilePath() async {
-    String filePath = await PathUtils.profileDir();
-    return path.join(filePath, profilesFileName());
+    return _profileFilePath(profilesFileName());
   }
 
   static Future<String> profilePatchsConfigFilePath() async {
-    String filePath = await PathUtils.profileDir();
-    return path.join(filePath, profilePatchsFileName());
+    return _profileFilePath(profilePatchsFileName());
   }
 
   static String serviceCoreSettingFileName() {
@@ -266,8 +263,7 @@ class PathUtils {
   }
 
   static Future<String> serviceCoreSettingFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, serviceCoreSettingFileName());
+    return _profileFilePath(serviceCoreSettingFileName());
   }
 
   static String serviceCorePatchFileName() {
@@ -275,8 +271,7 @@ class PathUtils {
   }
 
   static Future<String> serviceCorePatchPath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, serviceCorePatchFileName());
+    return _profileFilePath(serviceCorePatchFileName());
   }
 
   static String serviceCorePatchFinalFileName() {
@@ -284,8 +279,7 @@ class PathUtils {
   }
 
   static Future<String> serviceCorePatchFinalPath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, serviceCorePatchFinalFileName());
+    return _profileFilePath(serviceCorePatchFinalFileName());
   }
 
   static String profilesFileName() {
@@ -301,8 +295,7 @@ class PathUtils {
   }
 
   static Future<String> settingFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, settingFileName());
+    return _profileFilePath(settingFileName());
   }
 
   static String autoUpdateFileName() {
@@ -310,8 +303,7 @@ class PathUtils {
   }
 
   static Future<String> autoUpdateFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, autoUpdateFileName());
+    return _profileFilePath(autoUpdateFileName());
   }
 
   static String providerNoticeFileName() {
@@ -323,8 +315,7 @@ class PathUtils {
   }
 
   static Future<String> remoteConfigFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, remoteConfigFileName());
+    return _profileFilePath(remoteConfigFileName());
   }
 
   static String storageFileName() {
@@ -332,8 +323,7 @@ class PathUtils {
   }
 
   static Future<String> storageFilePath() async {
-    String filePath = await profileDir();
-    return path.join(filePath, storageFileName());
+    return _profileFilePath(storageFileName());
   }
 
 }

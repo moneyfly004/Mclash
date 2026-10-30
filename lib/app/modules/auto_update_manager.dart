@@ -258,6 +258,15 @@ class AutoUpdateManager {
     await _fileSaver.saveAsJson(_versionCheck);
   }
 
+  /// 清空「有新版本」相关字段；不动 latestCheck（那记录的是上次检查时间）。
+  static void _clearVersionInfo() {
+    _versionCheck.newVersion = false;
+    _versionCheck.version = "";
+    _versionCheck.url = "";
+    _versionCheck.urls = [];
+    _versionCheck.sha256 = "";
+  }
+
   static Future<MclashUpdateInfo?> checkNow() async {
     final info = await MclashUpdateCheck.latest(
       currentVersion: AppUtils.getBuildinVersion(),
@@ -265,11 +274,7 @@ class AutoUpdateManager {
     );
     _versionCheck.latestCheck = DateTime.now().toString();
     if (info == null) {
-      _versionCheck.newVersion = false;
-      _versionCheck.version = "";
-      _versionCheck.url = "";
-      _versionCheck.urls = [];
-      _versionCheck.sha256 = "";
+      _clearVersionInfo();
       await save();
       _notify();
       return null;
@@ -424,11 +429,7 @@ class AutoUpdateManager {
       }
 
       if (attempt.notFound) {
-        _versionCheck.newVersion = false;
-        _versionCheck.version = "";
-        _versionCheck.url = "";
-        _versionCheck.urls = [];
-        _versionCheck.sha256 = "";
+        _clearVersionInfo();
 
         await save();
       }
@@ -621,11 +622,7 @@ class AutoUpdateManager {
         String channel = await InstallReferrerUtils.getString();
         String version = AppUtils.getBuildinVersion();
 
-        _versionCheck.newVersion = false;
-        _versionCheck.version = "";
-        _versionCheck.url = "";
-        _versionCheck.urls = [];
-        _versionCheck.sha256 = "";
+        _clearVersionInfo();
 
         for (var item in items.data!) {
           if (item.platform != Platform.operatingSystem) {

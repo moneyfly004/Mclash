@@ -22,36 +22,35 @@ class SchemeHandler {
       if (uri.host == AppSchemeActions.installConfigAction()) {
         return await _rejectInstallConfig(context);
       } else if (uri.host == AppSchemeActions.connectAction()) {
-        if (VpnActionHandler.vpnConnect != null) {
-          bool background = false;
-          try {
-            background = uri.queryParameters["background"] == "true";
-          } catch (err) {}
-          VpnActionHandler.vpnConnect!.call("scheme", background);
-        }
+        _dispatchVpnAction(VpnActionHandler.vpnConnect, uri);
         return null;
       } else if (uri.host == AppSchemeActions.disconnectAction()) {
-        if (VpnActionHandler.vpnDisconnect != null) {
-          bool background = false;
-          try {
-            background = uri.queryParameters["background"] == "true";
-          } catch (err) {}
-          VpnActionHandler.vpnDisconnect!.call("scheme", background);
-        }
+        _dispatchVpnAction(VpnActionHandler.vpnDisconnect, uri);
         return null;
       } else if (uri.host == AppSchemeActions.reconnectAction()) {
-        if (VpnActionHandler.vpnReconnect != null) {
-          bool background = false;
-          try {
-            background = uri.queryParameters["background"] == "true";
-          } catch (err) {}
-          VpnActionHandler.vpnReconnect!.call("scheme", background);
-        }
+        _dispatchVpnAction(VpnActionHandler.vpnReconnect, uri);
         return null;
       }
     }
 
     return ReturnResultError("unsupport scheme: ${uri.scheme}");
+  }
+
+  /// 解析 `background` 参数并派发连接 / 断开 / 重连动作。
+  ///
+  /// 三个分支原本各复制一份，抽出来保证解析规则始终一致。
+  static void _dispatchVpnAction(
+    void Function(String, bool)? action,
+    Uri uri,
+  ) {
+    if (action == null) {
+      return;
+    }
+    bool background = false;
+    try {
+      background = uri.queryParameters["background"] == "true";
+    } catch (err) {}
+    action("scheme", background);
   }
 
   static Future<ReturnResultError?> _rejectInstallConfig(

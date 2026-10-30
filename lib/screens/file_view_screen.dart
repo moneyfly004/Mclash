@@ -52,7 +52,6 @@ class _FileViewScreenState extends State<FileViewScreen> {
         _controller.moveCursor(AxisDirection.down);
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.arrowLeft) {
-        _controller.selection.endIndex;
         _controller.moveCursor(AxisDirection.left);
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.arrowRight) {
