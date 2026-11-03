@@ -4,6 +4,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'package:mclash/app/clash/clash_http_api.dart';
+import 'package:mclash/app/runtime/return_result.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_mode_selection.dart';
@@ -151,6 +152,34 @@ abstract final class MclashNodeAutoPick {
     return future.whenComplete(() => _pickInflight = null);
   }
 
+  /// 读内核代理列表（自动选路专用）：连接后/测速中控制口会短暂超时，
+  /// 这里强制绕过 1.5s 缓存并做短退避重试（约 2 秒），把瞬时抖动消化掉。
+  static Future<ReturnResult<List<ClashProxiesNode>>> _getProxiesWithRetry() async {
+    var r = await ClashHttpApi.getProxies(force: true);
+    for (var attempt = 1; attempt <= 3 && r.error != null; attempt++) {
+      if (!ClashHttpApi.isTransientControlError(r.error!.message)) break;
+      await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+      r = await ClashHttpApi.getProxies(force: true);
+    }
+    return r;
+  }
+
+  /// 「稍后会自动重试」提示的节流时间戳
+  static DateTime? _kernelStateNoteAt;
+
+  static void _noteKernelStateUnavailable(void Function(String note)? onNote) {
+    final now = DateTime.now();
+    final last = _kernelStateNoteAt;
+    if (last != null && now.difference(last) < const Duration(minutes: 2)) {
+      return;
+    }
+    _kernelStateNoteAt = now;
+    onNote?.call(MclashI18n.t.nodeAuto.kernelStateUnavailable);
+  }
+
+  @visibleForTesting
+  static void debugResetKernelStateNote() => _kernelStateNoteAt = null;
+
   static Future<String?> _selectBestOnConnectInner({
     void Function(String note)? onNote,
     Map<String, int>? cachedLatency,
@@ -162,12 +191,15 @@ abstract final class MclashNodeAutoPick {
     if (override != null) {
       proxies = await override();
     } else {
-      final r = await ClashHttpApi.getProxies();
+      final r = await _getProxiesWithRetry();
       if (r.error != null || r.data == null) {
-        Log.w("MclashNodeAutoPick: 拿不到代理列表 ${r.error?.message}");
-        // 只落日志的话用户什么都看不到（真机：内核忙着测速时控制口超时 →
-        // 自动选路静默失效）。给一条可读的提示，并配合"保留上一次的节点名"。
-        onNote?.call(MclashI18n.t.nodeAuto.kernelStateUnavailable);
+        Log.w("MclashNodeAutoPick: 拿不到代理列表（重试后仍失败）"
+            " controlPort=${ClashHttpApi.getControlPort?.call() ?? -1}"
+            " err=${r.error?.message}");
+        // 只有**重试后仍然失败**才提示，并且同一类提示 2 分钟内只弹一次：
+        // 真机上「刚连上/正在测速」时控制口会短暂超时，几秒后自己就恢复了，
+        // 每次都弹提示反而像软件坏了。
+        _noteKernelStateUnavailable(onNote);
         return null;
       }
       proxies = r.data!;

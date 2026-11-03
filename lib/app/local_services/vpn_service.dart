@@ -777,40 +777,47 @@ class VPNService {
   /// 要么只在日志里写一行 —— 用户界面一直显示"已连接"，而流量其实已经不走代理。
   static final ValueNotifier<String> systemProxyWarning = ValueNotifier<String>("");
 
-  static final List<DateTime> _proxyRepairs = [];
+  /// 连续「写入后读回仍不是我们」的次数。
+  /// 只用于决定**要不要在首页告警**，绝不用来停止重试 —— MoneyFly 的做法是
+  /// 「只要还连着，就一直把系统代理指回本机」，与别的代理软件抢不过也不会放弃，
+  /// 否则就会出现「界面显示已连接、实际没有代理」这种最糟的状态。
+  static int _proxyFailStreak = 0;
 
-  static const int kProxyRepairLimit = 5;
+  /// 累计成功恢复次数（只用于日志与提示文案，不参与熔断）
+  static int _proxyRepairCount = 0;
 
-  static const Duration kProxyRepairWindow = Duration(minutes: 10);
+  /// 看守轮次是否在执行（避免同一时刻两轮叠加写注册表/networksetup）
+  static bool _proxyCheckInFlight = false;
 
-  static bool _proxyWatchdogPaused = false;
+  /// 连续失败多少次才在界面上告警（偶发一次只写日志，不打扰用户）
+  static const int kProxyWarnAfterFailures = 3;
 
-  /// 退让策略：短时间窗内被反复抢改达到上限就不再自动恢复，
-  /// 避免和别的代理软件无限互抢（同时如实告诉用户）。
   @visibleForTesting
-  static bool shouldPauseProxyWatchdog(
-    List<DateTime> repairs,
-    DateTime now, {
-    int limit = kProxyRepairLimit,
-    Duration window = kProxyRepairWindow,
-  }) {
-    final recent = repairs.where((t) => now.difference(t) <= window).length;
-    return recent >= limit;
-  }
+  static bool shouldWarnProxyConflict(int failStreak) =>
+      failStreak >= kProxyWarnAfterFailures;
+
+  @visibleForTesting
+  static int get debugProxyRepairCount => _proxyRepairCount;
+
+  @visibleForTesting
+  static int get debugProxyFailStreak => _proxyFailStreak;
 
   @visibleForTesting
   static void debugResetProxyWatchdogState() {
-    _proxyRepairs.clear();
-    _proxyWatchdogPaused = false;
+    _proxyRepairCount = 0;
+    _proxyFailStreak = 0;
+    _proxyCheckInFlight = false;
     systemProxyWarning.value = "";
   }
 
   static void _startProxyWatchdog(int port) {
     _proxyWatchdog?.cancel();
-    _proxyRepairs.clear();
-    _proxyWatchdogPaused = false;
+    _proxyRepairCount = 0;
+    _proxyFailStreak = 0;
     systemProxyWarning.value = "";
     _proxyWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (_proxyCheckInFlight) return;
+      _proxyCheckInFlight = true;
       try {
         if (!shouldApplySystemProxy() && !systemProxyFallbackActive) {
           return;
@@ -823,52 +830,48 @@ class VPNService {
         if (expect <= 0) {
           return;
         }
-        // 注意：这里的判定现在同时看 ProxyEnable 与 ProxyServer
-        //（只比地址会漏掉"被别的程序关掉开关、值还留着"的情况）
+        // 判定同时看 ProxyEnable 与 ProxyServer（只比地址会漏掉「别的程序只关开关、
+        // 值还留着」的情况 —— 真机报障就是 v2rayN 退出时把 ProxyEnable 置 0）。
         if (await getSystemProxyEnable()) {
+          _proxyFailStreak = 0;
           if (systemProxyWarning.value.isNotEmpty) {
             systemProxyWarning.value = "";
           }
-          _proxyWatchdogPaused = false;
           return;
         }
-        if (_proxyWatchdogPaused) {
-          return;
-        }
-        final now = DateTime.now();
-        _proxyRepairs.removeWhere((t) => now.difference(t) > kProxyRepairWindow);
-        if (shouldPauseProxyWatchdog(_proxyRepairs, now)) {
-          _proxyWatchdogPaused = true;
-          final msg =
-              "检测到有其它程序在反复抢占系统代理（已自动恢复 ${_proxyRepairs.length} 次），"
-              "为避免互相干扰，Mclash 已暂停自动恢复。请退出其它代理软件"
-              "（如 v2rayN / Clash Verge / Nyanpasu 等）后重新连接 —— "
-              "当前流量不会经过 Mclash。";
-          Log.w("VPNService: $msg");
-          systemProxyWarning.value = msg;
-          return;
-        }
+
+        // 被别的程序改走/关掉了 → 立即抢回来。**不做次数熔断、不暂停**：
+        // 与 MoneyFly 一致，只要 VPN 还连着就一直保证系统代理指向本机；
+        // 对方程序退出后我们自然接管成功。
+        _proxyRepairCount++;
         await setSystemProxy(true);
         final fixed = await getSystemProxyEnable();
         if (fixed) {
-          _proxyRepairs.add(now);
+          _proxyFailStreak = 0;
           Log.w(
             "VPNService: 系统代理被改动或被关闭，已按 127.0.0.1:$expect 恢复"
-            "（第 ${_proxyRepairs.length} 次）",
+            "（第 $_proxyRepairCount 次；不熔断，会一直保持）",
           );
-          systemProxyWarning.value =
-              "系统代理被其它程序改动，已自动恢复（第 ${_proxyRepairs.length} 次）。"
-              "建议机器上只保留一个代理软件。";
+          if (systemProxyWarning.value.isNotEmpty) {
+            systemProxyWarning.value = "";
+          }
         } else {
+          _proxyFailStreak++;
           Log.w(
-            "VPNService: 系统代理写入后仍未生效（可能被别的代理软件占用/覆盖）",
+            "VPNService: 系统代理写入后仍未生效"
+            "（连续第 $_proxyFailStreak 次，可能被别的代理软件覆盖；15 秒后继续重试）",
           );
-          systemProxyWarning.value =
-              "系统代理已被其它程序占用或关闭，Mclash 无法恢复 —— "
-              "当前流量没有经过代理。请退出其它代理软件后重新连接。";
+          if (shouldWarnProxyConflict(_proxyFailStreak)) {
+            systemProxyWarning.value =
+                "系统代理正被其它代理软件占用或反复改写（如 v2rayN / Clash Verge / "
+                "Nyanpasu）。Mclash 每 15 秒会自动重试并保持接管，但建议只保留一个"
+                "代理软件；也可以改用 TUN 模式（设置 → TUN），TUN 不依赖系统代理。";
+          }
         }
       } catch (err) {
         Log.w("VPNService: 系统代理看守异常 ${err.toString()}");
+      } finally {
+        _proxyCheckInFlight = false;
       }
     });
   }
@@ -876,7 +879,7 @@ class VPNService {
   static void _stopProxyWatchdog() {
     _proxyWatchdog?.cancel();
     _proxyWatchdog = null;
-    _proxyWatchdogPaused = false;
+    _proxyCheckInFlight = false;
     systemProxyWarning.value = "";
   }
 

@@ -521,12 +521,46 @@ class ClashHttpApi {
     });
   }
 
+  /// 读 /proxies 的短退避重试（只对**瞬时**错误重试）。
+  ///
+  /// 真机现象：刚连上内核、或正在批量测速时，控制口会短暂超时/拒绝连接，
+  /// 之前一次失败就让上层显示「暂时读不到内核的节点状态」，几秒后自己又好了。
+  /// 这里把这类抖动挡在 API 层：超时/连接被拒/5xx 各重试 2 次（约 1 秒），
+  /// 401/403（密钥或端口不对）**不重试**，那种错误重试多少次也没用。
+  static bool isTransientControlError(String message) {
+    final m = message.toLowerCase();
+    const transient = [
+      'timeoutexception',
+      'timed out',
+      'timeout',
+      'connection refused',
+      'connection reset',
+      'socketexception',
+      'broken pipe',
+      'connection closed',
+      '502',
+      '503',
+      '504',
+      '控制端口未就绪',
+    ];
+    return transient.any(m.contains);
+  }
+
+  static Future<ReturnResult<Tuple2<int, String>>> _proxiesReadWithRetry() async {
+    var r = await controlRequest("GET", "/proxies", timeout: proxiesReadTimeout);
+    for (var attempt = 1;
+        attempt <= 2 && r.error != null && isTransientControlError(r.error!.message);
+        attempt++) {
+      Log.w("ClashHttpApi: /proxies 读取失败（${r.error!.message}），"
+          "第 $attempt 次重试");
+      await Future.delayed(Duration(milliseconds: 300 * attempt));
+      r = await controlRequest("GET", "/proxies", timeout: proxiesReadTimeout);
+    }
+    return r;
+  }
+
   static Future<ReturnResult<List<ClashProxiesNode>>> _fetchProxies() async {
-    final resultProxies = await controlRequest(
-      "GET",
-      "/proxies",
-      timeout: proxiesReadTimeout,
-    );
+    final resultProxies = await _proxiesReadWithRetry();
     if (resultProxies.error != null) {
       return ReturnResult(error: resultProxies.error);
     }
