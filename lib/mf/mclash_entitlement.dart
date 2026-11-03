@@ -124,6 +124,16 @@ abstract final class MclashEntitlement {
   static bool _tampered = false;
   static bool _purged = false;
 
+  /// 升级播种的宽限窗口（比离线宽限更长）。
+  ///
+  /// 真机报障：软件更新后提示「无法确认套餐状态」。更新本身不会清数据，但租约
+  /// 可能因为设备标识变化/HMAC 校验失败被丢弃；此时账号缓存里仍有几天前的
+  /// 「最后成功校验时间」。72 小时的离线宽限太短，老用户一升级就撞上。
+  static const Duration seedGrace = Duration(days: 7);
+
+  /// 由 App 启动流程注入：当前是否已登录（无租约时用于区分「未登录」与「网络问题」）
+  static bool Function()? hasSession;
+
   /// 受限状态下重新联网复核的最小间隔。
   static const Duration _recheckGap = Duration(minutes: 5);
 
@@ -328,6 +338,28 @@ abstract final class MclashEntitlement {
     await _persist();
   }
 
+  /// 退出登录时清掉租约：换账号/重新登录后必须重新校验，
+  /// 否则旧账号的"已校验/到期"结论会套在新账号上。
+  static Future<void> clearLease() async {
+    _verifiedAt = null;
+    _expireAt = null;
+    _lastSeenAt = null;
+    _blocked = false;
+    _blockFatal = true;
+    _blockReason = "";
+    _tampered = false;
+    _loaded = true;
+    try {
+      final f = await _file();
+      if (await f.exists()) {
+        await f.delete();
+      }
+    } catch (e) {
+      Log.w("MclashEntitlement.clearLease 删除租约失败 $e");
+    }
+    Log.i("MclashEntitlement: 已清除授权租约（退出登录）");
+  }
+
   /// 首次升级 / 本机没有租约时，用账号缓存里「最后一次成功联网校验的时间」播种，
   /// 避免老用户升级后因为暂时连不上账号接口而被直接拦在门外。
   static Future<bool> seedFromAccountCache({
@@ -343,7 +375,7 @@ abstract final class MclashEntitlement {
       return false;
     }
     final at = now();
-    if (at.difference(cachedAt) > offlineGrace) {
+    if (at.difference(cachedAt) > seedGrace) {
       return false;
     }
     if (expireAt != null && !at.isBefore(expireAt)) {
@@ -470,6 +502,18 @@ abstract final class MclashEntitlement {
             MclashI18n.t.entitlementMsg.tamperedTitle,
             MclashI18n.t.entitlementMsg.tamperedLocal,
           );
+        }
+        // 已登录但这次联网校验失败（更新后/网络抖动/接口暂时不可用）：
+        // 只凭"这次没校验成功"就拒绝连接，会出现「更新完就提示无法确认套餐状态、
+        // 怎么都连不上」。账号本身由服务端订阅内容约束（到期会下发假节点），
+        // 所以这里放行并留日志；未登录才提示去登录校验。
+        final loggedIn = hasSession?.call() ?? false;
+        if (loggedIn) {
+          Log.w(
+            "MclashEntitlement: 无租约且无法联网校验，但当前已登录 → 放行"
+            "（到期/封禁仍由服务端订阅内容兜底）",
+          );
+          return MclashEntitlementDecision.allow;
         }
         return MclashEntitlementDecision(
           false,

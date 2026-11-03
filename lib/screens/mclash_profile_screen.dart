@@ -18,9 +18,10 @@ import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_data_cleaner.dart';
-import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/mf/mclash_heartbeat_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
+import 'package:mclash/mf/mclash_entitlement.dart';
+import 'package:mclash/mf/mclash_nodes_store.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/net_check_screen.dart';
@@ -524,19 +525,38 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     if (ok != true || !mounted) {
       return;
     }
+    var loggedOut = false;
     try {
       await MclashApi.logout();
-    } catch (_) {}
+      loggedOut = true;
+    } catch (e) {
+      Log.w("MclashProfile: 服务端退出失败，改为本地强制退出 $e");
+    }
+    if (!loggedOut) {
+      // 服务端请求失败（断网/令牌已失效）也要让用户退得掉：清掉本地会话与缓存。
+      try {
+        await MclashAccountService.instance.forceSignOutLocally("用户主动退出");
+      } catch (_) {}
+    }
     // 光清会话不够：账号缓存还会把套餐/到期信息喂给界面，看起来像「没退出去」。
     try {
       await MclashAccountService.instance.clearLocalCache();
     } catch (_) {}
+    // 授权租约是按设备签的：不清掉的话，换账号后旧账号的「已校验/到期」结论
+    // 会继续套在新账号上（表现为换了账号仍提示套餐状态异常）。
+    try {
+      await MclashEntitlement.clearLease();
+    } catch (_) {}
     MclashHeartbeatService.instance.stop();
     SettingManager.save();
+    // 会话可能本来就已失效（更新后 token 过期）：gate 靠 sessionChanges 切页面，
+    // 但它只在值变化时触发；这里显式把状态压成「未登录」，保证一定回到登录页。
+    if (CBoardClient.sessionChanges.value) {
+      CBoardClient.sessionChanges.value = false;
+    }
     if (!mounted) {
       return;
     }
-
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
 

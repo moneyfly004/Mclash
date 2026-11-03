@@ -7,6 +7,7 @@ import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_entitlement.dart';
 import 'package:mclash/mf/mclash_node_autopick.dart';
 import 'package:mclash/mf/mclash_nodes_cache.dart';
@@ -26,6 +27,9 @@ abstract final class MclashEntitlementBinding {
     }
     _installed = true;
 
+    // 无租约时区分「未登录」还是「网络/接口问题」（见 MclashEntitlement.check）
+    MclashEntitlement.hasSession = () => MclashApi.isLoggedIn;
+
     // 联网校验：刷新账号数据（成功时 MclashAccountService 会把租约续上）
     MclashEntitlement.onlineVerify = () async {
       final acc = MclashAccountService.instance;
@@ -34,6 +38,11 @@ abstract final class MclashEntitlementBinding {
           await acc.refresh();
         } catch (e) {
           Log.w("MclashEntitlementBinding: 联网校验失败 $e");
+          // 令牌失效（更新后旧 token 过期/被踢）时不要在「无法确认套餐状态」里
+          // 打转 —— 直接清掉本地登录态，让用户重新登录即可恢复。
+          if (MclashAccountService.isTokenInvalid(e)) {
+            await acc.forceSignOutLocally("授权校验时 Token 失效");
+          }
         }
       }
       if (acc.fresh) {
