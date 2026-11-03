@@ -889,7 +889,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _trafficSpeed.value = speed;
 
     _trafficLogTick++;
-    if (_trafficLogTick % 10 == 0) {
+    if (_trafficLogTick % 30 == 0) {
       Log.i(
         "流量: 速度 ${traffic.upload.value}/${traffic.download.value} B/s "
         "累计 ${traffic.uploadTotal.value}/${traffic.downloadTotal.value} B "
@@ -900,7 +900,11 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   void _startProxyModeTimer() {
     _timerProxyMode?.cancel();
-    _timerProxyMode = Timer.periodic(const Duration(seconds: 15), (_) {
+    _timerProxyMode = Timer.periodic(const Duration(seconds: 30), (_) {
+      // 窗口隐藏/最小化到托盘时不做：读内核 + 重建界面在后台没有意义。
+      if (AppLifecycleStateNofity.isPaused()) {
+        return;
+      }
       if (_state != FlutterVpnServiceState.connected) {
         return;
       }
@@ -1041,8 +1045,24 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   /// 从内核读"现在用的是哪个节点"并更新那一行。
   Future<void> _refreshProxyNowFromKernel() async {
+    // 没有固定节点时只需要「主选择组现在指向谁」：读单个组（几十字节）而不是
+    // 全量 /proxies（500+ 节点 + history，几百 KB）。这个刷新在切节点/定时器/
+    // 内核事件里都会触发，Windows 上手感差别很明显。
+    var lightName = "";
+    if (MclashNodeAutoPick.fixedNode().isEmpty) {
+      lightName = await MclashKernelSync.resolveNowViaGroups();
+    }
     final result = await ClashHttpApi.getProxies();
     final proxies = result.data;
+    if (lightName.isNotEmpty && (result.error != null || proxies == null)) {
+      // 全量读失败但组读成功：直接用组读结果，别把节点名清空。
+      if (mounted) {
+        setState(() {
+          MclashNodesStore.instance.setCurrentNodeName(lightName);
+        });
+      }
+      return;
+    }
     if (result.error != null || proxies == null || proxies.isEmpty) {
       // 内核暂时读不到（正忙着测速 / 重载内核时控制口会超时）：用本地记录的
       // 当前节点名撑住那一行。旧实现在这里赋空串 —— 用户看到的就是

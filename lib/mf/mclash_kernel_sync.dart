@@ -28,13 +28,37 @@ abstract final class MclashKernelSync {
     }
 
     final override = debugProxiesOverride;
-    final proxies = override != null
-        ? await override()
-        : (await ClashHttpApi.getProxies()).data;
-    if (proxies == null || proxies.isEmpty) {
-      return "";
+    String now;
+    if (override != null) {
+      final proxies = await override();
+      if (proxies.isEmpty) {
+        return "";
+      }
+      now = currentNodeName(proxies);
+    } else {
+      final fixed = MclashNodeAutoPick.fixedNode();
+      if (fixed.isEmpty) {
+        // 没有固定节点 → 只需要「主选择组现在指向谁」，读单个组即可。
+        // 全量 /proxies 会把 500+ 节点连同 history 一起返回（几百 KB），
+        // 这个函数每 30 秒跑一次，JSON 解析和对象分配都在主 isolate 上。
+        now = await resolveNowViaGroups();
+        if (now.isEmpty) {
+          // 组链解析失败（组名不认识/内核刚起）才退回全量读
+          final proxies = (await ClashHttpApi.getProxies()).data;
+          if (proxies == null || proxies.isEmpty) {
+            return "";
+          }
+          now = currentNodeName(proxies);
+        }
+      } else {
+        // 有固定节点时要用全量列表校验它是否还在候选里
+        final proxies = (await ClashHttpApi.getProxies()).data;
+        if (proxies == null || proxies.isEmpty) {
+          return "";
+        }
+        now = currentNodeName(proxies);
+      }
     }
-    final now = currentNodeName(proxies);
     if (now.isEmpty) {
       return "";
     }
@@ -51,6 +75,34 @@ abstract final class MclashKernelSync {
     }
     MclashNodesStore.instance.clearAutoPickNote();
     return now;
+  }
+
+  /// 沿「组 → 子组 → 真实节点」往下走，逐层只读 `GET /proxies/{name}`。
+  /// 返回最终落到的节点名（DIRECT/REJECT 之类也原样返回）。
+  static Future<String> resolveNowViaGroups() async {
+    var name = kPrimarySelectorName;
+    for (var depth = 0; depth < 4; depth++) {
+      final r = await ClashHttpApi.getProxyGroup(name);
+      final node = r.data;
+      if (r.error != null || node == null) {
+        return "";
+      }
+      final now = node.now.trim();
+      if (now.isEmpty) {
+        return "";
+      }
+      if (kNonProxyTargets.contains(now.toUpperCase())) {
+        return now;
+      }
+      final next = await ClashHttpApi.getProxyGroup(now);
+      final nextNode = next.data;
+      final isGroup = next.error == null && nextNode != null && nextNode.all.isNotEmpty;
+      if (!isGroup) {
+        return now;
+      }
+      name = now;
+    }
+    return "";
   }
 
   static Future<ClashConfigsMode?> _kernelMode() async {

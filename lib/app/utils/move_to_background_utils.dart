@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:mclash/app/utils/app_lifecycle_state_notify.dart';
 import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -13,6 +14,9 @@ abstract final class MoveToBackgroundUtils {
           await _moveToBackgroundChannel.invokeMethod("moveTaskToBack");
         } else if (PlatformUtils.isPC()) {
           await windowManager.hide();
+          // 隐藏后必须标暂停：否则首页仍每 2s 查内核状态、每 30s 读代理组
+          //（用户报障「最小化到托盘后电脑还是卡」）。
+          AppLifecycleStateNofity.statePaused("hide");
         }
       });
     } else {
@@ -20,6 +24,7 @@ abstract final class MoveToBackgroundUtils {
         await _moveToBackgroundChannel.invokeMethod("moveTaskToBack");
       } else if (PlatformUtils.isPC()) {
         await windowManager.hide();
+        AppLifecycleStateNofity.statePaused("hide");
       }
     }
   }

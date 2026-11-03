@@ -1,6 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:async';
+import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -377,6 +378,33 @@ class ClashHttpApi {
     return ReturnResult(error: ReturnResultError("$lastError"));
   }
 
+  /// 只读**一个代理组**（`GET /proxies/{name}`）。
+  ///
+  /// 为什么需要：`GET /proxies` 会把 500+ 节点连同 history 全部序列化（几百 KB），
+  /// 首页/选路每 15~30 秒读一次，JSON 解析 + 对象分配都在主 isolate 上 —— Windows
+  /// 上表现为持续掉帧/卡顿。读单个组只返回 {now, all, type}，几十字节~几 KB。
+  static Future<ReturnResult<ClashProxiesNode>> getProxyGroup(String name) async {
+    final r = await controlRequest(
+      "GET",
+      "/proxies/${Uri.encodeComponent(name)}",
+      timeout: proxiesReadTimeout,
+    );
+    if (r.error != null) {
+      return ReturnResult(error: r.error);
+    }
+    try {
+      final decoded = jsonDecode(r.data!.item2);
+      if (decoded is! Map) {
+        return ReturnResult(error: ReturnResultError("代理组响应格式异常"));
+      }
+      final node = ClashProxiesNode();
+      node.fromJson(Map<String, dynamic>.from(decoded));
+      return ReturnResult(data: node);
+    } catch (e) {
+      return ReturnResult(error: ReturnResultError("$e"));
+    }
+  }
+
   static Future<ReturnResult<List<ClashProxiesNode>>>? _proxiesInflight;
   static ReturnResult<List<ClashProxiesNode>>? _proxiesCache;
   static DateTime? _proxiesAt;
@@ -581,8 +609,14 @@ class ClashHttpApi {
     }
     ClashProxies proxies = ClashProxies();
     try {
-      var decodedResponse = jsonDecode(resultProxies.data!.item2);
-      proxies.fromJsonProxies(decodedResponse);
+      final payload = resultProxies.data!.item2;
+      // 500+ 节点的 /proxies 响应有几百 KB：jsonDecode 在主 isolate 上要几毫秒到
+      // 几十毫秒，叠加每 15~30 秒的轮询就是持续性掉帧（Windows 上尤其明显）。
+      // 大 payload 丢到后台 isolate 解析，主 isolate 只做对象构造。
+      final Object? decodedResponse = payload.length > 64 * 1024
+          ? await Isolate.run(() => jsonDecode(payload))
+          : jsonDecode(payload);
+      proxies.fromJsonProxies(decodedResponse as Map<String, dynamic>?);
     } catch (err) {
       return ReturnResult(error: ReturnResultError(err.toString()));
     }
