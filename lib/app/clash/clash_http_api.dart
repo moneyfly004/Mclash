@@ -321,6 +321,9 @@ class ClashHttpApi {
   /// 把并发的其它请求一起打断。用异常**类型**判断，不做本地化文案匹配。
   static bool _isConnectionStateError(Object err) => err is IOException;
 
+  /// 共享连接连续超时计数（达到 2 次就重建连接，见 controlRequest）
+  static int _consecutiveTimeouts = 0;
+
   static Future<ReturnResult<Tuple2<int, String>>> controlRequest(
     String method,
     String path, {
@@ -347,13 +350,25 @@ class ClashHttpApi {
         }
         final resp = await req.close().timeout(t);
         final text = await resp.transform(utf8.decoder).join().timeout(t);
+        _consecutiveTimeouts = 0;
         return ReturnResult(data: Tuple2(resp.statusCode, text));
       } catch (err) {
         lastError = err;
         if (err is TimeoutException) {
-          // 超时只是这一次慢：强关共享连接会把并发的其它请求一起打断
+          // 连续超时 = 共享连接已经坏了（内核重启/半关闭时常见）。
+          // 只关一次会打断并发请求，所以给一次容忍：同一连接**连续两次**超时
+          // 才重置，下一次请求重建连接。
+          // 真机证据：一条坏连接会让 /proxies 每 5 秒超时持续几十分钟，
+          // 而流量 WebSocket（独立连接）一直正常 —— 典型 keep-alive 中毒。
+          _consecutiveTimeouts++;
+          if (_consecutiveTimeouts >= 2) {
+            Log.w("ClashHttpApi: 连续 $_consecutiveTimeouts 次超时 → 重建控制连接");
+            resetControlConnection();
+            _consecutiveTimeouts = 0;
+          }
           break;
         }
+        _consecutiveTimeouts = 0;
         if (_isConnectionStateError(err)) {
           resetControlConnection();
         }

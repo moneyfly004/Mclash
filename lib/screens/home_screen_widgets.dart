@@ -826,25 +826,20 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _lastCurrentId = id;
     _lastCurrentAt = now;
 
-    if (id.isEmpty) {
-      if (await VPNService.getStarted()) {
-        await VPNService.stop();
-      }
-      return;
-    }
-
+    // ⚠️ 这里**只更新界面，绝不 stop/restart 内核**。
+    // 历史实现：「current 变了」→ restart()（= 断开 + 重连）：
+    //   · 切节点 / 切模式 / 订阅刷新 / 自动选路都会发 current 变更；
+    //   · 于是用户点一下「切换节点」就看到断线重连（真机「热切换就断线」）；
+    //   · 更糟：控制口短暂的 /proxies 超时也会走到这里，等于把好好的连接打断。
+    // mihomo 的 `PUT /proxies/{group}` 本身就是热切换，不需要重启内核；
+    // 当前节点由 controls 的回调驱动 UI 即可。
     if (!await VPNService.getStarted()) {
-      Log.i("HomeScreen: 未连接，current 变更不触发重连（$id）");
+      Log.i("HomeScreen: current 变更（$id），内核未运行 → 只刷新界面");
+      if (mounted) setState(() {});
       return;
     }
-
-    final err = await VPNService.restart(const Duration(seconds: 60));
-    if (err != null) {
-      if (!mounted) {
-        return;
-      }
-      DialogUtils.showAlertDialog(context, err.message, withVersion: true);
-    }
+    Log.i("HomeScreen: current 变更（$id）→ 刷新界面（不断线、不重启内核）");
+    if (mounted) setState(() {});
   }
 
   Future<void> _onUpdate(String id, bool finish) async {
