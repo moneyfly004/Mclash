@@ -137,28 +137,36 @@ class Printer extends LogPrinter {
     Level.error: 'ERROR',
   };
 
+  static String _two(int v) => v.toString().padLeft(2, '0');
+
+  /// 紧凑单行格式：
+  ///   [2026-11-03 11:21:55.477 +08][15884][INFO] 消息
+  ///
+  /// 旧格式把时间/pid/级别/消息各占一行、末尾再来一个空行 —— 一条日志占 5 行、
+  /// 行间大片空白（用户报障「日志格式不规范、大片空白、不紧凑」）。
   @override
   List<String> log(LogEvent event) {
-    String zone = event.time.timeZoneOffset.inHours.toString();
-    zone = zone.padLeft(2, '0');
-    String time =
-        "${event.time.timeZoneOffset.inHours > 0 ? "+" : "-"}$zone  ${event.time.toLocal().toString()}";
-    List<String> ret = [
-      time,
-      pid.toString(),
-      _prefixMap[event.level] ?? 'UNKNOWN',
-      event.message,
-    ];
+    final local = event.time.toLocal();
+    final ts =
+        "${local.year}-${_two(local.month)}-${_two(local.day)} "
+        "${_two(local.hour)}:${_two(local.minute)}:${_two(local.second)}."
+        "${local.millisecond.toString().padLeft(3, '0')}";
+
+    final offset = event.time.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final zone = "$sign${_two(offset.inHours.abs())}";
+
+    final level = _prefixMap[event.level] ?? 'UNKNOWN';
+    final sb = StringBuffer("[$ts $zone][$pid][$level] ${event.message}");
 
     if (event.error != null) {
-      ret.add(event.error.toString());
+      sb.write(" | ${event.error}");
     }
+    // 异常栈保持多行（天然多行，不强行压成一行），但它本身以换行结尾即可。
     if (event.stackTrace != null) {
-      ret.add(event.stackTrace.toString());
+      sb.write("\n${event.stackTrace}");
     }
-
-    ret.add('\n');
-    return ret;
+    return [sb.toString()];
   }
 }
 
