@@ -809,6 +809,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   String _lastCurrentId = "";
+
+  /// 「内核暂时读不到」日志的节流时间戳（避免刷屏 + 放大磁盘 I/O）
+  DateTime? _lastKernelStateMissLog;
   DateTime _lastCurrentAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   Future<void> _onCurrentChanged(String id) async {
@@ -1044,9 +1047,17 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       // 内核暂时读不到（正忙着测速 / 重载内核时控制口会超时）：用本地记录的
       // 当前节点名撑住那一行。旧实现在这里赋空串 —— 用户看到的就是
       // "已连上但当前节点空白 / 点一次闪一下就没了"（真机报障）。
-      Log.i(
-        "首页当前节点：内核暂时读不到，沿用本地记录（${result.error?.message ?? "无数据"}）",
-      );
+      // 降噪：控制口超时会把这条刷几百次（每 15s 一次、持续几十分钟），
+      // 无谓地放大日志写入量与磁盘 I/O。60 秒记一条足够定位。
+      final now = DateTime.now();
+      if (_lastKernelStateMissLog == null ||
+          now.difference(_lastKernelStateMissLog!) >
+              const Duration(seconds: 60)) {
+        _lastKernelStateMissLog = now;
+        Log.i(
+          "首页当前节点：内核暂时读不到，沿用本地记录（${result.error?.message ?? "无数据"}）",
+        );
+      }
       _showNodeFromLocal();
       return;
     }

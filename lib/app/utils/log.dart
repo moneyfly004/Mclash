@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:mclash/app/utils/path_utils.dart';
 import 'package:logger/logger.dart';
@@ -51,7 +52,18 @@ class FileLogOutput extends LogOutput {
     }
   }
 
-  void writeRaw(String line) {
+  /// 待写入缓冲。
+  ///
+  /// 为什么必须批量：旧实现**每条日志都 writeStringSync**（同步磁盘写、在主 isolate
+  /// 上）。Windows 上 Defender 会对每次写入做实时扫描，于是"每秒几十~上百条日志"
+  /// 变成"每秒几十~上百次同步写 + 杀毒扫描" → 整个系统明显卡顿（用户报障
+  /// 「软件一打开电脑就异常卡顿」）。现在先攒在内存里，最多 200ms 写一次。
+  final List<String> _buffer = [];
+  Timer? _flushTimer;
+  static const int _maxBufferLines = 400;
+  static const Duration _flushInterval = Duration(milliseconds: 200);
+
+  void writeRaw(String line, {bool immediate = false}) {
     if (_mirrorToStderr) {
       stderr.writeln(line);
     }
@@ -62,8 +74,28 @@ class FileLogOutput extends LogOutput {
       }
       return;
     }
+    _buffer.add(line);
+    if (immediate || _buffer.length >= _maxBufferLines) {
+      _flushNow();
+      return;
+    }
+    _flushTimer ??= Timer(_flushInterval, _flushNow);
+  }
+
+  void forceFlush() => _flushNow();
+
+  void _flushNow() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    final raf = _raf;
+    if (raf == null || _buffer.isEmpty) {
+      _buffer.clear();
+      return;
+    }
+    final text = _buffer.join("\n");
+    _buffer.clear();
     try {
-      raf.writeStringSync("$line\n");
+      raf.writeStringSync("$text\n");
     } catch (err) {
       _reportWriteError(err);
     }
@@ -71,6 +103,7 @@ class FileLogOutput extends LogOutput {
 
   @override
   Future<void> destroy() async {
+    _flushNow();
     final raf = _raf;
     _raf = null;
     _opened = false;
@@ -188,6 +221,11 @@ class Log {
     }
   }
 
+  /// 立即把缓冲刷盘（错误/退出时必须调用，避免崩溃现场丢日志）
+  static void forceFlush() {
+    _fileLogOutput.forceFlush();
+  }
+
   static void d(dynamic message) {
     _logger.d(message);
   }
@@ -202,5 +240,6 @@ class Log {
 
   static void e(dynamic message) {
     _logger.e(message);
+    _fileLogOutput.forceFlush();
   }
 }

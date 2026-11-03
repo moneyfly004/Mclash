@@ -19,7 +19,9 @@ class MclashSpeedTester {
 
   static const int probeCount = 3;
 
-  static const int maxConcurrent = 8;
+  /// 并发数：Windows 上 8 并发 × 数百节点会把 CPU/网络栈压满，用户体感是
+  /// 「软件一打开电脑就卡」。4 并发慢一点点，但系统保持可用。
+  static const int maxConcurrent = 4;
 
   static const int udpMaxConcurrent = 2;
 

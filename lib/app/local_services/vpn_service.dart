@@ -131,7 +131,9 @@ class VPNService {
 
   static Future<void> _prewarmFirewallRules() async {
     try {
-      await Future<void>.delayed(const Duration(seconds: 3));
+      // 放到 30 秒后：netsh 每次调用都要 1~2 秒并触发磁盘/Defender 活动，
+      // 启动瞬间做会让"刚打开就卡"。连接时仍会补加（同一份缓存去重）。
+      await Future<void>.delayed(const Duration(seconds: 30));
       final ports = <int>[
         ClashSettingManager.getControlPort(),
         ClashSettingManager.getMixedPort(),
