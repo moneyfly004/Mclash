@@ -408,7 +408,13 @@ class ClashHttpApi {
   static Future<ReturnResult<List<ClashProxiesNode>>>? _proxiesInflight;
   static ReturnResult<List<ClashProxiesNode>>? _proxiesCache;
   static DateTime? _proxiesAt;
-  static const Duration _proxiesTtl = Duration(milliseconds: 1500);
+  /// /proxies 缓存 TTL。
+  ///
+  /// 1500ms 太短：连接后「2s 状态检查 + 30s 内核同步 + 首页节点行 + 自动选路」会在
+  /// 几秒内各触发一次全量 /proxies（500+ 节点、几百 KB）。5s 让这些读取共用一份
+  /// 结果，内核与网络都更省；切节点走 setProxiesNode 的「本地打补丁」，缓存里
+  /// 已经是新值，5s 内读取不会显示旧节点。
+  static const Duration _proxiesTtl = Duration(seconds: 5);
 
   static void invalidateProxiesCache() {
     _proxiesCache = null;
