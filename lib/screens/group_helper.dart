@@ -511,7 +511,7 @@ class GroupHelper {
         await dir.create(recursive: true);
         created = true;
         String profileDir = await PathUtils.profileDir();
-        var fileList = Directory(profileDir).listSync(followLinks: false);
+        var fileList = await Directory(profileDir).list(followLinks: false).toList();
         for (var f in fileList) {
           if (f is File) {
             String ext = path.extension(f.path);
@@ -529,7 +529,7 @@ class GroupHelper {
             final newDirPath = path.join(portableProfileDir, fbasename);
             var newDir = Directory(newDirPath);
             await newDir.create(recursive: false);
-            var fileList = f.listSync(followLinks: false);
+            var fileList = await f.list(followLinks: false).toList();
             for (var ff in fileList) {
               if (ff is File) {
                 String ext = path.extension(ff.path);

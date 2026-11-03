@@ -627,8 +627,11 @@ class ClashHttpApi {
     );
     if (resultProviders.error == null) {
       try {
-        var decodedResponse = jsonDecode(resultProviders.data!.item2);
-        proxies.fromJsonProviders(decodedResponse);
+        final payload = resultProviders.data!.item2;
+        final Object? decodedResponse = payload.length > 64 * 1024
+            ? await Isolate.run(() => jsonDecode(payload))
+            : jsonDecode(payload);
+        proxies.fromJsonProviders(decodedResponse as Map<String, dynamic>?);
       } catch (err) {
         // 只有 provider 这部分解析失败：已经成功拿到的 /proxies 不能一起丢掉 ——
         // 丢了上层就会把"当前节点读不到"当成"没有节点"，界面直接空白。
