@@ -89,6 +89,9 @@ Future<void> run(List<String> args) async {
         break;
       }
       await Log.init();
+      // 版本只有 pubspec 一个来源：先把 PackageInfo 的真实版本回填进来，
+      // 否则下面的自检会拿「硬编码版本 vs 包版本」比对而误判 invalidVersion。
+      await AppUtils.initBuildinVersion();
       String buildVersion = AppUtils.getBuildinVersion();
       String exePath = Platform.resolvedExecutable;
       Log.w(
@@ -100,7 +103,9 @@ Future<void> run(List<String> args) async {
         break;
       }
       String version = await AppUtils.getPackgetVersionName();
-      if (AppUtils.getBuildinVersionName() != version) {
+      if (AppUtils.hasBuildinVersion && AppUtils.getBuildinVersionName() != version) {
+        Log.w("version mismatch: buildin=${AppUtils.getBuildinVersion()}"
+            " package=$version");
         startFailedReason = StartFailedReason.invalidVersion;
         break;
       }
