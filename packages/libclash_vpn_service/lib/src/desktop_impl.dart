@@ -570,7 +570,9 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           // VBS 里用 Shell.Application 的 ShellExecute 方法 + "runas" verb 触发 UAC 提权，
           // 等价于 PowerShell 的 Start-Process -Verb RunAs，但全程无控制台。
           String vbsEscape(String s) => s.replaceAll('"', '""');
-          final args = execArgs.join('" "');
+          // 每个参数都要**独立加引号**：'-d' '/path' '-f' '/path/config.yaml'
+          // 旧写法 join('" "') 会拼成 -d" "/path" "-f" ... → 内核拿到畸形参数。
+          final args = execArgs.map((a) => '"$a"').join(' ');
           final vbs = 'Set sh = CreateObject("Shell.Application")\r\n'
               'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
               'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
