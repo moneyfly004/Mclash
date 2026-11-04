@@ -779,8 +779,9 @@ void injectAlwaysProxyRules(Map<String, dynamic> config, List<String> notes) {
       continue;
     }
     final name = g['name']?.toString() ?? '';
+    // mihomo 里选择器分组的类型名是 `select`（也有配置写 `selector`），两个都认。
     final type = (g['type']?.toString() ?? '').toLowerCase();
-    if (name.isEmpty || type != 'selector') {
+    if (name.isEmpty || (type != 'select' && type != 'selector')) {
       continue;
     }
     if (name.toUpperCase() == 'GLOBAL') {

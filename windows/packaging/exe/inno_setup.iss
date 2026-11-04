@@ -259,9 +259,13 @@ begin
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
   { /TR 的值本身是一条带引号的命令行，内层引号要转义成 \" 。
     Inno Pascal 里反斜杠不是转义符，所以 '\"' 就是「反斜杠 + 双引号」两个字符。 }
+  { /ST 不能早于当前时间（实测 00:00 会报「早于当前时间」）。
+    /RU <当前用户> /IT 让任务在用户登录会话里以「最高权限」运行：
+    触发时直接提权，不需要 UAC，也不需要 App 自己是管理员。 }
   Params := '/Create /TN "Mclash Kernel" /TR \"' + AppDir + '\mihomo.exe\" -d \"' +
             DataDir + '\" -f \"' + DataDir + '\config.yaml\"" ' +
-            '/SC ONCE /ST 00:00 /RL HIGHEST /F';
+            '/SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') +
+            '" /IT /RL HIGHEST /F';
   if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
               ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
   begin

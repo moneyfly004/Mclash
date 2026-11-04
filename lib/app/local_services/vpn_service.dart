@@ -1067,10 +1067,13 @@ class VPNService {
       }
       String q(String v) => "'${v.replaceAll("'", "''")}'";
       final tr = '"${kernel.replaceAll('"', '')}" -d "$dataDir" -f "$dataDir\\config.yaml"';
+      // /ST 不能早于当前时间；/RU <当前用户> /IT 让任务在用户会话里以最高权限运行
+      // （触发时直接提权，无 UAC）。实测：这样拉起的内核 elevated=1。
+      final user = Platform.environment["USERNAME"] ?? "";
       final ps =
           "Start-Process -FilePath 'schtasks' -ArgumentList "
           "@('/Create','/TN','$kKernelTaskName','/TR',${q(tr)},"
-          "'/SC','ONCE','/ST','00:00','/RL','HIGHEST','/F') "
+          "'/SC','ONCE','/ST','23:59','/RU',${q(user)},'/IT','/RL','HIGHEST','/F') "
           "-Verb RunAs -Wait -WindowStyle Hidden";
       final r = await Process.run("powershell", [
         "-NoProfile",
