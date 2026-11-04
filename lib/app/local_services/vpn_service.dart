@@ -1043,7 +1043,14 @@ class VPNService {
         "/tn",
         kKernelTaskName,
       ]).timeout(const Duration(seconds: 5));
-      return r.exitCode == 0;
+      if (r.exitCode != 0) {
+        return false;
+      }
+      // 老版本的任务动作是直接跑 mihomo.exe（会弹黑色控制台）。新版本要求
+      // 存在 kernel_host.ps1（隐藏窗口启动）。缺脚本就当作未就绪，触发一次迁移。
+      final dataDir =
+          "${Platform.environment["APPDATA"]}\\mclash\\mclash";
+      return File("$dataDir\\kernel_host.ps1").existsSync();
     } catch (_) {
       return false;
     }
@@ -1066,7 +1073,20 @@ class VPNService {
         return ReturnResultError("找不到内核文件：$kernel");
       }
       String q(String v) => "'${v.replaceAll("'", "''")}'";
-      final tr = '"${kernel.replaceAll('"', '')}" -d "$dataDir" -f "$dataDir\\config.yaml"';
+      // 计划任务的动作是一个「隐藏窗口启动内核」的 ps1：
+      // 直接用 mihomo.exe 当任务动作时，/IT 交互式运行会弹出一个黑色控制台；
+      // 包一层 PowerShell 并给 Start-Process 加 -WindowStyle Hidden 后不再有窗口。
+      final ps1Path = "$dataDir\\kernel_host.ps1";
+      final ps1 = 'Start-Process -FilePath ${q(kernel)} '
+          '-ArgumentList @(${q("-d")},${q(dataDir)},${q("-f")},'
+          '${q("$dataDir\\config.yaml")}) -WindowStyle Hidden -Wait';
+      try {
+        await File(ps1Path).writeAsString(ps1, flush: true);
+      } catch (err) {
+        return ReturnResultError("写入内核启动脚本失败：$err");
+      }
+      final tr =
+          'powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "$ps1Path"';
       // /ST 不能早于当前时间；/RU <当前用户> /IT 让任务在用户会话里以最高权限运行
       // （触发时直接提权，无 UAC）。实测：这样拉起的内核 elevated=1。
       final user = Platform.environment["USERNAME"] ?? "";

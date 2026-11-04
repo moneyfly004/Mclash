@@ -499,12 +499,19 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           // 与 App 写入的 workDir/config.yaml 是同一份。
           // 这里起一个「观察者」Shell：先触发任务，再一直等到 mihomo 消失，
           // 这样 _proc.exitCode 仍然能准确反映内核生命周期（自愈/重连逻辑不变）。
+          final pidFile = p.join(workDir, "kernel.pid");
+          try {
+            if (File(pidFile).existsSync()) File(pidFile).deleteSync();
+          } catch (_) {}
           final ps =
               "schtasks /run /tn '$kKernelTaskName' | Out-Null; "
               "\$deadline = (Get-Date).AddSeconds(45); "
               "while ((Get-Date) -lt \$deadline -and "
               "-not (Get-Process mihomo -ErrorAction SilentlyContinue)) "
               "{ Start-Sleep -Milliseconds 200 }; "
+              "\$k = Get-Process mihomo -ErrorAction SilentlyContinue | "
+              "Select-Object -First 1; "
+              "if (\$k) { \$k.Id | Out-File -FilePath '$pidFile' -Encoding ascii }; "
               "while (Get-Process mihomo -ErrorAction SilentlyContinue) "
               "{ Start-Sleep -Milliseconds 500 }";
           proc = await Process.start(
@@ -514,6 +521,16 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
             workingDirectory: workDir,
           );
           _uacKernelPid = null;
+          // 观察者会把 mihomo 的真实 PID 落盘（停止时要按 PID 提权杀，
+          // 因为 `schtasks /end` 只结束任务外壳，不会杀掉子进程）。
+          for (var i = 0; i < 80; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+            final f = File(pidFile);
+            if (f.existsSync()) {
+              _uacKernelPid = int.tryParse(f.readAsStringSync().trim());
+              if (_uacKernelPid != null) break;
+            }
+          }
           desktopLog(
             "[mclash] Windows TUN：内核由计划任务「$kKernelTaskName」以最高权限启动"
             "（无需 UAC；观察者 PID=${proc.pid}）",
@@ -1012,7 +1029,8 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
         try {
           if (Platform.isWindows) {
             if (_kernelViaTask) {
-              // 计划任务拉起的内核：结束任务即可（任务本身是最高权限）
+              // 只结束计划任务，**绝不**额外 taskkill mihomo：
+              // 杀掉内核会直接断连（用户明确要求不能杀）。
               await Process.run("schtasks", [
                 "/end",
                 "/tn",

@@ -253,28 +253,40 @@ var
   ResultCode: Integer;
   AppDir: String;
   DataDir: String;
+  Ps1Path: String;
+  Ps1Body: String;
 begin
   ResultCode := -1;
   AppDir := ExpandConstant('{app}');
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
-  { /TR 的值本身是一条带引号的命令行，内层引号要转义成 \" 。
-    Inno Pascal 里反斜杠不是转义符，所以 '\"' 就是「反斜杠 + 双引号」两个字符。 }
-  { /ST 不能早于当前时间（实测 00:00 会报「早于当前时间」）。
-    /RU <当前用户> /IT 让任务在用户登录会话里以「最高权限」运行：
-    触发时直接提权，不需要 UAC，也不需要 App 自己是管理员。 }
-  Params := '/Create /TN "Mclash Kernel" /TR \"' + AppDir + '\mihomo.exe\" -d \"' +
-            DataDir + '\" -f \"' + DataDir + '\config.yaml\"" ' +
-            '/SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') +
+  Ps1Path := DataDir + '\kernel_host.ps1';
+
+  { 关键：计划任务直接跑 mihomo.exe（/IT 交互式）会弹出一个黑色控制台窗口。
+    这里写一个「隐藏窗口启动内核并等待」的脚本，任务动作只指向它，
+    mihomo 全程没有可见窗口。 }
+  Ps1Body := 'Start-Process -FilePath ' + #39 + AppDir + '\mihomo.exe' + #39 + ' ' +
+             '-ArgumentList @(' + #39 + '-d' + #39 + ',' + #39 + DataDir + #39 + ',' +
+             #39 + '-f' + #39 + ',' + #39 + DataDir + '\config.yaml' + #39 + ') ' +
+             '-WindowStyle Hidden -Wait';
+  ForceDirectories(DataDir);
+  if not SaveStringToFile(Ps1Path, Ps1Body, False) then
+  begin
+    Log('写入 kernel_host.ps1 失败：' + Ps1Path);
+  end;
+
+  { /ST 不能早于当前时间；/RU <当前用户> /IT 让任务在用户会话里以最高权限运行 }
+  Params := '/Create /TN "Mclash Kernel" /TR \"powershell -NoProfile -WindowStyle Hidden '
+            + '-ExecutionPolicy Bypass -File \"' + Ps1Path + '\"\" '
+            + '/SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') +
             '" /IT /RL HIGHEST /F';
   if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
               ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
   begin
-    { 建任务失败不是致命错误：App 会回退到「点 TUN 时用 UAC 提权内核」。 }
     Log('创建 Mclash Kernel 计划任务失败，返回码=' + IntToStr(ResultCode));
   end
   else
   begin
-    Log('已创建 Mclash Kernel 计划任务（最高权限，安装时提权一次）');
+    Log('已创建 Mclash Kernel 计划任务（最高权限、隐藏窗口，安装时提权一次）');
   end;
 end;
 
