@@ -1037,17 +1037,10 @@ class VPNService {
     if (!Platform.isWindows) {
       return false;
     }
+    // 只查文件，**不调用 schtasks.exe**：schtasks 是控制台程序，每次点 TUN 调用
+    // 它都会闪一下黑框（用户能看到）。kernel_host.vbs（安装时/首次安装组件时
+    // 写入）存在即代表任务已就绪，纯文件判断零进程、零窗口。
     try {
-      final r = await Process.run("schtasks", [
-        "/query",
-        "/tn",
-        kKernelTaskName,
-      ]).timeout(const Duration(seconds: 5));
-      if (r.exitCode != 0) {
-        return false;
-      }
-      // 老版本的任务动作是直接跑 mihomo.exe（会弹黑色控制台）。新版本要求
-      // 存在 kernel_host.ps1（隐藏窗口启动）。缺脚本就当作未就绪，触发一次迁移。
       final dataDir =
           "${Platform.environment["APPDATA"]}\\mclash\\mclash";
       return File("$dataDir\\kernel_host.vbs").existsSync();

@@ -222,13 +222,13 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     if (!Platform.isWindows) {
       return false;
     }
+    // 纯文件判断：不调用 schtasks.exe（控制台程序，调用会闪一下黑框）。
     try {
-      final r = await Process.run("schtasks", [
-        "/query",
-        "/tn",
-        kKernelTaskName,
-      ]).timeout(const Duration(seconds: 5));
-      return r.exitCode == 0;
+      final appData = Platform.environment["APPDATA"] ?? "";
+      if (appData.isEmpty) {
+        return false;
+      }
+      return File("$appData\\mclash\\mclash\\kernel_host.vbs").existsSync();
     } catch (_) {
       return false;
     }
@@ -559,19 +559,52 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
             "（无需 UAC；观察者 PID=${proc.pid}）",
           );
         } else if (useUac) {
+          // UAC 提权路径：必须用 wscript.exe + VBS，不能用 PowerShell。
+          // PowerShell 即使 -WindowStyle Hidden 也会先建控制台再隐藏 → 用户看到黑框闪一下。
+          // wscript.exe 是 GUI 子系统程序，全程无控制台窗口。
           final pidFile = p.join(workDir, "kernel.pid");
           try {
             if (File(pidFile).existsSync()) File(pidFile).deleteSync();
           } catch (_) {}
-          String q(String v) => "'${v.replaceAll("'", "''")}'";
-          final argList = execArgs.map(q).join(",");
-          final ps = "\$p = Start-Process -FilePath ${q(kernel)} "
-              "-ArgumentList @($argList) -Verb RunAs -PassThru -WindowStyle Hidden; "
-              "\$p.Id | Out-File -FilePath ${q(pidFile)} -Encoding ascii; "
-              "\$p.WaitForExit()";
+          final vbsPath = p.join(workDir, "kernel_uac.vbs");
+          // VBS 里用 Shell.Application 的 ShellExecute 方法 + "runas" verb 触发 UAC 提权，
+          // 等价于 PowerShell 的 Start-Process -Verb RunAs，但全程无控制台。
+          String vbsEscape(String s) => s.replaceAll('"', '""');
+          final args = execArgs.join('" "');
+          final vbs = 'Set sh = CreateObject("Shell.Application")\r\n'
+              'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
+              'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
+              'sh.ShellExecute "${vbsEscape(kernel)}", "${vbsEscape(args)}", "", "runas", 0\r\n'
+              'WScript.Sleep 500\r\n'
+              'Dim procs, pid, seen\r\n'
+              'seen = False\r\n'
+              'For i = 1 To 100\r\n'
+              '  Set procs = svc.ExecQuery("SELECT ProcessId,CommandLine FROM Win32_Process WHERE Name=\'mihomo.exe\'")\r\n'
+              '  For Each pe In procs\r\n'
+              '    If InStr(pe.CommandLine, "${vbsEscape(workDir)}") > 0 Then\r\n'
+              '      pid = pe.ProcessId\r\n'
+              '      seen = True\r\n'
+              '      Exit For\r\n'
+              '    End If\r\n'
+              '  Next\r\n'
+              '  If seen Then Exit For\r\n'
+              '  WScript.Sleep 100\r\n'
+              'Next\r\n'
+              'If seen Then\r\n'
+              '  On Error Resume Next\r\n'
+              '  fso.OpenTextFile("${vbsEscape(pidFile)}", 2, True).Write CStr(pid)\r\n'
+              '  Do\r\n'
+              '    Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId=" & pid)\r\n'
+              '    If procs.Count = 0 Then Exit Do\r\n'
+              '    WScript.Sleep 500\r\n'
+              '  Loop\r\n'
+              'End If\r\n';
+          try {
+            await File(vbsPath).writeAsString(vbs, flush: true);
+          } catch (_) {}
           proc = await Process.start(
-            "powershell",
-            ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps],
+            "wscript.exe",
+            [vbsPath],
             environment: {"PATH": Platform.environment["PATH"] ?? ""},
             workingDirectory: workDir,
           );
@@ -586,7 +619,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
             }
           }
           desktopLog(
-            "[mclash] Windows TUN：内核已通过 UAC 提权启动（外壳 PID=${proc.pid}，"
+            "[mclash] Windows TUN：内核已通过 UAC 提权启动（观察者 PID=${proc.pid}，"
             "内核 PID=${_uacKernelPid ?? "未取到"}）",
           );
         } else {
@@ -1060,16 +1093,18 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
                 kKernelTaskName,
               ]).timeout(const Duration(seconds: 10));
             } else if (_uacKernelPid != null) {
-              // 内核是提权进程，普通 taskkill 会被拒绝 → 用 UAC 再提权杀
-              await Process.run("powershell", [
-                "-NoProfile",
-                "-NonInteractive",
-                "-WindowStyle",
-                "Hidden",
-                "-Command",
-                "Start-Process -FilePath 'taskkill' -ArgumentList "
-                    "'/PID $_uacKernelPid /T /F' -Verb RunAs -Wait -WindowStyle Hidden",
-              ]);
+              // 内核是提权进程，普通 taskkill 会被拒绝 → 用 VBS + wscript 提权杀（无窗口）
+              // 停止内核时不需要观察者，直接用 UAC 提权 taskkill 即可
+              try {
+                final cfg = _config;
+                if (cfg != null && cfg.work_dir.isNotEmpty) {
+                  final vbsPath = p.join(cfg.work_dir, "kill_kernel.vbs");
+                  final vbs = 'Set sh = CreateObject("Shell.Application")\r\n'
+                      'sh.ShellExecute "taskkill", "/PID $_uacKernelPid /T /F", "", "runas", 0\r\n';
+                  await File(vbsPath).writeAsString(vbs, flush: true);
+                  await Process.run("wscript.exe", [vbsPath]);
+                }
+              } catch (_) {}
             } else {
               await Process.run("taskkill", ["/PID", "${proc.pid}", "/T", "/F"]);
             }
