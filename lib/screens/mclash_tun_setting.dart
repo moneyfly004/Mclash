@@ -1,5 +1,7 @@
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
 import 'package:mclash/app/modules/setting_manager.dart';
@@ -124,7 +126,23 @@ abstract final class MclashTunSetting {
       if (!context.mounted) {
         return;
       }
-      if (go == true) {
+      if (go != true) {
+        return;
+      }
+      if (Platform.isWindows && !VPNService.isRunAsAdmin()) {
+        // 安装包本该在安装结束时建好「Mclash Kernel」最高权限计划任务；
+        // 老版本升级上来 / 建任务失败时，在这里**一次性**补装。
+        // 装好之后 TUN 由该任务启动，App 一直保持普通权限、不再弹 UAC。
+        final err = await VPNService.installKernelTask();
+        if (!context.mounted) {
+          return;
+        }
+        if (err != null) {
+          await DialogUtils.showAlertDialog(context, err.message);
+          return;
+        }
+        // 继续往下走：直接落 TUN 设置并连接
+      } else {
         final err = await VPNService.relaunchAsAdmin();
         if (!context.mounted) {
           return;
@@ -134,7 +152,6 @@ abstract final class MclashTunSetting {
             context,
             t.tunScreen.relaunchFailed(message: err.message),
           );
-          return;
         }
         return;
       }

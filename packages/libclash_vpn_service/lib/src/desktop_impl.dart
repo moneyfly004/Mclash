@@ -210,6 +210,29 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   /// Windows + TUN + 非管理员时，内核是通过 UAC 单独提起来的（PowerShell 只是壳），
   /// 真正要杀的是这个 PID。null 表示内核由本进程直接启动（普通路径）。
   int? _uacKernelPid;
+
+  /// 本次内核是否由「Mclash Kernel」计划任务拉起（安装时创建、最高权限）。
+  /// 走这条路时停内核要用 `schtasks /end`，不能用 taskkill。
+  bool _kernelViaTask = false;
+
+  static const String kKernelTaskName = "Mclash Kernel";
+
+  /// 安装包在 ssPostInstall 里创建了最高权限计划任务；有它就能零 UAC 起内核。
+  static Future<bool> kernelTaskExists() async {
+    if (!Platform.isWindows) {
+      return false;
+    }
+    try {
+      final r = await Process.run("schtasks", [
+        "/query",
+        "/tn",
+        kKernelTaskName,
+      ]).timeout(const Duration(seconds: 5));
+      return r.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
   VpnServiceConfig? _config;
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
 
@@ -461,13 +484,41 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // App 本身仍然以普通用户运行 —— 用户不需要「以管理员身份运行 Mclash」。
       final useUac =
           Platform.isWindows && cfg.tun_enabled && !(await isRunAsAdmin());
+      // 首选：安装时创建好的最高权限计划任务（零 UAC，用户也不用「以管理员身份运行」）。
+      // 没有这个任务（老版本装的 / 建任务失败）才退回每次点 TUN 走 UAC 提权内核。
+      final useTask = useUac && await kernelTaskExists();
+      _kernelViaTask = useTask;
       final execPath = useSudo ? "/usr/bin/sudo" : kernel;
       final execArgs = useSudo
           ? ["-n", kernel, "-d", workDir, "-f", configFile.path]
           : ["-d", workDir, "-f", configFile.path];
       Process proc;
       try {
-        if (useUac) {
+        if (useTask) {
+          // 任务动作固定为：<app>\mihomo.exe -d <dataDir> -f <dataDir>\config.yaml，
+          // 与 App 写入的 workDir/config.yaml 是同一份。
+          // 这里起一个「观察者」Shell：先触发任务，再一直等到 mihomo 消失，
+          // 这样 _proc.exitCode 仍然能准确反映内核生命周期（自愈/重连逻辑不变）。
+          final ps =
+              "schtasks /run /tn '$kKernelTaskName' | Out-Null; "
+              "\$deadline = (Get-Date).AddSeconds(45); "
+              "while ((Get-Date) -lt \$deadline -and "
+              "-not (Get-Process mihomo -ErrorAction SilentlyContinue)) "
+              "{ Start-Sleep -Milliseconds 200 }; "
+              "while (Get-Process mihomo -ErrorAction SilentlyContinue) "
+              "{ Start-Sleep -Milliseconds 500 }";
+          proc = await Process.start(
+            "powershell",
+            ["-NoProfile", "-NonInteractive", "-Command", ps],
+            environment: {"PATH": Platform.environment["PATH"] ?? ""},
+            workingDirectory: workDir,
+          );
+          _uacKernelPid = null;
+          desktopLog(
+            "[mclash] Windows TUN：内核由计划任务「$kKernelTaskName」以最高权限启动"
+            "（无需 UAC；观察者 PID=${proc.pid}）",
+          );
+        } else if (useUac) {
           final pidFile = p.join(workDir, "kernel.pid");
           try {
             if (File(pidFile).existsSync()) File(pidFile).deleteSync();
@@ -500,6 +551,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           );
         } else {
           _uacKernelPid = null;
+          _kernelViaTask = false;
           proc = await Process.start(
             execPath,
             execArgs,
@@ -517,7 +569,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       _proc = proc;
 
-      if (Platform.isWindows && _uacKernelPid == null) {
+      if (Platform.isWindows && _uacKernelPid == null && !_kernelViaTask) {
         final joined = assignToKillOnCloseJob(proc.pid);
         desktopLog(
           "[mclash] 内核 PID=${proc.pid} 加入「退出即终止」作业对象: "
@@ -959,7 +1011,14 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       if (proc != null) {
         try {
           if (Platform.isWindows) {
-            if (_uacKernelPid != null) {
+            if (_kernelViaTask) {
+              // 计划任务拉起的内核：结束任务即可（任务本身是最高权限）
+              await Process.run("schtasks", [
+                "/end",
+                "/tn",
+                kKernelTaskName,
+              ]).timeout(const Duration(seconds: 10));
+            } else if (_uacKernelPid != null) {
               // 内核是提权进程，普通 taskkill 会被拒绝 → 用 UAC 再提权杀
               await Process.run("powershell", [
                 "-NoProfile",

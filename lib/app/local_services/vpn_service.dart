@@ -38,6 +38,12 @@ class VPNService {
   static const localhost = "127.0.0.1";
   static bool _runAsAdmin = false;
 
+  /// Windows：安装时创建的最高权限计划任务是否就绪。
+  /// 就绪时 App 不需要管理员权限也能用 TUN（内核由任务以最高权限拉起，零 UAC）。
+  static bool _kernelTaskReady = false;
+
+  static const String kKernelTaskName = "Mclash Kernel";
+
   /// macOS：是否已获「免密 sudo 运行内核」授权（/etc/sudoers.d/mclash-tun）。
   /// 由 refreshTunPrerequisites() 异步刷新，tunPrerequisitesMet() 读取。
   static bool _macTunGranted = false;
@@ -124,6 +130,11 @@ class VPNService {
       final admin = await FlutterVpnService.isRunAsAdmin();
       _runAsAdmin = admin;
       Log.i("VPNService: 管理员权限=${admin ? "是" : "否"}");
+      _kernelTaskReady = await kernelTaskExists();
+      Log.i(
+        "VPNService: 免密提权组件（计划任务「$kKernelTaskName」）="
+        "${_kernelTaskReady ? "已就绪（TUN 无需管理员）" : "未安装"}",
+      );
     } catch (err) {
       Log.w("VPNService: 读取管理员状态失败 ${err.toString()}");
     }
@@ -1021,6 +1032,68 @@ class VPNService {
     return enable;
   }
 
+  /// Windows：查询「Mclash Kernel」计划任务是否存在。
+  static Future<bool> kernelTaskExists() async {
+    if (!Platform.isWindows) {
+      return false;
+    }
+    try {
+      final r = await Process.run("schtasks", [
+        "/query",
+        "/tn",
+        kKernelTaskName,
+      ]).timeout(const Duration(seconds: 5));
+      return r.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Windows：**一次性**创建最高权限计划任务（弹一次 UAC，之后 TUN 零提权）。
+  ///
+  /// 正规安装包会在安装结束时自动创建它；这里覆盖「老版本升级上来 / 建任务失败」
+  /// 的情况，避免又退回「必须右键以管理员身份运行」。
+  static Future<ReturnResultError?> installKernelTask() async {
+    if (!Platform.isWindows) {
+      return null;
+    }
+    try {
+      final exeDir = File(Platform.resolvedExecutable).parent.path;
+      final kernel = "$exeDir\\mihomo.exe";
+      final dataDir =
+          "${Platform.environment["APPDATA"]}\\mclash\\mclash";
+      if (!File(kernel).existsSync()) {
+        return ReturnResultError("找不到内核文件：$kernel");
+      }
+      String q(String v) => "'${v.replaceAll("'", "''")}'";
+      final tr = '"${kernel.replaceAll('"', '')}" -d "$dataDir" -f "$dataDir\\config.yaml"';
+      final ps =
+          "Start-Process -FilePath 'schtasks' -ArgumentList "
+          "@('/Create','/TN','$kKernelTaskName','/TR',${q(tr)},"
+          "'/SC','ONCE','/ST','00:00','/RL','HIGHEST','/F') "
+          "-Verb RunAs -Wait -WindowStyle Hidden";
+      final r = await Process.run("powershell", [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        ps,
+      ]).timeout(const Duration(seconds: 120));
+      if (r.exitCode != 0) {
+        return ReturnResultError(
+          "安装免密提权组件失败：${r.stderr.toString().trim()}",
+        );
+      }
+      _kernelTaskReady = await kernelTaskExists();
+      Log.i("VPNService: 免密提权组件安装结果=$_kernelTaskReady");
+      if (!_kernelTaskReady) {
+        return ReturnResultError("计划任务未创建成功（可能是 UAC 被拒绝）");
+      }
+      return null;
+    } catch (err) {
+      return ReturnResultError(err.toString());
+    }
+  }
+
   static bool isRunAsAdmin() {
     return _runAsAdmin;
   }
@@ -1029,7 +1102,7 @@ class VPNService {
     if (!PlatformUtils.isPC()) {
       return false;
     }
-    if (Platform.isWindows && !_runAsAdmin) {
+    if (Platform.isWindows && !_runAsAdmin && !_kernelTaskReady) {
       return false;
     }
     // macOS：TUN 需要 root 创建 utun / 改路由表，权限来自
