@@ -686,7 +686,16 @@ rules:
 
       final group = (doc["proxy-groups"] as YamlList).first as YamlMap;
       expect((group["proxies"] as YamlList).toList(), <String>['香港 01']);
-      expect((doc["rules"] as YamlList).toList(), <String>['MATCH,🚀 节点选择']);
+      // 规则最前面会注入「社媒/AI 走代理」（规则模式下领英/TikTok/ChatGPT 也要走代理），
+      // 订阅自己的 MATCH 兜底仍然是**最后一条**。
+      final builtRules = (doc["rules"] as YamlList).toList().map((e) => e.toString()).toList();
+      expect(builtRules.last, 'MATCH,🚀 节点选择');
+      expect(
+        builtRules.any((r) => r.startsWith('DOMAIN-SUFFIX,linkedin.com,')),
+        isTrue,
+        reason: '社媒域名必须被前置成走代理的规则',
+      );
+      expect(builtRules.length, greaterThan(1));
 
       expect(built.warnings, isNotEmpty, reason: '要留一条给用户看的告警');
       expect(
