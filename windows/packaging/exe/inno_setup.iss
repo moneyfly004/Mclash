@@ -255,19 +255,20 @@ var
   DataDir: String;
   Ps1Path: String;
   Ps1Body: String;
+  Q: String;
+  Args: String;
 begin
   ResultCode := -1;
   AppDir := ExpandConstant('{app}');
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
   Ps1Path := DataDir + '\kernel_host.ps1';
+  Q := #39;
+  Args := Q + '-d' + Q + ',' + Q + DataDir + Q + ',' + Q + '-f' + Q + ',' + Q + DataDir + '\config.yaml' + Q;
 
-  { 关键：计划任务直接跑 mihomo.exe（/IT 交互式）会弹出一个黑色控制台窗口。
+  { 关键：计划任务直接跑 mihomo.exe（/IT 交互式）会弹黑色控制台窗口。
     这里写一个「隐藏窗口启动内核并等待」的脚本，任务动作只指向它，
     mihomo 全程没有可见窗口。 }
-  Ps1Body := 'Start-Process -FilePath ' + #39 + AppDir + '\mihomo.exe' + #39 + ' ' +
-             '-ArgumentList @(' + #39 + '-d' + #39 + ',' + #39 + DataDir + #39 + ',' +
-             #39 + '-f' + #39 + ',' + #39 + DataDir + '\config.yaml' + #39 + ') ' +
-             '-WindowStyle Hidden -Wait';
+  Ps1Body := 'Start-Process -FilePath ' + Q + AppDir + '\mihomo.exe' + Q + ' -ArgumentList @(' + Args + ') -WindowStyle Hidden -Wait';
   ForceDirectories(DataDir);
   if not SaveStringToFile(Ps1Path, Ps1Body, False) then
   begin
@@ -275,10 +276,7 @@ begin
   end;
 
   { /ST 不能早于当前时间；/RU <当前用户> /IT 让任务在用户会话里以最高权限运行 }
-  Params := '/Create /TN "Mclash Kernel" /TR \"powershell -NoProfile -WindowStyle Hidden '
-            + '-ExecutionPolicy Bypass -File \"' + Ps1Path + '\"\" '
-            + '/SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') +
-            '" /IT /RL HIGHEST /F';
+  Params := '/Create /TN "Mclash Kernel" /TR \"powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"' + Ps1Path + '\"\" /SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') + '" /IT /RL HIGHEST /F';
   if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
               ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
   begin
