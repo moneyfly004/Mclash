@@ -717,6 +717,12 @@ Future<KernelConfigResult> buildKernelConfig(
 
   config["mixed-port"] = mixedPort;
 
+  // ---- 规则模式下也要代理的站点（社媒 / AI）----
+  // 订阅自带的规则常把这类站点落到 DIRECT，或者按 GEOIP 判成直连 ——
+  // 真机反馈：规则模式下领英、TikTok、ChatGPT 等打不开。这里在规则**最前面**
+  // 插一组 DOMAIN-SUFFIX 指向主代理分组（全局模式走 GLOBAL，不受影响）。
+  injectAlwaysProxyRules(config, notes);
+
   final yaml = dumpYaml(config);
   notes.add("yaml=${yaml.length}B mixed-port=$mixedPort");
   return KernelConfigResult(
@@ -726,6 +732,81 @@ Future<KernelConfigResult> buildKernelConfig(
     notes: notes,
     warnings: sanitized.warnings,
   );
+}
+
+/// 规则模式下强制走代理的域名（社媒 / AI）。
+///
+/// 只影响 **rule 模式**：global 模式所有流量都走 GLOBAL 选择器，不看规则。
+const List<String> kAlwaysProxyDomainSuffixes = <String>[
+  // —— 社媒 ——
+  'linkedin.com',
+  'licdn.com',
+  'tiktok.com',
+  'tiktokv.com',
+  'tiktokcdn.com',
+  'ttwstatic.com',
+  'musical.ly',
+  'byteoversea.com',
+  'ibytedtos.com',
+  // —— AI ——
+  'openai.com',
+  'chatgpt.com',
+  'oaistatic.com',
+  'oaiusercontent.com',
+  'anthropic.com',
+  'claude.ai',
+  'gemini.google.com',
+  'perplexity.ai',
+  'poe.com',
+  'midjourney.com',
+  'huggingface.co',
+  'copilot.microsoft.com',
+];
+
+/// 把 [kAlwaysProxyDomainSuffixes] 转成 mihomo 规则并**前置**到 `rules`。
+///
+/// 目标分组取「第一个有成员的 selector 分组」（跳过 GLOBAL），因为订阅里的
+/// 分组名并不固定（`🚀 节点选择` / `Proxy` / `Auto` …）。找不到分组就不动配置，
+/// 绝不写一条指向不存在分组的规则（内核会直接 `proxy [x] not found` 起不来）。
+void injectAlwaysProxyRules(Map<String, dynamic> config, List<String> notes) {
+  final groups = config['proxy-groups'];
+  if (groups is! List) {
+    return;
+  }
+  String? target;
+  for (final g in groups) {
+    if (g is! Map) {
+      continue;
+    }
+    final name = g['name']?.toString() ?? '';
+    final type = (g['type']?.toString() ?? '').toLowerCase();
+    if (name.isEmpty || type != 'selector') {
+      continue;
+    }
+    if (name.toUpperCase() == 'GLOBAL') {
+      continue;
+    }
+    final members = g['proxies'];
+    if (members is! List || members.isEmpty) {
+      continue;
+    }
+    target = name;
+    break;
+  }
+  if (target == null) {
+    return;
+  }
+  final existing = config['rules'];
+  final list = existing is List ? List<dynamic>.from(existing) : <dynamic>[];
+  final prepend = <String>[
+    for (final d in kAlwaysProxyDomainSuffixes) 'DOMAIN-SUFFIX,$d,$target',
+  ];
+  // 已经在最前面就别重复插（多次 build 同一份配置时）
+  if (list.isNotEmpty && list.first == prepend.first) {
+    return;
+  }
+  config['rules'] = <dynamic>[...prepend, ...list];
+  notes.add('已前置 ${prepend.length} 条「社媒/AI 走代理」规则（目标分组：$target）');
 }
 
 Map<String, dynamic> deepCopyMap(Map src) {

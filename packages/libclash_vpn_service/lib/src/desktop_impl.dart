@@ -206,6 +206,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   DesktopVpnServiceImpl();
 
   Process? _proc;
+
+  /// Windows + TUN + 非管理员时，内核是通过 UAC 单独提起来的（PowerShell 只是壳），
+  /// 真正要杀的是这个 PID。null 表示内核由本进程直接启动（普通路径）。
+  int? _uacKernelPid;
   VpnServiceConfig? _config;
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
 
@@ -452,18 +456,57 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       // /etc/sudoers.d/mclash-tun 授予；未授权时 sudo 会立即失败，
       // 上层据此判断「需要提权」并引导用户。
       final useSudo = Platform.isMacOS && cfg.tun_enabled;
+      // Windows + TUN + 非管理员：建 wintun 网卡/改路由必须管理员权限。
+      // 这里只把**内核**用 UAC 提起来（Start-Process -Verb RunAs），
+      // App 本身仍然以普通用户运行 —— 用户不需要「以管理员身份运行 Mclash」。
+      final useUac =
+          Platform.isWindows && cfg.tun_enabled && !(await isRunAsAdmin());
       final execPath = useSudo ? "/usr/bin/sudo" : kernel;
       final execArgs = useSudo
           ? ["-n", kernel, "-d", workDir, "-f", configFile.path]
           : ["-d", workDir, "-f", configFile.path];
       Process proc;
       try {
-        proc = await Process.start(
-          execPath,
-          execArgs,
-          environment: {"PATH": Platform.environment["PATH"] ?? ""},
-          workingDirectory: workDir,
-        );
+        if (useUac) {
+          final pidFile = p.join(workDir, "kernel.pid");
+          try {
+            if (File(pidFile).existsSync()) File(pidFile).deleteSync();
+          } catch (_) {}
+          String q(String v) => "'${v.replaceAll("'", "''")}'";
+          final argList = execArgs.map(q).join(",");
+          final ps = "\$p = Start-Process -FilePath ${q(kernel)} "
+              "-ArgumentList @($argList) -Verb RunAs -PassThru -WindowStyle Hidden; "
+              "\$p.Id | Out-File -FilePath ${q(pidFile)} -Encoding ascii; "
+              "\$p.WaitForExit()";
+          proc = await Process.start(
+            "powershell",
+            ["-NoProfile", "-NonInteractive", "-Command", ps],
+            environment: {"PATH": Platform.environment["PATH"] ?? ""},
+            workingDirectory: workDir,
+          );
+          _uacKernelPid = null;
+          for (var i = 0; i < 80; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+            final f = File(pidFile);
+            if (f.existsSync()) {
+              final txt = f.readAsStringSync().trim();
+              _uacKernelPid = int.tryParse(txt);
+              if (_uacKernelPid != null) break;
+            }
+          }
+          desktopLog(
+            "[mclash] Windows TUN：内核已通过 UAC 提权启动（外壳 PID=${proc.pid}，"
+            "内核 PID=${_uacKernelPid ?? "未取到"}）",
+          );
+        } else {
+          _uacKernelPid = null;
+          proc = await Process.start(
+            execPath,
+            execArgs,
+            environment: {"PATH": Platform.environment["PATH"] ?? ""},
+            workingDirectory: workDir,
+          );
+        }
       } catch (e) {
         await logSink.close();
         _setState(FlutterVpnServiceState.disconnected);
@@ -474,7 +517,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       }
       _proc = proc;
 
-      if (Platform.isWindows) {
+      if (Platform.isWindows && _uacKernelPid == null) {
         final joined = assignToKillOnCloseJob(proc.pid);
         desktopLog(
           "[mclash] 内核 PID=${proc.pid} 加入「退出即终止」作业对象: "
@@ -916,7 +959,18 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       if (proc != null) {
         try {
           if (Platform.isWindows) {
-            await Process.run("taskkill", ["/PID", "${proc.pid}", "/T", "/F"]);
+            if (_uacKernelPid != null) {
+              // 内核是提权进程，普通 taskkill 会被拒绝 → 用 UAC 再提权杀
+              await Process.run("powershell", [
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Start-Process -FilePath 'taskkill' -ArgumentList "
+                    "'/PID $_uacKernelPid /T /F' -Verb RunAs -Wait -WindowStyle Hidden",
+              ]);
+            } else {
+              await Process.run("taskkill", ["/PID", "${proc.pid}", "/T", "/F"]);
+            }
           } else {
             proc.kill(ProcessSignal.sigterm);
           }

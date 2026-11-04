@@ -494,7 +494,31 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                   return;
                 }
                 ClashConfigsMode type = ClashConfigsMode.values[value];
+                // 「规则 / 全局」是**代理模式**（走系统代理），与 TUN 互斥。
+                // 旧实现只热切内核 mode、不碰 tunMode，于是开过一次 TUN 后
+                // 再点「规则」「全局」，TUN 仍然接管全部流量 —— 用户看到的就是
+                // 「三个模式全是 TUN」。这里先把 TUN 落成 off，切完模式再重启
+                // 一次内核让配置生效（只有重启才会移除 tun inbound）。
+                final tunWasOn = SettingManager.getConfig().tunEnabled;
+                if (tunWasOn) {
+                  SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
+                  SettingManager.save();
+                  Log.i(
+                    "主页模式切换：TUN 已开启 → 先关闭 TUN 再切到 ${type.name}",
+                  );
+                }
                 var error = await mclashSetMode(type);
+                if (tunWasOn) {
+                  final started = await VPNService.getStarted();
+                  if (started) {
+                    final rerr = await VPNService.restart(
+                      const Duration(seconds: 60),
+                    );
+                    if (rerr != null) {
+                      error ??= rerr;
+                    }
+                  }
+                }
                 if (!context.mounted) {
                   return;
                 }
