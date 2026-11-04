@@ -593,8 +593,13 @@ jobs:
           make_latest: true
           generate_release_notes: false
           fail_on_unmatched_files: true
-          # 说明文本按要求留空（不写更新说明，也不使用中文）
-          body: ""
+          # Release notes are ENGLISH ONLY (product requirement).
+          body: |
+            ### Fixed
+            - Windows TUN now works without running the app as administrator.
+            - Removed the console window flash when TUN starts.
+            - Rule / Global modes now correctly turn TUN off (the three modes are mutually exclusive).
+            - Rule mode now proxies social media (LinkedIn, TikTok) and AI services.
 
   # ---- 自动补跑 ----
   # GitHub 上偶发「job 被直接 cancel」「flutter-action 网络抖动 exit 56」这类
