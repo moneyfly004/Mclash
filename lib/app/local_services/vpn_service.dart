@@ -1078,6 +1078,8 @@ class VPNService {
       final r = await Process.run("powershell", [
         "-NoProfile",
         "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
         "-Command",
         ps,
       ]).timeout(const Duration(seconds: 120));
@@ -1159,6 +1161,8 @@ class VPNService {
       final exe = Platform.resolvedExecutable;
       final result = await Process.run("powershell", [
         "-NoProfile",
+        "-WindowStyle",
+        "Hidden",
         "-Command",
         "Start-Process -FilePath '${exe.replaceAll("'", "''")}' -Verb RunAs",
       ]);

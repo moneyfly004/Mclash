@@ -509,7 +509,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
               "{ Start-Sleep -Milliseconds 500 }";
           proc = await Process.start(
             "powershell",
-            ["-NoProfile", "-NonInteractive", "-Command", ps],
+            ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps],
             environment: {"PATH": Platform.environment["PATH"] ?? ""},
             workingDirectory: workDir,
           );
@@ -531,7 +531,7 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
               "\$p.WaitForExit()";
           proc = await Process.start(
             "powershell",
-            ["-NoProfile", "-NonInteractive", "-Command", ps],
+            ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps],
             environment: {"PATH": Platform.environment["PATH"] ?? ""},
             workingDirectory: workDir,
           );
@@ -1023,6 +1023,8 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
               await Process.run("powershell", [
                 "-NoProfile",
                 "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
                 "-Command",
                 "Start-Process -FilePath 'taskkill' -ArgumentList "
                     "'/PID $_uacKernelPid /T /F' -Verb RunAs -Wait -WindowStyle Hidden",
@@ -2539,6 +2541,8 @@ foreach ($p in $targets) {
             .replaceFirst('__ONLY_ORPHAN__', includeOwn ? r'$false' : r'$true');
         final r = await Process.run("powershell", [
           "-NoProfile",
+          "-WindowStyle",
+          "Hidden",
           "-ExecutionPolicy",
           "Bypass",
           "-Command",
