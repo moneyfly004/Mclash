@@ -1,6 +1,8 @@
 
 library;
 
+export 'src/kernel_vbs.dart';
+
 import 'dart:async';
 import 'dart:io';
 

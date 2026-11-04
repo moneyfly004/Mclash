@@ -448,7 +448,8 @@ class KernelConfigSanitizer {
       );
     }
     if (removedGroups.isNotEmpty) {
-      warnings.add("剔除后已删除没有成员的分组：${removedGroups.join("、")}（内核：`use` or `proxies` missing）");
+      warnings.add(
+          "剔除后已删除没有成员的分组：${removedGroups.join("、")}（内核：`use` or `proxies` missing）");
     }
     if (removedRules > 0) {
       warnings.add("已删除 $removedRules 条指向被剔除节点的规则");
@@ -763,50 +764,93 @@ const List<String> kAlwaysProxyDomainSuffixes = <String>[
   'copilot.microsoft.com',
 ];
 
-/// 把 [kAlwaysProxyDomainSuffixes] 转成 mihomo 规则并**前置**到 `rules`。
-///
-/// 目标分组取「第一个有成员的 selector 分组」（跳过 GLOBAL），因为订阅里的
-/// 分组名并不固定（`🚀 节点选择` / `Proxy` / `Auto` …）。找不到分组就不动配置，
-/// 绝不写一条指向不存在分组的规则（内核会直接 `proxy [x] not found` 起不来）。
+/// Find a selector capable of reaching a declared proxy or provider.
+/// Capability does not guarantee the group's persisted runtime selection.
+String? alwaysProxyRuleTarget(Map<String, dynamic> config) {
+  final rawGroups = config['proxy-groups'];
+  if (rawGroups is! List) return null;
+  final groups = <String, Map>{
+    for (final group in rawGroups)
+      if (group is Map && group['name'] is String)
+        group['name'] as String: group,
+  };
+  final proxies = <String>{};
+  final rawProxies = config['proxies'];
+  if (rawProxies is List) {
+    for (final proxy in rawProxies) {
+      if (proxy is Map &&
+          proxy['name'] is String &&
+          !const {'direct', 'reject', 'reject-drop', 'pass'}
+              .contains(proxy['type']?.toString().toLowerCase())) {
+        proxies.add(proxy['name'] as String);
+      }
+    }
+  }
+  final providers = config['proxy-providers'];
+  bool reachable(String name, Set<String> visiting) {
+    if (const {'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'GLOBAL'}
+        .contains(name.toUpperCase())) {
+      return false;
+    }
+    if (proxies.contains(name)) return true;
+    final group = groups[name];
+    if (group == null || !visiting.add(name)) return false;
+    try {
+      if ((group['include-all'] == true ||
+              group['include-all-proxies'] == true) &&
+          proxies.isNotEmpty) {
+        return true;
+      }
+      if (providers is Map && providers.isNotEmpty) {
+        if (group['include-all'] == true ||
+            group['include-all-providers'] == true) {
+          return true;
+        }
+        final use = group['use'];
+        if (use is List && use.any(providers.containsKey)) return true;
+      }
+      final members = group['proxies'];
+      return members is List &&
+          members.any(
+            (member) => member is String && reachable(member, visiting),
+          );
+    } finally {
+      visiting.remove(name);
+    }
+  }
+
+  for (final entry in groups.entries) {
+    final type = entry.value['type']?.toString().toLowerCase();
+    if ((type == 'select' || type == 'selector') &&
+        entry.key.isNotEmpty &&
+        reachable(entry.key, <String>{})) {
+      return entry.key;
+    }
+  }
+  return null;
+}
+
+/// Prepend rules only when a proxy-capable selector exists.
 void injectAlwaysProxyRules(Map<String, dynamic> config, List<String> notes) {
-  final groups = config['proxy-groups'];
-  if (groups is! List) {
-    return;
-  }
-  String? target;
-  for (final g in groups) {
-    if (g is! Map) {
-      continue;
-    }
-    final name = g['name']?.toString() ?? '';
-    // mihomo 里选择器分组的类型名是 `select`（也有配置写 `selector`），两个都认。
-    final type = (g['type']?.toString() ?? '').toLowerCase();
-    if (name.isEmpty || (type != 'select' && type != 'selector')) {
-      continue;
-    }
-    if (name.toUpperCase() == 'GLOBAL') {
-      continue;
-    }
-    final members = g['proxies'];
-    if (members is! List || members.isEmpty) {
-      continue;
-    }
-    target = name;
-    break;
-  }
-  if (target == null) {
-    return;
-  }
+  final target = alwaysProxyRuleTarget(config);
+  if (target == null) return;
   final existing = config['rules'];
   final list = existing is List ? List<dynamic>.from(existing) : <dynamic>[];
   final prepend = <String>[
     for (final d in kAlwaysProxyDomainSuffixes) 'DOMAIN-SUFFIX,$d,$target',
   ];
   // 已经在最前面就别重复插（多次 build 同一份配置时）
-  if (list.isNotEmpty && list.first == prepend.first) {
+  if (list.length >= prepend.length &&
+      Iterable<int>.generate(prepend.length)
+          .every((i) => list[i] == prepend[i])) {
     return;
   }
-  config['rules'] = <dynamic>[...prepend, ...list];
+  // Keep unrelated rules in order, without duplicating a partial prior prefix.
+  final injected = prepend.toSet();
+  config['rules'] = <dynamic>[
+    ...prepend,
+    ...list.where((rule) => !injected.contains(rule)),
+  ];
   notes.add('已前置 ${prepend.length} 条「社媒/AI 走代理」规则（目标分组：$target）');
 }
 
@@ -831,7 +875,8 @@ void deepMerge(Map<String, dynamic> base, Map<String, dynamic> patch) {
   patch.forEach((k, v) {
     final key = k.toString();
     if (v is Map && base[key] is Map) {
-      deepMerge(base[key] as Map<String, dynamic>, Map<String, dynamic>.from(v));
+      deepMerge(
+          base[key] as Map<String, dynamic>, Map<String, dynamic>.from(v));
     } else if (v is Map) {
       base[key] = deepCopyMap(v);
     } else {
@@ -907,8 +952,7 @@ String yamlScalar(dynamic v) {
   if (s.isEmpty) {
     return "''";
   }
-  final needsQuote =
-      RegExp(r'''[:#\[\]{}&*!|>'"%@`,]''').hasMatch(s) ||
+  final needsQuote = RegExp(r'''[:#\[\]{}&*!|>'"%@`,]''').hasMatch(s) ||
       s.startsWith(" ") ||
       s.endsWith(" ") ||
       s.startsWith("-") ||

@@ -785,123 +785,104 @@ class ProfileManager {
       return null;
     }
     updating.add(id);
-    Future.delayed(const Duration(milliseconds: 10), () async {
-      for (var event in onEventUpdate) {
-        event(id, false);
-      }
-    });
+    // Only the invocation that acquired the id reaches this finally. Keep the
+    // guard until all awaited work (including temporary-file cleanup) is done.
+    try {
+      Future.delayed(const Duration(milliseconds: 10), () async {
+        for (var event in onEventUpdate) {
+          event(id, false);
+        }
+      });
 
-    String userAgent = normalizedUserAgent(profile.userAgent);
-    if (userAgent != profile.userAgent) {
-      profile.userAgent = userAgent;
-      save();
-      Log.i("ProfileManager: 配置档 UA 已归一为 $userAgent");
-    }
-    final savePath = path.join(await PathUtils.profilesDir(), id);
-    final savePathTmp = "$savePath.tmp";
-    late ReturnResult<HttpHeaders> result;
-    result = await _downloadProfileWithFallback(
-      uri,
-      savePathTmp,
-      userAgent,
-      profile.xhwid,
-    );
-    if (result.data != null) {
-      final err = _handleHwidError(result.data!);
-      if (err != null) {
-        return err;
+      String userAgent = normalizedUserAgent(profile.userAgent);
+      if (userAgent != profile.userAgent) {
+        profile.userAgent = userAgent;
+        save();
+        Log.i("ProfileManager: 配置档 UA 已归一为 $userAgent");
       }
-    }
-    if (result.error != null) {
+      final savePath = path.join(await PathUtils.profilesDir(), id);
+      final savePathTmp = "$savePath.tmp";
+      late ReturnResult<HttpHeaders> result;
+      result = await _downloadProfileWithFallback(
+        uri,
+        savePathTmp,
+        userAgent,
+        profile.xhwid,
+      );
+      if (result.data != null) {
+        final err = _handleHwidError(result.data!);
+        if (err != null) {
+          return err;
+        }
+      }
+      if (result.error != null) {
+        profile.updateFailed = DateTime.now();
+        return result.error;
+      }
+      profile.update = DateTime.now();
+      profile.updateFailed = null;
+      if (result.error == null) {
+        final profileUpdateInterval = result.data!.value(
+          "profile-update-interval",
+        );
+        if (profileUpdateInterval != null) {
+          var hours = int.tryParse(profileUpdateInterval);
+          if (hours != null) {
+            if (hours < 1) {
+              hours = 1;
+            }
+            profile.updateIntervalByProfile = Duration(hours: hours);
+          }
+        }
+        final err1 = await decryptProfile(
+          result.data,
+          savePathTmp,
+          profile.decryptPassword,
+        );
+        if (err1 != null) {
+          // 解密失败的是**临时文件**；以前这里删的是 `savePath`（线上唯一可用的
+          // 配置档），于是"订阅下发的加密档坏了"会顺手把用户能用的旧档删掉。
+          await FileUtils.deletePath(savePathTmp);
+          return err1;
+        }
+        final err = await validFileContentFormat(savePathTmp);
+        if (err != null) {
+          await FileUtils.deletePath(savePathTmp);
+          return err;
+        }
+
+        String renameError = "";
+        for (var i = 0; i < 3; ++i) {
+          try {
+            var file = File(savePathTmp);
+            await file.rename(savePath);
+            renameError = "";
+            break;
+          } catch (err) {
+            renameError = err.toString();
+            await Future.delayed(const Duration(seconds: 1));
+          }
+        }
+        if (renameError.isNotEmpty) {
+          await FileUtils.deletePath(savePathTmp);
+          return ReturnResultError(
+            "Rename file from [$savePathTmp] to [$savePath] failed: $renameError",
+          );
+        }
+
+        await FileUtils.append(savePath, "\n$urlComment${profile.url}\n");
+        profile.updateSubscriptionTraffic(result.data);
+      }
+      await save();
+      return result.error;
+    } finally {
       updating.remove(id);
       Future.delayed(const Duration(milliseconds: 10), () async {
         for (var event in onEventUpdate) {
           event(id, true);
         }
       });
-      profile.updateFailed = DateTime.now();
-      return result.error;
     }
-    profile.update = DateTime.now();
-    profile.updateFailed = null;
-    if (result.error == null) {
-      final profileUpdateInterval = result.data!.value(
-        "profile-update-interval",
-      );
-      if (profileUpdateInterval != null) {
-        var hours = int.tryParse(profileUpdateInterval);
-        if (hours != null) {
-          if (hours < 1) {
-            hours = 1;
-          }
-          profile.updateIntervalByProfile = Duration(hours: hours);
-        }
-      }
-      final err1 = await decryptProfile(
-        result.data,
-        savePathTmp,
-        profile.decryptPassword,
-      );
-      if (err1 != null) {
-        updating.remove(id);
-        // 解密失败的是**临时文件**；以前这里删的是 `savePath`（线上唯一可用的
-        // 配置档），于是"订阅下发的加密档坏了"会顺手把用户能用的旧档删掉。
-        await FileUtils.deletePath(savePathTmp);
-        Future.delayed(const Duration(milliseconds: 10), () async {
-          for (var event in onEventUpdate) {
-            event(id, true);
-          }
-        });
-        return err1;
-      }
-      final err = await validFileContentFormat(savePathTmp);
-      if (err != null) {
-        updating.remove(id);
-        await FileUtils.deletePath(savePathTmp);
-        Future.delayed(const Duration(milliseconds: 10), () async {
-          for (var event in onEventUpdate) {
-            event(id, true);
-          }
-        });
-        return err;
-      }
-
-      String renameError = "";
-      for (var i = 0; i < 3; ++i) {
-        try {
-          var file = File(savePathTmp);
-          await file.rename(savePath);
-          renameError = "";
-          break;
-        } catch (err) {
-          renameError = err.toString();
-          await Future.delayed(const Duration(seconds: 1));
-        }
-      }
-      if (renameError.isNotEmpty) {
-        updating.remove(id);
-        await FileUtils.deletePath(savePathTmp);
-        Future.delayed(const Duration(milliseconds: 10), () async {
-          for (var event in onEventUpdate) {
-            event(id, true);
-          }
-        });
-        return ReturnResultError(
-          "Rename file from [$savePathTmp] to [$savePath] failed: $renameError",
-        );
-      }
-
-      await FileUtils.append(savePath, "\n$urlComment${profile.url}\n");
-      profile.updateSubscriptionTraffic(result.data);
-    }
-    await save();
-    updating.remove(id);
-    Future.delayed(const Duration(milliseconds: 10), () async {
-      for (var event in onEventUpdate) {
-        event(id, true);
-      }
-    });
-    return result.error;
   }
 
   static ReturnResultError? _handleHwidError(HttpHeaders headers) {

@@ -42,6 +42,7 @@ class VpnServicePlugin :
 
     private lateinit var channel: MethodChannel
     private var activity: Activity? = null
+    private var activityBinding: ActivityPluginBinding? = null
     private var pendingResult: MethodChannel.Result? = null
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
@@ -53,36 +54,52 @@ class VpnServicePlugin :
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        detachActivity()
+        completePrepare(false)
         channel.setMethodCallHandler(null)
         MclashVpnService.detachChannel()
-        instance = null
+        if (instance === this) instance = null
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        detachActivity()
+        activityBinding = binding
         activity = binding.activity
         binding.addActivityResultListener(this)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
-        activity = null
+        // Android delivers the outstanding permission result to the replacement activity.
+        detachActivity()
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-        activity = binding.activity
-        binding.addActivityResultListener(this)
+        onAttachedToActivity(binding)
     }
 
     override fun onDetachedFromActivity() {
+        detachActivity()
+        completePrepare(false)
+    }
+
+    private fun detachActivity() {
+        activityBinding?.removeActivityResultListener(this)
+        activityBinding = null
         activity = null
     }
 
+    private fun completePrepare(granted: Boolean) {
+        val result = pendingResult ?: return
+        // Clear before replying so duplicate callbacks cannot complete the same call twice.
+        pendingResult = null
+        result.success(granted)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode != REQUEST_CODE_PREPARE) {
+        if (requestCode != REQUEST_CODE_PREPARE || pendingResult == null || activityBinding == null) {
             return false
         }
-        val r = pendingResult
-        pendingResult = null
-        r?.success(resultCode == Activity.RESULT_OK)
+        completePrepare(resultCode == Activity.RESULT_OK)
         return true
     }
 
@@ -90,17 +107,23 @@ class VpnServicePlugin :
         when (call.method) {
             "prepare" -> {
                 val act = activity
-                if (act == null) {
+                if (act == null || pendingResult != null) {
                     result.success(false)
                     return
                 }
-                val intent: Intent? = VpnService.prepare(act)
-                if (intent == null) {
-                    result.success(true)
+                pendingResult = result
+                val intent: Intent?
+                try {
+                    intent = VpnService.prepare(act)
+                    if (intent != null) {
+                        act.startActivityForResult(intent, REQUEST_CODE_PREPARE)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "prepare: ${e.message}")
+                    completePrepare(false)
                     return
                 }
-                pendingResult = result
-                act.startActivityForResult(intent, REQUEST_CODE_PREPARE)
+                if (intent == null) completePrepare(true)
             }
 
             "start" -> MclashVpnService.start(requireContext(), call, result)

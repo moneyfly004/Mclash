@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -80,18 +79,17 @@ class CBoardSession {
     String? accessToken,
     String? refreshToken,
     Map<String, dynamic>? user,
-  }) =>
-      CBoardSession(
-        accessToken: accessToken ?? this.accessToken,
-        refreshToken: refreshToken ?? this.refreshToken,
-        user: user ?? this.user,
-      );
+  }) => CBoardSession(
+    accessToken: accessToken ?? this.accessToken,
+    refreshToken: refreshToken ?? this.refreshToken,
+    user: user ?? this.user,
+  );
 
   Map<String, dynamic> toJson() => {
-        'access_token': accessToken,
-        'refresh_token': refreshToken,
-        'user': user,
-      };
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'user': user,
+  };
 
   static CBoardSession? fromJson(dynamic v) {
     if (v is! Map) return null;
@@ -111,6 +109,9 @@ abstract final class CBoardSessionStore {
   static const _key = 'mclash.cboard.session.v1';
 
   static CBoardSession? _cached;
+  static int _generation = 0;
+  static int get generation => _generation;
+  static Future<void> _persistence = Future<void>.value();
 
   static CBoardSession? get cached => _cached;
 
@@ -124,15 +125,22 @@ abstract final class CBoardSessionStore {
   static Future<String?> Function(String key)? debugReadOverride;
 
   @visibleForTesting
-  static void debugResetCache() => _cached = null;
+  static void debugResetCache() {
+    _cached = null;
+    _generation++;
+  }
 
   static bool get remember => (rememberOverride ?? _rememberFromSettings)();
 
   static bool _rememberFromSettings() =>
       SettingManager.getConfig().rememberAccount;
 
-  static Future<void> _write(String value) =>
-      (debugWriteOverride ?? SecureStorage.write)(_key, value);
+  static Future<void> _write(String value) {
+    final write = debugWriteOverride ?? SecureStorage.write;
+    final next = _persistence.then((_) => write(_key, value));
+    _persistence = next.catchError((Object _) {});
+    return next;
+  }
 
   static Future<String?> _read() =>
       (debugReadOverride ?? SecureStorage.read)(_key);
@@ -143,8 +151,10 @@ abstract final class CBoardSessionStore {
       await _write('');
       return null;
     }
+    final generation = _generation;
     try {
       final raw = await _read();
+      if (generation != _generation) return _cached;
       if (raw == null || raw.isEmpty) return null;
       _cached = CBoardSession.fromJson(jsonDecode(raw));
       return _cached;
@@ -154,7 +164,8 @@ abstract final class CBoardSessionStore {
     }
   }
 
-  static Future<void> save(CBoardSession? s) async {
+  static Future<void> save(CBoardSession? s, {bool newSession = true}) async {
+    if (newSession) _generation++;
     _cached = s;
     try {
       if (s == null) {
@@ -178,8 +189,8 @@ class CBoardClient {
     String? baseUrl,
     List<String>? baseUrlCandidates,
     HttpClient? httpClient,
-  })  : _http = httpClient ?? HttpClient(),
-        _baseUrl = _normalize(baseUrl ?? MclashDomainPool.currentApiBaseUrl()) {
+  }) : _http = httpClient ?? HttpClient(),
+       _baseUrl = _normalize(baseUrl ?? MclashDomainPool.currentApiBaseUrl()) {
     // 建连超时必须设：默认 null 会一路等 OS 的超时（几十秒到两分钟）。
     _http.connectionTimeout = kConnectTimeout;
     final list = <String>[];
@@ -238,14 +249,20 @@ class CBoardClient {
     return list;
   }
 
-  /// 正在处理的那次请求实际用的 base：CSRF / refresh 必须打同一个域名，
-  /// 否则可能落在两个不同站点上，白白放大调用次数。
-  String? _activeBase;
-
-  CBoardSession? _session;
   Future<bool>? _refreshing;
 
-  CBoardSession? get session => _session ?? CBoardSessionStore.cached;
+  CBoardSession? get session => CBoardSessionStore.cached;
+
+  /// Changes at login/logout boundaries, not on token rotation or profile updates.
+  int get sessionGeneration => CBoardSessionStore.generation;
+
+  @visibleForTesting
+  Duration refreshTimeout = kRefreshTimeout;
+
+  @visibleForTesting
+  Future<bool>? debugRefreshCompletion;
+
+  int? _refreshGeneration;
   bool get isLoggedIn => session != null;
   Map<String, dynamic> get user => session?.user ?? const {};
 
@@ -263,8 +280,8 @@ class CBoardClient {
       u.endsWith('/') ? u.substring(0, u.length - 1) : u;
 
   Future<bool> restore() async {
-    _session = await CBoardSessionStore.load();
-    return _session != null;
+    await CBoardSessionStore.load();
+    return session != null;
   }
 
   Map<String, String> _headers({bool auth = true, String? csrf}) {
@@ -292,6 +309,7 @@ class CBoardClient {
     bool retryAuth = true,
     bool retryCsrf = true,
   }) async {
+    final generation = sessionGeneration;
     final mutating = method != 'GET' && method != 'HEAD';
     if (!mutating) {
       return _requestWithRotation(
@@ -309,6 +327,7 @@ class CBoardClient {
     _writeLock = gate.future;
     await prev;
     try {
+      if (auth) _checkSession(generation);
       return await _requestWithRotation(
         method,
         path,
@@ -348,73 +367,73 @@ class CBoardClient {
     bool retryAuth = true,
     bool retryCsrf = true,
   }) async {
+    final generation = sessionGeneration;
     final base = _baseUrl;
     final order = candidateBaseUrlsFor(base);
-    _activeBase = base;
-    try {
-      CBoardException? lastFailure;
-      for (var i = 0; i < order.length; i++) {
-        final candidate = order[i];
-        final last = i == order.length - 1;
-        // 这里刻意**不提前**切换 _baseUrl：只有真的在这个域名上成功，才把它记为
-        // 「当前可用域名」。否则失败后 _baseUrl 会停在坏域名上，下一次请求又会先
-        // 试坏域名，等于绕过域名池的「上次可用优先 + 失败冷却」。
-        _activeBase = candidate;
-        try {
-          final resp = await _requestAttempt(
-            method,
-            path,
-            base: candidate,
-            body: body,
-            query: query,
-            auth: auth,
-            retryAuth: retryAuth,
-            retryCsrf: retryCsrf,
-          );
-          if (!_shouldRotateOnResponse(resp, method)) {
-            // 只有在这个域名上真的成功了，才把它固定为「当前域名」，
-            // 这样「上次可用域名优先」才成立（失败路径保留原域名）。
-            if (candidate != _baseUrl) {
-              _switchBase(candidate);
-            }
-            MclashDomainPool.reportSuccess(MclashDomainPool.hostOf(candidate));
-            return resp;
-          }
-          MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
-          lastFailure = CBoardException(
-            MclashI18n.t.apiError
-                .requestFailedHttp(status: resp.httpStatus, domain: candidate),
-            code: resp.code,
-            httpStatus: resp.httpStatus,
-          );
-        } on CBoardException catch (e) {
-          if (!_shouldRotateOnException(e, method)) {
-            // 业务层拒绝：换域名也没用，直接把结果交给调用方。
-            rethrow;
-          }
-          MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
-          lastFailure = e;
-        }
-        if (last) {
-          // 走到这里 lastFailure 必然已被赋值（上面两条路径都会写它），所以直接
-          // 抛出即可；写成 `lastFailure ?? 新异常` 会被 analyze 判成
-          // dead_null_aware_expression（warning 会让 CI 变红）。
-          throw lastFailure;
-        }
-        Log.w(
-          "CBoardClient: $method $path 在 ${MclashDomainPool.hostOf(candidate)} 失败"
-          "（${lastFailure.message}），换下一个 API 域名重试",
+    CBoardException? lastFailure;
+    for (var i = 0; i < order.length; i++) {
+      final candidate = order[i];
+      final last = i == order.length - 1;
+      // 这里刻意**不提前**切换 _baseUrl：只有真的在这个域名上成功，才把它记为
+      // 「当前可用域名」。否则失败后 _baseUrl 会停在坏域名上，下一次请求又会先
+      // 试坏域名，等于绕过域名池的「上次可用优先 + 失败冷却」。
+      try {
+        if (auth) _checkSession(generation);
+        final resp = await _requestAttempt(
+          method,
+          path,
+          base: candidate,
+          body: body,
+          query: query,
+          auth: auth,
+          retryAuth: retryAuth,
+          retryCsrf: retryCsrf,
         );
+        if (!_shouldRotateOnResponse(resp, method)) {
+          // 只有在这个域名上真的成功了，才把它固定为「当前域名」，
+          // 这样「上次可用域名优先」才成立（失败路径保留原域名）。
+          if (candidate != _baseUrl) {
+            _switchBase(candidate);
+          }
+          MclashDomainPool.reportSuccess(MclashDomainPool.hostOf(candidate));
+          return resp;
+        }
+        MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
+        lastFailure = CBoardException(
+          MclashI18n.t.apiError.requestFailedHttp(
+            status: resp.httpStatus,
+            domain: candidate,
+          ),
+          code: resp.code,
+          httpStatus: resp.httpStatus,
+        );
+      } on CBoardException catch (e) {
+        if (!_shouldRotateOnException(e, method)) {
+          // 业务层拒绝：换域名也没用，直接把结果交给调用方。
+          rethrow;
+        }
+        MclashDomainPool.reportFailure(MclashDomainPool.hostOf(candidate));
+        lastFailure = e;
       }
-      throw lastFailure ??
-          CBoardException(MclashI18n.t.apiError.allDomainsFailed(
+      if (last) {
+        // 走到这里 lastFailure 必然已被赋值（上面两条路径都会写它），所以直接
+        // 抛出即可；写成 `lastFailure ?? 新异常` 会被 analyze 判成
+        // dead_null_aware_expression（warning 会让 CI 变红）。
+        throw lastFailure;
+      }
+      Log.w(
+        "CBoardClient: $method $path 在 ${MclashDomainPool.hostOf(candidate)} 失败"
+        "（${lastFailure.message}），换下一个 API 域名重试",
+      );
+    }
+    throw lastFailure ??
+        CBoardException(
+          MclashI18n.t.apiError.allDomainsFailed(
             method: method,
             path: path,
             count: order.length,
-          ));
-    } finally {
-      _activeBase = null;
-    }
+          ),
+        );
   }
 
   /// 当前 base 优先，其后是域名池候选（去重、保持域名池的优先级顺序）。
@@ -509,6 +528,7 @@ class CBoardClient {
   }) async {
     final mutating = method != 'GET' && method != 'HEAD';
 
+    final generation = sessionGeneration;
     final isAuthPath = path.startsWith('/auth/');
 
     var uri = Uri.parse('$base$path');
@@ -524,6 +544,10 @@ class CBoardClient {
     HttpClientResponse resp;
     try {
       final req = await _http.openUrl(method, uri).timeout(kRequestTimeout);
+      if (auth && generation != sessionGeneration) {
+        req.abort();
+        _checkSession(generation);
+      }
       _headers(auth: auth, csrf: csrf).forEach(req.headers.set);
       if (body != null) {
         final bytes = utf8.encode(jsonEncode(body));
@@ -532,6 +556,8 @@ class CBoardClient {
         req.add(bytes);
       }
       resp = await req.close().timeout(kRequestTimeout);
+    } on CBoardException {
+      rethrow;
     } on TimeoutException {
       // 连接层失败（httpStatus 缺省 0）→ 允许换域名重试。
       throw CBoardException(
@@ -543,23 +569,22 @@ class CBoardClient {
       );
     } on SocketException catch (e) {
       throw CBoardException(
-          MclashI18n.t.apiError.networkUnreachable(detail: e.message));
+        MclashI18n.t.apiError.networkUnreachable(detail: e.message),
+      );
     } on HandshakeException {
       throw CBoardException(MclashI18n.t.apiError.tlsHandshakeFailed);
     } on HttpException catch (e) {
       // 连接被重置/中断：请求没到业务层，可以换域名。
       throw CBoardException(
-          MclashI18n.t.apiError.connectionFailed(detail: e.message));
+        MclashI18n.t.apiError.connectionFailed(detail: e.message),
+      );
     } catch (e) {
       throw CBoardException(MclashI18n.t.apiError.requestError(error: '$e'));
     }
 
     final String text;
     try {
-      text = await resp
-          .transform(utf8.decoder)
-          .join()
-          .timeout(kRequestTimeout);
+      text = await resp.transform(utf8.decoder).join().timeout(kRequestTimeout);
     } on TimeoutException {
       throw CBoardException(
         MclashI18n.t.apiError.responseReadTimeout(
@@ -575,16 +600,19 @@ class CBoardClient {
     try {
       decoded = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
     } catch (_) {
-
       throw CBoardException(
-          MclashI18n.t.apiError.notJson(status: status, snippet: _snip(text)),
-          httpStatus: status,
-          retryAnotherDomain: true);
+        MclashI18n.t.apiError.notJson(status: status, snippet: _snip(text)),
+        httpStatus: status,
+        retryAnotherDomain: true,
+      );
     }
 
     if (decoded is! Map) {
-      throw CBoardException(MclashI18n.t.apiError.badStructure(status: status),
-          httpStatus: status, retryAnotherDomain: true);
+      throw CBoardException(
+        MclashI18n.t.apiError.badStructure(status: status),
+        httpStatus: status,
+        retryAnotherDomain: true,
+      );
     }
 
     final map = Map<String, dynamic>.from(decoded);
@@ -597,28 +625,37 @@ class CBoardClient {
       httpStatus: status,
     );
 
-    if (r.isUnauthorized && auth && retryAuth && !isAuthPath) {
-      final refreshed = await _refreshOnce();
-      if (refreshed) {
-        return _requestAttempt(method, path,
-            base: base,
-            body: body,
-            query: query,
-            auth: auth,
-            retryAuth: false,
-            retryCsrf: retryCsrf);
-      }
-    }
+    if (auth) _checkSession(generation);
 
-    if (r.isCsrfFailure && mutating && retryCsrf) {
-      Log.w("CBoardClient: CSRF token 已过期，重新获取后重试一次 $method $path");
-      return _requestAttempt(method, path,
+    if (r.isUnauthorized && auth && retryAuth && !isAuthPath) {
+      final refreshed = await _refreshOnce(base);
+      _checkSession(generation);
+      if (refreshed) {
+        return _requestAttempt(
+          method,
+          path,
           base: base,
           body: body,
           query: query,
           auth: auth,
           retryAuth: false,
-          retryCsrf: false);
+          retryCsrf: retryCsrf,
+        );
+      }
+    }
+
+    if (r.isCsrfFailure && mutating && retryCsrf) {
+      Log.w("CBoardClient: CSRF token 已过期，重新获取后重试一次 $method $path");
+      return _requestAttempt(
+        method,
+        path,
+        base: base,
+        body: body,
+        query: query,
+        auth: auth,
+        retryAuth: false,
+        retryCsrf: false,
+      );
     }
 
     return r;
@@ -629,16 +666,20 @@ class CBoardClient {
 
   Future<String?> _fetchCsrfToken(String base) async {
     try {
-      final r = await _requestAttempt('GET', '/csrf-token',
-          base: base, auth: true, retryAuth: true, retryCsrf: false);
+      final r = await _requestAttempt(
+        'GET',
+        '/csrf-token',
+        base: base,
+        auth: true,
+        retryAuth: true,
+        retryCsrf: false,
+      );
       final d = r.data;
       if (d is Map) {
         return (d['csrf_token'] ?? d['token'] ?? d['csrfToken'])?.toString();
       }
       if (d is String && d.isNotEmpty) return d;
-    } catch (_) {
-
-    }
+    } catch (_) {}
     return null;
   }
 
@@ -654,46 +695,77 @@ class CBoardClient {
   /// 超时按"连接层失败"处理（httpStatus=0）→ 会触发域名轮换，换下一个域名重试。
   static const Duration kRequestTimeout = Duration(seconds: 20);
 
-  Future<bool> _refreshOnce() => _refreshing ??=
-      _doRefresh().timeout(kRefreshTimeout, onTimeout: () {
-        // 注意：这里不能写成 `(): bool { ... }` —— Dart 不允许在闭包上标注
-        // 返回类型（会报 expected_token），返回类型由 onTimeout 的签名推断。
-        Log.w(
-          "CBoardClient: token 刷新超时（${kRefreshTimeout.inSeconds}s），放弃本次刷新",
-        );
-        return false;
-      }).whenComplete(() => _refreshing = null);
+  void _checkSession(int generation) {
+    if (generation != sessionGeneration) {
+      throw CBoardException('Session changed', code: -2, httpStatus: 409);
+    }
+  }
 
-  Future<bool> _doRefresh() async {
-    final rt = session?.refreshToken;
+  Future<bool> _refreshOnce(String base) {
+    final generation = sessionGeneration;
+    if (_refreshing != null && _refreshGeneration == generation) {
+      return _refreshing!;
+    }
+    _refreshGeneration = generation;
+    var active = true;
+    late final Future<bool> pending;
+    final source = _doRefresh(base, generation, () => active);
+    debugRefreshCompletion = source;
+    pending = source
+        .timeout(
+          refreshTimeout,
+          onTimeout: () {
+            // Future.timeout does not cancel its source. Revoke permission to commit.
+            active = false;
+            Log.w(
+              "CBoardClient: token 刷新超时（${refreshTimeout.inSeconds}s），放弃本次刷新",
+            );
+            return false;
+          },
+        )
+        .whenComplete(() {
+          active = false;
+          if (identical(_refreshing, pending)) _refreshing = null;
+        });
+    _refreshing = pending;
+    return pending;
+  }
+
+  Future<bool> _doRefresh(
+    String base,
+    int generation,
+    bool Function() active,
+  ) async {
+    final original = session;
+    final rt = original?.refreshToken;
     if (rt == null || rt.isEmpty) return false;
     // refresh 必须打「当前这次 attempt 的域名」：token 是同一个账号的，
     // 但把请求打到另一个域名上等于凭空多碰一个站点，也容易触发风控。
     // 这里刻意不走轮换：401 本身不是轮换条件，只有连接层失败才由外层换域名。
-    final base = _activeBase ?? _baseUrl;
     try {
       // 关键：直接走 _requestAttempt，**绝不能**再调 request()。
       // request() 对非 GET/HEAD 会抢同一把写锁，而写请求的 401 刷新恰恰发生在
       // 持有写锁的那次 request() 内部 —— 再抢一次就是自我死锁，下单/改密码等
       // 写操作会永久卡住（UI 表现为「点了没反应、一直转圈」）。
-      final r = await _requestAttempt('POST', '/auth/refresh',
-          base: base,
-          body: {'refresh_token': rt},
-          auth: false,
-          retryAuth: false,
-          retryCsrf: false);
-      if (!r.ok) return false;
+      final r = await _requestAttempt(
+        'POST',
+        '/auth/refresh',
+        base: base,
+        body: {'refresh_token': rt},
+        auth: false,
+        retryAuth: false,
+        retryCsrf: false,
+      );
+      if (!active() || generation != sessionGeneration || !r.ok) return false;
       final d = r.data;
       if (d is! Map) return false;
       final at = (d['access_token'] ?? '').toString();
       if (at.isEmpty) return false;
-      final cur = session;
-      final next = (cur ?? CBoardSession(accessToken: at, refreshToken: rt))
-          .copyWith(
+      final next = session!.copyWith(
         accessToken: at,
         refreshToken: (d['refresh_token'] ?? rt).toString(),
       );
-      await _setSession(next);
+      await _setSession(next, newSession: false);
       // 刷新成功说明这个域名是通的：记成可用域名（但如果 mid-request 已经
       // 轮换到别的域名，就不要把当前 base 退回去）。
       final host = MclashDomainPool.hostOf(base);
@@ -709,18 +781,22 @@ class CBoardClient {
 
   static final ValueNotifier<bool> sessionChanges = ValueNotifier<bool>(false);
 
-  Future<void> _setSession(CBoardSession? s) async {
-    _session = s;
-    await CBoardSessionStore.save(s);
-
-    sessionChanges.value = s != null;
+  Future<void> _setSession(CBoardSession? s, {bool newSession = true}) async {
+    final saved = CBoardSessionStore.save(s, newSession: newSession);
+    final generation = sessionGeneration;
+    await saved;
+    if (generation == sessionGeneration) sessionChanges.value = session != null;
   }
 
   Future<CBoardSession> login(String email, String password) async {
-    final r = await request('POST', '/auth/login',
-        body: {'email': email.trim(), 'password': password},
-        auth: false,
-        retryAuth: false);
+    final generation = ++CBoardSessionStore._generation;
+    final r = await request(
+      'POST',
+      '/auth/login',
+      body: {'email': email.trim(), 'password': password},
+      auth: false,
+      retryAuth: false,
+    );
     if (!r.ok) {
       throw CBoardException(
         r.message.isNotEmpty
@@ -745,31 +821,40 @@ class CBoardClient {
       refreshToken: rt,
       user: u is Map ? Map<String, dynamic>.from(u) : const {},
     );
+    _checkSession(generation);
     await _setSession(s);
     return s;
   }
 
   Future<void> logout() async {
+    final generation = ++CBoardSessionStore._generation;
     try {
-
-      await request('POST', '/auth/logout',
-          body: {'refresh_token': session?.refreshToken ?? ''}, retryAuth: false);
-    } catch (_) {
-
-    }
+      await request(
+        'POST',
+        '/auth/logout',
+        body: {'refresh_token': session?.refreshToken ?? ''},
+        retryAuth: false,
+      );
+    } catch (_) {}
+    if (generation != sessionGeneration) return;
     await _setSession(null);
     // 老版本把同一条令牌也存在钥匙串里；只清文件的话，下次读取会被迁移逻辑
     // 搬回来，用户就会「退出登录无效、重启又变回已登录」。这里一并删掉。
     await SecureStorage.deleteKeychainCopy(CBoardSessionStore._key);
   }
 
-  Future<void> sendVerificationCode(String email, {String purpose = 'register'}) =>
-      post('/auth/verification/send',
-          body: {'email': email.trim().toLowerCase(), 'purpose': purpose}).then((_) {});
+  Future<void> sendVerificationCode(
+    String email, {
+    String purpose = 'register',
+  }) => post(
+    '/auth/verification/send',
+    body: {'email': email.trim().toLowerCase(), 'purpose': purpose},
+  ).then((_) {});
 
-  Future<void> verifyCode(String email, String code) => post('/auth/verification/verify',
-          body: {'email': email.trim().toLowerCase(), 'code': code})
-      .then((_) {});
+  Future<void> verifyCode(String email, String code) => post(
+    '/auth/verification/verify',
+    body: {'email': email.trim().toLowerCase(), 'code': code},
+  ).then((_) {});
 
   Future<CBoardSession> register({
     required String username,
@@ -778,14 +863,21 @@ class CBoardClient {
     String verificationCode = '',
     String inviteCode = '',
   }) async {
-    final r = await request('POST', '/auth/register', auth: false, retryAuth: false, body: {
-      'username': username.trim(),
-      'email': email.trim().toLowerCase(),
-      'password': password,
-      if (verificationCode.isNotEmpty) 'verification_code': verificationCode,
-      if (inviteCode.isNotEmpty) 'invite_code': inviteCode,
-      'website': '',
-    });
+    final generation = ++CBoardSessionStore._generation;
+    final r = await request(
+      'POST',
+      '/auth/register',
+      auth: false,
+      retryAuth: false,
+      body: {
+        'username': username.trim(),
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        if (verificationCode.isNotEmpty) 'verification_code': verificationCode,
+        if (inviteCode.isNotEmpty) 'invite_code': inviteCode,
+        'website': '',
+      },
+    );
     if (!r.ok) {
       throw CBoardException(
         r.message.isNotEmpty
@@ -800,30 +892,38 @@ class CBoardClient {
       final s = CBoardSession(
         accessToken: d['access_token'].toString(),
         refreshToken: (d['refresh_token'] ?? '').toString(),
-        user: d['user'] is Map ? Map<String, dynamic>.from(d['user']) : const {},
+        user: d['user'] is Map
+            ? Map<String, dynamic>.from(d['user'])
+            : const {},
       );
+      _checkSession(generation);
       await _setSession(s);
       return s;
     }
 
-    throw CBoardException(MclashI18n.t.apiError.registerMissingToken,
-        code: r.code);
+    throw CBoardException(
+      MclashI18n.t.apiError.registerMissingToken,
+      code: r.code,
+    );
   }
 
-  Future<void> forgotPassword(String email) => post('/auth/forgot-password',
-          body: {'email': email.trim().toLowerCase()})
-      .then((_) {});
+  Future<void> forgotPassword(String email) => post(
+    '/auth/forgot-password',
+    body: {'email': email.trim().toLowerCase()},
+  ).then((_) {});
 
   Future<void> resetPassword({
     required String email,
     required String code,
     required String password,
-  }) =>
-      post('/auth/reset-password', body: {
-        'email': email.trim().toLowerCase(),
-        'code': code,
-        'password': password,
-      }).then((_) {});
+  }) => post(
+    '/auth/reset-password',
+    body: {
+      'email': email.trim().toLowerCase(),
+      'code': code,
+      'password': password,
+    },
+  ).then((_) {});
 
   Future<Map<String, dynamic>> createPayment({
     required int orderId,
@@ -832,13 +932,16 @@ class CBoardClient {
     bool useBalance = false,
     double balanceAmount = 0,
   }) async {
-    final d = await post('/payment', body: {
-      'order_id': orderId,
-      'payment_method_id': paymentMethodId,
-      'is_mobile': isMobile,
-      'use_balance': useBalance,
-      if (useBalance) 'balance_amount': balanceAmount,
-    });
+    final d = await post(
+      '/payment',
+      body: {
+        'order_id': orderId,
+        'payment_method_id': paymentMethodId,
+        'is_mobile': isMobile,
+        'use_balance': useBalance,
+        if (useBalance) 'balance_amount': balanceAmount,
+      },
+    );
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
@@ -883,15 +986,25 @@ class CBoardClient {
   }
 
   Future<Map<String, dynamic>> payWithBalance(String orderNo) async {
-    final d = await post('/orders/$orderNo/pay', body: {'payment_method': 'balance'});
+    final d = await post(
+      '/orders/$orderNo/pay',
+      body: {'payment_method': 'balance'},
+    );
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
   Future<Map<String, dynamic>> me() async {
+    final generation = sessionGeneration;
     final d = await get('/users/me');
+    _checkSession(generation);
     if (d is Map) {
       final s = session;
-      if (s != null) await _setSession(s.copyWith(user: Map<String, dynamic>.from(d)));
+      if (s != null) {
+        await _setSession(
+          s.copyWith(user: Map<String, dynamic>.from(d)),
+          newSession: false,
+        );
+      }
       return Map<String, dynamic>.from(d);
     }
     return const {};
@@ -909,9 +1022,12 @@ class CBoardClient {
   Future<dynamic> delete(String path, {Object? body}) =>
       _data(request('DELETE', path, body: body));
 
-  Future<CBoardResponse<dynamic>> raw(String method, String path,
-          {Object? body, bool auth = true}) =>
-      request(method, path, body: body, auth: auth);
+  Future<CBoardResponse<dynamic>> raw(
+    String method,
+    String path, {
+    Object? body,
+    bool auth = true,
+  }) => request(method, path, body: body, auth: auth);
 
   Future<dynamic> _data(Future<CBoardResponse<dynamic>> f) async {
     final r = await f;
@@ -975,10 +1091,14 @@ class CBoardClient {
     required int packageId,
     String? couponCode,
   }) async {
-    final d = await post('/orders', body: {
-      'package_id': packageId,
-      if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
-    });
+    final d = await post(
+      '/orders',
+      body: {
+        'package_id': packageId,
+        if (couponCode != null && couponCode.isNotEmpty)
+          'coupon_code': couponCode,
+      },
+    );
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
@@ -987,11 +1107,15 @@ class CBoardClient {
     required int months,
     String? couponCode,
   }) async {
-    final d = await post('/orders/custom', body: {
-      'devices': devices,
-      'months': months,
-      if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
-    });
+    final d = await post(
+      '/orders/custom',
+      body: {
+        'devices': devices,
+        'months': months,
+        if (couponCode != null && couponCode.isNotEmpty)
+          'coupon_code': couponCode,
+      },
+    );
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
@@ -999,8 +1123,10 @@ class CBoardClient {
     String orderNo, {
     required String paymentMethod,
   }) async {
-    final d = await post('/orders/$orderNo/pay',
-        body: {'payment_method': paymentMethod});
+    final d = await post(
+      '/orders/$orderNo/pay',
+      body: {'payment_method': paymentMethod},
+    );
     return d is Map ? Map<String, dynamic>.from(d) : const {};
   }
 
@@ -1012,15 +1138,17 @@ class CBoardClient {
   Future<void> cancelOrder(String orderNo) =>
       post('/orders/$orderNo/cancel').then((_) {});
 
-  Future<List<Map<String, dynamic>>> orders({int page = 1, int pageSize = 20}) async {
-    final d = await get('/orders', query: {
-      'page': '$page',
-      'page_size': '$pageSize',
-    });
+  Future<List<Map<String, dynamic>>> orders({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final d = await get(
+      '/orders',
+      query: {'page': '$page', 'page_size': '$pageSize'},
+    );
     if (d is Map) return _asList(d['items']);
     return _asList(d);
   }
-
 
   Future<List<Map<String, dynamic>>> announcements() async =>
       _asList(await get('/announcements'));
@@ -1031,9 +1159,9 @@ class CBoardClient {
   }
 
   Future<void> changePassword(String oldPassword, String newPassword) => post(
-        '/users/change-password',
-        body: {'old_password': oldPassword, 'new_password': newPassword},
-      ).then((_) {});
+    '/users/change-password',
+    body: {'old_password': oldPassword, 'new_password': newPassword},
+  ).then((_) {});
 
   static List<Map<String, dynamic>> _asList(dynamic d) {
     dynamic arr = d;

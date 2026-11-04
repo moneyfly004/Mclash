@@ -81,9 +81,8 @@ Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\.sentry-native"
 ; 运行期数据目录（App 的全部落点）：%APPDATA%\mclash\mclash
 ; （path_provider 用 CompanyName/ProductName，两个都是 mclash）
-Type: filesandordirs; Name: "{userappdata}\mclash"
-Type: filesandordirs; Name: "{localappdata}\mclash"
-Type: filesandordirs; Name: "{localappdata}\Mclash"
+; User data is removed only by CurUninstallStepChanged after the user's choice.
+; Do not put AppData here: declarative deletion bypasses PreserveUserData.
 
 
 [InstallDelete]
@@ -257,6 +256,7 @@ var
   Vbs: String;
   Q: String;
   QQ: String;
+  QQQ: String;
   NL: String;
 begin
   ResultCode := -1;
@@ -264,14 +264,21 @@ begin
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
   VbsPath := DataDir + '\kernel_host.vbs';
   Q := #34;
-  QQ := Q + Q + Q;
+  { VBS 里要传一条「带引号的命令行」，正确写法是**整条命令一个字符串**，
+    里面的引号成对转义：
+      sh.Run """C:\p\mihomo.exe"" -d ""C:\d""", 0, True
+    旧写法在每段路径两端都用了三连引号，字符串在 -d 之前就结束了 →
+    cscript 直接报语法错误（VM 实测 exit=1），计划任务这条路径从未成功过。 }
+  QQ := Q + Q;
+  QQQ := Q + Q + Q;
   NL := #13#10;
 
   { 任务动作必须是 GUI 子系统程序：powershell 是控制台程序，-WindowStyle Hidden
     也要先建控制台 → 用户能看到一闪而逝的黑框；wscript.exe 不创建控制台。
     VBS 里 Shell.Run(..., 0, True) = 隐藏窗口 + 等待内核退出。 }
   Vbs := 'Set sh = CreateObject("WScript.Shell")' + NL +
-         'sh.Run ' + QQ + AppDir + '\mihomo.exe' + QQ + ' -d ' + QQ + DataDir + QQ + ' -f ' + QQ + DataDir + '\config.yaml' + QQ + ', 0, True' + NL;
+         'sh.Run ' + QQQ + AppDir + '\mihomo.exe' + QQ + ' -d ' + QQ + DataDir + QQ +
+         ' -f ' + QQ + DataDir + '\config.yaml' + QQQ + ', 0, True' + NL;
   ForceDirectories(DataDir);
   if not SaveStringToFile(VbsPath, Vbs, False) then
   begin

@@ -27,7 +27,7 @@ import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/app/local_services/mac_tun_helper.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:libclash_vpn_service/libclash_vpn_service.dart'
-    show lastSystemProxyCleanSkip, DesktopVpnServiceImpl;
+    show lastSystemProxyCleanSkip, DesktopVpnServiceImpl, buildKernelHostVbs;
 import 'package:libclash_vpn_service/proxy_manager.dart';
 import 'package:libclash_vpn_service/state.dart';
 import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
@@ -1072,9 +1072,10 @@ class VPNService {
       //   - wscript.exe 是 GUI 程序，根本不创建控制台 → 完全没有窗口。
       // VBS 里用 Shell.Run(..., 0, True)：0 = 隐藏窗口，True = 等待内核退出。
       final vbsPath = "$dataDir\\kernel_host.vbs";
-      final vbs = 'Set sh = CreateObject("WScript.Shell")\r\n'
-          'sh.Run "${kernel.replaceAll('"', '""')}" -d "${dataDir.replaceAll('"', '""')}" '
-          '-f "${dataDir.replaceAll('"', '""')}\\config.yaml", 0, True\r\n';
+      // VBS 里整条命令行必须是 **一个字符串**，内部引号成对转义：
+      //   sh.Run (3 quotes)C:\p\mihomo.exe(2 quotes) -d (2 quotes)C:\d(2 quotes) ... , 0, True
+      // 少转义会让字符串提前结束 -> cscript 语法错误（Windows VM 实测 exit=1）。
+      final vbs = buildKernelHostVbs(kernelPath: kernel, dataDir: dataDir);
       try {
         await File(vbsPath).writeAsString(vbs, flush: true);
       } catch (err) {

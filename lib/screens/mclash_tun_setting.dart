@@ -98,7 +98,8 @@ abstract final class MclashTunSetting {
   }
 
   static Future<void> _apply(BuildContext context, String mode) async {
-    if (!context.mounted || _applying) {
+    if (!context.mounted || _applying ||
+        SettingManager.getConfig().tunMode == mode) {
       return;
     }
     _applying = true;
@@ -158,6 +159,7 @@ abstract final class MclashTunSetting {
     }
 
     final setting = SettingManager.getConfig();
+    final previousMode = setting.tunMode;
     setting.tunMode = mode;
     SettingManager.save();
     Log.i("MclashTunSetting: TUN 模式 → $mode（${description(mode)}）");
@@ -166,10 +168,10 @@ abstract final class MclashTunSetting {
     if (connected) {
       final err = await VPNService.restart(const Duration(seconds: 60));
       if (err != null) {
-        setting.tunMode = mode == SettingConfig.kTunModeOff
-            ? SettingConfig.kTunModeAuto
-            : SettingConfig.kTunModeOff;
-        SettingManager.save();
+        if (setting.tunMode == mode) {
+          setting.tunMode = previousMode;
+          SettingManager.save();
+        }
         if (context.mounted) {
           await DialogUtils.showAlertDialog(
             context,

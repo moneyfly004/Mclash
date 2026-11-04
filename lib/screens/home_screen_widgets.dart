@@ -129,10 +129,14 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       }
       await _onInitAllFinish();
     });
-    ClashSettingManager.onEventModeChanged.add(() async {
-      setState(() {});
-    });
+    ClashSettingManager.onEventModeChanged.add(_onModeChanged);
   }
+
+  void _onModeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool _modeApplying = false;
 
   @override
   void dispose() {
@@ -144,6 +148,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     _trafficSpeed.dispose();
     _trafficTotal.dispose();
     _proxyNow.dispose();
+    ClashSettingManager.onEventModeChanged.remove(_onModeChanged);
     VPNService.onEventStateChanged.remove(_onStateChanged);
     AppLifecycleStateNofity.onStateResumed(hashCode, null);
     AppLifecycleStateNofity.onStatePaused(hashCode, null);
@@ -454,6 +459,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
             ],
             const Divider(height: 22, thickness: 0.3),
             SegmentedElevatedButton(
+              key: ValueKey('home-mode-${_homeSegmentIndex()}-$_modeApplying'),
               segments: [
                 SegemntedElevatedButtonItem(
                   value: ClashConfigsMode.rule.index,
@@ -472,6 +478,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
               selected: _homeSegmentIndex(),
               padding: const EdgeInsets.fromLTRB(0, 3, 0, 3),
               onPressed: (int value) async {
+                if (_modeApplying) return;
+                setState(() => _modeApplying = true);
+                try {
                 if (value == 2) {
                   final tunOn = SettingManager.getConfig().tunEnabled;
                   // 开 TUN 前若还停在「直连」，先回到规则模式：直连 + TUN
@@ -479,8 +488,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                   if (!tunOn &&
                       ClashSettingManager.getConfigsMode() ==
                           ClashConfigsMode.direct) {
-                    await mclashSetMode(ClashConfigsMode.rule);
-                    if (!context.mounted) {
+                    final error = await mclashSetMode(ClashConfigsMode.rule);
+                    if (!context.mounted) return;
+                    if (error != null) {
+                      await DialogUtils.showAlertDialog(context, error.message);
                       return;
                     }
                   }
@@ -499,6 +510,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                 // 再点「规则」「全局」，TUN 仍然接管全部流量 —— 用户看到的就是
                 // 「三个模式全是 TUN」。这里先把 TUN 落成 off，切完模式再重启
                 // 一次内核让配置生效（只有重启才会移除 tun inbound）。
+                final previousTunMode = SettingManager.getConfig().tunMode;
                 final tunWasOn = SettingManager.getConfig().tunEnabled;
                 if (tunWasOn) {
                   SettingManager.getConfig().tunMode = SettingConfig.kTunModeOff;
@@ -515,6 +527,11 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                       const Duration(seconds: 60),
                     );
                     if (rerr != null) {
+                      if (SettingManager.getConfig().tunMode ==
+                          SettingConfig.kTunModeOff) {
+                        SettingManager.getConfig().tunMode = previousTunMode;
+                        SettingManager.save();
+                      }
                       error ??= rerr;
                     }
                   }
@@ -531,6 +548,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
                   return;
                 }
                 _updateProxyNow();
+                } finally {
+                  _modeApplying = false;
+                  if (mounted) setState(() {});
+                }
               },
             ),
             const SizedBox(height: 12),
@@ -873,9 +894,20 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     setState(() {});
   }
 
+  bool _stateCheckInFlight = false;
+  bool _proxyModeInFlight = false;
+  int _corePollGeneration = 0;
+
   Future<void> _checkState() async {
-    var state = await VPNService.getState();
-    await _onStateChanged(state, {});
+    if (!mounted || _stateCheckInFlight) return;
+    _stateCheckInFlight = true;
+    try {
+      final state = await VPNService.getState();
+      if (!mounted) return;
+      await _onStateChanged(state, {});
+    } finally {
+      _stateCheckInFlight = false;
+    }
   }
 
   void _startStateCheckTimer() {
@@ -935,9 +967,19 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       if (MclashNodesStore.instance.isTesting) {
         return;
       }
+      if (!mounted || _proxyModeInFlight) return;
+      final generation = _corePollGeneration;
+      _proxyModeInFlight = true;
       unawaited(() async {
-        await MclashKernelSync.syncFromKernel();
-        await _updateProxyNow();
+        try {
+          await MclashKernelSync.syncFromKernel();
+          if (!mounted || generation != _corePollGeneration) return;
+          await _updateProxyNow();
+        } catch (e) {
+          Log.w("首页定时节点刷新失败 $e");
+        } finally {
+          _proxyModeInFlight = false;
+        }
       }());
     });
   }
@@ -948,8 +990,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _connectToCore() async {
+    final generation = ++_corePollGeneration;
+    bool current() => mounted && generation == _corePollGeneration;
     bool started = await VPNService.getStarted();
-    if (!started) {
+    if (!current() || !started) {
       return;
     }
     if (AppLifecycleStateNofity.isPaused()) {
@@ -977,40 +1021,57 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       ];
       for (var i = 0; i < retryDelays.length; i++) {
         await Future<void>.delayed(retryDelays[i]);
-        if (_state != FlutterVpnServiceState.connected) {
+        if (!current() || _state != FlutterVpnServiceState.connected) {
           return;
         }
         try {
           await MclashKernelSync.syncFromKernel();
+          if (!current()) return;
           await _updateProxyNow();
         } catch (e) {
           Log.w("首页当前节点：读取失败（第 ${i + 1} 次）$e");
         }
+        if (!current()) return;
         if (_proxyNow.value.isNotEmpty &&
             MclashNodesStore.instance.selectedNodeName.isNotEmpty) {
           break;
         }
       }
-      if (_state != FlutterVpnServiceState.connected) {
+      if (!current() || _state != FlutterVpnServiceState.connected) {
         return;
       }
       _startProxyModeTimer();
       const Duration duration = Duration(seconds: 2);
+      var tickInFlight = false;
       _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
-        if (AppLifecycleStateNofity.isPaused()) {
+        if (!mounted || tickInFlight || AppLifecycleStateNofity.isPaused()) {
           return;
         }
-        await _updateConnections();
-        if (_proxyNow.value.isEmpty) {
-          Future.delayed(Duration(seconds: 1), () async {
-            _updateProxyNow();
-          });
+        final tickGeneration = _corePollGeneration;
+        tickInFlight = true;
+        try {
+          await _updateConnections();
+          if (!mounted || tickGeneration != _corePollGeneration) return;
+          if (_proxyNow.value.isEmpty) {
+            await Future<void>.delayed(const Duration(seconds: 1));
+            if (!mounted ||
+                tickGeneration != _corePollGeneration ||
+                AppLifecycleStateNofity.isPaused()) {
+              return;
+            }
+            await _updateProxyNow();
+          }
+        } catch (e) {
+          Log.w("首页流量/节点刷新失败 $e");
+        } finally {
+          tickInFlight = false;
         }
       });
     }());
   }
 
   Future<void> _disconnectToCore({bool resetUI = true}) async {
+    ++_corePollGeneration;
     _timerConnectToCore?.cancel();
     _timerConnectToCore = null;
     _stopProxyModeTimer();
@@ -1025,7 +1086,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _updateProxyNow() async {
-    if (AppLifecycleStateNofity.isPaused()) {
+    if (!mounted || AppLifecycleStateNofity.isPaused()) {
       return;
     }
     if (_state != FlutterVpnServiceState.connected) {
@@ -1075,8 +1136,10 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     var lightName = "";
     if (MclashNodeAutoPick.fixedNode().isEmpty) {
       lightName = await MclashKernelSync.resolveNowViaGroups();
+      if (!mounted) return;
     }
     final result = await ClashHttpApi.getProxies();
+    if (!mounted) return;
     final proxies = result.data;
     if (lightName.isNotEmpty && (result.error != null || proxies == null)) {
       // 全量读失败但组读成功：直接用组读结果，别把节点名清空。

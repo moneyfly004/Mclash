@@ -66,7 +66,11 @@ class MacTunHelper {
     final script = '''
 set -e
 tmp="\$(mktemp /tmp/mclash-sudoers.XXXXXX)"
-printf '%s\\n' '# Mclash TUN —— 仅允许该用户免密以 root 运行下面这一个内核' '$user ALL=(root) NOPASSWD: $escapedCore' > "\$tmp"
+printf '%s\\n' '# Mclash TUN —— 仅允许该用户免密以 root 运行下面这一个内核' > "\$tmp"
+printf '%s\\n' '$user ALL=(root) NOPASSWD: $escapedCore' >> "\$tmp"
+printf '%s\\n' '# 退出清理（Cmd+Q 时 Dart 侧没有机会执行）：按内核路径精确结束残留内核' >> "\$tmp"
+printf '%s\\n' '$user ALL=(root) NOPASSWD: /usr/bin/pkill -f $escapedCore' >> "\$tmp"
+printf '%s\\n' '$user ALL=(root) NOPASSWD: /usr/bin/pkill -9 -f $escapedCore' >> "\$tmp"
 VISUDO="/usr/sbin/visudo"
 "\$VISUDO" -cf "\$tmp" >/dev/null
 install -m 0440 -o root -g wheel "\$tmp" $sudoersFile

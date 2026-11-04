@@ -54,6 +54,23 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('applying the current TUN mode is a no-op', (tester) async {
+    late BuildContext context;
+    SettingManager.getConfig().tunMode = SettingConfig.kTunModeForce;
+    await tester.pumpWidget(TranslationProvider(
+      child: MaterialApp(home: Builder(builder: (ctx) {
+        context = ctx;
+        return const Scaffold(body: SizedBox());
+      })),
+    ));
+    await MclashTunSetting.apply(context, SettingConfig.kTunModeForce);
+    await tester.pump();
+    expect(SettingManager.getConfig().tunMode, SettingConfig.kTunModeForce);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   test('三态语义：关闭 / 自动 / 强制（与参考实现一致）', () {
     expect(MclashTunSetting.label(SettingConfig.kTunModeOff), "关闭");
     expect(MclashTunSetting.label(SettingConfig.kTunModeAuto), "自动");

@@ -32,6 +32,11 @@ class Biz {
     await ProfilePatchManager.init();
     await DiversionTemplateManager.init();
     await VPNService.init();
+    // 上一次异常退出（崩溃 / macOS Cmd+Q 被系统直接终止 / 强制结束进程）时，
+    // 系统代理可能仍指着已经死掉的本机端口 → 浏览器和几乎所有 App 都"连不上网"。
+    // 内核此刻一定没在跑，先把残留的系统代理还原；随后的连接流程会按需重新设置。
+    // （这个函数长期存在却没被调用过，等于自愈能力是死代码。）
+    await restoreSystemProxyIfStale();
 
     for (var callback in onEventInitFinish) {
       callback();

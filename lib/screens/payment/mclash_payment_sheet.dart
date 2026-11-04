@@ -17,6 +17,10 @@ import 'package:url_launcher/url_launcher.dart';
 Future<String?> Function(String orderNo)? debugBalancePayOverride;
 
 @visibleForTesting
+Future<Map<String, dynamic>?> Function(String orderNo)?
+debugOrderStatusOverride;
+
+@visibleForTesting
 Future<bool> Function(String target, bool external)? debugLaunchOverride;
 
 Future<bool?> showMclashPaymentSheet(
@@ -78,6 +82,7 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
   Timer? _timer;
   Timer? _timeoutTimer;
   bool _paid = false;
+  bool _polling = false;
   bool _timedOut = false;
   bool _paying = false;
   bool _launching = false;
@@ -170,22 +175,28 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
     }
   }
 
-  Future<void> _poll() async {
-    if (_paid || !mounted) {
+  Future<void> _poll({bool manual = false}) async {
+    if (_paid || !mounted || _polling || (_timedOut && !manual)) {
       return;
     }
+    _polling = true;
     try {
-      final s = await MclashApi.orderStatus(widget.orderNo);
+      final override = debugOrderStatusOverride;
+      final s = override != null
+          ? await override(widget.orderNo)
+          : await MclashApi.orderStatus(widget.orderNo);
+      if (!mounted || _paid) return;
       final status = s?["status"]?.toString() ?? "";
       if (status == "paid" || status == "completed") {
         _timer?.cancel();
-        if (!mounted) {
-          return;
-        }
+        _timeoutTimer?.cancel();
         setState(() => _paid = true);
         Navigator.of(context).pop(true);
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _polling = false;
+    }
   }
 
   Future<void> _openExternal() async {
@@ -373,7 +384,7 @@ class _PaymentSheetBodyState extends State<_PaymentSheetBody>
                 child: ElevatedButton(
                   onPressed: widget.payWithBalance
                       ? (_paying ? null : _payWithBalance)
-                      : () => _poll(),
+                      : () => _poll(manual: true),
                   child: Text(
                     widget.payWithBalance
                         ? (_payError == null

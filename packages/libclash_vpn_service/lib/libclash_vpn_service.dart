@@ -12,6 +12,7 @@ export 'src/android_impl.dart' show AndroidVpnServicePlatform;
 export 'src/desktop_impl.dart' show DesktopVpnServiceImpl;
 export 'src/geo_data.dart';
 export 'src/kernel_config.dart' show registerKernelConfigWarnSink;
+export 'src/kernel_vbs.dart';
 export 'src/models.dart';
 export 'src/vpn_service_platform.dart';
 export 'state.dart';

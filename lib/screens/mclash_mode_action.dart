@@ -26,8 +26,7 @@ Future<ReturnResultError?> mclashSetMode(ClashConfigsMode mode) async {
   // 的来源：PATCH 超时 → restart → 用户看到断线重连，而流量本来好好的。
   if (started && Platform.isAndroid) {
     Log.i("mclashSetMode: Android 内核不支持 PATCH，改用重连应用模式 ${mode.name}");
-    await VPNService.restart(const Duration(seconds: 60));
-    error = null;
+    error = await VPNService.restart(const Duration(seconds: 60));
   } else if (started && error != null) {
     Log.w("mclashSetMode: 热切最终失败（${error.message}），保持当前连接不重启内核");
   }

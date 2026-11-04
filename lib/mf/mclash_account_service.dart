@@ -1,4 +1,3 @@
-
 library;
 
 import 'dart:async';
@@ -43,6 +42,21 @@ class MclashAccountService extends ChangeNotifier {
   Map<String, dynamic>? _sub;
 
   bool _loading = false;
+  int _generation = 0;
+  int? _loadingSession;
+  Object? _refreshOperation;
+
+  @visibleForTesting
+  Future<Map<String, dynamic>?> Function()? debugDashboard;
+  @visibleForTesting
+  Future<Map<String, dynamic>?> Function()? debugSubscription;
+
+  void _invalidateRefresh() {
+    _generation++;
+    _refreshOperation = null;
+    _loadingSession = null;
+    _loading = false;
+  }
 
   bool _kicked = false;
 
@@ -122,6 +136,7 @@ class MclashAccountService extends ChangeNotifier {
     _payloadNotice = MclashSubscriptionNotice.unknown;
     _pendingLoginNotice = "";
   }
+
   bool get loading => _loading;
 
   bool _fresh = false;
@@ -138,6 +153,8 @@ class MclashAccountService extends ChangeNotifier {
   }
 
   Future<void> loadCache() async {
+    final generation = _generation;
+    final session = MclashApi.client.sessionGeneration;
     try {
       final f = await _cacheFile();
       if (!await f.exists()) {
@@ -145,6 +162,10 @@ class MclashAccountService extends ChangeNotifier {
       }
       final raw = await f.readAsString();
       if (raw.trim().isEmpty) {
+        return;
+      }
+      if (generation != _generation ||
+          session != MclashApi.client.sessionGeneration) {
         return;
       }
       final decoded = jsonDecode(raw);
@@ -163,7 +184,9 @@ class MclashAccountService extends ChangeNotifier {
       _cachedAt = at;
       _fresh = false;
       notifyListeners();
-      Log.i("MclashAccountService: 已回填账号缓存（${at?.toIso8601String() ?? '未知时间'}）");
+      Log.i(
+        "MclashAccountService: 已回填账号缓存（${at?.toIso8601String() ?? '未知时间'}）",
+      );
       // 老用户升级上来时本机还没有授权租约：用「最后一次成功联网校验的时间」播种，
       // 避免因为一时联系不上账号接口（或刚更新完）就把正常用户拦在门外。
       unawaited(
@@ -183,8 +206,14 @@ class MclashAccountService extends ChangeNotifier {
   }
 
   Future<void> _saveCache() async {
+    final generation = _generation;
+    final session = MclashApi.client.sessionGeneration;
     try {
       final f = await _cacheFile();
+      if (generation != _generation ||
+          session != MclashApi.client.sessionGeneration) {
+        return;
+      }
       await f.writeAsString(
         jsonEncode({
           'dashboard': _dash,
@@ -207,6 +236,7 @@ class MclashAccountService extends ChangeNotifier {
   /// 注意：这里**不能**调 MclashEntitlement.purge() —— 那会连带删掉本地订阅
   /// 与配置档，退出登录不该有这种破坏性。
   Future<void> clearLocalCache() async {
+    _invalidateRefresh();
     _dash = null;
     _sub = null;
     _cachedAt = null;
@@ -235,9 +265,16 @@ class MclashAccountService extends ChangeNotifier {
 
   Future<void> forceSignOutLocally(String reason) async {
     Log.w("MclashAccountService: 本地强制退出登录（$reason）");
+    final logout = MclashApi.logout();
+    final session = MclashApi.client.sessionGeneration;
     try {
-      await MclashApi.logout();
+      await logout;
     } catch (_) {}
+    // Logout itself may finish after another login has started.
+    if (MclashApi.isLoggedIn ||
+        MclashApi.client.sessionGeneration > session + 1) {
+      return;
+    }
     await clearLocalCache();
   }
 
@@ -258,6 +295,7 @@ class MclashAccountService extends ChangeNotifier {
   }
 
   void stop() {
+    _invalidateRefresh();
     _timer?.cancel();
     _timer = null;
     _started = false;
@@ -337,12 +375,14 @@ class MclashAccountService extends ChangeNotifier {
     if (text.isEmpty) {
       return false;
     }
-    final aboutAccount = text.contains("账号") ||
+    final aboutAccount =
+        text.contains("账号") ||
         text.contains("帐号") ||
         text.contains("账户") ||
         text.contains("用戶") ||
         text.contains("用户");
-    final banned = text.contains("禁用") ||
+    final banned =
+        text.contains("禁用") ||
         text.contains("封禁") ||
         text.contains("停用") ||
         text.contains("封号") ||
@@ -351,8 +391,9 @@ class MclashAccountService extends ChangeNotifier {
   }
 
   Future<void> _forceLogoutForBan() async {
-    final reason =
-        blockText.isEmpty ? MclashI18n.t.accountBlock.banFallback : blockText;
+    final reason = blockText.isEmpty
+        ? MclashI18n.t.accountBlock.banFallback
+        : blockText;
     if (_pendingLoginNotice.isEmpty) {
       _pendingLoginNotice = reason;
     }
@@ -374,26 +415,39 @@ class MclashAccountService extends ChangeNotifier {
     if (!MclashApi.isLoggedIn) {
       return;
     }
-    if (_loading) {
-      return;
-    }
+    final session = MclashApi.client.sessionGeneration;
+    final generation = _generation;
+    if (_loading && _loadingSession == session) return;
+    final operation = Object();
+    _refreshOperation = operation;
+    _loadingSession = session;
+    bool current() =>
+        generation == _generation &&
+        session == MclashApi.client.sessionGeneration &&
+        identical(_refreshOperation, operation) &&
+        MclashApi.isLoggedIn;
     _loading = true;
     try {
       Map<String, dynamic>? dash;
       Map<String, dynamic>? sub;
       await Future.wait([
-        MclashApi.dashboard().then((v) => dash = v).catchError((e) {
-          Log.w("account: dashboard failed $e");
-          if (isTokenInvalid(e) && MclashApi.isLoggedIn) {
-            unawaited(forceSignOutLocally("dashboard: $e"));
-          }
-          return null;
-        }),
-        MclashApi.subscription().then((v) => sub = v).catchError((e) {
-          Log.w("account: subscription failed $e");
-          return null;
-        }),
+        (debugDashboard ?? MclashApi.dashboard)()
+            .then((v) => dash = v)
+            .catchError((e) {
+              Log.w("account: dashboard failed $e");
+              if (isTokenInvalid(e) && current()) {
+                unawaited(forceSignOutLocally("dashboard: $e"));
+              }
+              return null;
+            }),
+        (debugSubscription ?? MclashApi.subscription)()
+            .then((v) => sub = v)
+            .catchError((e) {
+              Log.w("account: subscription failed $e");
+              return null;
+            }),
       ]);
+      if (!current()) return;
       if (dash != null) {
         _dash = dash;
       }
@@ -417,9 +471,16 @@ class MclashAccountService extends ChangeNotifier {
         );
       }
     } finally {
-      _loading = false;
-      notifyListeners();
-      unawaited(disconnectIfBlocked());
+      final stillCurrent = current();
+      if (identical(_refreshOperation, operation)) {
+        _refreshOperation = null;
+        _loadingSession = null;
+        _loading = false;
+      }
+      if (stillCurrent) {
+        notifyListeners();
+        unawaited(disconnectIfBlocked());
+      }
     }
   }
 
@@ -488,7 +549,8 @@ class MclashAccountService extends ChangeNotifier {
     final status = acc.status;
 
     final subActive = acc.isActive;
-    final expired = _sub?["is_expired"] == true ||
+    final expired =
+        _sub?["is_expired"] == true ||
         status == "expired" ||
         (!subActive && status.isEmpty);
 
@@ -557,7 +619,10 @@ class MclashAccountService extends ChangeNotifier {
       case MclashBlockKind.deviceFull:
         final limit = info.deviceLimit ?? 0;
         final used = info.deviceUsed ?? 0;
-        return MclashI18n.t.accountBlock.textDeviceFull(used: used, limit: limit);
+        return MclashI18n.t.accountBlock.textDeviceFull(
+          used: used,
+          limit: limit,
+        );
       case MclashBlockKind.accountDisabled:
         return MclashI18n.t.accountBlock.textAccountDisabled;
       case MclashBlockKind.subscriptionDisabled:

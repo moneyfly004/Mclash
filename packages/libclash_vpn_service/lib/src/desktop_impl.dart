@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import 'geo_data.dart';
 import 'kernel_config.dart';
+import 'kernel_vbs.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
 import 'windows_job.dart';
@@ -507,33 +508,10 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
             if (File(pidFile).existsSync()) File(pidFile).deleteSync();
           } catch (_) {}
           final vbsPath = p.join(workDir, "kernel_watch.vbs");
-          final vbs = 'Set sh = CreateObject("WScript.Shell")\r\n'
-              'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
-              'sh.Run "schtasks /run /tn ""$kKernelTaskName""", 0, False\r\n'
-              'Dim svc, procs, seen, pid\r\n'
-              'seen = False\r\n'
-              'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
-              'For i = 1 To 300\r\n'
-              '  Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name=\'mihomo.exe\'")\r\n'
-              '  If procs.Count > 0 Then\r\n'
-              '    For Each pe In procs\r\n'
-              '      pid = pe.ProcessId\r\n'
-              '      Exit For\r\n'
-              '    Next\r\n'
-              '    seen = True\r\n'
-              '    Exit For\r\n'
-              '  End If\r\n'
-              '  WScript.Sleep 200\r\n'
-              'Next\r\n'
-              'If seen Then\r\n'
-              '  On Error Resume Next\r\n'
-              '  fso.OpenTextFile("$pidFile", 2, True).Write CStr(pid)\r\n'
-              '  Do\r\n'
-              '    Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name=\'mihomo.exe\'")\r\n'
-              '    If procs.Count = 0 Then Exit Do\r\n'
-              '    WScript.Sleep 500\r\n'
-              '  Loop\r\n'
-              'End If\r\n';
+          final vbs = buildKernelWatchVbs(
+            taskName: kKernelTaskName,
+            pidFilePath: pidFile,
+          );
           try {
             await File(vbsPath).writeAsString(vbs, flush: true);
           } catch (_) {}
