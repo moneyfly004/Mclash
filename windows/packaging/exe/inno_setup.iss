@@ -253,30 +253,32 @@ var
   ResultCode: Integer;
   AppDir: String;
   DataDir: String;
-  Ps1Path: String;
-  Ps1Body: String;
+  VbsPath: String;
+  Vbs: String;
   Q: String;
-  Args: String;
+  QQ: String;
+  NL: String;
 begin
   ResultCode := -1;
   AppDir := ExpandConstant('{app}');
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
-  Ps1Path := DataDir + '\kernel_host.ps1';
-  Q := #39;
-  Args := Q + '-d' + Q + ',' + Q + DataDir + Q + ',' + Q + '-f' + Q + ',' + Q + DataDir + '\config.yaml' + Q;
+  VbsPath := DataDir + '\kernel_host.vbs';
+  Q := #34;
+  QQ := Q + Q + Q;
+  NL := #13#10;
 
-  { 关键：计划任务直接跑 mihomo.exe（/IT 交互式）会弹黑色控制台窗口。
-    这里写一个「隐藏窗口启动内核并等待」的脚本，任务动作只指向它，
-    mihomo 全程没有可见窗口。 }
-  Ps1Body := 'Start-Process -FilePath ' + Q + AppDir + '\mihomo.exe' + Q + ' -ArgumentList @(' + Args + ') -WindowStyle Hidden -Wait';
+  { 任务动作必须是 GUI 子系统程序：powershell 是控制台程序，-WindowStyle Hidden
+    也要先建控制台 → 用户能看到一闪而逝的黑框；wscript.exe 不创建控制台。
+    VBS 里 Shell.Run(..., 0, True) = 隐藏窗口 + 等待内核退出。 }
+  Vbs := 'Set sh = CreateObject("WScript.Shell")' + NL +
+         'sh.Run ' + QQ + AppDir + '\mihomo.exe' + QQ + ' -d ' + QQ + DataDir + QQ + ' -f ' + QQ + DataDir + '\config.yaml' + QQ + ', 0, True' + NL;
   ForceDirectories(DataDir);
-  if not SaveStringToFile(Ps1Path, Ps1Body, False) then
+  if not SaveStringToFile(VbsPath, Vbs, False) then
   begin
-    Log('写入 kernel_host.ps1 失败：' + Ps1Path);
+    Log('写入 kernel_host.vbs 失败：' + VbsPath);
   end;
 
-  { /ST 不能早于当前时间；/RU <当前用户> /IT 让任务在用户会话里以最高权限运行 }
-  Params := '/Create /TN "Mclash Kernel" /TR \"powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"' + Ps1Path + '\"\" /SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') + '" /IT /RL HIGHEST /F';
+  Params := '/Create /TN "Mclash Kernel" /TR \"wscript.exe \"' + VbsPath + '\"\" /SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') + '" /IT /RL HIGHEST /F';
   if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
               ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
   begin
@@ -284,7 +286,7 @@ begin
   end
   else
   begin
-    Log('已创建 Mclash Kernel 计划任务（最高权限、隐藏窗口，安装时提权一次）');
+    Log('已创建 Mclash Kernel 计划任务（wscript 隐藏窗口，安装时提权一次）');
   end;
 end;
 

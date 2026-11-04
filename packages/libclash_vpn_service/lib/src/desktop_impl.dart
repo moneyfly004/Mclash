@@ -499,24 +499,47 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           // 与 App 写入的 workDir/config.yaml 是同一份。
           // 这里起一个「观察者」Shell：先触发任务，再一直等到 mihomo 消失，
           // 这样 _proc.exitCode 仍然能准确反映内核生命周期（自愈/重连逻辑不变）。
+          // 观察者必须是 GUI 子系统程序（wscript），不能用 PowerShell：
+          // powershell 是控制台程序，即使 -WindowStyle Hidden 也会先建控制台
+          // → 用户看到「一闪而逝」的黑框。VBS 全程无控制台。
           final pidFile = p.join(workDir, "kernel.pid");
           try {
             if (File(pidFile).existsSync()) File(pidFile).deleteSync();
           } catch (_) {}
-          final ps =
-              "schtasks /run /tn '$kKernelTaskName' | Out-Null; "
-              "\$deadline = (Get-Date).AddSeconds(45); "
-              "while ((Get-Date) -lt \$deadline -and "
-              "-not (Get-Process mihomo -ErrorAction SilentlyContinue)) "
-              "{ Start-Sleep -Milliseconds 200 }; "
-              "\$k = Get-Process mihomo -ErrorAction SilentlyContinue | "
-              "Select-Object -First 1; "
-              "if (\$k) { \$k.Id | Out-File -FilePath '$pidFile' -Encoding ascii }; "
-              "while (Get-Process mihomo -ErrorAction SilentlyContinue) "
-              "{ Start-Sleep -Milliseconds 500 }";
+          final vbsPath = p.join(workDir, "kernel_watch.vbs");
+          final vbs = 'Set sh = CreateObject("WScript.Shell")\r\n'
+              'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
+              'sh.Run "schtasks /run /tn ""$kKernelTaskName""", 0, False\r\n'
+              'Dim svc, procs, seen, pid\r\n'
+              'seen = False\r\n'
+              'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
+              'For i = 1 To 300\r\n'
+              '  Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name=\'mihomo.exe\'")\r\n'
+              '  If procs.Count > 0 Then\r\n'
+              '    For Each pe In procs\r\n'
+              '      pid = pe.ProcessId\r\n'
+              '      Exit For\r\n'
+              '    Next\r\n'
+              '    seen = True\r\n'
+              '    Exit For\r\n'
+              '  End If\r\n'
+              '  WScript.Sleep 200\r\n'
+              'Next\r\n'
+              'If seen Then\r\n'
+              '  On Error Resume Next\r\n'
+              '  fso.OpenTextFile("$pidFile", 2, True).Write CStr(pid)\r\n'
+              '  Do\r\n'
+              '    Set procs = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name=\'mihomo.exe\'")\r\n'
+              '    If procs.Count = 0 Then Exit Do\r\n'
+              '    WScript.Sleep 500\r\n'
+              '  Loop\r\n'
+              'End If\r\n';
+          try {
+            await File(vbsPath).writeAsString(vbs, flush: true);
+          } catch (_) {}
           proc = await Process.start(
-            "powershell",
-            ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps],
+            "wscript.exe",
+            [vbsPath],
             environment: {"PATH": Platform.environment["PATH"] ?? ""},
             workingDirectory: workDir,
           );
