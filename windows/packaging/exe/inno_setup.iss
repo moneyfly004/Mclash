@@ -242,6 +242,38 @@ begin
   end;
 end;
 
+{ ---------------------------------------------------------------- }
+{ 安装时提权一次：建一个「最高权限」计划任务，之后由 App 触发它启动内核， }
+{ 不再需要 UAC，用户也不需要「以管理员身份运行 Mclash」就能用 TUN 模式。   }
+{ 任务名固定为 "Mclash Kernel"；卸载时在 [UninstallRun] 里删掉。           }
+{ ---------------------------------------------------------------- }
+procedure CreateKernelTask();
+var
+  Params: String;
+  ResultCode: Integer;
+  AppDir: String;
+  DataDir: String;
+begin
+  ResultCode := -1;
+  AppDir := ExpandConstant('{app}');
+  DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
+  { /TR 的值本身是一条带引号的命令行，内层引号要转义成 \" 。
+    Inno Pascal 里反斜杠不是转义符，所以 '\"' 就是「反斜杠 + 双引号」两个字符。 }
+  Params := '/Create /TN "Mclash Kernel" /TR \"' + AppDir + '\mihomo.exe\" -d \"' +
+            DataDir + '\" -f \"' + DataDir + '\config.yaml\"" ' +
+            '/SC ONCE /ST 00:00 /RL HIGHEST /F';
+  if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
+              ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+  begin
+    { 建任务失败不是致命错误：App 会回退到「点 TUN 时用 UAC 提权内核」。 }
+    Log('创建 Mclash Kernel 计划任务失败，返回码=' + IntToStr(ResultCode));
+  end
+  else
+  begin
+    Log('已创建 Mclash Kernel 计划任务（最高权限，安装时提权一次）');
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
@@ -282,37 +314,6 @@ begin
         DelTree(LocalAppDataPath, True, True, True);
       end;
     end;
-  end;
-end;
-
-{ ---------------------------------------------------------------- }
-{ 安装时提权一次：建一个「最高权限」计划任务，之后由 App 触发它启动内核， }
-{ 不再需要 UAC，用户也不需要「以管理员身份运行 Mclash」就能用 TUN 模式。   }
-{ 任务名固定为 "Mclash Kernel"；卸载时在 [UninstallRun] 里删掉。           }
-{ ---------------------------------------------------------------- }
-procedure CreateKernelTask();
-var
-  Params: String;
-  ResultCode: Integer;
-  AppDir: String;
-  DataDir: String;
-begin
-  AppDir := ExpandConstant('{app}');
-  DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
-  { /TR 的值本身是一条带引号的命令行，内层引号要转义成 \" 。
-    Inno Pascal 里反斜杠不是转义符，所以 '\"' 就是「反斜杠 + 双引号」两个字符。 }
-  Params := '/Create /TN "Mclash Kernel" /TR \"' + AppDir + '\mihomo.exe\" -d \"' +
-            DataDir + '\" -f \"' + DataDir + '\config.yaml\"" ' +
-            '/SC ONCE /ST 00:00 /RL HIGHEST /F';
-  if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
-              ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
-  begin
-    { 建任务失败不是致命错误：App 会回退到「点 TUN 时用 UAC 提权内核」。 }
-    Log('创建 Mclash Kernel 计划任务失败，返回码=' + IntToStr(ResultCode));
-  end
-  else
-  begin
-    Log('已创建 Mclash Kernel 计划任务（最高权限，安装时提权一次）');
   end;
 end;
 
