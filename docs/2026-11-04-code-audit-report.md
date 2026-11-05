@@ -156,7 +156,7 @@
 | 项目 | 结果 |
 |---|---|
 | `flutter analyze --no-pub` | No issues found |
-| `flutter test --no-pub` | **772 / 772 通过**（基线 696，新增 76） |
+| `flutter test --no-pub` | **799 / 799 通过**（基线 696，新增 103） |
 | Android 插件宿主 JVM 回归 | PASS |
 | `git diff --check` | 通过 |
 | `flutter build macos --debug` | 构建成功，启动/退出冒烟正常 |
