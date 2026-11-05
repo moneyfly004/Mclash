@@ -130,13 +130,20 @@ class VPNService {
       final admin = await FlutterVpnService.isRunAsAdmin();
       _runAsAdmin = admin;
       Log.i("VPNService: 管理员权限=${admin ? "是" : "否"}");
+    } catch (err) {
+      Log.w("VPNService: 读取管理员状态失败 ${err.toString()}");
+    }
+    // 任务就绪状态单独刷新：管理员查询失败时也必须刷新计划任务状态
+    // （以前两步在同一个 try 里，isRunAsAdmin 抛异常 → 任务状态永远不更新）。
+    try {
       _kernelTaskReady = await kernelTaskExists();
       Log.i(
         "VPNService: 免密提权组件（计划任务「$kKernelTaskName」）="
-        "${_kernelTaskReady ? "已就绪（TUN 无需管理员）" : "未安装"}",
+        "${_kernelTaskReady ? "已就绪（TUN 无需管理员）" : "不可用（将回退 UAC 提权）"}",
       );
     } catch (err) {
-      Log.w("VPNService: 读取管理员状态失败 ${err.toString()}");
+      _kernelTaskReady = false;
+      Log.w("VPNService: 读取计划任务状态失败 ${err.toString()}");
     }
   }
 
@@ -1032,21 +1039,20 @@ class VPNService {
     return enable;
   }
 
-  /// Windows：查询「Mclash Kernel」计划任务是否存在。
+  /// Windows：查询「Mclash Kernel」计划任务是否**真的就绪**。
+  ///
+  /// 旧实现只看 `kernel_host.vbs` 是否存在 —— 安装包先写脚本、再建任务，建任务
+  /// 失败（UAC 被拒 / 任务被删）时文件检查仍为 true，App 于是走计划任务路径，
+  /// `schtasks /run` 静默失败，TUN 永远起不来（0.0.5 真机确认）。
+  ///
+  /// 现在由 libclash_vpn_service 判断：用 `wscript.exe`（GUI 子系统）+ 隐藏窗口
+  /// 查询任务本身，并校验启动脚本仍在，全程没有控制台窗口；结果带 30 秒缓存，
+  /// 启动时（[_readAdminStateInBackground]）与安装任务后都会刷新。
   static Future<bool> kernelTaskExists() async {
     if (!Platform.isWindows) {
       return false;
     }
-    // 只查文件，**不调用 schtasks.exe**：schtasks 是控制台程序，每次点 TUN 调用
-    // 它都会闪一下黑框（用户能看到）。kernel_host.vbs（安装时/首次安装组件时
-    // 写入）存在即代表任务已就绪，纯文件判断零进程、零窗口。
-    try {
-      final dataDir =
-          "${Platform.environment["APPDATA"]}\\mclash\\mclash";
-      return File("$dataDir\\kernel_host.vbs").existsSync();
-    } catch (_) {
-      return false;
-    }
+    return DesktopVpnServiceImpl.kernelTaskExists();
   }
 
   /// Windows：**一次性**创建最高权限计划任务（弹一次 UAC，之后 TUN 零提权）。
@@ -1101,10 +1107,18 @@ class VPNService {
           "安装免密提权组件失败：${r.stderr.toString().trim()}",
         );
       }
-      _kernelTaskReady = await kernelTaskExists();
-      Log.i("VPNService: 免密提权组件安装结果=$_kernelTaskReady");
-      if (!_kernelTaskReady) {
-        return ReturnResultError("计划任务未创建成功（可能是 UAC 被拒绝）");
+      // PowerShell 的退出码只代表「Start-Process 调用完成」：内层 schtasks 失败
+      // （UAC 被拒绝、任务名冲突、被策略拦截）不会传回来，所以历史上这里会把
+      // 失败当成功。**创建后必须查一次任务本身**才算数（无窗口 wscript 探测）。
+      DesktopVpnServiceImpl.invalidateKernelTaskCache();
+      final verified = await DesktopVpnServiceImpl.verifyKernelTaskReady();
+      _kernelTaskReady = verified;
+      Log.i("VPNService: 免密提权组件安装结果=$verified");
+      if (!verified) {
+        return ReturnResultError(
+          "计划任务「$kKernelTaskName」创建后校验失败（可能是 UAC 被拒绝或任务注册失败）。"
+          "TUN 将回退为每次连接弹 UAC 提权启动，可稍后重试安装。",
+        );
       }
       return null;
     } catch (err) {

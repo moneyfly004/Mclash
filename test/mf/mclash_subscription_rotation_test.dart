@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/app/modules/profile_manager.dart';
+import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_subscription_service.dart';
 
@@ -105,6 +106,25 @@ class _FakeHttpClient implements HttpClient {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
+/// 让订阅域名探测停在半空，模拟「请求还没回来」的那个窗口。
+///
+/// 窗口内可以退出登录/换账号/取消同步，然后 [release] 放行，验证旧任务
+/// 不会继续写配置档或应用内核。
+class _ProbeGate {
+  final Completer<void> started = Completer<void>();
+  final Completer<void> release = Completer<void>();
+  int calls = 0;
+
+  Future<MclashSubProbeResult> call(String url) async {
+    calls++;
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    await release.future;
+    return const MclashSubProbeResult(MclashSubProbeStatus.ok, statusCode: 200);
+  }
+}
+
 void main() {
   late Map<String, String> disk;
   late List<String> synced;
@@ -117,6 +137,8 @@ void main() {
     disk = {};
     synced = [];
     goodHosts = <String>{};
+    // 会话落盘走内存，别在测试里碰钥匙串插件。
+    CBoardSessionStore.debugWriteOverride = (key, value) async {};
     MclashDomainPool.debugReadOverride = (key) async => disk[key];
     MclashDomainPool.debugWriteOverride = (key, value) async {
       disk[key] = value;
@@ -160,6 +182,9 @@ void main() {
   });
 
   tearDown(() {
+    // 任何测试留下的进行中同步都不能流到下一个测试里。
+    MclashSubscriptionService.cancelInflight();
+    CBoardSessionStore.debugWriteOverride = null;
     MclashDomainPool.debugReadOverride = null;
     MclashDomainPool.debugWriteOverride = null;
     MclashDomainPool.debugReset();
@@ -268,5 +293,116 @@ void main() {
       reason: '订阅被拒绝时要把真实原因说出来，而不是含糊的「网络错误」',
     );
     expect(synced, isEmpty, reason: '403 换域名也一样，不该继续浪费时间');
+  });
+
+  // ---------------------------------------------------------------------------
+  // 会话竞态回归：同步必须绑定「同步开始时的登录会话」，登出/换账号后绝不能
+  // 继续落盘或应用内核，上一个账号的 Future 也不能交给下一个账号。
+  // ---------------------------------------------------------------------------
+
+  test('同一登录会话内并发 sync 仍然复用同一个 Future', () async {
+    final gate = _ProbeGate();
+    MclashSubscriptionService.debugProbeOverride = gate.call;
+
+    final a = MclashSubscriptionService.sync();
+    final b = MclashSubscriptionService.sync();
+    expect(identical(a, b), isTrue, reason: '同一会话合并并发调用，别重复下载');
+
+    await gate.started.future;
+    gate.release.complete();
+
+    expect((await a).status, MclashSubSyncStatus.ok);
+    expect((await b).status, MclashSubSyncStatus.ok);
+    expect(synced, hasLength(1), reason: '合并后只该落盘一次');
+  });
+
+  test('同步中途退出登录 → 以会话代数为准立即中止，不写回账号订阅', () async {
+    final gate = _ProbeGate();
+    MclashSubscriptionService.debugProbeOverride = gate.call;
+
+    final old = MclashSubscriptionService.sync();
+    await gate.started.future;
+
+    // 模拟登出（不调用 cancelInflight：即使某条登出路径漏了取消，服务自己
+    // 也必须靠会话代数发现并中止）。
+    await CBoardSessionStore.clear();
+    await MclashSubscriptionService.purgeAccountProfiles();
+
+    gate.release.complete();
+    final result = await old;
+
+    expect(
+      result.status,
+      MclashSubSyncStatus.skipped,
+      reason: '旧会话的同步不能返回 ok，否则 gate 会拿旧账号结果判定「准备完成」',
+    );
+    expect(
+      synced,
+      isEmpty,
+      reason: '登出后不能再进 addRemote/update 落盘，也不该再 applyToRunningKernel',
+    );
+    expect(
+      ProfileManager.getProfiles(),
+      isEmpty,
+      reason: '登出清掉的账号订阅档不能被晚到的同步「复活」',
+    );
+    expect(MclashApi.isLoggedIn, isFalse);
+  });
+
+  test('cancelInflight() 立即作废进行中的同步，之后的新 sync 重新开始', () async {
+    final gate = _ProbeGate();
+    MclashSubscriptionService.debugProbeOverride = gate.call;
+
+    final old = MclashSubscriptionService.sync();
+    await gate.started.future;
+
+    MclashSubscriptionService.cancelInflight();
+    gate.release.complete();
+
+    final result = await old;
+    expect(result.status, MclashSubSyncStatus.skipped);
+    expect(synced, isEmpty, reason: '取消后旧任务不得再落盘');
+    expect(MclashApi.isLoggedIn, isTrue, reason: '取消同步不等于退出登录');
+
+    // 取消只作废旧任务；下一次同步必须是全新的，不能复用被取消的 Future。
+    final again = await MclashSubscriptionService.sync();
+    expect(again.status, MclashSubSyncStatus.ok);
+    expect(synced, hasLength(1));
+  });
+
+  test('换账号登录不会复用旧会话的 in-flight，也不会拿到旧账号的结果', () async {
+    final gate = _ProbeGate();
+    MclashSubscriptionService.debugProbeOverride = gate.call;
+
+    final old = MclashSubscriptionService.sync();
+    await gate.started.future;
+
+    // 真实登出路径：gate 先 cancelInflight，再清会话；随后登录另一个账号。
+    MclashSubscriptionService.cancelInflight();
+    await CBoardSessionStore.clear();
+    await MclashApi.login('other@example.com', 'password');
+
+    final fresh = MclashSubscriptionService.sync();
+    expect(
+      identical(old, fresh),
+      isFalse,
+      reason: '新账号必须拿到属于自己会话的同步，不能复用旧账号的 Future',
+    );
+
+    gate.release.complete();
+    final oldResult = await old;
+    final freshResult = await fresh;
+
+    expect(
+      oldResult.status,
+      MclashSubSyncStatus.skipped,
+      reason: '旧账号的同步必须中止，不能返回 ok 让 gate 误判就绪',
+    );
+    expect(freshResult.status, MclashSubSyncStatus.ok);
+    expect(
+      synced,
+      hasLength(1),
+      reason: '只有新会话的同步允许落盘一次',
+    );
   });
 }

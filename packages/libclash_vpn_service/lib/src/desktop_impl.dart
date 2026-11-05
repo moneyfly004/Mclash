@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import 'geo_data.dart';
 import 'kernel_config.dart';
+import 'kernel_task_probe.dart';
 import 'kernel_vbs.dart';
 import 'models.dart';
 import 'vpn_service_platform.dart';
@@ -218,22 +219,149 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
 
   static const String kKernelTaskName = "Mclash Kernel";
 
-  /// 安装包在 ssPostInstall 里创建了最高权限计划任务；有它就能零 UAC 起内核。
-  static Future<bool> kernelTaskExists() async {
-    if (!Platform.isWindows) {
+  /// 计划任务的启动脚本（安装包 / App 补装时写入）。
+  static const String kKernelHostVbsName = "kernel_host.vbs";
+
+  /// 任务就绪状态短缓存：探测要起一次 wscript，不能每次点连接都跑；
+  /// 安装任务后由 [invalidateKernelTaskCache] 立即失效。
+  static final KernelTaskReadinessCache _kernelTaskReadiness =
+      KernelTaskReadinessCache();
+
+  /// 任务动作引用的脚本路径。APPDATA 取不到时返回 null（无法确认 → 不就绪）。
+  static String? _kernelHostVbsPath() {
+    final appData = Platform.environment["APPDATA"] ?? "";
+    if (appData.isEmpty) {
+      return null;
+    }
+    return p.join(appData, "mclash", "mclash", kKernelHostVbsName);
+  }
+
+  static bool _kernelHostScriptExists() {
+    final scriptPath = _kernelHostVbsPath();
+    if (scriptPath == null) {
       return false;
     }
-    // 纯文件判断：不调用 schtasks.exe（控制台程序，调用会闪一下黑框）。
     try {
-      final appData = Platform.environment["APPDATA"] ?? "";
-      if (appData.isEmpty) {
-        return false;
-      }
-      return File("$appData\\mclash\\mclash\\kernel_host.vbs").existsSync();
+      return File(scriptPath).existsSync();
     } catch (_) {
       return false;
     }
   }
+
+  /// 「Mclash Kernel」计划任务是否**真的就绪**（查询任务本身，不是只看脚本文件）。
+  ///
+  /// 旧实现只看 `kernel_host.vbs` 是否存在：安装包先写脚本、再建任务，建任务失败
+  /// （或卸载残留脚本）时旧判断仍为 true → App 走计划任务路径，`schtasks /run`
+  /// 静默失败 → TUN 永远起不来（0.0.5 真机确认）。现在改成无窗口查询任务，
+  /// 并校验启动脚本仍在。
+  ///
+  /// 结果缓存 [KernelTaskReadinessCache.ttl]（30 秒）。
+  static Future<bool> kernelTaskExists() async {
+    if (!Platform.isWindows) {
+      return false;
+    }
+    return _kernelTaskReadiness.resolve(_probeKernelTaskReadiness);
+  }
+
+  /// 立即重新探测（绕过缓存）：连接前判定走哪条路径、安装任务后校验都用它。
+  static Future<bool> verifyKernelTaskReady() async {
+    if (!Platform.isWindows) {
+      return false;
+    }
+    return _kernelTaskReadiness.resolve(
+      _probeKernelTaskReadiness,
+      forceRefresh: true,
+    );
+  }
+
+  /// 任务被创建 / 删除后清掉缓存。
+  static void invalidateKernelTaskCache() {
+    _kernelTaskReadiness.invalidate();
+  }
+
+  /// 真实探测：无窗口查询计划任务 + 校验启动脚本存在。
+  /// 任何异常 / 超时都按「不可用」处理（fail-closed → 调用方退回 UAC 路径）。
+  static Future<bool> _probeKernelTaskReadiness() async {
+    if (!Platform.isWindows) {
+      return false;
+    }
+    bool? marker;
+    try {
+      marker = await _queryKernelTaskViaWscript();
+    } catch (err) {
+      desktopLog("[mclash] 查询计划任务失败（按不存在处理）：$err");
+      marker = null;
+    }
+    final scriptExists = _kernelHostScriptExists();
+    final ready = evaluateKernelTaskProbe(
+      markerResult: marker,
+      hostScriptExists: scriptExists,
+    );
+    if (!ready) {
+      desktopLog(
+        "[mclash] 计划任务「$kKernelTaskName」不可用"
+        "（查询=${marker == null ? "未知" : (marker ? "存在" : "不存在")}，"
+        "启动脚本=${scriptExists ? "存在" : "缺失"}）",
+      );
+    }
+    return ready;
+  }
+
+  static int _kernelTaskProbeSeq = 0;
+
+  /// 无窗口查询计划任务：写一个只含 ASCII 的 VBS，用 `wscript.exe`（GUI 子系统，
+  /// 不创建控制台）执行；VBS 内部以隐藏窗口（0）同步运行
+  /// `schtasks /query /tn ...`，再把退出码写到脚本同目录的标记文件。
+  ///
+  /// 返回 true = 任务存在，false = 任务不存在，null = 探测没跑完（未知）。
+  static Future<bool?> _queryKernelTaskViaWscript() async {
+    final tempDir = Directory.systemTemp;
+    final stamp = "${pid}_${_kernelTaskProbeSeq++}";
+    final markerName = "mclash_task_probe_$stamp.txt";
+    final vbsPath = p.join(tempDir.path, "mclash_task_probe_$stamp.vbs");
+    final markerFile = File(p.join(tempDir.path, markerName));
+    try {
+      await File(vbsPath).writeAsString(
+        buildKernelTaskProbeVbs(
+          taskName: kKernelTaskName,
+          markerFileName: markerName,
+        ),
+        flush: true,
+      );
+      if (await markerFile.exists()) {
+        await markerFile.delete();
+      }
+      final proc = await Process.start("wscript.exe", [vbsPath]);
+      final int rc;
+      try {
+        rc = await proc.exitCode.timeout(const Duration(seconds: 10));
+      } on TimeoutException {
+        proc.kill();
+        desktopLog("[mclash] 查询计划任务超时（wscript 未返回）");
+        return null;
+      }
+      if (rc != 0) {
+        desktopLog("[mclash] 查询计划任务的 wscript 退出码=$rc");
+      }
+      if (!await markerFile.exists()) {
+        return null;
+      }
+      return parseKernelTaskProbeMarker(await markerFile.readAsString());
+    } finally {
+      try {
+        if (await markerFile.exists()) {
+          await markerFile.delete();
+        }
+      } catch (_) {}
+      try {
+        final script = File(vbsPath);
+        if (await script.exists()) {
+          await script.delete();
+        }
+      } catch (_) {}
+    }
+  }
+
   VpnServiceConfig? _config;
   FlutterVpnServiceState _state = FlutterVpnServiceState.disconnected;
 
@@ -487,7 +615,17 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
           Platform.isWindows && cfg.tun_enabled && !(await isRunAsAdmin());
       // 首选：安装时创建好的最高权限计划任务（零 UAC，用户也不用「以管理员身份运行」）。
       // 没有这个任务（老版本装的 / 建任务失败）才退回每次点 TUN 走 UAC 提权内核。
-      final useTask = useUac && await kernelTaskExists();
+      //
+      // ⚠️ 这里必须**查任务本身**并绕过缓存：只看 kernel_host.vbs 的旧判断在
+      // 「脚本已写、任务没建成」时为 true，于是走任务路径 → `schtasks /run`
+      // 静默失败 → TUN 起不来。任务缺失时必须落到下面的 UAC 分支。
+      final useTask = useUac && await verifyKernelTaskReady();
+      if (useUac && !useTask) {
+        desktopLog(
+          "[mclash] Windows TUN：计划任务「$kKernelTaskName」不存在或校验失败 → "
+          "回退 UAC 提权启动（本次会弹一次 UAC）",
+        );
+      }
       _kernelViaTask = useTask;
       final execPath = useSudo ? "/usr/bin/sudo" : kernel;
       final execArgs = useSudo

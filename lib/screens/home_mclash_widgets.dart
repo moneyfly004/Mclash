@@ -345,10 +345,15 @@ class MclashQuickCountries extends StatelessWidget {
     }
     final country = MclashCountryLabel.of(context, code);
     // 和「切换」/节点列表等效：切内核 + 固定下来（下次连接仍是它）。
-    final err = await MclashNodeSelector.select(node.name);
+    final result = await MclashNodeSelector.selectDetailed(node.name);
     if (!context.mounted) {
       return;
     }
+    // 连点时这次选择已被更新的一次接手：别再为旧节点弹提示。
+    if (result.superseded) {
+      return;
+    }
+    final err = result.error;
     // 延迟后缀也要走 i18n：英文界面下出现全角括号「（30ms）」很奇怪
     // （真机走查：Switched to the fastest Japan node: 日本线路1（30ms））。
     final ms = node.latencyUsable

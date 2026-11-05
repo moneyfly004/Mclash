@@ -61,13 +61,50 @@ typedef MclashSubProbeCallback = Future<MclashSubProbeResult> Function(
   String url,
 );
 
+/// 本次同步已经不属于当前登录会话（退出登录 / 切换账号 / 显式取消）。
+///
+/// 只在 [MclashSubscriptionService] 内部抛出，由 [sync] 统一翻译成
+/// [MclashSubSyncStatus.skipped]。
+class _MclashSubSyncCancelled implements Exception {
+  const _MclashSubSyncCancelled();
+
+  @override
+  String toString() => "订阅同步已取消（登录会话已变化）";
+}
+
+/// 一次同步「属于」哪个登录会话。
+///
+/// - [session] 是 `CBoardClient.sessionGeneration`：登录/登出都会 +1，
+///   token 轮换不会。同步开始时捕获，之后每个副作用前比对。
+/// - [epoch] 是 [MclashSubscriptionService.cancelInflight] 的取消计数：
+///   让「取消」本身也能立刻作废正在跑的任务，不必依赖会话代数一定变化。
+class _MclashSubSyncTicket {
+  const _MclashSubSyncTicket(this.session, this.epoch);
+
+  final int session;
+  final int epoch;
+}
+
 abstract final class MclashSubscriptionService {
 
   static const Duration kUpdateInterval = Duration(minutes: 30);
 
   static const String kProfileRemark = "账号订阅";
 
+  /// 同一登录会话内合并并发调用；**绝不跨会话复用**（见 [_inflightTicket]）。
   static Future<MclashSubSyncResult>? _inflight;
+
+  /// [_inflight] 属于哪个登录会话。
+  ///
+  /// 以前只存 Future、不存会话：登出后旧同步还挂着时再登录，新账号会拿到
+  /// 旧账号的 Future —— gate 读到旧的 `ok` 就直接判定「准备完成」，而旧同步
+  /// 还在继续 `addRemote/update/setCurrent/applyToRunningKernel`，把已经登出
+  /// 的账号订阅又写回配置档。
+  static _MclashSubSyncTicket? _inflightTicket;
+
+  /// [cancelInflight] 被调用了几次：每次取消 +1，正在跑的同步在下一个副作用
+  /// 点发现代数不一致就中止（Dart 的 Future 本身无法真正取消）。
+  static int _cancelEpoch = 0;
 
   static const Map<String, Duration?> intervalChoices = {
     "30 分钟": Duration(minutes: 30),
@@ -151,17 +188,84 @@ abstract final class MclashSubscriptionService {
     return sync();
   }
 
+  /// 当前登录会话代数。登录/登出都会变，token 轮换不会。
+  static int get _sessionGeneration => MclashApi.client.sessionGeneration;
+
+  static bool _isTicketCurrent(_MclashSubSyncTicket ticket) =>
+      ticket.epoch == _cancelEpoch &&
+      ticket.session == _sessionGeneration;
+
+  /// 每个「会改到账号配置档/内核」的副作用之前都过一遍：会话变了就直接中止。
+  static void _checkSession(_MclashSubSyncTicket ticket) {
+    if (!_isTicketCurrent(ticket)) {
+      throw const _MclashSubSyncCancelled();
+    }
+  }
+
+  /// 作废正在跑的订阅同步。
+  ///
+  /// 退出登录时必须调用：Dart 的 Future 不能真正取消，所以这里
+  /// 1. 丢掉 [_inflight]，新登录不会拿到上一个账号的 Future；
+  /// 2. 让取消计数 +1，正在跑的任务在每个副作用点前会发现并中止，
+  ///    不会再 `addRemote/update/setCurrent/applyToRunningKernel`。
+  static void cancelInflight() {
+    if (_inflight == null) {
+      return;
+    }
+    _cancelEpoch++;
+    _inflight = null;
+    _inflightTicket = null;
+    Log.i("MclashSubscriptionService: 已取消进行中的订阅同步（退出登录/切换账号）");
+  }
+
   static Future<MclashSubSyncResult> sync() {
+    final ticket = _MclashSubSyncTicket(_sessionGeneration, _cancelEpoch);
+    final running = _inflight;
+    final runningTicket = _inflightTicket;
+    if (running != null && runningTicket != null) {
+      if (_isTicketCurrent(runningTicket)) {
+        return running;
+      }
+      // 上一个会话的同步还没结束：不能把它的 Future 交给新会话（否则新账号
+      // 会拿到旧账号的结果）。旧任务会在下一个副作用点自行中止，这里只是
+      // 不再复用它，并重新发起一次属于当前会话的同步。
+      Log.w(
+        "MclashSubscriptionService: 丢弃上一个会话的进行中同步"
+        "（旧会话代数 ${runningTicket.session}，当前 $_sessionGeneration）",
+      );
+      _inflight = null;
+      _inflightTicket = null;
+    }
 
-    Log.i("MclashSubscriptionService: sync() 开始，已登录=${MclashApi.isLoggedIn}");
+    Log.i(
+      "MclashSubscriptionService: sync() 开始，"
+      "已登录=${MclashApi.isLoggedIn}，会话代数=${ticket.session}",
+    );
 
-    return _inflight ??= _doSync()
+    late final Future<MclashSubSyncResult> pending;
+    pending = _doSync(ticket)
         .catchError((Object e, StackTrace st) {
+          if (e is _MclashSubSyncCancelled) {
+            Log.i("MclashSubscriptionService: 登录会话已变化，本次同步中止（未写入配置档/内核）");
+            return const MclashSubSyncResult(
+              MclashSubSyncStatus.skipped,
+              message: "登录状态已变化，已取消本次订阅同步",
+            );
+          }
           Log.w("MclashSubscriptionService: sync 未预期异常 $e");
           return MclashSubSyncResult(MclashSubSyncStatus.failed,
               message: "$e");
         })
-        .whenComplete(() => _inflight = null);
+        .whenComplete(() {
+          // 只清掉「还是自己」的那份，避免把新会话的 in-flight 误清。
+          if (identical(_inflight, pending)) {
+            _inflight = null;
+            _inflightTicket = null;
+          }
+        });
+    _inflight = pending;
+    _inflightTicket = ticket;
+    return pending;
   }
 
   /// 写日志/界面提示前把订阅地址脱敏。
@@ -174,10 +278,11 @@ abstract final class MclashSubscriptionService {
     return redacted.length <= 80 ? redacted : "${redacted.substring(0, 80)}…";
   }
 
-  static Future<MclashSubSyncResult> _doSync() async {
+  static Future<MclashSubSyncResult> _doSync(_MclashSubSyncTicket ticket) async {
     if (!MclashApi.isLoggedIn) {
       return const MclashSubSyncResult(MclashSubSyncStatus.notLoggedIn);
     }
+    _checkSession(ticket);
 
     String? url;
     try {
@@ -186,6 +291,9 @@ abstract final class MclashSubscriptionService {
       Log.w("MclashSubscriptionService: 取订阅地址失败 $e");
       return MclashSubSyncResult(MclashSubSyncStatus.failed, message: "$e");
     }
+    // 取订阅地址是网络等待：回来先确认还是同一个登录会话，别拿旧账号的地址
+    // 去下载/落盘。
+    _checkSession(ticket);
     if (url == null || url.isEmpty) {
 
       Log.i("MclashSubscriptionService: 该账号暂无可用订阅");
@@ -200,10 +308,14 @@ abstract final class MclashSubscriptionService {
     String? lastError;
 
     for (final candidate in urls) {
+      _checkSession(ticket);
       final host = MclashDomainPool.hostOf(candidate);
       triedHosts.add(host.isEmpty ? candidate : host);
 
       final probe = await _probeSubscription(candidate);
+      // 探测同样是网络等待：回来第一件事就是确认会话没变，否则旧账号的
+      // 探测结果会继续驱动后面的下载/落盘。
+      _checkSession(ticket);
       if (probe.status == MclashSubProbeStatus.rejected) {
         // 不是域名的问题（账号/权限/链接失效）：换域名也一样，直接报错，
         // 免得把「订阅过期」伪装成「网络错误」。
@@ -225,7 +337,8 @@ abstract final class MclashSubscriptionService {
 
       // 探测通过：真正下载仍走 ProfileManager（保留它自带的代理回退、HWID 校验、
       // 格式校验与流量统计），这里只负责挑一个可用域名。
-      final result = await _syncWithUrl(candidate);
+      final result = await _syncWithUrl(candidate, ticket);
+      _checkSession(ticket);
       if (result.ok) {
         MclashDomainPool.reportSuccess(host, subscription: true);
         Log.i("MclashSubscriptionService: 订阅域名 $host 可用，后续优先使用它");
@@ -257,7 +370,11 @@ abstract final class MclashSubscriptionService {
   ///
   /// 已有配置档时优先复用它（按账号订阅的 remark 找，避免换域名后 URL 变了
   /// 又新建一份重复配置档），同时把档里的 URL 换成这次可用的域名。
-  static Future<MclashSubSyncResult> _syncWithUrl(String url) async {
+  static Future<MclashSubSyncResult> _syncWithUrl(
+    String url,
+    _MclashSubSyncTicket ticket,
+  ) async {
+    _checkSession(ticket);
     final override = debugSyncOverride;
     if (override != null) {
       return override(url);
@@ -265,9 +382,12 @@ abstract final class MclashSubscriptionService {
     try {
       final existing = accountProfile();
       if (existing != null) {
-        return _syncExisting(existing, url);
+        return await _syncExisting(existing, url, ticket);
       }
 
+      // 真正开始下载/落盘前再确认一次：addRemote 会自己 setCurrent + save，
+      // 它一旦跑起来就拦不住了。
+      _checkSession(ticket);
       final userAgent = SettingManager.getConfig().userAgent();
       final added = await ProfileManager.addRemote(
         url,
@@ -278,6 +398,23 @@ abstract final class MclashSubscriptionService {
         xhwid: true,
         id: kAccountProfileId,
       );
+      if (!_isTicketCurrent(ticket)) {
+        // 下载期间用户退出登录了：addRemote 已经把配置档写进内存/磁盘，必须
+        // 立刻撤回，否则登出时刚清掉的账号订阅又被「复活」。
+        //
+        // 只有在「确实已登出」时才删：若期间换成了另一个账号登录，配置档
+        // id 是固定的，删掉会误伤新账号。
+        final addedId = added.data ?? "";
+        if (!MclashApi.isLoggedIn && addedId.isNotEmpty) {
+          try {
+            await ProfileManager.remove(addedId);
+            Log.w("MclashSubscriptionService: 登出后回滚刚落盘的账号订阅");
+          } catch (e) {
+            Log.w("MclashSubscriptionService: 回滚账号订阅失败 $e");
+          }
+        }
+        throw const _MclashSubSyncCancelled();
+      }
       if (added.error != null) {
         Log.w("MclashSubscriptionService: 添加订阅失败 ${added.error!.message}");
         return MclashSubSyncResult(MclashSubSyncStatus.failed,
@@ -289,12 +426,17 @@ abstract final class MclashSubscriptionService {
             message: "订阅已下载但未返回配置档 id");
       }
 
+      // setCurrent 也是副作用：旧会话不能把内核/界面切到它的配置档。
+      _checkSession(ticket);
       if (ProfileManager.getCurrent() == null) {
         ProfileManager.setCurrent(id);
       }
       Log.i("MclashSubscriptionService: 已添加账号订阅 (${_safe(url)})");
-      await applyToRunningKernel();
+      await applyToRunningKernel(generation: ticket.session);
+      _checkSession(ticket);
       return MclashSubSyncResult(MclashSubSyncStatus.ok, profileId: id);
+    } on _MclashSubSyncCancelled {
+      rethrow;
     } catch (e) {
       Log.w("MclashSubscriptionService: 同步异常 $e");
       return MclashSubSyncResult(MclashSubSyncStatus.failed, message: "$e");
@@ -306,21 +448,30 @@ abstract final class MclashSubscriptionService {
   static Future<MclashSubSyncResult> _syncExisting(
     ProfileSetting existing,
     String url,
+    _MclashSubSyncTicket ticket,
   ) async {
     if (existing.url != url) {
+      // 改 URL + 落盘同样是副作用：登出后不能再动旧账号的配置档。
+      _checkSession(ticket);
       existing.url = url;
       // 立刻落盘：否则配置档里还留着坏域名，下次自动更新又白失败一轮。
       await ProfileManager.save();
+      _checkSession(ticket);
       Log.i("MclashSubscriptionService: 账号订阅域名改为 ${_safe(url)}");
     }
+    _checkSession(ticket);
     final err = await ProfileManager.update(existing.id);
+    // update 会下载并落盘（它自己会 save）：等它回来先看会话还在不在，
+    // 别再把旧账号的结果拿去应用内核。
+    _checkSession(ticket);
     if (err != null) {
       Log.w("MclashSubscriptionService: 刷新订阅失败 ${err.message}");
       return MclashSubSyncResult(MclashSubSyncStatus.failed,
           profileId: existing.id, message: err.message);
     }
     Log.i("MclashSubscriptionService: 已刷新账号订阅 (${_safe(url)})");
-    await applyToRunningKernel();
+    await applyToRunningKernel(generation: ticket.session);
+    _checkSession(ticket);
     return MclashSubSyncResult(MclashSubSyncStatus.ok, profileId: existing.id);
   }
 
@@ -404,13 +555,28 @@ abstract final class MclashSubscriptionService {
 
   static const Duration _probeTimeout = Duration(seconds: 15);
 
-  static Future<void> applyToRunningKernel() async {
+  /// 把订阅应用到正在运行的内核。
+  ///
+  /// [generation] 由订阅同步传入（同步开始时的会话代数）：等待内核状态、计算
+  /// 订阅指纹期间用户可能已经退出登录，那就绝不能再用旧账号的订阅重启内核。
+  /// 其它调用方（如节点列表刷新）不传，保持既有行为。
+  static Future<void> applyToRunningKernel({int? generation}) async {
     try {
+      if (!_sessionStillCurrent(generation)) {
+        return;
+      }
       if (!await VPNService.getStarted()) {
+        return;
+      }
+      if (!_sessionStillCurrent(generation)) {
         return;
       }
       if (!await MclashSubscriptionRevision.kernelIsStale()) {
         Log.i("MclashSubscriptionService: 订阅内容未变化，内核无需重载");
+        return;
+      }
+      // 真正重启内核前的最后一道检查。
+      if (!_sessionStillCurrent(generation)) {
         return;
       }
       Log.w("MclashSubscriptionService: 订阅内容已更新，重连一次让内核用上新配置");
@@ -423,6 +589,14 @@ abstract final class MclashSubscriptionService {
     } catch (e) {
       Log.w("MclashSubscriptionService: 应用订阅到内核失败 $e");
     }
+  }
+
+  static bool _sessionStillCurrent(int? generation) {
+    if (generation == null || generation == _sessionGeneration) {
+      return true;
+    }
+    Log.i("MclashSubscriptionService: 登录会话已变化，跳过应用订阅到内核");
+    return false;
   }
 
   static Future<void> purgeAccountProfiles() async {

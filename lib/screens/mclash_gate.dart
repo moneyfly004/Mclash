@@ -130,17 +130,25 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
     }
     setState(() => _loggedIn = now);
     if (!now) {
+      // 先作废进行中的订阅同步，再清账号订阅档：否则旧同步会在登出后继续
+      // addRemote/update/setCurrent/applyToRunningKernel，把刚清掉的账号订阅
+      // 又「复活」回来。
+      MclashSubscriptionService.cancelInflight();
       MclashHeartbeatService.instance.stop();
-    }
-    if (now) {
+      MclashSubscriptionService.purgeAccountProfiles();
+    } else {
       _onLoggedIn(forceSync: true);
       unawaited(_prepareAfterLogin());
-    } else {
-      MclashSubscriptionService.purgeAccountProfiles();
     }
   }
 
   Future<void> _prepareAfterLogin() async {
+    // 这次准备属于哪个登录会话：退出登录/换账号之后，旧的准备循环必须立刻
+    // 放弃，否则它会把旧账号的同步结果（甚至「失败」）写到新账号的准备状态上。
+    final generation = MclashApi.client.sessionGeneration;
+    bool stale() =>
+        !mounted || generation != MclashApi.client.sessionGeneration;
+
     if (mounted) {
       setState(() {
         _preparing = true;
@@ -150,11 +158,19 @@ class _MclashGateState extends State<MclashGate> with WidgetsBindingObserver {
     }
 
     for (var i = 1; i <= _prepareAttempts; i++) {
+      if (stale()) {
+        Log.i("MclashGate: 登录会话已变化，放弃本次登录准备");
+        return;
+      }
       MclashSubSyncResult? result;
       try {
         result = await MclashSubscriptionService.sync();
       } catch (e) {
         Log.w("MclashGate: 登录后同步订阅异常 $e");
+      }
+      if (stale()) {
+        Log.i("MclashGate: 登录会话已变化，放弃本次登录准备");
+        return;
       }
       final status = result?.status;
       if (status == MclashSubSyncStatus.ok ||

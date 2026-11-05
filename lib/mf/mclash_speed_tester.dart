@@ -92,6 +92,18 @@ class MclashSpeedTester {
     return ok;
   }
 
+  /// 单个节点的完整探测：把结果回填到 [node]（延迟 + 在线状态）。
+  ///
+  /// 和 [testAll] 的区别是**不推进批次代际**：不会取消正在跑的全量测速，
+  /// 也不会清空整批的 [inFlight]。节点列表里点单个「测速」走这条路。
+  Future<int> testSingle(MclashNode node, {bool? kernelUp}) async {
+    if (node.name.isEmpty || node.server.isEmpty || node.port <= 0) {
+      return -1;
+    }
+    final up = kernelUp ?? await kernelAvailable();
+    return _probeAndRecord(node, kernelUp: up);
+  }
+
   Future<int> testOne(MclashNode node, {bool? kernelUp}) async {
     if (node.name.isEmpty || node.server.isEmpty || node.port <= 0) {
       return -1;
@@ -132,6 +144,33 @@ class MclashSpeedTester {
       return override(node);
     }
     return _probeViaTcp(node);
+  }
+
+  /// 探测一个节点并把结果写回节点对象（全量/单节点共用，避免两套判定漂移）。
+  Future<int> _probeAndRecord(MclashNode node, {required bool kernelUp}) async {
+    node.missingInKernel = false;
+    final alreadyInFlight = inFlight.contains(node.name);
+    inFlight.add(node.name);
+    final int ms;
+    try {
+      ms = await testOne(node, kernelUp: kernelUp);
+    } finally {
+      // 全量测速的 worker 自己管理同名条目，别在这里误删它的转圈状态。
+      if (!alreadyInFlight) {
+        inFlight.remove(node.name);
+      }
+    }
+    node.latencyMs = ms;
+    if (ms > 0) {
+      node.online = true;
+    } else if (node.missingInKernel) {
+      node.online = true;
+    } else if (node.udpOnly && !kernelUp) {
+      node.online = true;
+    } else {
+      node.online = false;
+    }
+    return ms;
   }
 
   Future<int> _probeViaKernel(MclashNode node) async {
@@ -200,14 +239,18 @@ class MclashSpeedTester {
     return samples[samples.length ~/ 2];
   }
 
-  Future<void> testAll(
+  /// 全量测速。
+  ///
+  /// 返回 true 表示整批真的跑完了；false 表示被 [shouldStop]（连接会话结束）、
+  /// 新批次顶掉或内核中途掉线提前中止 —— 上层据此决定要不要把结果记为「新鲜」。
+  Future<bool> testAll(
     List<MclashNode> nodes, {
     void Function(int done, int total)? onProgress,
     void Function(MclashNode node)? onEach,
     bool Function()? shouldStop,
   }) async {
     if (nodes.isEmpty) {
-      return;
+      return true;
     }
     final gen = ++_testGen;
     final kernelUp = await kernelAvailable();
@@ -224,6 +267,7 @@ class MclashSpeedTester {
     }
     var done = 0;
     var ok = 0;
+    var stopped = false;
     missingInKernel = 0;
     _deadStreak = 0;
     _kernelGone = false;
@@ -231,34 +275,23 @@ class MclashSpeedTester {
     Future<void> worker(List<int> queue) async {
       while (queue.isNotEmpty) {
         if (gen != _testGen) {
+          stopped = true;
           break;
         }
         if (shouldStop != null && shouldStop()) {
+          stopped = true;
           break;
         }
         if (_kernelGone) {
+          stopped = true;
           break;
         }
         final n = nodes[queue.removeLast()];
-        n.missingInKernel = false;
-        inFlight.add(n.name);
-        final int ms;
-        try {
-          ms = await testOne(n, kernelUp: kernelUp);
-        } finally {
-          inFlight.remove(n.name);
-        }
-        n.latencyMs = ms;
+        final ms = await _probeAndRecord(n, kernelUp: kernelUp);
         if (ms > 0) {
-          n.online = true;
           ok++;
         } else if (n.missingInKernel) {
-          n.online = true;
           missingInKernel++;
-        } else if (n.udpOnly && !kernelUp) {
-          n.online = true;
-        } else {
-          n.online = false;
         }
         done++;
         onProgress?.call(done, nodes.length);
@@ -268,21 +301,28 @@ class MclashSpeedTester {
 
     final tcpCount = tcpQueue.length < maxConcurrent ? tcpQueue.length : maxConcurrent;
     final udpCount = udpQueue.length < udpMaxConcurrent ? udpQueue.length : udpMaxConcurrent;
-    await Future.wait([
-      for (var i = 0; i < tcpCount; i++) worker(tcpQueue),
-      for (var i = 0; i < udpCount; i++) worker(udpQueue),
-    ]);
-    inFlight.clear();
+    try {
+      await Future.wait([
+        for (var i = 0; i < tcpCount; i++) worker(tcpQueue),
+        for (var i = 0; i < udpCount; i++) worker(udpQueue),
+      ]);
+    } finally {
+      // 单个 worker 抛异常时也必须把转圈状态清干净。
+      inFlight.clear();
+    }
     if (onProgress != null) {
       onProgress(nodes.length, nodes.length);
     }
     swBatch.stop();
     lastSuccessCount = ok;
+    final completed = !stopped && done == nodes.length && gen == _testGen;
     Log.i(
       "MclashSpeedTester: 测速结束 ${nodes.length} 个节点，用时 ${swBatch.elapsedMilliseconds} ms"
       "（成功 $ok / 失败 ${nodes.length - ok}"
-      "${_kernelGone ? "，内核中途不可用已提前中止" : ""}）",
+      "${_kernelGone ? "，内核中途不可用已提前中止" : ""}"
+      "${completed ? "" : "，本轮未跑完"}）",
     );
+    return completed;
   }
 
   static Map<String, int> bestLatencyByCountry(Iterable<MclashNode> nodes) {

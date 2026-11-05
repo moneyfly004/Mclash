@@ -118,14 +118,21 @@ class _MclashNodePickerSheetState extends State<MclashNodePickerSheet> {
       ),
     );
 
-    final err = await MclashNodeSelector.select(node.name);
+    // 用**这次调用**的结果：连点两个节点时共享的 `lastSelectDeferred` 会被后一次
+    // 覆盖，先发的那次就会误报「连接后生效」（或反之）。
+    final result = await MclashNodeSelector.selectDetailed(node.name);
+    if (result.superseded) {
+      // 已有更新的选择接手，这次不再弹任何过期提示。
+      return;
+    }
+    final err = result.error;
     if (err != null) {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(t.nodesScreen.switchFailed(message: err.message))));
       return;
     }
-    if (MclashNodeSelector.lastSelectDeferred) {
+    if (result.deferred) {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(

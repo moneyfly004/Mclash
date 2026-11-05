@@ -181,10 +181,17 @@ class _MclashNodesListScreenState
         content: Text(t.nodesScreen.switchedTo(name: node.name)),
       ),
     );
-    final err = await MclashNodeSelector.select(node.name);
+    // 用**这次调用**的结果，而不是共享的 `lastSelectDeferred`：连点两个节点时
+    // 共享位描述的是后一次，先发的那次会因此弹错提示（缺陷：内核停在前一个节点）。
+    final result = await MclashNodeSelector.selectDetailed(node.name);
     if (!mounted) {
       return;
     }
+    if (result.superseded) {
+      // 用户又点了别的节点：内核由最新那次负责，这次别再弹成功/失败提示。
+      return;
+    }
+    final err = result.error;
     if (err != null) {
       await DialogUtils.showAlertDialog(
         context,
@@ -195,7 +202,7 @@ class _MclashNodesListScreenState
     if (!mounted) {
       return;
     }
-    if (MclashNodeSelector.lastSelectDeferred) {
+    if (result.deferred) {
       // 替换掉上面那条，而不是排队等它 2 秒 —— 否则"连接后生效"这句要等半天才出现。
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()

@@ -22,6 +22,7 @@ import 'package:mclash/mf/mclash_heartbeat_service.dart';
 import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_entitlement.dart';
 import 'package:mclash/mf/mclash_nodes_store.dart';
+import 'package:mclash/mf/mclash_subscription_service.dart';
 import 'package:mclash/screens/devices/mclash_devices_screen.dart';
 import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/net_check_screen.dart';
@@ -525,6 +526,9 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
     if (ok != true || !mounted) {
       return;
     }
+    // 退出前先作废进行中的订阅同步：否则它会在登出后继续写账号订阅/重启内核，
+    // 把刚退出的账号又「复活」回来。
+    MclashSubscriptionService.cancelInflight();
     var loggedOut = false;
     try {
       await MclashApi.logout();

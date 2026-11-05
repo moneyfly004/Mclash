@@ -231,6 +231,16 @@ class MclashNodesStore extends ChangeNotifier {
 
   DateTime? _lastFullTestAt;
 
+  @visibleForTesting
+  DateTime? get debugLastFullTestAt => _lastFullTestAt;
+
+  @visibleForTesting
+  void debugResetLastFullTestAt() => _lastFullTestAt = null;
+
+  /// 模拟「连接会话结束」：递增 epoch，让正在跑的全量测速在下一轮循环里收工。
+  @visibleForTesting
+  void debugBumpConnectEpoch() => _connectEpoch++;
+
   Map<String, int> latencyByName() {
     final out = <String, int>{};
     for (final n in _nodes) {
@@ -297,6 +307,11 @@ class MclashNodesStore extends ChangeNotifier {
   @visibleForTesting
   static Future<List<MclashNode>> Function()? debugLoadNodesOverride;
 
+  /// 测试替换缓存写入（避免碰真实配置目录，并可断言最终写进去的是哪一份列表）。
+  @visibleForTesting
+  static Future<void> Function(Iterable<MclashNode> nodes)?
+      debugCacheSaveOverride;
+
   bool _reloadRequested = false;
   Future<void>? _loadInflight;
 
@@ -306,15 +321,33 @@ class MclashNodesStore extends ChangeNotifier {
 
   int _loadGeneration = 0;
 
+  /// 测速期间到达的 load()：先挂起，等这一轮测速收尾后再真正执行。
+  ///
+  /// 测速结果写在当前 [_nodes] 的对象上；此时若整体换掉列表，跑了几分钟的
+  /// 测量值会全部丢掉，缓存还会被写进一份没有延迟数据的新列表。
+  bool _loadDeferredWhileTesting = false;
+  bool _deferredLoadAutoTest = false;
+  Completer<void>? _deferredLoadCompleter;
+
   @visibleForTesting
   void debugResetLoadState() {
     _loadInflight = null;
     _reloadRequested = false;
     _loading = false;
     _loadStartedAt = null;
+    _loadDeferredWhileTesting = false;
+    _deferredLoadAutoTest = false;
+    final pending = _deferredLoadCompleter;
+    _deferredLoadCompleter = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
   }
 
   Future<void> load({bool autoTestIfNoCache = false}) {
+    if (isTesting) {
+      return _deferLoad(autoTestIfNoCache: autoTestIfNoCache);
+    }
     final inflight = _loadInflight;
     final startedAt = _loadStartedAt;
     final stillFresh =
@@ -344,6 +377,36 @@ class MclashNodesStore extends ChangeNotifier {
     });
   }
 
+  Future<void> _deferLoad({required bool autoTestIfNoCache}) {
+    _loadDeferredWhileTesting = true;
+    _deferredLoadAutoTest = _deferredLoadAutoTest || autoTestIfNoCache;
+    return (_deferredLoadCompleter ??= Completer<void>()).future;
+  }
+
+  /// 测速收尾后补跑测速期间被推迟的 load()。
+  Future<void> _runDeferredLoad() async {
+    if (!_loadDeferredWhileTesting) {
+      return;
+    }
+    _loadDeferredWhileTesting = false;
+    final autoTest = _deferredLoadAutoTest;
+    _deferredLoadAutoTest = false;
+    final pending = _deferredLoadCompleter;
+    _deferredLoadCompleter = null;
+    try {
+      await load(autoTestIfNoCache: autoTest);
+    } finally {
+      if (pending != null && !pending.isCompleted) {
+        pending.complete();
+      }
+    }
+  }
+
+  Future<void> _saveCache(Iterable<MclashNode> nodes) {
+    final save = debugCacheSaveOverride ?? MclashNodesCache.save;
+    return save(nodes);
+  }
+
   Future<void> _loadOnce({
     bool autoTestIfNoCache = false,
     required int generation,
@@ -360,7 +423,12 @@ class MclashNodesStore extends ChangeNotifier {
         Log.w("MclashNodesStore.load（测试替换）失败 $e");
       }
       if (nodes != null && generation == _loadGeneration) {
-        _nodes = nodes;
+        if (isTesting) {
+          // 测速中换列表会把正在写入的测量结果整批丢掉：等测速收尾再载入。
+          _deferLoad(autoTestIfNoCache: false);
+        } else {
+          _nodes = nodes;
+        }
       }
       _loading = false;
       _invalidateDerived();
@@ -374,6 +442,13 @@ class MclashNodesStore extends ChangeNotifier {
       final hit = await MclashNodesCache.apply(nodes);
       if (generation != _loadGeneration) {
         Log.i("MclashNodesStore: 丢弃过期结果（第 $generation 轮）");
+        return;
+      }
+      if (isTesting) {
+        Log.i("MclashNodesStore: 测速进行中，节点载入推迟到测速结束");
+        _deferLoad(autoTestIfNoCache: autoTestIfNoCache);
+        _loading = false;
+        notifyListeners();
         return;
       }
       _nodes = nodes;
@@ -419,49 +494,76 @@ class MclashNodesStore extends ChangeNotifier {
     if (targets.isEmpty) {
       return;
     }
+    // 这一轮测速归属的节点列表：结果写在这些对象上，期间不能被 load() 换掉。
+    final batchNodes = _nodes;
     _testing = targets.length;
     _testTotal = targets.length;
     notifyListeners();
     var lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
+    var completed = false;
     // 这次测速开始时所属的"连接会话"：会话一结束（断开/内核被撤）就收工，
     // 不该在用户已经断开后继续抢资源。
     //
     // 注意**不能**写成"当前没连接就停"：手动点「全部测速」时用户往往还没连，
     // 那样会被立刻中止（测试也已抓到这个回归）。
     final sessionAtStart = _connectEpoch;
-    await MclashSpeedTester.instance.testAll(
-      targets,
-      shouldStop: () => _connectEpoch != sessionAtStart,
-      onProgress: (done, total) {
-        _testing = total - done;
-        final now = DateTime.now();
-        // 1s 一次就够：界面只需要看到进度在走，500ms 一次会把列表/首页卡片
-        // 每秒重建两遍（测速要跑好几分钟）。
-        if (now.difference(lastNotify) < const Duration(milliseconds: 1000)) {
-          return;
-        }
-        lastNotify = now;
-        _invalidateDerived();
-        notifyListeners();
-      },
-    );
-    _testing = 0;
-    _invalidateDerived();
-    notifyListeners();
-    _lastFullTestAt = DateTime.now();
-    await MclashNodesCache.save(_nodes);
-    Log.i("MclashNodesStore: 测速完成，已写缓存");
-
-    final missing = MclashSpeedTester.missingInKernel;
-    if (missing > 0) {
-      autoPickNote = MclashI18n.t.nodeAuto.newNodesReloading(missing: missing);
-      notifyListeners();
-      Log.w(
-        "MclashNodesStore: 有 $missing 个节点不在当前内核里 → 触发内核重载（订阅内容已变化）",
+    try {
+      completed = await MclashSpeedTester.instance.testAll(
+        targets,
+        shouldStop: () => _connectEpoch != sessionAtStart,
+        onProgress: (done, total) {
+          _testing = total - done;
+          final now = DateTime.now();
+          // 1s 一次就够：界面只需要看到进度在走，500ms 一次会把列表/首页卡片
+          // 每秒重建两遍（测速要跑好几分钟）。
+          if (now.difference(lastNotify) < const Duration(milliseconds: 1000)) {
+            return;
+          }
+          lastNotify = now;
+          _invalidateDerived();
+          notifyListeners();
+        },
       );
-      await MclashSubscriptionService.applyToRunningKernel();
-      autoPickNote = MclashI18n.t.nodeAuto.kernelReloadedRetest;
+
+      if (completed && identical(_nodes, batchNodes)) {
+        // 只有真的跑完的一轮才算「新鲜」；被连接会话中止的半轮不能冒充，
+        // 否则下次连接会直接拿一份不完整的数据选路。
+        _lastFullTestAt = DateTime.now();
+      } else if (!completed) {
+        Log.i("MclashNodesStore: 本轮全量测速被提前中止，不记为新鲜结果");
+      }
+
+      final missing = MclashSpeedTester.missingInKernel;
+      if (missing > 0) {
+        autoPickNote = MclashI18n.t.nodeAuto.newNodesReloading(missing: missing);
+        notifyListeners();
+        Log.w(
+          "MclashNodesStore: 有 $missing 个节点不在当前内核里 → 触发内核重载（订阅内容已变化）",
+        );
+        await MclashSubscriptionService.applyToRunningKernel();
+        autoPickNote = MclashI18n.t.nodeAuto.kernelReloadedRetest;
+        notifyListeners();
+      }
+    } finally {
+      // 正常结束、被中止、异常都必须把进度状态归零，否则界面会一直转圈。
+      _testing = 0;
+      _invalidateDerived();
       notifyListeners();
+
+      // 先写这一轮的结果，再执行被推迟的 load()：新列表会按 key 从缓存里
+      // 套上刚测出的延迟。列表若已经被换掉（极端的并发载入），就不要再写，
+      // 以免缓存落进一份没有测量值的新列表。
+      if (identical(_nodes, batchNodes)) {
+        try {
+          await _saveCache(batchNodes);
+          if (completed) {
+            Log.i("MclashNodesStore: 测速完成，已写缓存");
+          }
+        } catch (e) {
+          Log.w("MclashNodesStore: 写节点缓存失败 $e");
+        }
+      }
+      await _runDeferredLoad();
     }
   }
 
@@ -469,14 +571,38 @@ class MclashNodesStore extends ChangeNotifier {
     if (node.server.isEmpty || node.port <= 0) {
       return;
     }
-    _testing = 1;
-    _testTotal = 1;
-    notifyListeners();
-    await MclashSpeedTester.instance.testAll([node]);
-    _testing = 0;
-    _invalidateDerived();
-    notifyListeners();
-    unawaited(MclashNodesCache.save(_nodes));
+    // 单节点探测不能打断全量测速，也不能把全量的进度计数改成 1/1。
+    final batchRunning = isTesting;
+    if (!batchRunning) {
+      _testing = 1;
+      _testTotal = 1;
+      notifyListeners();
+    }
+    try {
+      await MclashSpeedTester.instance.testSingle(node);
+    } finally {
+      _invalidateDerived();
+      if (batchRunning) {
+        // 全量测速的计数和收尾归它自己；这里只刷新派生数据。
+        notifyListeners();
+      } else {
+        _testing = 0;
+        notifyListeners();
+        final save = _saveCache(_nodes);
+        if (_loadDeferredWhileTesting) {
+          // 单节点测速期间到达的 load() 同样要等这里收尾（它也会看 isTesting）。
+          // 先把这次测量落盘，载入新列表时才能从缓存套上结果。
+          try {
+            await save;
+          } catch (e) {
+            Log.w("MclashNodesStore: 写节点缓存失败 $e");
+          }
+          await _runDeferredLoad();
+        } else {
+          unawaited(save);
+        }
+      }
+    }
   }
 
   MclashNode? preferredNodeOfCountry(String code) {

@@ -32,7 +32,19 @@ void main() {
           const MethodChannel('plugins.flutter.io/path_provider'),
           null,
         );
-    await root.delete(recursive: true);
+    // Windows 上文件句柄释放有延迟：立刻递归删除会报
+    // PathAccessException: ... being used by another process (errno 32)，
+    // 把整个 CI job 拖挂（真机上只是测试收尾问题）。
+    // 这里短暂重试，仍然失败就放弃 —— 临时目录残留不影响测试结论。
+    for (var i = 0; i < 10; i++) {
+      try {
+        if (!await root.exists()) return;
+        await root.delete(recursive: true);
+        return;
+      } catch (_) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+    }
   });
 
   setUp(() async {

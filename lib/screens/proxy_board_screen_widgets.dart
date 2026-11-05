@@ -325,10 +325,15 @@ class _ProxyScreenProxiesNodeWidget
   }
 
   Future<void> _selectFlatNode(ClashProxiesNode node) async {
-    final err = await MclashNodeSelector.select(node.name);
+    final result = await MclashNodeSelector.selectDetailed(node.name);
     if (!mounted) {
       return;
     }
+    // 连点时这次选择已被更新的一次接手：不要把过期的"内核已切"画到界面上。
+    if (result.superseded) {
+      return;
+    }
+    final err = result.error;
     if (err != null) {
       DialogUtils.showAlertDialog(context, err.message);
       return;

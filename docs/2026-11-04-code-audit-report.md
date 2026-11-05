@@ -95,7 +95,53 @@
   安装包创建的任务动作为 `wscript.exe` + 正确脚本路径。
 - 测试：`test/libclash_vpn_service/kernel_vbs_test.dart`（6 条）。
 
-### 1.9 Android 授权回调生命周期 — 中
+### 1.9 计划任务就绪判断只看文件（VM 实测）— 高
+
+- 现象：`kernelTaskExists()` 只检查 `%APPDATA%\mclash\mclash\kernel_host.vbs`
+  是否存在。安装包先写脚本再建任务，建任务失败时脚本还在 → 判定「就绪」→
+  走计划任务路径 → `schtasks /run` 静默失败 → TUN 起不来。
+- VM 实测（用户机器上真实的 0.0.5 安装）：脚本存在、任务不存在、
+  `cscript kernel_host.vbs` 返回 **exit=1**。
+- 修复：新增 `kernel_task_probe.dart`（ASCII-only VBS + 标记文件 + 30s TTL 缓存
+  + 失效/强制刷新），用 `wscript`（GUI 子系统，无控制台）执行
+  `schtasks /query`，只有「任务存在 **且** 脚本存在」才算就绪；
+  `installKernelTask` 创建后强制校验，失败即报错；连接路径改调
+  `verifyKernelTaskReady()`，未就绪自动回退 UAC 分支。
+- 测试：`test/libclash_vpn_service/kernel_task_probe_test.dart`（18 条）。
+
+### 1.10 节点选择竞态与写入链阻塞 — 中高
+
+- 现象：`select()` 先同步写固定节点、再异步查组、再 PUT 内核，两次快速点选
+  会让内核停在**先点**的节点而 UI 显示后点的；`lastSelectDeferred` 是共享静态，
+  可能描述错的那一次。
+- 现象（本轮新发现）：串行写入链用「永不结束的静态 future」实现，一次卡死的写入
+  会让之后**所有**选路永久排队。
+- 修复：单调序号（最新一次才允许写内核）+ 每次调用返回自己的结果；写入链改为
+  「在飞引用」，写完即释放，链不会永久堵死。
+- 测试：`test/mf/mclash_node_selection_race_test.dart`（4 条）。
+
+### 1.11 订阅同步未绑定会话 — 高
+
+- 现象：`sync()` 持有单个静态 in-flight future，登出后仍继续
+  `addRemote/setCurrent/applyToRunningKernel`，把已登出账号的配置档写回并选中；
+  该 future 还会被下一个账号的登录准备复用，导致「准备完成」用的是旧账号结果。
+- 修复：同步全程携带 `{sessionGeneration, cancelEpoch}` 票据，每个副作用前复核；
+  新增 `cancelInflight()` 并在登出路径调用；登录准备按 generation 中止。
+- 测试：`test/mf/mclash_subscription_rotation_test.dart`（新增 4 条）。
+
+### 1.12 测速状态机缺陷 — 中高
+
+- 现象：测速期间 `load()` 会整体替换 `_nodes`，在跑的测量全部丢到旧对象上，
+  但仍被记为「本轮刚测完」并回写缓存（首次跑会写成 `[]`）。
+- 现象：单节点测速 `testOne` 走 `testAll([node])`，会自增 generation
+  **取消正在跑的全量测速**，并覆盖 `_testing/_testTotal`。
+- 现象：被中止（断线）的测速同样被标记为「fresh」，连接时的自动选路会用
+  残缺延迟挑节点并固定下来。
+- 修复：测速期间 `load()` 延后并保证在 `finally` 执行；`testAll` 总是清理状态；
+  `testOne` 走不 bump generation 的单节点路径；只有真正跑完才记 fresh。
+- 测试：`test/mf/mclash_nodes_store_test.dart`（5 条）。
+
+### 1.13 Android 授权回调生命周期 — 中
 
 - 现象：并发 `prepare` 覆盖 `pendingResult`；detach 不清理 Activity 监听、不结束挂起请求。
 - 修复：并发 prepare 返回 false 且不覆盖原请求；所有 detach 路径移除监听并结束请求；
@@ -110,13 +156,17 @@
 | 项目 | 结果 |
 |---|---|
 | `flutter analyze --no-pub` | No issues found |
-| `flutter test --no-pub` | **738 / 738 通过**（基线 696，新增 42） |
+| `flutter test --no-pub` | **769 / 769 通过**（基线 696，新增 73） |
 | Android 插件宿主 JVM 回归 | PASS |
 | `git diff --check` | 通过 |
 | `flutter build macos --debug` | 构建成功，启动/退出冒烟正常 |
 | 生成的 sudoers 内容 `visudo -cf` | parsed OK |
 | 生成的 `kernel_host.vbs` `cscript //B` | exit=0（修复前 exit=1） |
 | 计划任务注册结果 | `wscript.exe` + 正确脚本路径 |
+| 真实 0.0.5 安装（VM） | `kernel_host.vbs` cscript exit=1、`Mclash Kernel` 任务缺失 |
+| 计划任务探测（VM） | 任务缺失→marker=1；临时建任务→marker=0 |
+| macOS release 构建 + 安装运行 | 成功（546 节点、订阅刷新、无崩溃）|
+| Android release APK + 模拟器 | 安装成功；登录/注册/找回密码/校验交互全部正常，logcat 无异常 |
 
 ---
 
@@ -181,7 +231,10 @@ TUN 继续接管流量。
 
 ## 4. 尚未验证的内容
 
-- 未在 Windows 实机验证 TUN 启动/停止、UAC 迟到同意、任务注册失败等场景。
+- 未在 Windows 实机跑完整 App（只验证了脚本/任务/探针契约与静态分析）；
+  TUN 启动→建网卡→断开全链路仍未在真机跑通。
+- **iOS 不受支持**：仓库没有 `ios/` 目录，`flutter build ios` 直接报
+  `Application not configured for iOS`，因此无法产出 IPA。
 - 未在 Android 真机/模拟器验证授权弹窗生命周期（仅 JVM 假实现控制流）。
 - 未做 macOS 原生生命周期专项审查。
 - 未做 CPU/内存/网络基准，因此不给出"更流畅"的量化结论。
