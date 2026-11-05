@@ -94,7 +94,11 @@ Type: filesandordirs; Name: "{app}\unins000.exe"
 ; 再清掉「开机自启」计划任务、防火墙规则和 HKCU 启动项 ——
 ; 这些都不在安装目录里，不显式删就会永远留在系统里。
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM {{EXECUTABLE_NAME}} /T /F"; Flags: runhidden; RunOnceId: "KillApp"
-Filename: "{sys}\taskkill.exe"; Parameters: "/IM mihomo.exe /T /F"; Flags: runhidden; RunOnceId: "KillKernel"
+; 以前用 /IM mihomo.exe 结束内核 —— 会**误杀其它代理客户端**（MoneyFly / MBox /
+; 任何用 mihomo 的软件）的内核。现在先 end 我们自己的计划任务，再只挑
+; 可执行文件路径位于安装目录的进程结束。
+Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN ""Mclash Kernel"""; Flags: runhidden; RunOnceId: "EndKernelTask"
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-Process mihomo -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '{app}\*' } | Stop-Process -Force -ErrorAction SilentlyContinue"""; Flags: runhidden; RunOnceId: "KillOwnKernel"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""{{DISPLAY_NAME}} Autorun"" /F"; Flags: runhidden; RunOnceId: "DelAutorun"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""mclash Autorun"" /F"; Flags: runhidden; RunOnceId: "DelAutorun2"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""Mclash Kernel"" /F"; Flags: runhidden; RunOnceId: "DelKernelTask"
