@@ -224,8 +224,18 @@ TUN 继续接管流量。
 `kernel_config.dart:593-644` 直接合并订阅 profile 与 patch 后交给高权限内核，
 没有对可执行钩子/插件/任意路径等能力做白名单过滤。
 
-**注意**：1.8 修复的是"脚本语法错误"，不改变 3.1 的权限边界结论 ——
-脚本仍然是用户可写的，只是现在它能跑起来了。
+**注意**：1.8 修复的是"脚本语法错误"。3.1 的权限边界已在本轮做**最小加固**：
+
+- 启动脚本改为写入**安装目录**（Program Files，仅管理员可写），任务动作指向该副本；
+  普通用户无法再替换任务实际执行的代码。旧位置（APPDATA）仅作为兼容探测。
+- 计划任务改用 PowerShell `Register-ScheduledTask` 创建：**零触发器**，
+  不再有 `/ST 23:59` 这种真实时间触发。
+- VM 实测：`task=EXISTS exec=wscript.exe arg=["C:\Program Files (x86)\Mclash\kernel_host.vbs"] triggers=0`，
+  且 `program_files_vbs=True` / `appdata_vbs=False`。
+
+残余风险（未解决）：任务仍以 Highest + Interactive 运行 `wscript.exe`；
+如果攻击者能写 Program Files（需要管理员）就不再是普通用户权限边界问题。
+彻底方案仍是受保护的原生 broker 服务 + 受限 IPC。
 
 ### 3.8 安装包创建计划任务失败（真机复现）— **已修复并验证**
 
