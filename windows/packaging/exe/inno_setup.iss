@@ -298,8 +298,10 @@ begin
     真实时间触发器（此前是 23:59），与"只有用户点 TUN 才启动"的语义不符。 }
   Ps1 := '$ErrorActionPreference = "Stop"' + NL +
          '$vbs = ' + Q + VbsPath + Q + NL +
-         '$a = New-ScheduledTaskAction -Execute "wscript.exe" -Argument (' +
-         Q + Q + Q + ' + $vbs + ' + Q + Q + Q + ')' + NL +
+         { PowerShell 里用三连引号拼 '"' 会被解析成空串 + 新串，拼出来的参数变成
+          字面量 `" + path + "`（VM 实测）。用 [char]34 最稳。 }
+         '$a = New-ScheduledTaskAction -Execute "wscript.exe" -Argument ' +
+         '([char]34 + $vbs + [char]34)' + NL +
          '$p = New-ScheduledTaskPrincipal -UserId ' + Q + ExpandConstant('{username}') +
          Q + ' -LogonType Interactive -RunLevel Highest' + NL +
          'Register-ScheduledTask -TaskName ' + Q + TaskName + Q +
