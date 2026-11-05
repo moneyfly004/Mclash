@@ -156,7 +156,7 @@
 | 项目 | 结果 |
 |---|---|
 | `flutter analyze --no-pub` | No issues found |
-| `flutter test --no-pub` | **771 / 771 通过**（基线 696，新增 75） |
+| `flutter test --no-pub` | **772 / 772 通过**（基线 696，新增 76） |
 | Android 插件宿主 JVM 回归 | PASS |
 | `git diff --check` | 通过 |
 | `flutter build macos --debug` | 构建成功，启动/退出冒烟正常 |
@@ -199,7 +199,13 @@ UAC 路径只在 8 秒内读取 PID，超时同意后高权限子进程完全脱
 `desktop_impl.dart:655-656` 的 stdout/stderr 属于观察者脚本而非内核，
 `_applyDataPathFallback` 却据此判断 TUN 是否启动，可能出现"内核健康但被判定失败并切系统代理"。
 
-### 3.5 卸载按镜像名杀进程 — 低
+### 3.5 卸载按镜像名杀进程 — **已修复**
+
+`taskkill /IM mihomo.exe /T /F` 会连带结束 MoneyFly / MBox 等其它客户端的内核。
+改为：先 `schtasks /End` 结束我们自己的任务，再只结束「可执行文件路径在安装目录」
+的 mihomo 进程。新增 `test/windows_uninstall_scope_test.dart` 锁住该约束。
+
+### 3.5.1 卸载按镜像名杀进程（历史记录）
 
 `inno_setup.iss:96-97` 的 `/IM mihomo.exe` 会误杀其他客户端的内核。
 
