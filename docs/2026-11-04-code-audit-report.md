@@ -165,6 +165,9 @@
 | 计划任务注册结果 | `wscript.exe` + 正确脚本路径 |
 | 真实 0.0.5 安装（VM） | `kernel_host.vbs` cscript exit=1、`Mclash Kernel` 任务缺失 |
 | 计划任务探测（VM） | 任务缺失→marker=1；临时建任务→marker=0 |
+| 新版 App 真机探针 | 日志 `计划任务不可用（查询=不存在，启动脚本=存在）→ 回退 UAC` |
+| 新版安装包 VBS | 引号正确，cscript 可解析 |
+| 新版安装包建任务 | ❌ 仍 E_FAIL（见 3.8） |
 | macOS release 构建 + 安装运行 | 成功（546 节点、订阅刷新、无崩溃）|
 | Android release APK + 模拟器 | 安装成功；登录/注册/找回密码/校验交互全部正常，logcat 无异常 |
 
@@ -222,6 +225,26 @@ TUN 继续接管流量。
 
 **注意**：1.8 修复的是"脚本语法错误"，不改变 3.1 的权限边界结论 ——
 脚本仍然是用户可写的，只是现在它能跑起来了。
+
+### 3.8 安装包创建计划任务仍然失败（真机复现）— 待修
+
+VM 实测（本轮构建的 0.0.5 安装包）：
+
+```
+安装日志：创建 Mclash Kernel 计划任务失败，返回码=-2147467259 (E_FAIL)
+安装后：  Get-ScheduledTask -TaskName 'Mclash Kernel' -> MISSING
+生成的 kernel_host.vbs：引号已正确（cscript 可解析）
+```
+
+对照实验：同一条 `schtasks /Create ...` 命令从 cmd（SysWOW64 与 System32 两个
+schtasks 都试过）执行**均成功**，说明问题在 Inno 的 `Exec` 调用层，不在命令本身。
+
+影响：安装时"一次性提权"没有落地，用户第一次点 TUN 仍需一次 UAC
+（App 侧 `installKernelTask()` 兜底，已实现并有校验）。
+
+下一步：把任务创建从 Inno `Exec` 改为「写一个 .cmd → Exec 该 .cmd 并把输出重定向
+到日志」，或直接用 Task Scheduler COM（`RegisterTaskDefinition`），并读取安装日志
+确认成功；同时保留 App 侧兜底。
 
 **建议方向**：改为受保护目录中的原生 broker 服务 + 受限命名管道 IPC，
 由服务创建内核（`CREATE_NO_WINDOW` + Job Object），按实例 ID 停止，

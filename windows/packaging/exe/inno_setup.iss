@@ -248,12 +248,16 @@ end;
 { ---------------------------------------------------------------- }
 procedure CreateKernelTask();
 var
-  Params: String;
   ResultCode: Integer;
   AppDir: String;
   DataDir: String;
   VbsPath: String;
   Vbs: String;
+  CmdPath: String;
+  CmdBody: String;
+  LogPath: String;
+  LogText: AnsiString;
+  TaskName: String;
   Q: String;
   QQ: String;
   QQQ: String;
@@ -263,12 +267,10 @@ begin
   AppDir := ExpandConstant('{app}');
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
   VbsPath := DataDir + '\kernel_host.vbs';
+  CmdPath := DataDir + '\create_kernel_task.cmd';
+  LogPath := DataDir + '\create_kernel_task.log';
+  TaskName := 'Mclash Kernel';
   Q := #34;
-  { VBS 里要传一条「带引号的命令行」，正确写法是**整条命令一个字符串**，
-    里面的引号成对转义：
-      sh.Run """C:\p\mihomo.exe"" -d ""C:\d""", 0, True
-    旧写法在每段路径两端都用了三连引号，字符串在 -d 之前就结束了 →
-    cscript 直接报语法错误（VM 实测 exit=1），计划任务这条路径从未成功过。 }
   QQ := Q + Q;
   QQQ := Q + Q + Q;
   NL := #13#10;
@@ -285,15 +287,41 @@ begin
     Log('写入 kernel_host.vbs 失败：' + VbsPath);
   end;
 
-  Params := '/Create /TN "Mclash Kernel" /TR \"wscript.exe \"' + VbsPath + '\"\" /SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') + '" /IT /RL HIGHEST /F';
-  if not Exec(ExpandConstant('{sys}\schtasks.exe'), Params, '', SW_HIDE,
-              ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+  { 直接用 Inno 的 Exec 调 schtasks 在本项目上实测返回 E_FAIL（-2147467259），
+    而同一条命令从 cmd 执行是成功的 —— 说明卡在 Exec 的参数/启动层。
+    这里改成「写一个 .cmd → 执行它 → 把输出重定向到日志再读回」，
+    既能绕开 Exec 直接传参的问题，也能在失败时留下真实原因。 }
+  CmdBody := '@echo off' + NL +
+             'schtasks /Create /TN "' + TaskName + '" /TR "wscript.exe "' + VbsPath + '""' +
+             ' /SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') + '"' +
+             ' /IT /RL HIGHEST /F > "' + LogPath + '" 2>&1' + NL +
+             'exit /b %ERRORLEVEL%' + NL;
+  if not SaveStringToFile(CmdPath, CmdBody, False) then
   begin
-    Log('创建 Mclash Kernel 计划任务失败，返回码=' + IntToStr(ResultCode));
+    Log('写入 create_kernel_task.cmd 失败：' + CmdPath);
+  end;
+
+  if not Exec(ExpandConstant('{cmd}'), '/c ""' + CmdPath + '""', '', SW_HIDE,
+              ewWaitUntilTerminated, ResultCode) then
+  begin
+    Log('执行 create_kernel_task.cmd 失败（Exec 返回 false）');
+  end
+  else if ResultCode <> 0 then
+  begin
+    Log('创建 ' + TaskName + ' 计划任务失败，cmd 返回码=' + IntToStr(ResultCode));
   end
   else
   begin
-    Log('已创建 Mclash Kernel 计划任务（wscript 隐藏窗口，安装时提权一次）');
+    Log('已创建 ' + TaskName + ' 计划任务（wscript 隐藏窗口，安装时提权一次）');
+  end;
+
+  { 不管成败都把 schtasks 的真实输出记进安装日志，便于定位。 }
+  if FileExists(LogPath) then
+  begin
+    if LoadStringFromFile(LogPath, LogText) then
+    begin
+      Log('schtasks 输出：' + LogText);
+    end;
   end;
 end;
 
