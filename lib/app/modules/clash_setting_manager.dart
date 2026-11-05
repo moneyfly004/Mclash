@@ -498,33 +498,43 @@ class ClashSettingManager {
   }
 
   static Future<void> load() async {
-    String filePath = await PathUtils.serviceCoreSettingFilePath();
-    var file = File(filePath);
-    bool exists = await file.exists();
-    if (exists) {
-      try {
-        String content = await file.readAsString();
-        if (content.isNotEmpty) {
-          await _load(content);
-        }
-      } catch (err, stacktrace) {
-        Log.w("ClashSettingManager.load exception ${err.toString()} ");
-      }
-    } else {
-      await save();
-    }
+    final filePath = await PathUtils.serviceCoreSettingFilePath();
+    await loadFromFile(filePath);
     await _initFixed();
   }
 
-  static Future<void> _load(String content) async {
+  /// 从 [filePath] 读取并应用设置（[load] 传的是 service_core_setting.json）。
+  ///
+  /// 单独拆出来是为了能在测试里直接指向临时文件；正常启动路径不变。
+  @visibleForTesting
+  static Future<void> loadFromFile(String filePath) async {
+    var file = File(filePath);
+    bool exists = await file.exists();
+    if (!exists) {
+      await save();
+      return;
+    }
+    try {
+      String content = await file.readAsString();
+      if (content.isNotEmpty) {
+        await _load(content, filePath: filePath);
+      }
+    } catch (err, stacktrace) {
+      Log.w("ClashSettingManager.load exception ${err.toString()} ");
+    }
+  }
+
+  static Future<void> _load(String content, {String? filePath}) async {
     late RawConfig setting;
     try {
       var config = jsonDecode(content);
       setting = RawConfig.fromJson(config);
     } catch (err, stacktrace) {
       Log.w("ClashSettingManager.load exception ${err.toString()} ");
+      // 绝不能在这里 save()：那会把用户「还能手工修好」的设置文件直接覆盖成
+      // 默认值（数据丢失）。先切到内存默认设置，再把原文件改名保留。
       _setting = defaultConfig();
-      await save();
+      await _quarantineCorruptSettingFile(filePath);
       return;
     }
     _setting = setting;
@@ -549,6 +559,42 @@ class ClashSettingManager {
           "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/refs/heads/meta/asn";
       await save();
     }
+  }
+
+  /// 把解析失败的文件改名保留为 `<原文件名>.corrupt-<时间戳>`。
+  ///
+  /// 改名失败也**绝不删除/覆盖**原文件：本次只使用内存默认设置。
+  static Future<void> _quarantineCorruptSettingFile(String? filePath) async {
+    if (filePath == null || filePath.isEmpty) {
+      return;
+    }
+    final timestamp = _corruptFileTimestamp();
+    var corruptPath = "$filePath.corrupt-$timestamp";
+    // 同一毫秒内连续失败两次时，rename 在 POSIX 上会覆盖已有的备份 ——
+    // 加序号避开，任何一份历史文件都不能丢。
+    for (var i = 1; await File(corruptPath).exists(); i++) {
+      corruptPath = "$filePath.corrupt-$timestamp-$i";
+    }
+    try {
+      await File(filePath).rename(corruptPath);
+      Log.w(
+        "ClashSettingManager: 设置文件解析失败，原文件已保留为 $corruptPath；"
+        "本次使用内存默认设置，不覆盖磁盘文件",
+      );
+    } catch (err) {
+      Log.w(
+        "ClashSettingManager: 设置文件解析失败，且无法改名备份到 $corruptPath"
+        "（${err.toString()}）；原文件保持不动，本次使用内存默认设置",
+      );
+    }
+  }
+
+  static String _corruptFileTimestamp() {
+    final now = DateTime.now();
+    String two(int value) => value.toString().padLeft(2, "0");
+    return "${now.year}${two(now.month)}${two(now.day)}"
+        "-${two(now.hour)}${two(now.minute)}${two(now.second)}"
+        "-${now.millisecond.toString().padLeft(3, "0")}";
   }
 
   static Future<void> _initFixed() async {

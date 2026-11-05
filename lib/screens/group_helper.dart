@@ -500,54 +500,18 @@ class GroupHelper {
   }
 
   static Future<void> onTapPortableModeOn(BuildContext context) async {
-    Directory? dir;
-    bool exist = false;
-    bool created = false;
+    final portableProfileDir = PathUtils.profileDirForPortableMode();
     try {
-      String portableProfileDir = PathUtils.profileDirForPortableMode();
-      dir = Directory(portableProfileDir);
-      exist = await dir.exists();
-      if (!exist) {
-        await dir.create(recursive: true);
-        created = true;
-        String profileDir = await PathUtils.profileDir();
-        var fileList = await Directory(profileDir).list(followLinks: false).toList();
-        for (var f in fileList) {
-          if (f is File) {
-            String ext = path.extension(f.path);
-            String basename = path.basename(f.path);
-            if (ext == ".log") {
-              continue;
-            }
-            var newFilePath = path.join(portableProfileDir, basename);
-            await f.copy(newFilePath);
-          } else if (f is Directory) {
-            String fbasename = path.basename(f.path);
-            if (fbasename == "cache" || fbasename == "webviewCache") {
-              continue;
-            }
-            final newDirPath = path.join(portableProfileDir, fbasename);
-            var newDir = Directory(newDirPath);
-            await newDir.create(recursive: false);
-            var fileList = await f.list(followLinks: false).toList();
-            for (var ff in fileList) {
-              if (ff is File) {
-                String ext = path.extension(ff.path);
-                String basename = path.basename(ff.path);
-                if (ext == ".log") {
-                  continue;
-                }
-                var newFilePath = path.join(newDirPath, basename);
-                await ff.copy(newFilePath);
-              }
-            }
-          }
-        }
+      if (!await Directory(portableProfileDir).exists()) {
+        // 便携模式要先停内核再复制：内核运行时会持续写 cache / 配置，边跑边
+        // 复制只能拿到半套数据；停内核后复制过程中也不会再有文件被改动。
+        await VPNService.stop();
+        await copyProfileToPortableDirectory(
+          sourceProfileDir: await PathUtils.profileDir(),
+          portableDir: portableProfileDir,
+        );
       }
     } catch (err, stacktrace) {
-      if (!exist && created) {
-        await dir!.delete();
-      }
       if (!context.mounted) {
         return;
       }
@@ -560,8 +524,107 @@ class GroupHelper {
       );
       return;
     }
+    // 只有 portable/ 已经完整落位才退出进程；复制失败时进程继续运行，
+    // 用户不会在下次启动时被一个半成品 portable 目录"接管"。
     await VPNService.uninit();
     await ServicesBinding.instance.exitApplication(AppExitType.required);
+  }
+
+  /// 把当前 profile 目录完整复制成 [portableDir]（便携模式）。
+  ///
+  /// 关键约束（修复「转换后配置丢失 / 下次启动被半成品接管」）：
+  /// 1. **先写 `<portableDir>.tmp`，全部成功后再 rename 成 `<portableDir>`**：
+  ///    同一卷内 rename 是原子的，`PathUtils.profileDir()` 下次启动只看
+  ///    `portable` 是否存在，绝不会把复制到一半的目录当成正式 profile 目录。
+  /// 2. **任何一步失败都递归删除暂存目录**：旧实现用非递归 `dir.delete()`，
+  ///    目标目录里一旦有文件就会抛异常，把半成品留在磁盘上；现在失败即清理。
+  /// 3. 目标 `portable` 已存在时直接报错，绝不覆盖用户已有的便携数据。
+  ///
+  /// 复制规则与旧实现保持一致：跳过顶层与一级子目录里的 `.log`，跳过
+  /// `cache` / `webviewCache` 子目录，符号链接一律不跟随。
+  @visibleForTesting
+  static Future<void> copyProfileToPortableDirectory({
+    required String sourceProfileDir,
+    required String portableDir,
+  }) async {
+    if (await Directory(portableDir).exists()) {
+      throw StateError("便携模式目录已存在，拒绝覆盖：$portableDir");
+    }
+
+    final tempDir = Directory("$portableDir.tmp");
+    try {
+      // 上一次进程被强杀可能留下暂存目录；它只可能是我们的半成品，清掉重来。
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+      await tempDir.create(recursive: true);
+      await _copyProfileContents(
+        source: Directory(sourceProfileDir),
+        destination: tempDir,
+      );
+      await tempDir.rename(portableDir);
+    } catch (err) {
+      try {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      } catch (cleanupErr, cleanupStacktrace) {
+        // 清理失败不能掩盖原始错误（原始错误才是用户需要看到的）。
+        Log.w("GroupHelper: 清理便携模式暂存目录失败 ${cleanupErr.toString()}");
+      }
+      rethrow;
+    }
+  }
+
+  /// 测试钩子：替换单文件复制实现。默认 [File.copy]；测试用它在写了一半时
+  /// 抛异常，验证失败路径会递归清掉 `portable.tmp`（不依赖平台权限差异）。
+  @visibleForTesting
+  static Future<void> Function(File source, String destination)?
+  debugPortableCopyFileOverride;
+
+  static Future<void> _copyProfileFile(File source, String destination) {
+    final override = debugPortableCopyFileOverride;
+    if (override != null) {
+      return override(source, destination);
+    }
+    return source.copy(destination);
+  }
+
+  /// 复制 profile 目录的第一层内容；子目录只再复制一层（与旧实现一致）。
+  static Future<void> _copyProfileContents({
+    required Directory source,
+    required Directory destination,
+  }) async {
+    final entries = await source.list(followLinks: false).toList();
+    for (final entry in entries) {
+      if (entry is File) {
+        final basename = path.basename(entry.path);
+        if (path.extension(basename) == ".log") {
+          continue;
+        }
+        await _copyProfileFile(entry, path.join(destination.path, basename));
+      } else if (entry is Directory) {
+        final basename = path.basename(entry.path);
+        if (basename == "cache" || basename == "webviewCache") {
+          continue;
+        }
+        final subDir = Directory(path.join(destination.path, basename));
+        await subDir.create(recursive: false);
+        final children = await entry.list(followLinks: false).toList();
+        for (final child in children) {
+          if (child is File) {
+            final childBasename = path.basename(child.path);
+            if (path.extension(childBasename) == ".log") {
+              continue;
+            }
+            await _copyProfileFile(
+              child,
+              path.join(subDir.path, childBasename),
+            );
+          }
+        }
+      }
+    }
   }
 
   static Future<void> onTapExport(BuildContext context) async {

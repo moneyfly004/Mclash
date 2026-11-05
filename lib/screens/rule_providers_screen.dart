@@ -1,5 +1,6 @@
 import 'package:mclash/app/modules/diversion_template_manager.dart';
 import 'package:mclash/i18n/strings.g.dart';
+import 'package:mclash/screens/dialog_utils.dart';
 import 'package:mclash/screens/theme_config.dart';
 import 'package:mclash/screens/theme_define.dart';
 import 'package:mclash/screens/widgets/framework.dart';
@@ -191,9 +192,18 @@ class _RuleProvidersScreenState
     setState(() {});
   }
 
-  void onTapDelete(String name) async {
-    DiversionTemplateManager.removeRuleProviderByName(name);
-    DiversionTemplateManager.save();
+  Future<void> onTapDelete(String name) async {
+    // 删除可能被**拒绝**：还有分流模板在用 RULE-SET,<name>，删掉会让内核
+    // 因为「引用了不存在的 provider」直接拒绝启动。拒绝时必须告诉用户是谁在用，
+    // 不能静默无反应（用户会以为点了没生效，反复点）。
+    final result = await DiversionTemplateManager.removeRuleProviderByName(name);
+    await DiversionTemplateManager.save();
+    if (!mounted) {
+      return;
+    }
+    if (!result.removed) {
+      await DialogUtils.showAlertDialog(context, result.errorMessage);
+    }
     setState(() {});
   }
 

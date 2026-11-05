@@ -34,6 +34,20 @@ import 'package:libclash_vpn_service/vpn_service_platform_interface.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
 
+/// 准备连接配置时可直接展示给用户的失败（目前用于内核补丁写入失败）。
+///
+/// `_prepareConfig` 的调用方（start / restart）统一 `catch (err)` 后返回
+/// `ReturnResultError(err.toString())`，所以这里只需要让 toString 是干净的
+/// 人话，而不是 "Bad state: ..." 之类。
+class _PrepareConfigFailure implements Exception {
+  _PrepareConfigFailure(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class VPNService {
   static const localhost = "127.0.0.1";
   static bool _runAsAdmin = false;
@@ -99,7 +113,12 @@ class VPNService {
     if (profile != null) {
       final prepareResult = await ProfileManager.prepare(profile);
       if (prepareResult == null) {
-        await _prepareConfig(profile);
+        try {
+          await _prepareConfig(profile);
+        } catch (err) {
+          // 初始化不是连接路径：不拦用户，只记日志（连接时还会重新准备）。
+          Log.w("VPNService.init: 准备配置失败（忽略）${err.toString()}");
+        }
       }
     }
 
@@ -221,7 +240,7 @@ class VPNService {
         patch.id == kProfilePatchBuildinOverwrite ||
         patch.appendPatchBuildin == kProfilePatchBuildinOverwrite;
     final swPatch = Stopwatch()..start();
-    await ClashSettingManager.saveCorePatchFinal(
+    final patchError = await ClashSettingManager.saveCorePatchFinal(
       profile.id,
       overwriteFinal,
       profile.overwriteRules
@@ -232,6 +251,13 @@ class VPNService {
       profile.overwriteProxyGroups ? profile.proxyGroups : null,
       null,
     );
+    if (patchError != null) {
+      // 以前这里忽略返回值：补丁没写成功时内核仍会拿上一次（可能属于另一个
+      // 配置档）的 service_core_patch_final.json 启动 —— 规则/代理组张冠李戴。
+      // 必须中止连接并把错误交给上层（start/restart 会转成 ReturnResultError）。
+      Log.w("VPNService: 生成内核补丁失败，已中止连接 ${patchError.message}");
+      throw _PrepareConfigFailure("生成内核补丁失败：${patchError.message}");
+    }
     Log.i("[perf] 连接：生成内核补丁用时 ${swPatch.elapsedMilliseconds} ms");
 
     var excludePorts = [controlPort];

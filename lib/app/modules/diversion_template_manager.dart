@@ -8,6 +8,7 @@ import 'package:mclash/app/clash/clash_config.dart' show ClashProtocolType;
 import 'package:mclash/app/utils/file_utils.dart';
 import 'package:mclash/app/utils/log.dart';
 import 'package:mclash/app/utils/path_utils.dart';
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:path/path.dart' as path;
 
 class RuleProviderHttp {
@@ -23,19 +24,61 @@ class RuleProviderHttp {
   String behavior;
   Duration? interval;
 
-  Map<String, dynamic> toJson() {
-    late String path_;
+  /// 规则集缓存路径（相对 mihomo 工作目录）。
+  ///
+  /// 为什么不能只用 URL 的 basename：mihomo 按我们下发的 `path` 缓存下载结果，
+  /// `https://a/cn/geoip.mrs` 与 `https://b/us/geoip.mrs` 的 basename 都是
+  /// `geoip.mrs`，会落到同一个缓存文件上 —— 后下载的覆盖先下载的，两个规则
+  /// 提供者在运行时共享同一份规则，分流结果完全错误。
+  ///
+  /// 因此把**完整 URL** 的 sha256 前 12 位（48 bit）拼进文件名：同一 URL 永远
+  /// 得到同一路径（跨进程/跨平台稳定，不像 `String.hashCode` 只在本进程内稳定），
+  /// 不同 URL 即使 basename 相同也不会互相覆盖。
+  static String cachePathForUrl(String url) {
+    return "./rules/${cacheFileNameForUrl(url)}";
+  }
+
+  /// 规则集缓存文件名：`<原文件名去扩展名>-<url 哈希前 12 位><扩展名>`。
+  ///
+  /// 没有可用文件名（空 URL、只有域名、路径只有分隔符等）时退回
+  /// `rule-set-<url 哈希>`，仍然是稳定且按 URL 唯一的，不会像旧实现那样用
+  /// 进程内的 `url.hashCode` 生成一个每次启动都可能变化的路径。
+  static String cacheFileNameForUrl(String url) {
+    final hash = sha256.convert(utf8.encode(url)).toString().substring(0, 12);
     final uri = Uri.tryParse(url);
-    if (uri != null && uri.path.isNotEmpty) {
-      path_ = "./rules/${path.basename(uri.path)}";
-    } else {
-      path_ = "./rules/${url.hashCode}";
+    final rawName = (uri != null && uri.path.isNotEmpty)
+        ? path.basename(uri.path)
+        : "";
+    final safeName = _sanitizeCacheFileName(rawName);
+    if (safeName.isEmpty) {
+      return "rule-set-$hash";
     }
+    final ext = path.extension(safeName);
+    final stem = path.basenameWithoutExtension(safeName);
+    final prefix = stem.isEmpty ? "rule-set" : stem;
+    return "$prefix-$hash$ext";
+  }
+
+  /// 只保留跨平台文件系统安全的字符，并拒绝 `.` / `..` / 纯分隔符这类
+  /// 不能当文件名用的 basename（`path.basename("/")` 会返回 `/`）。
+  static String _sanitizeCacheFileName(String rawName) {
+    var name = rawName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    if (!RegExp(r'[A-Za-z0-9]').hasMatch(name)) {
+      return "";
+    }
+    name = name.replaceFirst(RegExp(r'^\.+'), '');
+    if (name.isEmpty || name == "." || name == "..") {
+      return "";
+    }
+    return name;
+  }
+
+  Map<String, dynamic> toJson() {
     var ret = {
       'url': url,
       'format': format,
       'behavior': behavior,
-      'path': path_,
+      'path': cachePathForUrl(url),
       'interval': interval?.inSeconds,
     };
 
@@ -332,6 +375,45 @@ class DiversionTemplates {
   }
 }
 
+/// 删除规则提供者的结果。
+///
+/// 删除被规则模板引用时会被**拒绝**而不是硬删：模板里的
+/// `RULE-SET,<provider>,<target>` 会在生成配置时原样下发，而 `rule-providers`
+/// 段里已经没有这个 provider —— mihomo 会拒绝加载整份配置，用户看到的就是
+/// "连不上"。拒绝删除会把问题留在可见的配置层，而不是变成运行时的连接失败。
+class RuleProviderRemoveResult {
+  const RuleProviderRemoveResult._(
+    this.providerName,
+    this.removed,
+    this.referencingTemplates,
+  );
+
+  const RuleProviderRemoveResult.success(String providerName)
+      : this._(providerName, true, const []);
+
+  const RuleProviderRemoveResult.refused(
+    String providerName,
+    List<String> referencingTemplates,
+  ) : this._(providerName, false, referencingTemplates);
+
+  final String providerName;
+
+  /// 是否真的删除了。
+  final bool removed;
+
+  /// 删除被拒绝时，引用该 provider 的规则模板名（按模板顺序）。
+  final List<String> referencingTemplates;
+
+  /// 可直接展示给用户的错误说明；删除成功时为空字符串。
+  String get errorMessage => removed
+      ? ""
+      : "无法删除规则提供者 \"$providerName\"：仍有 "
+            "${referencingTemplates.length} 个规则模板引用它"
+            "（${referencingTemplates.join("、")}）。请先删除这些模板里的 "
+            "RULE-SET 规则，否则生成的配置会引用不存在的规则提供者，"
+            "mihomo 将拒绝加载。";
+}
+
 class DiversionTemplateManager {
   static final DiversionTemplates _diversionTemplates = DiversionTemplates();
 
@@ -379,7 +461,26 @@ class DiversionTemplateManager {
     }
   }
 
-  static void removeRuleProviderByName(String name) async {
+  /// 删除规则提供者。
+  ///
+  /// **被规则模板引用时拒绝删除**并返回 [RuleProviderRemoveResult.refused]：
+  /// 删除没有"新名字"可以改写，硬删只会留下悬空的 `RULE-SET,<name>`，让
+  /// mihomo 拒绝整份配置。拒绝是这里更安全的选择 —— 用户先改模板里的
+  /// RULE-SET，再回来删。调用方应当把 [RuleProviderRemoveResult.errorMessage]
+  /// 展示给用户，否则用户会以为点击删除没有反应。
+  static Future<RuleProviderRemoveResult> removeRuleProviderByName(
+    String name,
+  ) async {
+    final referencingTemplates = getRuleTemplateNamesUsingProvider(name);
+    if (referencingTemplates.isNotEmpty) {
+      final result = RuleProviderRemoveResult.refused(
+        name,
+        referencingTemplates,
+      );
+      Log.w("DiversionTemplateManager: ${result.errorMessage}");
+      return result;
+    }
+
     for (int i = 0; i < _diversionTemplates.ruleProviders.length; ++i) {
       if (name == _diversionTemplates.ruleProviders[i].name) {
         _diversionTemplates.ruleProviders.removeAt(i);
@@ -392,6 +493,7 @@ class DiversionTemplateManager {
     }
 
     await save();
+    return RuleProviderRemoveResult.success(name);
   }
 
   static void removeRuleTemplateByName(String name) async {
@@ -481,6 +583,51 @@ class DiversionTemplateManager {
         .toSet();
   }
 
+  /// 返回引用了 [providerName] 的规则模板名（按模板顺序）。
+  ///
+  /// 规则模板只保存 `RULE-SET,<provider>`（可带 `,NO-RESOLVE`），目标代理组是
+  /// 生成配置时才拼上的，所以这里只匹配前两段。
+  static List<String> getRuleTemplateNamesUsingProvider(String providerName) {
+    final names = <String>[];
+    for (final template in _diversionTemplates.ruleTemplates) {
+      if (template.rules.any(
+        (rule) => _ruleReferencesProvider(rule, providerName),
+      )) {
+        names.add(template.name);
+      }
+    }
+    return names;
+  }
+
+  static bool _ruleReferencesProvider(String rule, String providerName) {
+    final parts = RuleTemplate.parseRule(rule);
+    return parts.length >= 2 &&
+        parts[0] == "RULE-SET" &&
+        parts[1] == providerName;
+  }
+
+  /// 把所有模板里的 `RULE-SET,<oldName>` 改写成 `RULE-SET,<newName>`，
+  /// 返回被改写的规则条数。
+  static int _rewriteRuleProviderReferences(
+    String oldName,
+    String newName,
+  ) {
+    var rewritten = 0;
+    for (final template in _diversionTemplates.ruleTemplates) {
+      for (var i = 0; i < template.rules.length; ++i) {
+        final parts = RuleTemplate.parseRule(template.rules[i]);
+        if (parts.length >= 2 &&
+            parts[0] == "RULE-SET" &&
+            parts[1] == oldName) {
+          parts[1] = newName;
+          template.rules[i] = parts.join(",");
+          ++rewritten;
+        }
+      }
+    }
+    return rewritten;
+  }
+
   static void addRuleProvider(RuleProvider provider) {
     _diversionTemplates.ruleProviders.add(provider);
   }
@@ -493,12 +640,29 @@ class DiversionTemplateManager {
     _diversionTemplates.proxyGroupTemplates.add(template);
   }
 
+  /// 更新规则提供者（`name` 是旧名字，`provider.name` 是新名字）。
+  ///
+  /// 名字变化时**同步改写**所有规则模板里的 `RULE-SET,<oldName>` 为
+  /// `RULE-SET,<newName>`。重命名保留引用是安全的：用户的意图仍是"这个规则
+  /// 集"，只是换了名字；不改写的话模板会继续引用旧名字，而 `rule-providers`
+  /// 段里只剩新名字，生成的配置就会带一条悬空的 RULE-SET（mihomo 直接拒绝
+  /// 加载）。删除没有"新名字"可写，所以选择拒绝，见
+  /// [removeRuleProviderByName]。
   static void updateRuleProvider(String name, RuleProvider provider) {
+    var found = false;
     for (int i = 0; i < _diversionTemplates.ruleProviders.length; ++i) {
       if (name == _diversionTemplates.ruleProviders[i].name) {
         _diversionTemplates.ruleProviders[i] = provider;
+        found = true;
         break;
       }
+    }
+    if (found && name != provider.name) {
+      final rewritten = _rewriteRuleProviderReferences(name, provider.name);
+      Log.i(
+        "DiversionTemplateManager: 规则提供者 \"$name\" 重命名为 "
+        "\"${provider.name}\"，已同步改写 $rewritten 条 RULE-SET 规则",
+      );
     }
   }
 

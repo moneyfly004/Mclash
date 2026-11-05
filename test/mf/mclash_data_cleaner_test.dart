@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/mf/mclash_data_cleaner.dart';
 import 'package:path/path.dart' as path;
 
@@ -103,5 +104,54 @@ void main() {
 
     MclashDataCleaner.debugDataDirOverride = null;
     await parent.delete(recursive: true);
+  });
+
+  group('清除登录会话', () {
+    late Map<String, String> disk;
+
+    setUp(() {
+      disk = {};
+      CBoardSessionStore.debugResetCache();
+      CBoardSessionStore.rememberOverride = () => true;
+      CBoardSessionStore.debugWriteOverride = (key, value) async {
+        disk[key] = value;
+      };
+      CBoardSessionStore.debugReadOverride = (key) async => disk[key];
+    });
+
+    tearDown(() {
+      CBoardSessionStore.debugResetCache();
+      CBoardSessionStore.rememberOverride = null;
+      CBoardSessionStore.debugWriteOverride = null;
+      CBoardSessionStore.debugReadOverride = null;
+    });
+
+    test('clearAll 清掉会话后，CBoardSessionStore.load() 为 null', () async {
+      await CBoardSessionStore.save(
+        CBoardSession(
+          accessToken: 'access-A',
+          refreshToken: 'refresh-A',
+          user: const {'email': 'a@example.com'},
+        ),
+      );
+      expect(await CBoardSessionStore.load(), isNotNull);
+      expect(
+        disk.values.any((v) => v.contains('access-A')),
+        isTrue,
+        reason: '前置条件：会话确实写进了“平台存储”',
+      );
+
+      await MclashDataCleaner.clearAll();
+
+      expect(CBoardSessionStore.cached, isNull);
+      expect(await CBoardSessionStore.load(), isNull);
+      expect(
+        disk.values.any((v) => v.contains('access-A')),
+        isFalse,
+        reason:
+            '清本地文件不够：会话键（移动端在 Keystore/Keychain）也必须删掉，'
+            '否则下次读取会被迁移回来',
+      );
+    });
   });
 }

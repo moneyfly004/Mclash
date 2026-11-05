@@ -16,6 +16,7 @@ import 'package:mclash/app/utils/platform_utils.dart';
 import 'package:mclash/i18n/strings.g.dart';
 import 'package:mclash/mf/mclash_account_info.dart';
 import 'package:mclash/app/local_services/vpn_service.dart';
+import 'package:mclash/mf/cboard_client.dart';
 import 'package:mclash/mf/mclash_account_service.dart';
 import 'package:mclash/mf/mclash_data_cleaner.dart';
 import 'package:mclash/mf/mclash_heartbeat_service.dart';
@@ -606,6 +607,18 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       await VPNService.setLaunchAtStartup(false);
     } catch (e) {
       Log.w("清除数据前关闭开机自启失败（忽略）$e");
+    }
+    // 删目录前先作废会话并停掉定时任务：
+    //  · 移动端会话不在 profileDir 下（Keystore/Keychain），由 clearAll 单独删；
+    //  · 还在路上的 token 刷新/心跳/账号刷新若在清理后才完成，会把刚清掉的
+    //    会话或账号缓存又写回磁盘（用户看到「清完还是登录状态」）。
+    MclashSubscriptionService.cancelInflight();
+    MclashHeartbeatService.instance.stop();
+    MclashAccountService.instance.stop();
+    try {
+      await CBoardSessionStore.clear();
+    } catch (e) {
+      Log.w("清除数据前作废登录会话失败（忽略）$e");
     }
     try {
       final removed = await MclashDataCleaner.clearAll();

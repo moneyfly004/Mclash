@@ -386,6 +386,10 @@ class FileSaver {
     _savePath = path;
   }
 
+  /// 落盘用的临时文件：必须与目标同目录，否则 rename 可能跨卷
+  /// （Windows 上直接抛 FileSystemException）。
+  String _tempPath() => "$_savePath.tmp";
+
   Future<void> saveAsJson(Object object, {bool report = true}) async {
     if (_savePath.isEmpty) {
       return;
@@ -396,15 +400,39 @@ class FileSaver {
     }
     bool hasErr = false;
     _saving = true;
+    String? tempPath;
     try {
       const JsonEncoder encoder = JsonEncoder.withIndent('  ');
       String content = encoder.convert(object);
-      await File(_savePath).writeAsString(content, flush: true);
+      // 不能直接 writeAsString(目标)：它先把线上文件截断再写，写到一半崩溃 /
+      // 被杀软拦截就只剩半截 JSON —— 下次启动解析失败，用户的设置全丢。
+      // 这里先写同目录临时文件（flush 落盘），再整体替换；替换失败时目标文件
+      // 保持原样（语义见 FileUtils.replaceFile）。
+      tempPath = _tempPath();
+      await File(tempPath).writeAsString(content, flush: true);
+      await FileUtils.replaceFile(_savePath, tempPath);
+      // 已被 rename 成目标文件，不需要再清理。
+      tempPath = null;
     } catch (err, stacktrace) {
       hasErr = true;
       Log.w("FileSaver.saveJson exception $_savePath ${err.toString()} ");
+    } finally {
+      // 清理必须发生在 _saving 复位之前：否则并发调用的下一次保存可能已经
+      // 开始写同一个 .tmp，这里再删就会把新内容删掉。
+      if (tempPath != null) {
+        try {
+          if (await File(tempPath).exists()) {
+            await File(tempPath).delete();
+          }
+        } catch (cleanupErr) {
+          Log.w(
+            "FileSaver.saveJson: 清理临时文件 $tempPath 失败 "
+            "${cleanupErr.toString()}（可忽略）",
+          );
+        }
+      }
+      _saving = false;
     }
-    _saving = false;
     if (_dirtyObject != null) {
       Future.delayed(const Duration(milliseconds: 50), () async {
         final Object dirtyObject = _dirtyObject!;

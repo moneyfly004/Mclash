@@ -181,6 +181,12 @@ class ProfilePatchManager {
   static final List<void Function(String)> onEventRemove = [];
   static final List<void Function(String, bool)> onEventUpdate = [];
   static final Set<String> updating = {};
+
+  /// 测试注入点：在「已经拿到更新锁之后」故意抛异常，用来验证 finally 一定
+  /// 会释放 [updating]（否则 id 永久卡住，界面一直转圈、再点也没反应）。
+  @visibleForTesting
+  static Future<void> Function()? debugUpdateHook;
+
   static Timer? _timerChecker;
   static final FileSaver _fileSaver = FileSaver();
 
@@ -474,43 +480,50 @@ class ProfilePatchManager {
       return null;
     }
     updating.add(id);
-    Future.delayed(const Duration(milliseconds: 10), () async {
-      for (var event in onEventUpdate) {
-        event(id, false);
-      }
-    });
+    // 只有真正拿到 id 的这次调用会走到 finally：锁必须持有到所有 await 结束，
+    // 包括临时文件清理与 onEventUpdate 回调的排期。否则一次异常就会让 id
+    // 永久留在 updating 里（界面一直转圈，再点 update 直接返回 null）。
+    try {
+      Future.delayed(const Duration(milliseconds: 10), () async {
+        for (var event in onEventUpdate) {
+          event(id, false);
+        }
+      });
 
-    final userAgent = SettingManager.getConfig().userAgent();
-    final savePath = path.join(await PathUtils.profilePatchsDir(), id);
-    final savePathTmp = "$savePath.tmp";
-    List<int?> ports = await VPNService.getPortsByPrefer(true);
-    late ReturnResult<HttpHeaders> result;
-    for (var port in ports) {
-      result = await DownloadUtils.downloadWithPort(
-        uri,
-        savePathTmp,
-        userAgent,
-        false,
-        port,
-        timeout: const Duration(seconds: 30),
-      );
-      if (result.error == null) {
-        break;
+      await debugUpdateHook?.call();
+
+      final userAgent = SettingManager.getConfig().userAgent();
+      final savePath = path.join(await PathUtils.profilePatchsDir(), id);
+      final savePathTmp = "$savePath.tmp";
+      List<int?> ports = await VPNService.getPortsByPrefer(true);
+      late ReturnResult<HttpHeaders> result;
+      for (var port in ports) {
+        result = await DownloadUtils.downloadWithPort(
+          uri,
+          savePathTmp,
+          userAgent,
+          false,
+          port,
+          timeout: const Duration(seconds: 30),
+        );
+        if (result.error == null) {
+          break;
+        }
       }
-    }
-    profile.update = DateTime.now();
-    if (result.error == null) {
+      if (result.error != null) {
+        // 下载失败不能推进 update：否则 ticker 会以为「刚更新成功」而一直跳过
+        // 重试；失败时间要留给 updateFailed 做退避。旧实现无论成败都设 update，
+        // 导致失败的补丁永远不重试，且 updateFailed 永远是 null。
+        profile.updateFailed = DateTime.now();
+        return result.error;
+      }
+      profile.update = DateTime.now();
+      profile.updateFailed = null;
+
       if (profile.type == ProfilePatchFileType.yaml) {
         final err = await validFileContentFormat(savePathTmp);
         if (err != null) {
-          updating.remove(id);
           await FileUtils.deletePath(savePathTmp);
-
-          Future.delayed(const Duration(milliseconds: 10), () async {
-            for (var event in onEventUpdate) {
-              event(id, true);
-            }
-          });
           return err;
         }
       }
@@ -527,14 +540,7 @@ class ProfilePatchManager {
         }
       }
       if (renameError.isNotEmpty) {
-        updating.remove(id);
         await FileUtils.deletePath(savePathTmp);
-
-        Future.delayed(const Duration(milliseconds: 10), () async {
-          for (var event in onEventUpdate) {
-            event(id, true);
-          }
-        });
         return ReturnResultError(
           "Rename file from [$savePathTmp] to [$savePath] failed: $renameError",
         );
@@ -550,15 +556,16 @@ class ProfilePatchManager {
           profile.remark = result.data!;
         }
       }
+      await save();
+      return null;
+    } finally {
+      updating.remove(id);
+      Future.delayed(const Duration(milliseconds: 10), () async {
+        for (var event in onEventUpdate) {
+          event(id, true);
+        }
+      });
     }
-    await save();
-    updating.remove(id);
-    Future.delayed(const Duration(milliseconds: 10), () async {
-      for (var event in onEventUpdate) {
-        event(id, true);
-      }
-    });
-    return result.error;
   }
 
   static Future<void> updateByTicker() async {
@@ -723,6 +730,10 @@ class ProfilePatchManager {
       return newCorePath;
     } catch (e) {
       throw 'evaluate ${patch.remark} exception: ${e.toString()}';
+    } finally {
+      // JavascriptRuntime 持有原生 JS 引擎：每次求值新建、用完必须释放，
+      // 否则每次重连/应用补丁都会泄漏一个引擎（内存与句柄持续增长）。
+      flutterJs.dispose();
     }
   }
 
