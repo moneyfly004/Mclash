@@ -280,8 +280,14 @@ stdout/stderr 属于外壳进程，App 抓不到 → 日志为空 → 判定失�
 修复：提权启动且日志不可用时，用 WMI 查网卡作为第二条证据
 （`wscript` + 标记文件，无控制台，异常 fail-closed）。
 
-> **结论**：Windows 端「非管理员 + 计划任务提权 + TUN 网卡 Up + 零 UAC」这条
-> 主链路已在虚拟机跑通；3.1 的权限边界问题依旧存在（脚本仍由用户可写）。
+> **结论（加固后再次实测）**：直接触发安装好的计划任务
+> （`schtasks /run /tn "Mclash Kernel"`）→ `mihomo pid=5716 elevated=1`、
+> `Get-NetAdapter -> Mclash / Meta Tunnel / Up`，说明「脚本移到 Program Files +
+> 零触发器」没有破坏启动链路。
+>
+> 仍未闭环的一条：**在 App 里点 TUN 触发连接**这条 UI 路径本轮没跑通
+> （自动连接开关打开后新实例未在观察窗口内建立连接）。机制层已验证，
+> 端到端 UI 触发仍标记为未验证。
 
 VM 实测（本轮构建的 0.0.5 安装包）：
 
