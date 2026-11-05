@@ -1001,6 +1001,53 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
     }
   }
 
+  /// 提权内核的日志不可见时，用 WMI 查网卡作为第二条独立证据。
+  ///
+  /// 用 `wscript.exe`（GUI 子系统）执行，不产生控制台窗口；结果写标记文件读回。
+  /// 任何异常都返回 false（fail-closed，退回原兜底行为）。
+  Future<bool> _tunAdapterProbe() async {
+    if (!Platform.isWindows) {
+      return false;
+    }
+    final dir = Directory.systemTemp;
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final vbsPath = p.join(dir.path, "mclash_tun_probe_$stamp.vbs");
+    final markerPath = p.join(dir.path, "mclash_tun_probe_$stamp.txt");
+    try {
+      // Windows 上的网卡名就是配置里的 tun.device（本产品是 `Mclash`，
+      // 描述是 `Meta Tunnel`）。没有该字段时退回产品默认值。
+      const hint = "mclash";
+      await File(vbsPath).writeAsString(
+        buildTunAdapterProbeVbs(
+          deviceHint: hint,
+          markerFileName: p.basename(markerPath),
+        ),
+        flush: true,
+      );
+      final proc = await Process.start("wscript.exe", [
+        vbsPath,
+      ], environment: {"PATH": Platform.environment["PATH"] ?? ""});
+      await proc.exitCode.timeout(const Duration(seconds: 10));
+      final marker = File(markerPath);
+      if (!await marker.exists()) {
+        return false;
+      }
+      return parseTunAdapterProbeMarker(await marker.readAsString());
+    } catch (e) {
+      desktopLog("[mclash] TUN 网卡探测失败（按未接管处理）: $e");
+      return false;
+    } finally {
+      for (final f in [vbsPath, markerPath]) {
+        try {
+          final file = File(f);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
   Future<void> _applyDataPathFallback(File logFile) async {
     _systemProxyFallbackActive = false;
     var tail = await _tail(logFile, 200);
@@ -1013,6 +1060,20 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
       tail = await _tail(logFile, 200);
       kind = classifyTunFailure(tail);
       established = tunLooksEstablished(tail);
+    }
+
+    // 提权启动（计划任务 / UAC）的内核日志抓不到，`tunLooksEstablished` 必然
+    // 为 false。此时用「网卡真的建起来了吗」作为独立证据，避免把**正常工作**的
+    // TUN 误判成失败并额外设上系统代理（真机实测：Mclash Meta Tunnel 明明 Up，
+    // App 却回退系统代理）。
+    if (tunWanted &&
+        !established &&
+        kind == TunStartFailureKind.none &&
+        (_kernelViaTask || _uacKernelPid != null)) {
+      if (await _tunAdapterProbe()) {
+        established = true;
+        desktopLog("[mclash] 提权内核日志不可见，但网卡已就绪 → 判定 TUN 接管成功");
+      }
     }
 
     tunFailureKind = kind;

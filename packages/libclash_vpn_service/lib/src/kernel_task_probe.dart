@@ -142,3 +142,44 @@ class KernelTaskReadinessCache {
 
 /// VBScript 字符串内的双引号转义。
 String _escapeVbs(String v) => v.replaceAll('"', '""');
+
+/// 生成「TUN 网卡是否真的建起来了」的探测脚本。
+///
+/// 为什么需要它：内核以**提权**方式启动时（计划任务 / UAC），它的 stdout/stderr
+/// 属于外壳进程，App 抓不到 —— 内核日志是空的。可是兜底逻辑
+/// `_applyDataPathFallback` 正是靠"日志里有没有 TUN 就绪标记"来判断 TUN 是否接管，
+/// 于是一个**工作正常**的提权 TUN 会被误判失败，进而把系统代理也设上（双重代理）。
+/// 这里改用 WMI 直接查网卡，作为日志不可用时的第二条独立证据。
+///
+/// 匹配规则：网卡 Name 或 Description 包含 [deviceHint]（配置里的 `tun.device`，
+/// 例如 `Mclash`；Windows 上实际名字是 `Mclash Meta Tunnel`）。命中写 `1`，
+/// 否则写 `0`，任何异常都写 `0`（fail-closed：宁可走兜底，也不要谎报成功）。
+String buildTunAdapterProbeVbs({
+  required String deviceHint,
+  required String markerFileName,
+}) {
+  return 'On Error Resume Next\r\n'
+      'rc = 0\r\n'
+      'hint = LCase("${_escapeVbs(deviceHint)}")\r\n'
+      'Set svc = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
+      'Set list = svc.ExecQuery("SELECT Name, Description FROM Win32_NetworkAdapter '
+      'WHERE NetEnabled = True")\r\n'
+      'For Each a In list\r\n'
+      '  nm = LCase("" & a.Name)\r\n'
+      '  ds = LCase("" & a.Description)\r\n'
+      '  If hint = "" Then\r\n'
+      '    If InStr(ds, "wintun") > 0 Or InStr(nm, "tunnel") > 0 Then rc = 1\r\n'
+      '  Else\r\n'
+      '    If InStr(nm, hint) > 0 Or InStr(ds, hint) > 0 Then rc = 1\r\n'
+      '  End If\r\n'
+      'Next\r\n'
+      'If Err.Number <> 0 Then rc = 0\r\n'
+      'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
+      'marker = fso.BuildPath(fso.GetParentFolderName(WScript.ScriptFullName), '
+      '"${_escapeVbs(markerFileName)}")\r\n'
+      'fso.OpenTextFile(marker, 2, True).Write CStr(rc)\r\n';
+}
+
+/// 解析 TUN 网卡探测标记：`1` = 网卡在；`0`/非法/缺失 = 不在（宁可走兜底）。
+bool parseTunAdapterProbeMarker(String? content) =>
+    content?.trim() == "1";
