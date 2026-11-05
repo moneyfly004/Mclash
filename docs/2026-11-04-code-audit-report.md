@@ -156,7 +156,7 @@
 | 项目 | 结果 |
 |---|---|
 | `flutter analyze --no-pub` | No issues found |
-| `flutter test --no-pub` | **769 / 769 通过**（基线 696，新增 73） |
+| `flutter test --no-pub` | **771 / 771 通过**（基线 696，新增 75） |
 | Android 插件宿主 JVM 回归 | PASS |
 | `git diff --check` | 通过 |
 | `flutter build macos --debug` | 构建成功，启动/退出冒烟正常 |
@@ -167,7 +167,8 @@
 | 计划任务探测（VM） | 任务缺失→marker=1；临时建任务→marker=0 |
 | 新版 App 真机探针 | 日志 `计划任务不可用（查询=不存在，启动脚本=存在）→ 回退 UAC` |
 | 新版安装包 VBS | 引号正确，cscript 可解析 |
-| 新版安装包建任务 | ❌ 仍 E_FAIL（见 3.8） |
+| 新版安装包建任务 | ✅ EXISTS（.cmd + 日志方案）|
+| Windows TUN 主链路 | ✅ 非管理员启动 → 计划任务提权 → `Mclash/Meta Tunnel Up` → 零 UAC |
 | macOS release 构建 + 安装运行 | 成功（546 节点、订阅刷新、无崩溃）|
 | Android release APK + 模拟器 | 安装成功；登录/注册/找回密码/校验交互全部正常，logcat 无异常 |
 
@@ -226,7 +227,45 @@ TUN 继续接管流量。
 **注意**：1.8 修复的是"脚本语法错误"，不改变 3.1 的权限边界结论 ——
 脚本仍然是用户可写的，只是现在它能跑起来了。
 
-### 3.8 安装包创建计划任务仍然失败（真机复现）— 待修
+### 3.8 安装包创建计划任务失败（真机复现）— **已修复并验证**
+
+VM 实测（旧构建）：
+
+```
+安装日志：创建 Mclash Kernel 计划任务失败，返回码=-2147467259 (E_FAIL)
+装完检查：Mclash Kernel -> MISSING
+```
+
+对照实验：同一条 `schtasks /Create ...` 从 cmd（SysWOW64 与 System32 都试过）
+执行**均成功** → 问题在 Inno `Exec` 直接传参这一层。
+
+修复：改为「写 `create_kernel_task.cmd` → `Exec('{cmd}', '/c ...')` 执行 →
+把 schtasks 输出重定向到日志并读回」。修复后同一台 VM：
+
+```
+安装日志：已创建 Mclash Kernel 计划任务（wscript 隐藏窗口，安装时提权一次）
+          schtasks 输出：成功: 成功创建计划任务 "Mclash Kernel"。
+任务检查：EXISTS  wscript.exe | C:\Users\apple\AppData\Roaming\mclash\mclash\kernel_host.vbs
+```
+
+### 3.9 提权内核日志不可见 → TUN 误判并回退系统代理 — **已修复**
+
+VM 实测（非管理员启动 + 计划任务提权）：
+
+```
+mihomo 由计划任务以最高权限启动（无 UAC）
+Get-NetAdapter -> Name=Mclash  Description=Meta Tunnel  Status=Up    ← TUN 实际正常
+App 日志        -> TUN 未能接管数据通路（unknown）→ 改为兜底系统代理   ← 误判
+```
+
+根因：`_applyDataPathFallback` 只看内核日志里有没有 TUN 就绪标记；提权内核的
+stdout/stderr 属于外壳进程，App 抓不到 → 日志为空 → 判定失败 → 额外设系统代理。
+
+修复：提权启动且日志不可用时，用 WMI 查网卡作为第二条证据
+（`wscript` + 标记文件，无控制台，异常 fail-closed）。
+
+> **结论**：Windows 端「非管理员 + 计划任务提权 + TUN 网卡 Up + 零 UAC」这条
+> 主链路已在虚拟机跑通；3.1 的权限边界问题依旧存在（脚本仍由用户可写）。
 
 VM 实测（本轮构建的 0.0.5 安装包）：
 
