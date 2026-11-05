@@ -227,25 +227,26 @@ class DesktopVpnServiceImpl extends VpnServicePlatform {
   static final KernelTaskReadinessCache _kernelTaskReadiness =
       KernelTaskReadinessCache();
 
-  /// 任务动作引用的脚本路径。APPDATA 取不到时返回 null（无法确认 → 不就绪）。
-  static String? _kernelHostVbsPath() {
-    final appData = Platform.environment["APPDATA"] ?? "";
-    if (appData.isEmpty) {
-      return null;
-    }
-    return p.join(appData, "mclash", "mclash", kKernelHostVbsName);
-  }
-
   static bool _kernelHostScriptExists() {
-    final scriptPath = _kernelHostVbsPath();
-    if (scriptPath == null) {
-      return false;
-    }
+    final candidates = <String>[];
     try {
-      return File(scriptPath).existsSync();
-    } catch (_) {
-      return false;
+      candidates.add(p.join(
+        File(Platform.resolvedExecutable).parent.path,
+        kKernelHostVbsName,
+      ));
+    } catch (_) {}
+    final appData = Platform.environment["APPDATA"] ?? "";
+    if (appData.isNotEmpty) {
+      candidates.add(p.join(appData, "mclash", "mclash", kKernelHostVbsName));
     }
+    for (final path in candidates) {
+      try {
+        if (File(path).existsSync()) {
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
   }
 
   /// 「Mclash Kernel」计划任务是否**真的就绪**（查询任务本身，不是只看脚本文件）。

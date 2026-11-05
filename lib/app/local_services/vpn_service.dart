@@ -1077,22 +1077,39 @@ class VPNService {
       //     → 用户能看到「一闪而逝」的黑框；
       //   - wscript.exe 是 GUI 程序，根本不创建控制台 → 完全没有窗口。
       // VBS 里用 Shell.Run(..., 0, True)：0 = 隐藏窗口，True = 等待内核退出。
-      final vbsPath = "$dataDir\\kernel_host.vbs";
+      //
+      // 安全：脚本放进**安装目录**（Program Files，只有管理员可写），不再放
+      // %APPDATA%。最高权限任务执行的是普通用户随时可替换的脚本，属于本地提权
+      // 边界问题。App 自己写不了 Program Files，所以下面用一次性的提权进程去写。
+      final vbsPath = "$exeDir\\kernel_host.vbs";
       // VBS 里整条命令行必须是 **一个字符串**，内部引号成对转义：
       //   sh.Run (3 quotes)C:\p\mihomo.exe(2 quotes) -d (2 quotes)C:\d(2 quotes) ... , 0, True
       // 少转义会让字符串提前结束 -> cscript 语法错误（Windows VM 实测 exit=1）。
       final vbs = buildKernelHostVbs(kernelPath: kernel, dataDir: dataDir);
+      // 落到用户可写目录的**临时**文件，真正的副本由下面的提权进程写进安装目录。
+      final tmpVbs = "$dataDir\\kernel_host.tmp.vbs";
       try {
-        await File(vbsPath).writeAsString(vbs, flush: true);
+        await File(tmpVbs).writeAsString(vbs, flush: true);
       } catch (err) {
         return ReturnResultError("写入内核启动脚本失败：$err");
       }
-      final tr = 'wscript.exe "$vbsPath"';
       final user = Platform.environment["USERNAME"] ?? "";
+      // 一次性提权进程做两件事：把脚本复制进安装目录 + 注册**无触发器**任务。
+      // 用 Register-ScheduledTask：schtasks 的 /create 必须带 /SC，会凭空塞一个
+      // 真实时间触发器（此前 23:59），与「只有用户点 TUN 才启动」不符。
+      final installScript = [
+        '\$ErrorActionPreference = "Stop"',
+        'Copy-Item -LiteralPath ${q(tmpVbs)} -Destination ${q(vbsPath)} -Force',
+        '\$a = New-ScheduledTaskAction -Execute "wscript.exe" -Argument '
+            '(${q('"')} + ${q(vbsPath)} + ${q('"')})',
+        '\$p = New-ScheduledTaskPrincipal -UserId ${q(user)} '
+            '-LogonType Interactive -RunLevel Highest',
+        'Register-ScheduledTask -TaskName ${q(kKernelTaskName)} '
+            '-Action \$a -Principal \$p -Force | Out-Null',
+      ].join("; ");
       final ps =
-          "Start-Process -FilePath 'schtasks' -ArgumentList "
-          "@('/Create','/TN','$kKernelTaskName','/TR',${q(tr)},"
-          "'/SC','ONCE','/ST','23:59','/RU',${q(user)},'/IT','/RL','HIGHEST','/F') "
+          "Start-Process -FilePath 'powershell' -ArgumentList "
+          "@('-NoProfile','-ExecutionPolicy','Bypass','-Command',${q(installScript)}) "
           "-Verb RunAs -Wait -WindowStyle Hidden";
       final r = await Process.run("powershell", [
         "-NoProfile",

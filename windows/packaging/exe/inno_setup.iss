@@ -253,6 +253,8 @@ var
   DataDir: String;
   VbsPath: String;
   Vbs: String;
+  Ps1Path: String;
+  Ps1: String;
   CmdPath: String;
   CmdBody: String;
   LogPath: String;
@@ -266,7 +268,11 @@ begin
   ResultCode := -1;
   AppDir := ExpandConstant('{app}');
   DataDir := ExpandConstant('{userappdata}') + '\mclash\mclash';
-  VbsPath := DataDir + '\kernel_host.vbs';
+  { 安全加固：启动脚本放进**安装目录**（Program Files，只有管理员可写），
+    不再放 %APPDATA%。此前最高权限任务执行的是普通用户随时可替换的脚本，
+    属于本地提权边界问题。移动后普通用户改不了任务实际执行的代码。 }
+  VbsPath := AppDir + '\kernel_host.vbs';
+  Ps1Path := AppDir + '\create_kernel_task.ps1';
   CmdPath := DataDir + '\create_kernel_task.cmd';
   LogPath := DataDir + '\create_kernel_task.log';
   TaskName := 'Mclash Kernel';
@@ -287,14 +293,26 @@ begin
     Log('写入 kernel_host.vbs 失败：' + VbsPath);
   end;
 
-  { 直接用 Inno 的 Exec 调 schtasks 在本项目上实测返回 E_FAIL（-2147467259），
-    而同一条命令从 cmd 执行是成功的 —— 说明卡在 Exec 的参数/启动层。
-    这里改成「写一个 .cmd → 执行它 → 把输出重定向到日志再读回」，
-    既能绕开 Exec 直接传参的问题，也能在失败时留下真实原因。 }
+  { 用 PowerShell 的 Register-ScheduledTask 建任务：可以创建**没有任何触发器**的
+    任务（只能被显式 /run 触发）。schtasks 的 /create 必须带 /SC，等于凭空塞一个
+    真实时间触发器（此前是 23:59），与"只有用户点 TUN 才启动"的语义不符。 }
+  Ps1 := '$ErrorActionPreference = "Stop"' + NL +
+         '$vbs = ' + Q + VbsPath + Q + NL +
+         '$a = New-ScheduledTaskAction -Execute "wscript.exe" -Argument (' +
+         Q + Q + Q + ' + $vbs + ' + Q + Q + Q + ')' + NL +
+         '$p = New-ScheduledTaskPrincipal -UserId ' + Q + ExpandConstant('{username}') +
+         Q + ' -LogonType Interactive -RunLevel Highest' + NL +
+         'Register-ScheduledTask -TaskName ' + Q + TaskName + Q +
+         ' -Action $a -Principal $p -Force | Out-Null' + NL;
+  if not SaveStringToFile(Ps1Path, Ps1, False) then
+  begin
+    Log('写入 create_kernel_task.ps1 失败：' + Ps1Path);
+  end;
+
+  { Inno 直接 Exec schtasks 在本项目上实测返回 E_FAIL，改由 .cmd 执行并留日志。 }
   CmdBody := '@echo off' + NL +
-             'schtasks /Create /TN "' + TaskName + '" /TR "wscript.exe "' + VbsPath + '""' +
-             ' /SC ONCE /ST 23:59 /RU "' + ExpandConstant('{username}') + '"' +
-             ' /IT /RL HIGHEST /F > "' + LogPath + '" 2>&1' + NL +
+             'powershell -NoProfile -ExecutionPolicy Bypass -File "' + Ps1Path +
+             '" >> "' + LogPath + '" 2>&1' + NL +
              'exit /b %ERRORLEVEL%' + NL;
   if not SaveStringToFile(CmdPath, CmdBody, False) then
   begin
@@ -312,15 +330,14 @@ begin
   end
   else
   begin
-    Log('已创建 ' + TaskName + ' 计划任务（wscript 隐藏窗口，安装时提权一次）');
+    Log('已创建 ' + TaskName + ' 计划任务（无触发器、wscript 隐藏窗口）');
   end;
 
-  { 不管成败都把 schtasks 的真实输出记进安装日志，便于定位。 }
   if FileExists(LogPath) then
   begin
     if LoadStringFromFile(LogPath, LogText) then
     begin
-      Log('schtasks 输出：' + LogText);
+      Log('建任务输出：' + LogText);
     end;
   end;
 end;
