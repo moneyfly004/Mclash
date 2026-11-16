@@ -434,7 +434,10 @@ void main() {
     });
 
     http.respond['new.moneyfly.top'] = (401, '');
+    // 先把会话读进内存（debugUse 之后 restore() 不会真的读盘，因为 _restored 已置位）
+    await CBoardSessionStore.load();
     MclashApi.debugUse(client());
+    expect(MclashApi.isLoggedIn, isTrue, reason: '前提：已登录才能请求 dashboard');
 
     Object? dashError;
     try {
