@@ -42,8 +42,10 @@ permissions:
 env:
   FLUTTER_VERSION: '3.44.4'   # 与开发机一致，保证构建可复现
   MIHOMO_VERSION: '1.19.31'   # 内核版本（唯一真源）
-  PUB_HOSTED_URL: 'https://pub.flutter-io.cn'
-  FLUTTER_STORAGE_BASE_URL: 'https://storage.flutter-io.cn'
+  # ⚠️ 不要设 PUB_HOSTED_URL / FLUTTER_STORAGE_BASE_URL 指向国内镜像：
+  # GitHub 托管 runner 在海外，镜像又慢又不稳，实测 SDK 下载 24 分钟后报
+  # `curl: (92) HTTP/2 stream ... INTERNAL_ERROR` 把 job 拖红（v0.0.6 构建踩过）。
+  # 官方源在 runner 上是直连，几分钟就能装完。
 
 jobs:
   # ================= Android：多 ABI 分版本 =================

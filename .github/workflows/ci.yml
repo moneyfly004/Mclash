@@ -11,8 +11,11 @@ on:
 
 env:
   FLUTTER_VERSION: '3.44.4'
-  PUB_HOSTED_URL: 'https://pub.flutter-io.cn'
-  FLUTTER_STORAGE_BASE_URL: 'https://storage.flutter-io.cn'
+  # ⚠️ 不要在这里设 PUB_HOSTED_URL / FLUTTER_STORAGE_BASE_URL 指向国内镜像。
+  # GitHub 托管 runner 在海外，访问 storage.flutter-io.cn 又慢又不稳：实测下载
+  # SDK 跑满 24 分钟后报 `curl: (92) HTTP/2 stream 1 was not closed cleanly:
+  # INTERNAL_ERROR (err 2)`，直接把整个 job 拖红（v0.0.6 构建就死在这一步）。
+  # 官方源在 runner 上是直连、几分钟装完；需要国内加速的是开发者本机，不是 CI。
 
 jobs:
   analyze-and-test:
