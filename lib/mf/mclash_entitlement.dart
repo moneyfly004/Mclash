@@ -496,6 +496,16 @@ abstract final class MclashEntitlement {
       final ok = allowNetwork && await _verifyOnline();
       if (!ok) {
         if (_tampered) {
+          // 本地数据被改动 ≠ 用户必须立即重新登录：会话仍然有效时，
+          // 只需联网复核一次就能自动续上租约，不强制要求重新登录。
+          final loggedIn = hasSession?.call() ?? false;
+          if (loggedIn) {
+            Log.w(
+              "MclashEntitlement: 本地租约数据被改动但当前已登录 → 放行"
+              "（待下次联网复核自动续租）",
+            );
+            return MclashEntitlementDecision.allow;
+          }
           return MclashEntitlementDecision(
             false,
             MclashEntitlementState.tampered,
@@ -534,6 +544,18 @@ abstract final class MclashEntitlement {
     final ok = allowNetwork && await _verifyOnline();
     if (ok) {
       return _decideAfterVerify("租约过期后复核");
+    }
+    // 已经退登（常见原因：更新后旧 token 失效，账号层已自动清理会话）时，
+    // 失败原因不是「服务器连不上」。必须明确引导重新登录；否则用户会在
+    // 「无法校验套餐状态」里反复重试，而真正需要的只是回到登录页。
+    // hasSession 未注入（旧集成/部分单测）时保持原有判定，不擅自改变语义。
+    if (hasSession?.call() == false) {
+      return MclashEntitlementDecision(
+        false,
+        MclashEntitlementState.needVerify,
+        MclashI18n.t.entitlementMsg.needVerifyTitle,
+        MclashI18n.t.entitlementMsg.needVerifyFirst,
+      );
     }
     if (at.difference(verified) <= offlineGrace) {
       Log.w(
@@ -659,6 +681,7 @@ abstract final class MclashEntitlement {
     purgeOverride = null;
     onlineVerify = null;
     purgeAction = null;
+    hasSession = null;
     leaseTtl = const Duration(hours: 24);
     offlineGrace = const Duration(hours: 72);
   }

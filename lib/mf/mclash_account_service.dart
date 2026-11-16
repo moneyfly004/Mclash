@@ -44,6 +44,18 @@ class MclashAccountService extends ChangeNotifier {
 
   bool _loading = false;
 
+  /// 当前正在执行的账号刷新。
+  ///
+  /// 旧实现遇到 `_loading == true` 直接 `return`，调用方会把它误当成
+  /// 「这次刷新已经完成」：授权校验于是可能读到一个早前刷新留下的 `fresh=true`，
+  /// 根本没联网也报告校验成功。现在让并发调用共享同一个 Future，全部等待
+  /// 同一次真实刷新的结果。
+  Future<void>? _refreshInflight;
+
+  /// dashboard 与 subscription 常常同时返回 401；共享退登 Future，避免重复
+  /// 请求 logout、重复清文件以及租约清除/写入交错。
+  Future<void>? _signOutInflight;
+
   bool _kicked = false;
 
   MclashSubscriptionNotice _payloadNotice = MclashSubscriptionNotice.unknown;
@@ -223,22 +235,54 @@ class MclashAccountService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 会话被服务端判定无效（40100 = Token 无效或已过期）。
-  /// 命中后自动清理本地登录态，让界面回到登录页，避免卡在死锁里。
+  /// 会话被服务端判定无效（业务码 40100 或 HTTP 401）。
+  ///
+  /// 实测后端鉴权失败会返回 **HTTP 401 + 空响应体**，异常文本只有
+  /// 「请求失败（code 401）」。旧实现只匹配 40100 / Unauthorized 等字符串，
+  /// 因而永远识别不到这种最真实的过期响应。优先看结构化状态码，字符串匹配
+  /// 仅作为旧后端的兼容兜底。
   static bool isTokenInvalid(Object e) {
-    final s = e.toString();
+    if (e is MclashApiError && e.isUnauthorized) {
+      return true;
+    }
+    if (e is CBoardException && e.isUnauthorized) {
+      return true;
+    }
+    final s = e.toString().toLowerCase();
     return s.contains("40100") ||
-        s.contains("Token 无效") ||
-        s.contains("Token invalid") ||
-        s.contains("Unauthorized");
+        s.contains("token 无效") ||
+        s.contains("token invalid") ||
+        s.contains("unauthorized") ||
+        RegExp(r"(?:http|code)\s*[:：]?\s*401\b").hasMatch(s);
   }
 
-  Future<void> forceSignOutLocally(String reason) async {
+  Future<void> forceSignOutLocally(String reason) {
+    final running = _signOutInflight;
+    if (running != null) {
+      return running;
+    }
+    final future = _forceSignOutLocally(reason);
+    _signOutInflight = future;
+    return future.whenComplete(() {
+      if (identical(_signOutInflight, future)) {
+        _signOutInflight = null;
+      }
+    });
+  }
+
+  Future<void> _forceSignOutLocally(String reason) async {
     Log.w("MclashAccountService: 本地强制退出登录（$reason）");
-    try {
-      await MclashApi.logout();
-    } catch (_) {}
+    if (MclashApi.isLoggedIn) {
+      try {
+        await MclashApi.logout();
+      } catch (_) {}
+    }
+    // 停止 5 分钟定时刷新，避免已经退登的账号服务继续持有旧数据。
+    stop();
     await clearLocalCache();
+    // 令牌失效与用户主动退出一样，都必须清掉按设备签发的授权租约；
+    // 否则旧账号的「已校验/已封禁」结论会套到下一次登录的账号上。
+    await MclashEntitlement.clearLease();
   }
 
   Timer? _timer;
@@ -370,30 +414,52 @@ class MclashAccountService extends ChangeNotifier {
     await clearLocalCache();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() {
     if (!MclashApi.isLoggedIn) {
-      return;
+      return Future<void>.value();
     }
-    if (_loading) {
-      return;
+    final running = _refreshInflight;
+    if (running != null) {
+      return running;
     }
+    final future = _refresh();
+    _refreshInflight = future;
+    return future.whenComplete(() {
+      if (identical(_refreshInflight, future)) {
+        _refreshInflight = null;
+      }
+    });
+  }
+
+  Future<void> _refresh() async {
     _loading = true;
     try {
       Map<String, dynamic>? dash;
       Map<String, dynamic>? sub;
       await Future.wait([
-        MclashApi.dashboard().then((v) => dash = v).catchError((e) {
+        MclashApi.dashboard().then((v) => dash = v).catchError((e) async {
           Log.w("account: dashboard failed $e");
-          if (isTokenInvalid(e) && MclashApi.isLoggedIn) {
-            unawaited(forceSignOutLocally("dashboard: $e"));
+          if (isTokenInvalid(e)) {
+            // 必须等待本地会话、账号缓存和租约都清完，后面的成功分支才能
+            // 通过 isLoggedIn 检查阻止「退登后又把旧账号租约写回来」。
+            await forceSignOutLocally("dashboard: $e");
           }
           return null;
         }),
-        MclashApi.subscription().then((v) => sub = v).catchError((e) {
+        MclashApi.subscription().then((v) => sub = v).catchError((e) async {
           Log.w("account: subscription failed $e");
+          if (isTokenInvalid(e)) {
+            await forceSignOutLocally("subscription: $e");
+          }
           return null;
         }),
       ]);
+      // 两个请求并发时，其中一个可能已确认 401 并完成本地退登。
+      // 此时另一个请求即使侥幸成功，也不能把旧账号数据/租约重新写回来。
+      if (!MclashApi.isLoggedIn) {
+        _fresh = false;
+        return;
+      }
       if (dash != null) {
         _dash = dash;
       }

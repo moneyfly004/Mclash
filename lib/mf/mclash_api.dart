@@ -147,6 +147,24 @@ class MclashApi {
     return CBoardClient.clashSubscribeUrl(sub);
   }
 
+  /// 账号看板数据。
+  ///
+  /// ⚠️ 令牌失效时**必须把异常抛出去**，绝不能像以前那样吞掉返回 null。
+  ///
+  /// 真机报障（更新后「账号信息读取失败：登录可能已过期或网络不通…仍失败请重新
+  /// 登录」，以及连接时「无法校验套餐状态」）的根因就在这里：
+  /// 实测本站后端对鉴权失败返回的是 **HTTP 401 + 空响应体**（`len=0`），
+  /// 既没有业务 `code: 40100`、也没有任何 `message` 文本。于是：
+  ///  1. 这里 `return null` 把异常吞掉 → `MclashAccountService.refresh()` 里的
+  ///     `catchError` 永远看不到它 → `isTokenInvalid` 那条自动退登的恢复路径
+  ///     变成死代码；
+  ///  2. 界面只拿到一个 null，无法区分「网络不通」和「登录已过期」，
+  ///     而 App 仍然认为自己已登录（session 非空）→ **回不到登录页，用户卡死**；
+  ///  3. 账号数据刷不到 → 授权租约续不上 → 超过离线宽限期就弹「无法校验套餐状态」。
+  ///
+  /// 抛出 [MclashApiError]（`isUnauthorized` 同时认 `code==40100` 与
+  /// `httpStatus==401`，因此空 body 的 401 也能识别）后，账号层会自动本地退登，
+  /// 用户回到登录页重新登录即可恢复。非鉴权类失败仍然返回 null（不误退登）。
   static Future<Map<String, dynamic>?> dashboard() async {
     if (!isLoggedIn) {
       return null;
@@ -155,10 +173,14 @@ class MclashApi {
       return await _client.dashboard();
     } on CBoardException catch (e) {
       Log.w("MclashApi.dashboard failed: $e");
+      if (e.isUnauthorized) {
+        throw MclashApiError(e.message, e.httpStatus, e.code);
+      }
       return null;
     }
   }
 
+  /// 当前用户信息。令牌失效的处理与 [dashboard] 一致（必须抛出，否则无法自愈）。
   static Future<Map<String, dynamic>?> me() async {
     if (!isLoggedIn) {
       return null;
@@ -167,6 +189,9 @@ class MclashApi {
       return await _client.me();
     } on CBoardException catch (e) {
       Log.w("MclashApi.me failed: $e");
+      if (e.isUnauthorized) {
+        throw MclashApiError(e.message, e.httpStatus, e.code);
+      }
       return null;
     }
   }

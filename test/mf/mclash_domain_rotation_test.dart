@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mclash/mf/cboard_client.dart';
+import 'package:mclash/mf/mclash_account_service.dart';
+import 'package:mclash/mf/mclash_api.dart';
 import 'package:mclash/mf/mclash_domains.dart';
 
 class _FakeHeaders implements HttpHeaders {
@@ -383,6 +385,73 @@ void main() {
       isNull,
       reason: 'A 上的 CSRF 没取到（连接失败），更不该拿它去打别的域名',
     );
+  });
+
+  test('回归：HTTP 401 + 空响应体必须被识别为令牌失效（真实后端行为）', () async {
+    // 实测 new.moneyfly.top：鉴权失败返回 401 且响应体长度为 0，
+    // 没有任何 code/message。旧实现靠字符串匹配 "40100"/"Unauthorized"，
+    // 永远匹配不上 → 自动退登与错误提示全链路失效（真机报障根因）。
+    http.respond['new.moneyfly.top'] = (401, '');
+    final c = client();
+
+    Object? error;
+    try {
+      await c.get('/users/dashboard-info');
+    } catch (e) {
+      error = e;
+    }
+
+    expect(error, isA<CBoardException>());
+    expect((error as CBoardException).isUnauthorized, isTrue,
+        reason: '空 body 的 401 必须识别为令牌失效，否则退登链路永远走不到');
+    expect(
+      MclashAccountService.isTokenInvalid(error),
+      isTrue,
+      reason: 'isTokenInvalid 必须认 HTTP 401，不能再只认 40100 字符串',
+    );
+  });
+
+  test('MclashApi.dashboard：401 抛出异常（供账号层自动退登），其它错误仍返回 null',
+      () async {
+    final disk = <String, String>{
+      "mclash.cboard.session.v1": jsonEncode(
+        CBoardSession(
+          accessToken: "A1",
+          refreshToken: "R1",
+          user: const {"email": "u@example.com"},
+        ).toJson(),
+      ),
+    };
+    CBoardSessionStore.debugReadOverride = (key) async => disk[key];
+    CBoardSessionStore.debugWriteOverride = (key, value) async {
+      disk[key] = value;
+    };
+    CBoardSessionStore.debugResetCache();
+    addTearDown(() {
+      CBoardSessionStore.debugReadOverride = null;
+      CBoardSessionStore.debugWriteOverride = null;
+      CBoardSessionStore.debugResetCache();
+    });
+
+    http.respond['new.moneyfly.top'] = (401, '');
+    MclashApi.debugUse(client());
+
+    Object? dashError;
+    try {
+      await MclashApi.dashboard();
+    } catch (e) {
+      dashError = e;
+    }
+    expect(dashError, isA<MclashApiError>(),
+        reason: '401 必须抛出，否则账号层看不到失效、界面永远卡在"读取失败"');
+    expect((dashError as MclashApiError).isUnauthorized, isTrue);
+
+    // 500 这种服务端故障不能误退登：仍然返回 null
+    http.respond['new.moneyfly.top'] = (500, '{"code":500,"message":"boom"}');
+    http.respond['dollarsfly.top'] = (500, '{"code":500,"message":"boom"}');
+    http.respond['sub.dollarsfly.top'] = (500, '{"code":500,"message":"boom"}');
+    expect(await MclashApi.dashboard(), isNull,
+        reason: '非鉴权类失败保持原语义（返回 null），不误退登');
   });
 
   test('CSRF 失败重试不会放大：一次请求最多重取一次 CSRF、重发一次请求', () async {

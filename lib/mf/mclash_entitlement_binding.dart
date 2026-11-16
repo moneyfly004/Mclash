@@ -30,29 +30,41 @@ abstract final class MclashEntitlementBinding {
     // 无租约时区分「未登录」还是「网络/接口问题」（见 MclashEntitlement.check）
     MclashEntitlement.hasSession = () => MclashApi.isLoggedIn;
 
-    // 联网校验：刷新账号数据（成功时 MclashAccountService 会把租约续上）
+    // 联网校验：刷新账号数据（成功时 MclashAccountService 会把租约续上）。
+    //
+    // 这里**不能以 acc.fresh 为成功依据**：fresh 只表示「历史上曾拿到过数据」，
+    // 一次失败刷新并不会把它清掉。旧实现在 acc.fresh=true 时甚至完全不发请求，
+    // 直接报告校验成功；但租约没有续期，下一次连接又会重复校验，网络一抖动
+    // 就落入「无法校验套餐状态」。唯一可信的成功信号是 verifiedAt 真的被本次
+    // 刷新推进了（recordFromAccount 已 await 落盘）。
     MclashEntitlement.onlineVerify = () async {
       final acc = MclashAccountService.instance;
-      if (!acc.fresh) {
-        try {
-          await acc.refresh();
-        } catch (e) {
-          Log.w("MclashEntitlementBinding: 联网校验失败 $e");
-          // 令牌失效（更新后旧 token 过期/被踢）时不要在「无法确认套餐状态」里
-          // 打转 —— 直接清掉本地登录态，让用户重新登录即可恢复。
-          if (MclashAccountService.isTokenInvalid(e)) {
-            await acc.forceSignOutLocally("授权校验时 Token 失效");
-          }
+      if (!MclashApi.isLoggedIn) {
+        return false;
+      }
+      final before = MclashEntitlement.verifiedAt;
+      try {
+        // 即使 fresh=true 也必须发一次真实请求：本函数的职责就是联网复核，
+        // 不是读取历史缓存。并发刷新由 AccountService 的共享 Future 合并。
+        await acc.refresh();
+      } catch (e) {
+        Log.w("MclashEntitlementBinding: 联网校验失败 $e");
+        // 令牌失效（更新后旧 token 过期/被踢）时不要在「无法确认套餐状态」里
+        // 打转 —— 直接清掉本地登录态，让用户重新登录即可恢复。
+        if (MclashAccountService.isTokenInvalid(e)) {
+          await acc.forceSignOutLocally("授权校验时 Token 失效");
         }
+        return false;
       }
-      if (acc.fresh) {
-        return true;
+      final after = MclashEntitlement.verifiedAt;
+      final verified = after != null && after != before;
+      if (!verified) {
+        Log.w(
+          "MclashEntitlementBinding: 本次刷新未续上授权租约"
+          "（fresh=${acc.fresh}，登录=${MclashApi.isLoggedIn}）→ 校验失败",
+        );
       }
-      // 可能刚好有一次刷新在飞行中（5 分钟定时器），等它一下再看
-      for (var i = 0; i < 10 && acc.loading; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      }
-      return acc.fresh;
+      return verified;
     };
 
     // 到期 / 封禁：停掉内核（停内核会自动撤掉系统代理）并清空本地订阅配置档，

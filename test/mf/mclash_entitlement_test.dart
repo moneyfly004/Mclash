@@ -292,6 +292,22 @@ void main() {
       expect(d.state, MclashEntitlementState.needVerify);
     });
 
+    test('本机没有任何校验记录但已登录：联网失败也放行（不弹"无法校验套餐状态"）',
+        () async {
+      verifyResult = false;
+      // 模拟真实启动链路：hasSession 由 MclashEntitlementBinding 注入
+      MclashEntitlement.hasSession = () => true;
+
+      final d = await MclashEntitlement.check();
+
+      expect(
+        d.allowed,
+        isTrue,
+        reason: '已登录用户不能仅因本次网络抖动就被拦（到期/封禁由服务端订阅内容兜底）',
+      );
+      expect(verifyCount, 1, reason: '仍然要先尝试一次联网校验');
+    });
+
     test('本机没有任何校验记录：联网成功后放行', () async {
       final d = await MclashEntitlement.check();
 
@@ -314,6 +330,32 @@ void main() {
 
       expect(d.allowed, isFalse);
       expect(d.state, MclashEntitlementState.tampered);
+    });
+
+    test('租约签名损坏但已登录：联网失败也放行（不锁死付费用户）', () async {
+      verifyResult = false;
+      MclashEntitlement.hasSession = () => true;
+      // 手工写入一份签名不符的租约（模拟更新后设备标识变化导致 HMAC 对不上）
+      final f = File(path.join(dir.path, MclashEntitlement.fileName));
+      await f.writeAsString(
+        jsonEncode(<String, dynamic>{
+          "v": 1,
+          "verifiedAt": "2025-12-31T00:00:00.000",
+          "expireAt": "2030-01-01T00:00:00.000",
+          "lastSeenAt": "2025-12-31T00:00:00.000",
+          "blocked": false,
+          "reason": "",
+          "sig": "deadbeef",
+        }),
+      );
+
+      final d = await MclashEntitlement.check();
+
+      expect(
+        d.allowed,
+        isTrue,
+        reason: '签名损坏但会话有效时，联网复核失败不再被当作"本地被改动"锁死',
+      );
     });
 
     test('系统时间回拨但联网校验成功：放行（并刷新租约）', () async {

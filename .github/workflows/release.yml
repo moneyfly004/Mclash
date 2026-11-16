@@ -596,10 +596,16 @@ jobs:
           # Release notes are ENGLISH ONLY (product requirement).
           body: |
             ### Fixed
-            - Windows TUN now works without running the app as administrator.
-            - Removed the console window flash when TUN starts.
-            - Rule / Global modes now correctly turn TUN off (the three modes are mutually exclusive).
-            - Rule mode now proxies social media (LinkedIn, TikTok) and AI services.
+            - Account session no longer gets stuck after an in-place update: an expired/invalid
+              token is now detected (the backend answers `HTTP 401` with an empty body) and the app
+              returns to the sign-in screen instead of showing "Failed to load account information".
+            - "Unable to verify subscription status" no longer blocks paying users: authorization
+              verification now requires a real lease renewal, refreshes are de-duplicated, and a
+              signed-out user is told to sign in instead of being told the server is unreachable.
+            - The data directory can no longer silently fall back to `%TEMP%` (which made the
+              session/lease disappear after an update); a stable per-user path is used instead.
+            - The "Account" page now falls back to the locally cached account data on transient
+              network failures instead of showing an error card.
 
   # ---- 自动补跑 ----
   # GitHub 上偶发「job 被直接 cancel」「flutter-action 网络抖动 exit 56」这类

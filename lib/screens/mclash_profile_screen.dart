@@ -109,9 +109,19 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
           _dash = dash;
           _error = null;
         } else if (!hadData) {
-          // 文案要走 i18n（设置英文就是英文），而这里拿不到 context：
-          // 先落一个哨兵，真正显示时再按当前语言取（见 _errorText）。
-          _error = kProfileLoadFailedMarker;
+          // 接口暂时不可用（网络抖动 / 更新后刚启动）时，先回退到本地账号缓存：
+          // loadCache() 启动时已把 account_cache.json 回填进账号服务。以前这里
+          // 直接报「账号信息读取失败：登录可能已过期或网络不通」，于是一次普通的
+          // 网络抖动就满屏报错；有缓存时应该照常展示，等下次刷新成功再覆盖。
+          final cached = MclashAccountService.instance.dashboard;
+          if (cached != null) {
+            _dash = cached;
+            _error = null;
+          } else {
+            // 文案要走 i18n（设置英文就是英文），而这里拿不到 context：
+            // 先落一个哨兵，真正显示时再按当前语言取（见 _errorText）。
+            _error = kProfileLoadFailedMarker;
+          }
         } else {
           Log.w("profile: 刷新失败，保留上一次的数据");
         }
@@ -123,7 +133,13 @@ class _MclashProfileScreenState extends LasyRenderingState<MclashProfileScreen>
       }
       setState(() {
         if (!hadData) {
-          _error = "$e";
+          final cached = MclashAccountService.instance.dashboard;
+          if (cached != null) {
+            _dash = cached;
+            _error = null;
+          } else {
+            _error = "$e";
+          }
         } else {
           Log.w("profile: 刷新异常，保留上一次的数据 $e");
         }
