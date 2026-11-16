@@ -303,9 +303,13 @@ jobs:
           path: dist/
 
   # ================= macOS arm64（Apple 芯片）=================
+  # ⚠️ runner 标签：macOS 14 镜像已于 2026-11-02 从 GitHub Actions 全面下线，
+  # 继续写 `macos-14` 会让 job 在启动瞬间被判「configuration ... is not supported」
+  # 并直接 cancelled（v0.0.6 首次构建就是这样挂的，代码本身没问题）。
+  # 现用 `macos-15`（arm64）；x64 走 Rosetta 在同一镜像里构建。
   macos-arm64:
     name: macOS arm64
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -393,7 +397,7 @@ jobs:
   # 产物为纯 x86_64，快照/引擎自洽（不做 universal→thin 裁剪）。
   macos-x64:
     name: macOS x64 (Intel)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -484,7 +488,7 @@ jobs:
   # ================= macOS universal =================
   macos-universal:
     name: macOS universal (arm64 + x86_64)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
